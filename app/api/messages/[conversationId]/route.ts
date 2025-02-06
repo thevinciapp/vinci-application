@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { NextResponse } from 'next/server';
+import { Message } from '@/types';
 
 export async function GET(
   request: Request,
@@ -11,12 +12,12 @@ export async function GET(
     const {
       data: { user },
     } = await supabase.auth.getUser();
-  
+
     if (!user) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const { data, error } = await supabase
+    const { data: messages, error } = await supabase
       .from('messages')
       .select('*')
       .eq('conversation_id', params.conversationId)
@@ -24,13 +25,11 @@ export async function GET(
       .order('created_at', { ascending: true });
 
     if (error) {
-      console.error('Error fetching messages:', error);
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json(data);
-  } catch (err: any) {
-    console.error('Error in messages fetch:', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(messages);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

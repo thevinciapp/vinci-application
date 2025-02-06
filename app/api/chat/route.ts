@@ -18,9 +18,15 @@ export async function POST(req: Request) {
   const { messages, spaceId } = await req.json();
   
   if (!spaceId) return new Response('Space ID required', { status: 400 });
+  
+  const { data: spaceData } = await supabase
+    .from('spaces')
+    .select('model, provider')
+    .eq('id', spaceId)
+    .single();
 
   const result = streamText({
-    model: groq('deepseek-r1-distill-llama-70b'),
+    model: groq(spaceData?.model || 'deepseek-r1-distill-llama-70b'),
     messages,
   });
 

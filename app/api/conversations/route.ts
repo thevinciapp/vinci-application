@@ -19,7 +19,9 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabase
       .from('conversations')
-      .insert({ space_id, title });
+      .insert({ space_id, title })
+      .select()
+      .single();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });

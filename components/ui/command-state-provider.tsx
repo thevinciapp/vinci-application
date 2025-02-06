@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState } from 'react';
 
-type CommandType = 'quick-actions' | 'space' | null;
+type CommandType = 'quick-actions' | 'space' | 'model' | null;
 
 interface CommandStateContextType {
   activeCommand: CommandType;

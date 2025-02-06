@@ -3,19 +3,21 @@ import { createClient } from '@/utils/supabase/server';
 
 interface MessageRequest {
   conversation_id: string;
-  user_message: string;
-  assistant_message: string;
-  parent_message_id?: string | null;
+  user_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  model_used?: string;
+  parent_message_id?: string;
 }
 
 /**
  * POST /api/message
- * Saves a chat message pair (user message and assistant response).
- * Expects JSON body: { conversation_id: string, user_message: string, assistant_message: string, parent_message_id?: string | null }
+ * Saves a chat message.
+ * Expects JSON body: { conversation_id: string, user_id: string, role: 'user' | 'assistant', content: string, model_used?: string }
  */
 export async function POST(request: Request) {
   try {
-    const { conversation_id, user_message, assistant_message, parent_message_id } = await request.json() as MessageRequest;
+    const messageData = await request.json() as MessageRequest;
 
     const supabase = await createClient();
 
@@ -25,23 +27,24 @@ export async function POST(request: Request) {
   
     if (!user) return new Response('Unauthorized', { status: 401 });
 
-    // Insert the new message record with both user and assistant messages
-    const { data, error } = await supabase
+    const { data: insertedData, error: insertError } = await supabase
       .from('messages')
       .insert({
-        conversation_id,
+        conversation_id: messageData.conversation_id,
         user_id: user.id,
-        user_message,
-        assistant_message,
-        parent_message_id: parent_message_id || null,
+        role: messageData.role,
+        content: messageData.content,
+        model_used: messageData.model_used,
+        parent_message_id: messageData.parent_message_id
       })
-      .select();
+      .select()
+      .single();      
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    if (insertError) {
+      return NextResponse.json({ error: insertError.message }, { status: 400 });
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json(insertedData);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

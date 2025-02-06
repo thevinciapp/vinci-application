@@ -6,11 +6,15 @@ import { useCommandState } from '@/components/ui/command-state-provider';
 
 interface QuickActionsCommandContextType {
   isOpen: boolean;
-  openQuickActionsCommand: () => void;
+  openQuickActionsCommand: (withSpaces?: boolean) => void;
   closeQuickActionsCommand: () => void;
-  toggleQuickActionsCommand: () => void;
+  toggleQuickActionsCommand: (withSpaces?: boolean, withModels?: boolean) => void;
   isExecuting: boolean;
   handleGlobalCommand: (handler: () => void) => void;
+  showSpaces: boolean;
+  setShowSpaces: (show: boolean) => void;
+  showModels: boolean;
+  setShowModels: (show: boolean) => void;
 }
 
 const QuickActionsCommandContext = createContext<QuickActionsCommandContextType>({
@@ -20,6 +24,10 @@ const QuickActionsCommandContext = createContext<QuickActionsCommandContextType>
   toggleQuickActionsCommand: () => {},
   isExecuting: false,
   handleGlobalCommand: () => {},
+  showSpaces: false,
+  setShowSpaces: () => {},
+  showModels: false,
+  setShowModels: () => {},
 });
 
 export const useQuickActionsCommand = () => {
@@ -32,17 +40,31 @@ export const useQuickActionsCommand = () => {
 
 export const QuickActionsCommandProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isExecuting, setIsExecuting] = useState(false);
+  const [showSpaces, setShowSpaces] = useState(false);
+  const [showModels, setShowModels] = useState(false);
   const { activeCommand, setActiveCommand } = useCommandState();
   const isOpen = activeCommand === 'quick-actions';
 
-  const openQuickActionsCommand = () => {
+  const openQuickActionsCommand = (withSpaces = false) => {
     setActiveCommand('quick-actions');
+    setShowSpaces(withSpaces);
+    setShowModels(false);
   };
 
-  const closeQuickActionsCommand = () => setActiveCommand(null);
+  const closeQuickActionsCommand = () => {
+    setActiveCommand(null);
+    setShowSpaces(false);
+    setShowModels(false);
+  };
   
-  const toggleQuickActionsCommand = () => {
-    setActiveCommand(isOpen ? null : 'quick-actions');
+  const toggleQuickActionsCommand = (withSpaces = false, withModels = false) => {
+    if (isOpen) {
+      closeQuickActionsCommand();
+    } else {
+      setActiveCommand('quick-actions');
+      setShowSpaces(withSpaces);
+      setShowModels(withModels);
+    }
   };
 
   const handleGlobalCommand = (handler: () => void) => {
@@ -57,17 +79,34 @@ export const QuickActionsCommandProvider: React.FC<{ children: React.ReactNode }
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        if (!isExecuting) {
-          toggleQuickActionsCommand();
+      if (e.metaKey || e.ctrlKey) {
+        // Handle Command/Ctrl + K
+        if (e.key.toLowerCase() === 'k') {
+          e.preventDefault();
+          if (!isExecuting) {
+            toggleQuickActionsCommand(false, false);
+          }
+        }
+        // Handle Command/Ctrl + S
+        else if (e.key.toLowerCase() === 's') {
+          e.preventDefault();
+          if (!isExecuting) {
+            toggleQuickActionsCommand(true, false);
+          }
+        }
+        // Handle Command/Ctrl + M
+        else if (e.key.toLowerCase() === 'm') {
+          e.preventDefault();
+          if (!isExecuting) {
+            toggleQuickActionsCommand(false, true);
+          }
         }
       }
     };
   
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isExecuting, toggleQuickActionsCommand]);
+  }, [isExecuting, isOpen]);
 
   return (
     <QuickActionsCommandContext.Provider
@@ -78,6 +117,10 @@ export const QuickActionsCommandProvider: React.FC<{ children: React.ReactNode }
         toggleQuickActionsCommand,
         isExecuting,
         handleGlobalCommand,
+        showSpaces,
+        setShowSpaces,
+        showModels,
+        setShowModels,
       }}
     >
       {children}
