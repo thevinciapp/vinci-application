@@ -7,13 +7,14 @@ interface MessageRequest {
   role: 'user' | 'assistant';
   content: string;
   model_used?: string;
+  provider?: string;
   parent_message_id?: string;
 }
 
 /**
  * POST /api/message
  * Saves a chat message.
- * Expects JSON body: { conversation_id: string, user_id: string, role: 'user' | 'assistant', content: string, model_used?: string }
+ * Expects JSON body: { conversation_id: string, user_id: string, role: 'user' | 'assistant', content: string, model_used?: string, provider?: string }
  */
 export async function POST(request: Request) {
   try {
@@ -35,6 +36,7 @@ export async function POST(request: Request) {
         role: messageData.role,
         content: messageData.content,
         model_used: messageData.model_used,
+        provider: messageData.provider,
         parent_message_id: messageData.parent_message_id
       })
       .select()

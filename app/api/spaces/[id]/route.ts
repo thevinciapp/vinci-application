@@ -57,8 +57,16 @@ export async function PATCH(
 
     // Set as active space if requested
     if (setActive) {
-      const { data: activeSpace, error: activeError } = await supabase
-        .rpc('set_active_space', { space_uuid: spaceId });
+      // First, upsert the active space record
+      const { error: activeError } = await supabase
+        .from('active_spaces')
+        .upsert({
+          user_id: user.id,
+          space_id: spaceId,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
 
       if (activeError) {
         console.error('Error setting active space:', activeError);

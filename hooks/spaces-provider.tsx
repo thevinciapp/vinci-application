@@ -64,7 +64,9 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
           dispatch({ type: SpacesActionType.SET_SPACES, payload: data });
           
           if (data.length > 0) {
-            dispatch({ type: SpacesActionType.SET_ACTIVE_SPACE, payload: data[0] });
+            // Find the active space or use the first one
+            const activeSpace = data.find(space => space.isActive) || data[0];
+            dispatch({ type: SpacesActionType.SET_ACTIVE_SPACE, payload: activeSpace });
           } else {
             // Create initial space if none exists
             const spaceResponse = await fetch('/api/spaces', {

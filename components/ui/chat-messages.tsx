@@ -11,7 +11,7 @@ interface ChatMessagesProps {
 }
 
 export const ChatMessages: FC<ChatMessagesProps> = ({ messages }) => {
-  const { containerRef, isStickToBottom } = useStickToBottom();
+  const { containerRef,isStickToBottom } = useStickToBottom();
   const { state: chatState } = useChatState();
   const [isMessagesReady, setIsMessagesReady] = useState(false);
 
@@ -42,12 +42,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({ messages }) => {
         <div className="max-w-7xl mx-auto">
           <div className="space-y-12 min-h-full">
             {isMessagesReady && messages.map((message, index) => (
-              <div 
-                key={message.id} 
-                className={`relative transition-opacity duration-200 ${
-                  chatState.isLoading ? 'opacity-50' : 'opacity-100'
-                }`}
-              >
+              <div key={message.id}>
                 <ChatMessage message={message} />
                 {index < messages.length - 1 && messages[index].role !== messages[index + 1].role && (
                   <div className="w-full flex justify-center my-8">
@@ -60,7 +55,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({ messages }) => {
         </div>
       </div>
 
-      {!isStickToBottom && isMessagesReady && messages.length > 0 && (
+      {isStickToBottom && isMessagesReady && messages.length > 0 && (
         <button
           onClick={() => containerRef.current?.scrollTo({ top: containerRef.current.scrollHeight, behavior: 'smooth' })}
           className="fixed top-4 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-lg backdrop-blur-2xl bg-white/[0.03] border border-white/[0.05] text-white text-xs font-medium flex items-center gap-1.5 overflow-hidden

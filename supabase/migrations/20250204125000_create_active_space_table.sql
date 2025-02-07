@@ -51,6 +51,6 @@ BEGIN
         space_id = EXCLUDED.space_id,
         updated_at = now()
     WHERE active_spaces.user_id = v_user_id
-    RETURNING *;
+    RETURNING active_spaces.*;
 END;
 $$; 

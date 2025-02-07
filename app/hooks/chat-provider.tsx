@@ -1,3 +1,5 @@
+import { User } from "@supabase/supabase-js";
+
 export type ActionType = 
   | { type: 'SET_USER'; payload: User | null }
   | { type: 'SET_INITIALIZING'; payload: boolean }

@@ -3,6 +3,8 @@
 import { User } from 'lucide-react';
 import { FC } from 'react';
 import { Message } from '@/types';
+import { getModelName, type Provider } from '@/config/models';
+import { ProviderIcon } from './provider-icon';
 
 interface ChatMessageProps {
   message: Message;
@@ -11,11 +13,16 @@ interface ChatMessageProps {
 export const ChatMessage: FC<ChatMessageProps> = ({ message }) => {
   const isUser = message.role === 'user';
   const content = isUser 
-    ? message.user_message || message.content 
-    : message.assistant_message || message.content;
+    ? message.content 
+    : message.content;
 
-  // Ensure content is a string
-  const displayContent = typeof content === 'string' ? content : '';
+  // Get model name and provider display
+  const modelName = message.model_used && message.provider
+    ? getModelName(message.provider as Provider, message.model_used)
+    : message.model_used || 'AI';
+  const providerName = message.provider 
+    ? message.provider.charAt(0).toUpperCase() + message.provider.slice(1)
+    : '';
 
   return (
     <div className={`flex items-start gap-4 ${isUser ? 'justify-end' : ''} w-full max-w-7xl mx-auto group transition-opacity`}>
@@ -30,18 +37,33 @@ export const ChatMessage: FC<ChatMessageProps> = ({ message }) => {
       )}
       <div className={`flex-1 space-y-2 overflow-hidden ${isUser ? 'text-right' : ''} max-w-[85%]`}>
         <div className={`prose prose-invert max-w-none ${isUser ? 'ml-auto' : 'mr-auto'}`}>
-          {!isUser && message.model_used && (
-            <div className="inline-flex px-2 py-0.5 mb-2 rounded-md backdrop-blur-2xl bg-white/[0.03] border border-white/[0.05] text-white/60 text-[10px] font-medium items-center gap-1.5 relative overflow-hidden
-              before:absolute before:inset-0 before:backdrop-blur-3xl before:bg-gradient-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10">
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500/70" />
-              <span>{message.model_used}</span>
+          {message.role === 'assistant' && (
+            <div className="flex items-center gap-1.5 mb-2.5">
+              {message.provider && (
+                <div className="px-2 py-0.5 rounded backdrop-blur-2xl bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit
+                  before:absolute before:inset-0 before:backdrop-blur-3xl before:bg-gradient-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10">
+                  <ProviderIcon provider={message.provider as Provider} size={14} />
+                </div>
+              )}
+              <div className="px-2.5 py-0.5 rounded backdrop-blur-2xl bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit
+                before:absolute before:inset-0 before:backdrop-blur-3xl before:bg-gradient-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10">
+                <span className="text-white">{modelName}</span>
+              </div>
             </div>
           )}
           <p className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${
             isUser 
               ? 'text-white shadow-[0_0_15px_-5px_rgba(255,255,255,0.3)]' 
               : 'text-white/90'
-          }`}>{displayContent}</p>
+          }`}>
+            {content || (
+              <span className="flex gap-1">
+                <span className="inline-block w-12 h-4 bg-white/[0.07] rounded animate-pulse" />
+                <span className="inline-block w-16 h-4 bg-white/[0.07] rounded animate-pulse" />
+                <span className="inline-block w-8 h-4 bg-white/[0.07] rounded animate-pulse" />
+              </span>
+            )}
+          </p>
         </div>
       </div>
       {isUser && (

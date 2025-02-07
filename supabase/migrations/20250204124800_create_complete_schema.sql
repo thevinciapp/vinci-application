@@ -78,6 +78,7 @@ CREATE TABLE messages (
     role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
     content TEXT NOT NULL,
     model_used TEXT,
+    provider TEXT,
     parent_message_id UUID REFERENCES messages(id) ON DELETE SET NULL,
     is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT now(),

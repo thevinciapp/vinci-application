@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { AVAILABLE_MODELS, isValidModelForProvider, type Provider } from '@/config/models';
 
 /**
  * POST /api/space
  * Creates a new space record in the database.
- * Expects JSON body: { name: string, description?: string }
+ * Expects JSON body: { name: string, description?: string, model: string, provider: string }
  */
 export async function POST(request: Request) {
   try {
@@ -18,6 +19,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
 
+    if (!provider || !Object.keys(AVAILABLE_MODELS).includes(provider)) {
+      return NextResponse.json({ 
+        error: `Invalid provider. Available providers: ${Object.keys(AVAILABLE_MODELS).join(', ')}` 
+      }, { status: 400 });
+    }
+
+    if (!model || !isValidModelForProvider(provider as Provider, model)) {
+      return NextResponse.json({ 
+        error: `Invalid model for provider ${provider}. Available models: ${AVAILABLE_MODELS[provider as Provider].map(m => m.name).join(', ')}` 
+      }, { status: 400 });
+    }
+
     const supabase = await createClient();
 
     const {
@@ -29,14 +42,14 @@ export async function POST(request: Request) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-      const { data: spaceData, error: spaceError } = await supabase
+    const { data: spaceData, error: spaceError } = await supabase
       .from('spaces')
       .insert({ 
         name, 
         description, 
         user_id: user.id, 
-        model: model || 'deepseek-r1-distill-llama-70b', 
-        provider: provider || 'deepseek'
+        model, 
+        provider
       })
       .select()
       .single();
@@ -47,7 +60,6 @@ export async function POST(request: Request) {
     }
 
     if (!spaceError) {
-      // Create default conversation
       const { data: convData, error: convError } = await supabase
         .from('conversations')
         .insert({
@@ -89,7 +101,13 @@ export async function GET(request: Request) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const { data, error } = await supabase
+    const { data: activeSpaceData } = await supabase
+      .from('active_spaces')
+      .select('space_id')
+      .eq('user_id', user.id)
+      .single();
+
+    const { data: spaces, error } = await supabase
       .from('spaces')
       .select('*')
       .eq('user_id', user.id)
@@ -101,7 +119,22 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json(data);
+    // Add isActive flag to the spaces
+    const spacesWithActive = spaces.map(space => ({
+      ...space,
+      isActive: space.id === activeSpaceData?.space_id
+    }));
+
+    // If there's an active space, move it to the front of the array
+    if (activeSpaceData?.space_id) {
+      const activeIndex = spacesWithActive.findIndex(s => s.id === activeSpaceData.space_id);
+      if (activeIndex > -1) {
+        const [activeSpace] = spacesWithActive.splice(activeIndex, 1);
+        spacesWithActive.unshift(activeSpace);
+      }
+    }
+
+    return NextResponse.json(spacesWithActive);
   } catch (err: any) {
     console.error('Error in space fetch:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });

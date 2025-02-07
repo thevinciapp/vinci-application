@@ -1,15 +1,14 @@
+'use client';
+
 import { CommandModal } from '@/components/ui/command-modal';
-import { Sparkles, Image, Link, FileText, Share2, Bookmark, Globe, Plus, Cpu } from 'lucide-react';
+import { Sparkles, Image, Link, FileText, Share2, Bookmark, Globe, Plus, Cpu, ArrowLeft } from 'lucide-react';
 import { useQuickActionsCommand } from '@/components/ui/quick-actions-command-provider';
 import { useSpaces } from '@/hooks/spaces-provider';
 import { useChatState } from '@/hooks/chat-state-provider';
 import { Command } from 'cmdk';
-
-const AVAILABLE_MODELS = [
-  { id: 'deepseek-r1-distill-llama-70b', name: 'Deepseek R1 70B', provider: 'groq' },
-  { id: 'mixtral-8x7b-instruct', name: 'Mixtral 8x7B', provider: 'groq' },
-  { id: 'gemma-7b-it', name: 'Gemma 7B', provider: 'groq' }
-];
+import { useState, useEffect } from 'react';
+import { AVAILABLE_MODELS, PROVIDER_NAMES, type Provider } from '@/config/models';
+import { ProviderIcon } from './provider-icon';
 
 interface QuickActionsCommandProps {
   isOpen: boolean;
@@ -20,6 +19,14 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
   const { isExecuting, handleGlobalCommand, showSpaces, setShowSpaces, showModels, setShowModels } = useQuickActionsCommand();
   const { spaces, setActiveSpace, activeSpace } = useSpaces();
   const { batchUpdate } = useChatState();
+  const [searchValue, setSearchValue] = useState('');
+  const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
+
+  // Clear search and selected provider when switching views
+  useEffect(() => {
+    setSearchValue('');
+    setSelectedProvider(null);
+  }, [showSpaces, showModels]);
 
   const handleSpaceSelect = async (spaceId: string) => {
     console.log('Selecting space:', spaceId);
@@ -77,7 +84,7 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
     }
   };
 
-  const handleModelSelect = async (modelId: string, provider: string) => {
+  const handleModelSelect = async (modelId: string, provider: Provider) => {
     if (!activeSpace) return;
     batchUpdate({ isLoading: true });
 
@@ -157,6 +164,18 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
     },
   ];
 
+  const createSpaceButton = (
+    <Command.Item
+      value="new-space create-space"
+      onSelect={handleCreateSpace}
+      className="group relative flex items-center gap-3 rounded-none px-4 py-3 text-sm text-white/90 outline-none
+        transition-all duration-200 hover:bg-white/[0.08] aria-selected:bg-white/[0.12]"
+    >
+      <Plus className="w-4 h-4 text-white/70" />
+      <span>Create New Space</span>
+    </Command.Item>
+  );
+
   return (
     <CommandModal
       isOpen={isOpen}
@@ -164,8 +183,43 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
         onClose();
         setShowSpaces(false);
         setShowModels(false);
+        setSearchValue('');
+        setSelectedProvider(null);
       }}
-      placeholder={showSpaces ? "Search spaces..." : showModels ? "Search models..." : "Search quick actions..."}
+      placeholder={
+        showSpaces 
+          ? "Search spaces..." 
+          : showModels 
+            ? selectedProvider 
+              ? `Search ${PROVIDER_NAMES[selectedProvider]} models...`
+              : "Select a provider..."
+            : "Search quick actions..."
+      }
+      searchValue={searchValue}
+      onSearchChange={setSearchValue}
+      leftElement={
+        (showSpaces || (showModels && selectedProvider)) ? (
+          <button
+            onClick={() => {
+              if (showSpaces) setShowSpaces(false);
+              if (showModels) {
+                if (selectedProvider) {
+                  setSelectedProvider(null);
+                } else {
+                  setShowModels(false);
+                }
+              }
+              setSearchValue('');
+            }}
+            className="flex items-center gap-2 text-white/70 hover:text-white transition-colors px-2 py-1 rounded-md
+              border border-white/10 bg-white/5 hover:bg-white/10 mr-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm font-medium">Back</span>
+          </button>
+        ) : null
+      }
+      footerElement={showSpaces ? createSpaceButton : null}
     >
       <Command.List>
         {!showSpaces && !showModels ? (
@@ -173,15 +227,12 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
             {quickActions.map((item) => (
               <Command.Item
                 key={item.id}
-                value={item.name}
+                value={`${item.id} ${item.name}`}
                 onSelect={() => {
                   item.callback?.();
                 }}
-                className={`
-                  group relative flex items-center gap-3 rounded-md px-4 py-3 text-sm text-white/90 outline-none
-                  transition-all duration-200
-                  hover:bg-white/[0.08] aria-selected:bg-white/[0.12]
-                `}
+                className="group relative flex items-center gap-3 rounded-md px-4 py-3 text-sm text-white/90 outline-none
+                  transition-all duration-200 hover:bg-white/[0.08] aria-selected:bg-white/[0.12]"
               >
                 <span className="flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
                   {item.icon}
@@ -206,22 +257,10 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
           </>
         ) : showSpaces ? (
           <>
-            <Command.Item
-              value="back"
-              onSelect={() => setShowSpaces(false)}
-              className="group relative flex items-center gap-3 rounded-md px-4 py-3 text-sm text-white/90 outline-none
-                transition-all duration-200 hover:bg-white/[0.08] aria-selected:bg-white/[0.12]"
-            >
-              <span className="text-white/60">←</span>
-              <span>Back to Quick Actions</span>
-            </Command.Item>
-
-            <div className="my-2 h-px bg-white/[0.08]" />
-
             {spaces.map((space) => (
               <Command.Item
                 key={space.id}
-                value={space.name}
+                value={`space ${space.id} ${space.name}`}
                 onSelect={() => handleSpaceSelect(space.id)}
                 className="group relative flex items-center gap-3 rounded-md px-4 py-3 text-sm text-white/90 outline-none
                   transition-all duration-200 hover:bg-white/[0.08] aria-selected:bg-white/[0.12]"
@@ -230,45 +269,38 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
                 <span>{space.name}</span>
               </Command.Item>
             ))}
-
-            <div className="my-2 h-px bg-white/[0.08]" />
-
-            <Command.Item
-              value="new-space"
-              onSelect={handleCreateSpace}
-              className="group relative flex items-center gap-3 rounded-md px-4 py-3 text-sm text-white/90 outline-none
-                transition-all duration-200 hover:bg-white/[0.08] aria-selected:bg-white/[0.12]"
-            >
-              <Plus className="w-4 h-4 text-white/70" />
-              <span>Create New Space</span>
-            </Command.Item>
           </>
         ) : (
           <>
-            <Command.Item
-              value="back"
-              onSelect={() => setShowModels(false)}
-              className="group relative flex items-center gap-3 rounded-md px-4 py-3 text-sm text-white/90 outline-none
-                transition-all duration-200 hover:bg-white/[0.08] aria-selected:bg-white/[0.12]"
-            >
-              <span className="text-white/60">←</span>
-              <span>Back to Quick Actions</span>
-            </Command.Item>
-
-            <div className="my-2 h-px bg-white/[0.08]" />
-
-            {AVAILABLE_MODELS.map((model) => (
-              <Command.Item
-                key={model.id}
-                value={model.name}
-                onSelect={() => handleModelSelect(model.id, model.provider)}
-                className="group relative flex items-center gap-3 rounded-md px-4 py-3 text-sm text-white/90 outline-none
-                  transition-all duration-200 hover:bg-white/[0.08] aria-selected:bg-white/[0.12]"
-              >
-                <div className={`w-2 h-2 rounded-full ${model.id === activeSpace?.model ? 'bg-blue-500' : 'bg-white/20'}`} />
-                <span>{model.name}</span>
-              </Command.Item>
-            ))}
+            {!selectedProvider ? (
+              // Show provider selection
+              Object.entries(PROVIDER_NAMES).map(([provider, name]) => (
+                <Command.Item
+                  key={provider}
+                  value={`provider ${provider} ${name}`}
+                  onSelect={() => setSelectedProvider(provider as Provider)}
+                  className="group relative flex items-center gap-3 rounded-md px-4 py-3 text-sm text-white/90 outline-none
+                    transition-all duration-200 hover:bg-white/[0.08] aria-selected:bg-white/[0.12]"
+                >
+                  <ProviderIcon provider={provider as Provider} size={16} className="opacity-75" />
+                  <span>{name}</span>
+                </Command.Item>
+              ))
+            ) : (
+              // Show models for selected provider
+              AVAILABLE_MODELS[selectedProvider].map((model) => (
+                <Command.Item
+                  key={model.id}
+                  value={`model ${model.id} ${model.name}`}
+                  onSelect={() => handleModelSelect(model.id, selectedProvider)}
+                  className="group relative flex items-center gap-3 rounded-md px-4 py-3 text-sm text-white/90 outline-none
+                    transition-all duration-200 hover:bg-white/[0.08] aria-selected:bg-white/[0.12]"
+                >
+                  <ProviderIcon provider={selectedProvider} size={16} className="opacity-75" />
+                  <span>{model.name}</span>
+                </Command.Item>
+              ))
+            )}
           </>
         )}
       </Command.List>

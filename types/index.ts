@@ -26,6 +26,7 @@ export interface Message {
   role: 'user' | 'assistant';
   content: string;
   model_used?: string;
+  provider?: string;
   parent_message_id?: string;
   is_deleted?: boolean;
   created_at?: string;
@@ -33,6 +34,7 @@ export interface Message {
 }
 
 export function convertToAIMessage(message: Message) {
+  // Only include the fields that the AI SDK needs
   return {
     id: message.id,
     role: message.role,
