@@ -53,6 +53,21 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
     }
   }, [isOpen]);
 
+  // Add this effect to handle focus when switching views
+  useEffect(() => {
+    if (showSpaces || showModels || (showModels && selectedProvider)) {
+      // Small delay to ensure the list is rendered
+      const timeoutId = setTimeout(() => {
+        const firstItem = document.querySelector('[cmdk-item]') as HTMLElement;
+        if (firstItem) {
+          firstItem.dataset.selected = 'true';
+          firstItem.focus();
+        }
+      }, 50);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [showSpaces, showModels, selectedProvider]);
+
   const handleSpaceSelect = async (spaceId: string) => {
     console.log('Selecting space:', spaceId);
     setSearchValue('');
@@ -88,13 +103,13 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
       setActiveSpace(space);
     } catch (error) {
       console.error('Error switching space:', error);
-      batchUpdate({ error: 'Failed to switch space' });
     }
   };
 
   const handleCreateSpace = async () => {
     if (!spaceForm.name) return;
     
+    // Close modal immediately for better UX
     onClose();
     
     try {
@@ -117,11 +132,7 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
 
       const newSpace = await response.json();
       
-      // Update local state
-      setSpaces([...spaces, newSpace]);
-      setActiveSpace(newSpace);
-      
-      // Create initial conversation
+      // Create initial conversation synchronously
       const convResponse = await fetch('/api/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -137,7 +148,7 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
 
       const newConversation = await convResponse.json();
 
-      // Create welcome message
+      // Create welcome message synchronously
       const messageResponse = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -155,15 +166,33 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
       }
 
       const welcomeMessage = await messageResponse.json();
+      
+      // Update local state with all the new data
+      const updatedSpaces = spaces.map(space => ({
+        ...space,
+        isActive: false
+      }));
+      
+      const newSpaces = [
+        { ...newSpace, isActive: true },
+        ...updatedSpaces
+      ];
+      
+      setSpaces(newSpaces);
+      setActiveSpace({ 
+        ...newSpace, 
+        isActive: true,
+        default_conversation: newConversation,
+        welcome_message: welcomeMessage
+      });
+
     } catch (error) {
       console.error('Error creating space:', error);
-      batchUpdate({ error: 'Failed to create space' });
     }
   };
 
   const handleModelSelect = async (modelId: string, provider: Provider) => {
     if (!activeSpace) return;
-    batchUpdate({ isLoading: true });
     setSearchValue('');
     onClose();
     
@@ -183,9 +212,6 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
       }
     } catch (error) {
       console.error('Error updating model:', error);
-      batchUpdate({ error: 'Failed to update model' });
-    } finally {
-      batchUpdate({ isLoading: false });
     }
   };
 
@@ -248,6 +274,11 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
     },
   ];
 
+  const commandItemBaseClass = `group relative flex items-center gap-3 mx-2 my-1 px-4 py-3 text-sm text-white/90 outline-none
+    transition-all duration-200 rounded-lg backdrop-blur-sm border border-transparent
+    data-[selected=true]:bg-white/[0.08] data-[selected=true]:border-white/20 data-[selected=true]:text-white
+    hover:bg-white/[0.08] hover:border-white/20`;
+
   const createSpaceButton = (
     <Command.Item
       value="new-space create-space"
@@ -255,12 +286,11 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
         setShowSpaceForm(true)
         setSearchValue('')
       }}
-      className="group relative flex items-center gap-3 mx-2 my-1 px-4 py-3 text-sm text-white/90 outline-none
-        transition-all duration-200 hover:bg-white/[0.08] hover:border-white/20
-        rounded-lg backdrop-blur-sm border border-transparent"
+      className="flex items-center gap-2 px-4 py-2 text-sm text-white/90 bg-[#5E6AD2] hover:bg-[#4F5ABF] rounded-md transition-colors
+        border border-white/10 backdrop-blur-xl w-full max-w-[200px] justify-center font-medium"
     >
-      <Plus className="w-4 h-4 text-white/70 transition-opacity duration-200 group-hover:opacity-100" />
-      <span className="transition-colors duration-200 group-hover:text-white">Create New Space</span>
+      <Plus className="w-4 h-4" />
+      <span>Create New Space</span>
     </Command.Item>
   );
 
@@ -315,6 +345,14 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
         ) : null
       }
       footerElement={showSpaces && !showSpaceForm ? createSpaceButton : null}
+      showSpaceForm={showSpaceForm}
+      setShowSpaceForm={setShowSpaceForm}
+      showSpaces={showSpaces}
+      setShowSpaces={setShowSpaces}
+      showModels={showModels}
+      setShowModels={setShowModels}
+      selectedProvider={selectedProvider}
+      setSelectedProvider={setSelectedProvider}
     >
       <Command.List>
         {showSpaceForm ? (
@@ -330,6 +368,7 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
                     className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-md text-white/90 text-sm
                       focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/50"
                     placeholder="Enter space name"
+                    autoFocus
                   />
                 </div>
                 <div>
@@ -392,18 +431,17 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
           </Command.Group>
         ) : !showSpaces && !showModels ? (
           <Command.Group>
-            {quickActions.map((item) => (
+            {quickActions.map((item, index) => (
               <Command.Item
                 key={item.id}
                 value={`${item.id} ${item.name}`}
                 onSelect={() => {
                   item.callback?.();
                 }}
-                className="group relative flex items-center gap-3 mx-2 my-1 px-4 py-3 text-sm text-white/90 outline-none
-                  transition-all duration-200 hover:bg-white/[0.08] hover:border-white/20
-                  rounded-lg backdrop-blur-sm border border-transparent"
+                data-selected={index === 0 ? 'true' : undefined}
+                className={commandItemBaseClass}
               >
-                <span className="flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
+                <span className="flex-shrink-0 opacity-70 group-hover:opacity-100 group-data-[selected=true]:opacity-100 transition-opacity">
                   {item.icon}
                 </span>
                 <span className="flex-1 transition-colors duration-200 group-hover:text-white">
@@ -414,7 +452,7 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
                     {item.shortcut.map((key, index) => (
                       <kbd
                         key={`${item.id}-shortcut-${index}`}
-                        className="flex items-center justify-center w-6 h-6 rounded bg-white/5 text-[10px] font-medium text-white/40 border border-white/10 transition-colors group-hover:bg-white/10"
+                        className="flex items-center justify-center w-6 h-6 rounded bg-white/5 text-[10px] font-medium text-white/40 border border-white/10 transition-colors group-hover:bg-white/10 group-data-[selected=true]:bg-white/10"
                       >
                         {key}
                       </kbd>
@@ -426,41 +464,51 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
           </Command.Group>
         ) : showSpaces ? (
           <Command.Group>
-            {spaces.map((space) => (
-              <Command.Item
-                key={space.id}
-                value={`space ${space.id} ${space.name}`}
-                onSelect={() => handleSpaceSelect(space.id)}
-                className={`group relative flex items-center gap-3 mx-2 my-1 px-4 py-3 text-sm outline-none
-                  transition-all duration-200 hover:bg-white/[0.08] hover:border-white/20
-                  rounded-lg backdrop-blur-sm
-                  ${(space as any).isActive 
-                    ? 'bg-white/[0.05] border border-white/10 shadow-[0_0_1px_rgba(255,255,255,0.1)]' 
-                    : 'text-white/90 border border-transparent'}`}
-              >
-                <div className={`w-2 h-2 rounded-full transition-all duration-200 
-                  ${(space as any).isActive 
-                    ? 'bg-blue-500 ring-2 ring-blue-500/20' 
-                    : 'bg-white/20 group-hover:bg-white/40'}`} />
-                <span className={`transition-all duration-200 
-                  ${(space as any).isActive 
-                    ? 'text-white font-medium' 
-                    : 'text-white/90 group-hover:text-white'}`}>
-                  {space.name}
-                </span>
-                {(space as any).isActive && (
-                  <span className="ml-auto text-[10px] text-white/40 border border-white/10 px-1.5 py-0.5 rounded-md">
-                    Active
-                  </span>
-                )}
-              </Command.Item>
-            ))}
+            {spaces.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-white/40">
+                <p className="text-sm mb-4">No spaces found</p>
+              </div>
+            ) : (
+              <>
+                {spaces.map((space, index) => (
+                  <Command.Item
+                    key={space.id}
+                    value={`space ${space.id} ${space.name}`}
+                    onSelect={() => handleSpaceSelect(space.id)}
+                    data-selected={index === 0 ? 'true' : undefined}
+                    className={`group relative flex items-center gap-3 mx-2 my-1 px-4 py-3 text-sm outline-none
+                      transition-all duration-200 rounded-lg backdrop-blur-sm
+                      data-[selected=true]:bg-white/[0.08] data-[selected=true]:border-white/20 data-[selected=true]:text-white
+                      hover:bg-white/[0.08] hover:border-white/20
+                      ${space.isActive 
+                        ? 'bg-white/[0.05] border border-white/10 shadow-[0_0_1px_rgba(255,255,255,0.1)]' 
+                        : 'text-white/90 border border-transparent'}`}
+                  >
+                    <div className={`w-2 h-2 rounded-full transition-all duration-200 
+                      ${space.isActive 
+                        ? 'bg-blue-500 ring-2 ring-blue-500/20' 
+                        : 'bg-white/20 group-hover:bg-white/40 group-data-[selected=true]:bg-white/40'}`} />
+                    <span className={`transition-all duration-200 
+                      ${space.isActive 
+                        ? 'text-white font-medium' 
+                        : 'text-white/90 group-hover:text-white group-data-[selected=true]:text-white'}`}>
+                      {space.name}
+                    </span>
+                    {space.isActive && (
+                      <span className="ml-auto text-[10px] text-white/40 border border-white/10 px-1.5 py-0.5 rounded-md">
+                        Active
+                      </span>
+                    )}
+                  </Command.Item>
+                ))}
+              </>
+            )}
           </Command.Group>
         ) : (
           <>
             {!selectedProvider ? (
               <Command.Group>
-                {Object.entries(PROVIDER_NAMES).map(([provider, name]) => (
+                {Object.entries(PROVIDER_NAMES).map(([provider, name], index) => (
                   <Command.Item
                     key={provider}
                     value={`provider ${provider} ${name}`}
@@ -468,29 +516,49 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
                       setSelectedProvider(provider as Provider)
                       setSearchValue('')
                     }}
-                    className="group relative flex items-center gap-3 mx-2 my-1 px-4 py-3 text-sm text-white/90 outline-none
-                      transition-all duration-200 hover:bg-white/[0.08] hover:border-white/20
-                      rounded-lg backdrop-blur-sm border border-transparent"
+                    data-selected={index === 0 ? 'true' : undefined}
+                    className={`group relative flex items-center gap-3 mx-2 my-1 px-4 py-3 text-sm outline-none
+                      transition-all duration-200 rounded-lg backdrop-blur-sm
+                      data-[selected=true]:bg-white/[0.08] data-[selected=true]:border-white/20 data-[selected=true]:text-white
+                      hover:bg-white/[0.08] hover:border-white/20
+                      ${activeSpace?.provider === provider 
+                        ? 'bg-white/[0.05] border border-white/10 shadow-[0_0_1px_rgba(255,255,255,0.1)]' 
+                        : 'text-white/90 border border-transparent'}`}
                   >
                     <ProviderIcon 
                       provider={provider as Provider} 
                       size={16} 
-                      className="opacity-75 transition-opacity duration-200 group-hover:opacity-100" 
+                      className={`transition-opacity duration-200 
+                        ${activeSpace?.provider === provider 
+                          ? 'opacity-100' 
+                          : 'opacity-75 group-hover:opacity-100 group-data-[selected=true]:opacity-100'}`} 
                     />
-                    <span className="transition-colors duration-200 group-hover:text-white">{name}</span>
+                    <span className={`transition-all duration-200 
+                      ${activeSpace?.provider === provider 
+                        ? 'text-white font-medium' 
+                        : 'text-white/90 group-hover:text-white group-data-[selected=true]:text-white'}`}>
+                      {name}
+                    </span>
+                    {activeSpace?.provider === provider && (
+                      <span className="ml-auto text-[10px] text-white/40 border border-white/10 px-1.5 py-0.5 rounded-md">
+                        Active
+                      </span>
+                    )}
                   </Command.Item>
                 ))}
               </Command.Group>
             ) : (
               <Command.Group>
-                {AVAILABLE_MODELS[selectedProvider].map((model) => (
+                {AVAILABLE_MODELS[selectedProvider].map((model, index) => (
                   <Command.Item
                     key={model.id}
                     value={`model ${model.id} ${model.name}`}
                     onSelect={() => handleModelSelect(model.id, selectedProvider)}
+                    data-selected={index === 0 ? 'true' : undefined}
                     className={`group relative flex items-center gap-3 mx-2 my-1 px-4 py-3 text-sm outline-none
-                      transition-all duration-200 hover:bg-white/[0.08] hover:border-white/20
-                      rounded-lg backdrop-blur-sm
+                      transition-all duration-200 rounded-lg backdrop-blur-sm
+                      data-[selected=true]:bg-white/[0.08] data-[selected=true]:border-white/20 data-[selected=true]:text-white
+                      hover:bg-white/[0.08] hover:border-white/20
                       ${activeSpace?.model === model.id 
                         ? 'bg-white/[0.05] border border-white/10 shadow-[0_0_1px_rgba(255,255,255,0.1)]' 
                         : 'text-white/90 border border-transparent'}`}
@@ -499,12 +567,14 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
                       provider={selectedProvider} 
                       size={16} 
                       className={`transition-opacity duration-200 
-                        ${activeSpace?.model === model.id ? 'opacity-100' : 'opacity-75 group-hover:opacity-100'}`} 
+                        ${activeSpace?.model === model.id 
+                          ? 'opacity-100' 
+                          : 'opacity-75 group-hover:opacity-100 group-data-[selected=true]:opacity-100'}`} 
                     />
                     <span className={`transition-all duration-200 
                       ${activeSpace?.model === model.id 
                         ? 'text-white font-medium' 
-                        : 'text-white/90 group-hover:text-white'}`}>
+                        : 'text-white/90 group-hover:text-white group-data-[selected=true]:text-white'}`}>
                       {model.name}
                     </span>
                     {activeSpace?.model === model.id && (

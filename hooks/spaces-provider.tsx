@@ -8,49 +8,55 @@ interface SpacesState {
   spaces: Space[];
   activeSpace: Space | null;
   isInitialized: boolean;
+  error: string | null;
 }
 
 const initialState: SpacesState = {
   spaces: [],
   activeSpace: null,
-  isInitialized: false
+  isInitialized: false,
+  error: null
 };
 
-enum SpacesActionType {
+enum ActionType {
   SET_SPACES = 'SET_SPACES',
   SET_ACTIVE_SPACE = 'SET_ACTIVE_SPACE',
-  SET_INITIALIZED = 'SET_INITIALIZED'
+  SET_INITIALIZED = 'SET_INITIALIZED',
+  SET_ERROR = 'SET_ERROR'
 }
 
-type SpacesAction =
-  | { type: SpacesActionType.SET_SPACES; payload: Space[] }
-  | { type: SpacesActionType.SET_ACTIVE_SPACE; payload: Space }
-  | { type: SpacesActionType.SET_INITIALIZED; payload: boolean };
+type Action =
+  | { type: ActionType.SET_SPACES; payload: Space[] }
+  | { type: ActionType.SET_ACTIVE_SPACE; payload: Space }
+  | { type: ActionType.SET_INITIALIZED; payload: boolean }
+  | { type: ActionType.SET_ERROR; payload: string | null }
 
-function spacesReducer(state: SpacesState, action: SpacesAction): SpacesState {
+function spacesReducer(state: SpacesState, action: Action): SpacesState {
   switch (action.type) {
-    case SpacesActionType.SET_SPACES:
+    case ActionType.SET_SPACES:
       return { ...state, spaces: action.payload };
-    case SpacesActionType.SET_ACTIVE_SPACE:
+    case ActionType.SET_ACTIVE_SPACE:
       return { ...state, activeSpace: action.payload };
-    case SpacesActionType.SET_INITIALIZED:
+    case ActionType.SET_INITIALIZED:
       return { ...state, isInitialized: action.payload };
+    case ActionType.SET_ERROR:
+      return { ...state, error: action.payload };
     default:
       return state;
   }
 }
 
-interface SpacesContextProps {
+const SpacesContext = createContext<{
   state: SpacesState;
-  dispatch: React.Dispatch<SpacesAction>;
-}
-
-const SpacesContext = createContext<SpacesContextProps | undefined>(undefined);
+  dispatch: React.Dispatch<Action>;
+} | undefined>(undefined);
 
 export function SpacesProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(spacesReducer, initialState);
+  const [state, dispatch] = useReducer(spacesReducer, {
+    ...initialState,
+    isInitialized: true // Start with initialized true to prevent loading screen
+  });
 
-  // Initialize spaces when provider mounts
   useEffect(() => {
     const initializeSpaces = async () => {
       try {
@@ -61,36 +67,48 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         const data = await response.json();
         
         if (!data.error) {
-          dispatch({ type: SpacesActionType.SET_SPACES, payload: data });
+          dispatch({ type: ActionType.SET_SPACES, payload: data });
           
           if (data.length > 0) {
-            // Find the active space or use the first one
-            const activeSpace = data.find(space => space.isActive) || data[0];
-            dispatch({ type: SpacesActionType.SET_ACTIVE_SPACE, payload: activeSpace });
+            const activeSpace = data.find((s: Space) => s.isActive);
+            if (activeSpace) {
+              dispatch({ type: ActionType.SET_ACTIVE_SPACE, payload: activeSpace });
+            } else {
+              // If no active space, set the first one as active
+              const spaceResponse = await fetch(`/api/spaces/${data[0].id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ setActive: true })
+              });
+              
+              if (spaceResponse.ok) {
+                const updatedSpace = await spaceResponse.json();
+                dispatch({ type: ActionType.SET_ACTIVE_SPACE, payload: updatedSpace });
+              }
+            }
           } else {
-            // Create initial space if none exists
+            // Create initial space synchronously if none exists
             const spaceResponse = await fetch('/api/spaces', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 name: 'My Space',
-                description: 'My default space',
+                description: 'My first space',
                 model: 'deepseek-r1-distill-llama-70b',
-                provider: 'groq'
+                provider: 'groq',
+                setActive: true
               })
             });
 
-            const spaceData = await spaceResponse.json();
-            if (!spaceData.error) {
-              dispatch({ type: SpacesActionType.SET_SPACES, payload: [spaceData] });
-              dispatch({ type: SpacesActionType.SET_ACTIVE_SPACE, payload: spaceData });
+            if (spaceResponse.ok) {
+              const spaceData = await spaceResponse.json();
+              dispatch({ type: ActionType.SET_SPACES, payload: [spaceData] });
+              dispatch({ type: ActionType.SET_ACTIVE_SPACE, payload: spaceData });
             }
           }
         }
       } catch (error) {
         console.error('Error initializing spaces:', error);
-      } finally {
-        dispatch({ type: SpacesActionType.SET_INITIALIZED, payload: true });
       }
     };
 
@@ -102,8 +120,8 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         initializeSpaces();
       } else {
         // Reset state when user logs out
-        dispatch({ type: SpacesActionType.SET_SPACES, payload: [] });
-        dispatch({ type: SpacesActionType.SET_ACTIVE_SPACE, payload: null });
+        dispatch({ type: ActionType.SET_SPACES, payload: [] });
+        dispatch({ type: ActionType.SET_ACTIVE_SPACE, payload: null });
       }
     });
 
@@ -119,47 +137,27 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   );
 }
 
-function useSpacesContext() {
+export function useSpaces() {
   const context = useContext(SpacesContext);
   if (!context) {
-    throw new Error('useSpacesContext must be used within a SpacesProvider');
+    throw new Error('useSpaces must be used within a SpacesProvider');
   }
-  return context;
-}
 
-export function useSpaces() {
-  const { state, dispatch } = useSpacesContext();
+  const { state, dispatch } = context;
 
-  const loadSpaces = async (userId: string) => {
-    try {
-      const response = await fetch('/api/spaces');
-      const data = await response.json();
-      if (!data.error) {
-        dispatch({ type: SpacesActionType.SET_SPACES, payload: data });
-        // If there are spaces and no active space, set the first one as active
-        if (data.length > 0 && !state.activeSpace) {
-          dispatch({ type: SpacesActionType.SET_ACTIVE_SPACE, payload: data[0] });
-        }
-      }
-    } catch (error) {
-      console.error('Error loading spaces:', error);
-    }
+  const setSpaces = (spaces: Space[]) => {
+    dispatch({ type: ActionType.SET_SPACES, payload: spaces });
   };
 
   const setActiveSpace = (space: Space) => {
-    dispatch({ type: SpacesActionType.SET_ACTIVE_SPACE, payload: space });
-  };
-
-  const setSpaces = (spaces: Space[]) => {
-    dispatch({ type: SpacesActionType.SET_SPACES, payload: spaces });
+    dispatch({ type: ActionType.SET_ACTIVE_SPACE, payload: space });
   };
 
   return {
-    state,
     spaces: state.spaces,
     activeSpace: state.activeSpace,
-    setActiveSpace,
+    state,
     setSpaces,
-    loadSpaces,
+    setActiveSpace
   };
 } 

@@ -42,74 +42,36 @@
   - Down arrow from search moves focus to first list item
   - Maintains natural focus flow for better user experience
   - Preserves existing keyboard shortcuts and navigation
-
-### Fixed
-- Back button now properly visible at the top of the space creation form
-- Added proper padding to modal header when search is hidden
-- Adjusted create space button to be more compact and consistent with UI
-  - Reduced padding and font size
-  - Added border and backdrop blur
-  - Adjusted text opacity for better visual harmony
-  - Made button width more compact and centered
-- Fixed spaces list not updating immediately after creating a new space 
-  - Now fetches the complete updated list of spaces from the server after creation
-  - Ensures the UI reflects the latest state without requiring a page refresh
-- Fixed inconsistent modal behavior when opening from space tab
-  - Now uses openQuickActionsCommand instead of toggle to ensure consistent state
-  - Prevents state synchronization issues between different open methods
-- Fixed space creation initialization issues
-  - Now creates initial conversation and welcome message for new spaces
-  - Properly initializes all states (spaces, conversations, messages)
-  - Ensures smooth transition after space creation
-  - Prevents "stuck generating" state in new spaces
-  - Added consistent model tags for all messages
-  - Removed unnecessary loading states during creation
-  - Sets new space as active immediately after creation
-  - Persists active space state across page refreshes
-- Fixed infinite update loop in state management
-  - Removed unnecessary page reload after space creation
-  - Improved state update sequence to prevent circular dependencies
-  - Fixed maximum update depth exceeded error
-- Fixed chat message loading and state management
-  - Removed duplicate message loading effects
-  - Added message caching to prevent unnecessary reloads
-  - Fixed circular dependencies in effects and callbacks
-  - Improved streaming message state management
-  - Removed unnecessary state updates and re-renders
-- Fixed space switching behavior
-  - Removed loading states during space switching
-  - Prevents status tab from showing "generating" when changing spaces
-  - Smoother transition between spaces
-- Improved keyboard navigation in command modal
-  - Fixed arrow key navigation between search and list items
-  - Added proper focus management for list items
-  - Improved integration with CMDK's built-in navigation
-  - Enhanced accessibility for keyboard users
-  - Fixed edge cases with focus handling
-- Fixed command modal keyboard navigation
-  - Properly integrated with CMDK's native keyboard navigation
-  - Fixed arrow key navigation between search and items
-  - Added support for cycling through items with loop
-  - Corrected component hierarchy for better accessibility
-  - Removed custom navigation logic that interfered with built-in behavior
-- Optimized command modal structure
-  - Simplified DOM hierarchy to match CMDK's expectations
-  - Fixed keyboard navigation between search and items
-  - Enabled simultaneous focus of search and first item
-  - Improved filtering and sorting behavior
-  - Enhanced list scrolling and item cycling
-- Improved command modal structure and navigation
-  - Added proper Command.Group components for better keyboard navigation
-  - Fixed list item grouping and hierarchy
-  - Enhanced focus management between groups
-  - Improved accessibility with proper ARIA roles
-  - Maintained consistent styling within groups
-- Fixed Next.js API route params handling
-  - Updated messages and conversations API routes to properly handle async params
-  - Extracted params from context object to prevent sync access
-  - Improved error handling and type safety in route handlers
-  - Fixed "sync dynamic APIs" warning in all dynamic route endpoints
-  - Standardized params extraction pattern across API routes
+- Improved empty state handling in spaces list
+  - Added "No spaces found" message when no spaces exist
+  - Moved create space button to center of empty state
+  - Enhanced visibility of space creation option
+  - Added proper type definitions for space active state
+  - Improved user experience for first-time users
+- Added keyboard back navigation in command modal
+  - Backspace key now acts as back button when search is empty
+  - Matches back button behavior for all navigation states
+  - Handles space form, spaces list, and models views
+  - Preserves search functionality when typing
+- Added active provider indication
+  - Matches active model styling for consistency
+  - Shows active state with visual indicators
+  - Added "Active" label to current provider
+  - Enhanced visual feedback for active state
+- Enhanced default space creation with improved welcome message
+  - Added detailed welcome message with AI assistant capabilities
+  - Improved onboarding experience for new users
+  - Added bullet points for key features and use cases
+- Implemented Redis caching with Upstash
+  - Added Redis client configuration with TTL settings
+  - Implemented caching for spaces, active spaces, conversations, and messages
+  - Added cache invalidation on data updates
+  - Added cache key generators for consistent key naming
+  - Optimized API routes to check cache before database
+  - Added background cache updates for better performance
+  - Implemented 5-minute TTL for all cached data
+  - Added proper cache invalidation on write operations
+  - Enhanced response times with Redis caching
 
 ### Changed
 - Updated quick actions menu names to be more concise
@@ -147,3 +109,264 @@
   - Standardized rounded corners
   - Added backdrop blur effect to all items
   - Smoother opacity transitions for icons 
+- Updated create space button styling
+  - Changed to primary action button style
+  - Added hover and focus states
+  - Improved visual feedback
+  - Centered in footer with max width 
+- Refactored API routes for better organization and consistency:
+  - Centralized all constants in lib/constants.ts:
+    - Database table names
+    - Column names
+    - Message roles
+    - Error messages
+    - Default values
+  - Removed duplicated strings and error messages
+  - Standardized error handling across all routes
+  - Improved type safety with constant enums
+  - Enhanced maintainability with centralized constants
+  - Reduced potential for typos and inconsistencies
+  - Made database operations more consistent
+  - Updated all API routes to use constants:
+    - Updated spaces routes
+    - Updated conversations routes
+    - Updated messages routes
+    - Updated chat route
+    - Improved error handling consistency
+    - Enhanced response formatting
+    - Standardized API response structure
+
+### Performance
+- Optimized Redis caching implementation
+- Reduced unnecessary JSON parsing operations
+- Improved cache hit ratio with better invalidation strategy
+- Enhanced response times for frequently accessed data
+- Implemented Redis helper functions for consistent cache operations:
+  - `setCache`: Handles JSON serialization and TTL setting
+  - `getCache`: Handles JSON parsing and type safety
+  - `deleteCache`: Handles cache invalidation
+- Updated all API routes to use new cache helper functions:
+  - Spaces route now uses consistent caching pattern
+  - Conversations route implements proper cache invalidation
+  - Messages route includes improved error handling
+- Added proper error logging across all routes
+- Implemented consistent error response format
+
+### Fixed
+- Improved cache invalidation when switching models:
+  - Added cache clearing for all conversations in a space
+  - Added cache clearing for all messages in affected conversations
+  - Added cache clearing for active space and spaces list
+  - Fixed issue where old model settings were persisting in cache
+  - Added proper cache invalidation triggers in space update endpoint
+  - Improved cache key management for model-specific data
+  - Enhanced cache consistency during model switches
+- Improved message creation error handling:
+  - Added proper validation for required fields (content and role)
+  - Added clear error messages for missing fields
+  - Improved type safety with Message interface
+  - Added proper handling of optional fields
+  - Enhanced error logging and status codes
+  - Fixed "Missing required fields" error during chat
+- Fixed JSON parsing errors in Redis caching implementation:
+  - Updated conversations route to use new cache helper functions
+  - Updated messages route to use new cache helper functions
+  - Removed manual JSON.parse/stringify operations
+  - Improved error handling in cache operations
+  - Fixed type safety in cache data handling
+- Improved error handling in API routes
+- Enhanced type safety in API responses
+- Fixed back button now properly visible at the top of the space creation form
+- Added proper padding to modal header when search is hidden
+- Adjusted create space button to be more compact and consistent with UI
+  - Reduced padding and font size
+  - Added border and backdrop blur
+  - Adjusted text opacity for better visual harmony
+  - Made button width more compact and centered
+- Fixed spaces list not updating immediately after creating a new space 
+  - Now fetches the complete updated list of spaces from the server after creation
+  - Ensures the UI reflects the latest state without requiring a page refresh
+- Fixed inconsistent modal behavior when opening from space tab
+  - Now uses openQuickActionsCommand instead of toggle to ensure consistent state
+  - Prevents state synchronization issues between different open methods
+- Fixed space creation initialization issues
+  - Now creates initial conversation and welcome message for new spaces
+  - Properly initializes all states (spaces, conversations, messages)
+  - Ensures smooth transition after space creation
+  - Prevents "stuck generating" state in new spaces
+  - Added consistent model tags for all messages
+  - Removed unnecessary loading states during creation
+  - Sets new space as active immediately after creation
+  - Persists active space state across page refreshes
+- Fixed infinite update loop in state management
+  - Removed unnecessary page reload after space creation
+  - Improved state update sequence to prevent circular dependencies
+  - Fixed maximum update depth exceeded error
+- Fixed chat message loading and state management
+  - Removed duplicate message loading effects
+  - Added message caching to prevent unnecessary reloads
+  - Fixed circular dependencies in effects and callbacks
+  - Improved streaming message state management
+  - Removed unnecessary state updates and re-renders
+- Fixed space switching behavior
+  - Removed all loading states during space switching
+  - Eliminated error state updates for non-critical operations
+  - Enhanced user experience with instant space transitions
+  - Prevented loading screen from appearing during space changes
+  - Maintained smooth UI transitions without interruptions
+- Improved keyboard navigation in command modal
+  - Fixed arrow key navigation between search and list items
+  - Added proper focus management for list items
+  - Improved integration with CMDK's built-in navigation
+  - Enhanced accessibility for keyboard users
+  - Fixed edge cases with focus handling
+- Fixed command modal keyboard navigation
+  - Properly integrated with CMDK's native keyboard navigation
+  - Fixed arrow key navigation between search and items
+  - Added support for cycling through items with loop
+  - Corrected component hierarchy for better accessibility
+  - Removed custom navigation logic that interfered with built-in behavior
+- Optimized command modal structure
+  - Simplified DOM hierarchy to match CMDK's expectations
+  - Fixed keyboard navigation between search and items
+  - Enabled simultaneous focus of search and first item
+  - Improved filtering and sorting behavior
+  - Enhanced list scrolling and item cycling
+- Improved command modal structure and navigation
+  - Added proper Command.Group components for better keyboard navigation
+  - Fixed list item grouping and hierarchy
+  - Enhanced focus management between groups
+  - Improved accessibility with proper ARIA roles
+  - Maintained consistent styling within groups
+- Updated Next.js API route params handling for version 15
+  - Properly awaiting params object in dynamic route handlers
+  - Updated type definitions to reflect Promise-based params
+  - Fixed params access pattern to match Next.js 15 requirements
+  - Improved type safety with proper Promise typing
+  - Added proper async handling in spaces API routes
+  - Standardized params handling across all dynamic routes
+  - Added model validation in spaces update endpoint
+  - Improved space update data handling
+- Fixed automatic space creation on first load
+  - Added proper error handling in spaces provider
+  - Improved initialization logic for new users
+  - Added automatic creation of first space when none exist
+  - Set proper default values for initial space
+- Fixed create space button visibility
+  - Button now shows consistently in spaces view
+  - Appears both when spaces list is empty and when spaces exist
+  - Improved button placement and styling
+  - Enhanced user experience for space creation workflow
+- Improved keyboard navigation visual feedback
+  - Added proper hover effects for keyboard-selected items
+  - Unified hover and keyboard selection styles
+  - Added data-selected state handling for all command items
+  - Enhanced visual feedback for keyboard navigation
+  - Improved accessibility with consistent focus styles
+  - Fixed opacity transitions for icons during keyboard navigation
+  - Added proper group data attributes for nested elements
+- Fixed spaces list and creation functionality
+  - Added automatic default space creation for new users
+  - Improved create space button visibility and styling
+  - Fixed empty state handling in spaces list
+  - Added proper autofocus to space creation form
+  - Enhanced visual feedback for space creation
+  - Improved error handling in spaces API
+  - Added proper type checking for space active state
+  - Fixed space switching behavior
+  - Improved user experience for first-time users
+- Improved modal structure for fixed footer
+  - Added proper flex layout for scrollable content
+  - Fixed footer positioning at bottom of modal
+  - Added border separator for visual clarity
+  - Maintained consistent padding and spacing
+- Fixed multiple active spaces issue
+  - Added proper clearing of previous active space when creating new space
+  - Updated client-side state management to correctly handle active states
+  - Removed upsert in favor of delete + insert for active space management
+  - Ensured only one space can be active at a time
+  - Fixed active state visual indicators
+- Fixed active space management
+  - Resolved unique constraint violation in active_spaces table
+  - Updated POST handler to use upsert instead of insert
+  - Added proper timestamp handling for active space updates
+  - Improved client-side active state management
+  - Ensured consistent active state between client and server
+  - Fixed race conditions in space activation
+- Improved model switching behavior
+  - Removed unnecessary loading state updates in status tab
+  - Simplified model selection logic
+  - Removed error state updates for non-critical operations
+  - Enhanced user experience with smoother model switching
+- Improved command modal focus management
+  - Added automatic focus on first item in nested lists
+  - Ensured consistent focus behavior across all navigation states
+  - Fixed focus when switching between providers and models
+  - Added proper data-selected attributes for visual feedback
+  - Improved keyboard navigation experience
+- Fixed model name display in default space creation
+  - Updated default space creation to use correct model ID from AVAILABLE_MODELS configuration
+  - Ensures consistent model naming between UI and backend
+  - Fixed customer-facing model names in initial space setup
+  - Removed hardcoded model IDs in favor of configuration-based values
+- Optimized space creation performance
+  - Removed unnecessary loading states during space creation
+  - Made modal close immediately after initiating space creation
+  - Moved conversation and message creation to background operations
+  - Improved initial space creation responsiveness
+  - Reduced perceived latency in space switching
+  - Eliminated loading screen during space operations
+  - Enhanced user experience with instant feedback
+  - Optimized state updates for smoother transitions
+  - Improved error handling with silent background operations
+- Further optimized space creation performance
+  - Made conversation and welcome message creation synchronous
+  - Ensured initial message appears immediately without refresh
+  - Improved state updates to include all related data
+  - Enhanced space provider initialization
+  - Made initial space creation synchronous
+  - Added proper active space handling during initialization
+  - Reduced overall latency in space operations
+  - Improved state consistency across components
+  - Fixed missing welcome message on first load
+- Further optimized loading states during space operations
+  - Removed loading screen during space creation and initialization
+  - Initialized spaces provider with isInitialized true by default
+  - Simplified loading state logic to only show during initial auth check
+  - Improved state management to prevent unnecessary loading screens
+  - Enhanced user experience with immediate UI feedback
+  - Optimized space provider initialization flow
+  - Removed redundant loading states in protected route
+  - Streamlined space creation and switching process
+- Fixed JSON parsing errors in Redis caching implementation
+  - Updated conversations route to use new cache helper functions
+  - Updated messages route to use new cache helper functions
+  - Removed manual JSON.parse/stringify operations
+  - Improved error handling in cache operations
+  - Fixed type safety in cache data handling
+- Improved error handling in API routes
+- Enhanced type safety in API responses
+- Enhanced message creation with proper schema validation:
+  - Added validation for role field (must be 'user' or 'assistant')
+  - Added proper handling of is_deleted field
+  - Added validation for parent_message_id existence
+  - Added all required fields from database schema
+  - Improved error messages for invalid fields
+  - Added warning for invalid parent message references
+  - Added required model_used and provider validation for assistant messages
+  - Fixed missing fields error during message creation
+  - Enhanced error handling and response formatting
+  - Improved type safety with Message interface
+  - Added proper cache invalidation after message creation
+- Refactored chat route for better provider handling:
+  - Added centralized provider configuration
+  - Improved error handling and response formatting
+  - Enhanced type safety with Provider type
+  - Added proper validation for provider and model
+  - Improved space validation and error messages
+  - Enhanced response streaming configuration
+  - Added proper error handling for invalid providers
+  - Improved type safety in message handling
+  - Added proper error responses for invalid requests
+  - Enhanced space access validation
+ 

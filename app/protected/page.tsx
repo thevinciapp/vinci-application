@@ -175,8 +175,8 @@ function ChatContent() {
     }
   }, [input, isStreaming, userId, activeConversation?.id, activeSpace?.model, activeSpace?.provider, originalHandleSubmit, batchUpdate, addMessage]);
 
-  // Loading state
-  if (!spacesState.isInitialized || !conversationsState.isInitialized || !messagesState.isInitialized) {
+  // Loading state - only show if we don't have a user ID yet
+  if (!userId) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-black">
         <div className="flex items-center gap-2">
@@ -187,15 +187,11 @@ function ChatContent() {
     );
   }
 
-  // Combine database messages with streaming message if it exists
-  const displayMessages = streamingMessage 
-    ? [...chatMessages, streamingMessage]
-    : chatMessages;
-
+  // Render chat interface immediately once we have userId
   return (
     <div className="flex flex-col h-screen bg-black text-white">
       <div className="flex-1 w-full h-full flex flex-col">
-        <ChatMessages messages={displayMessages} />
+        <ChatMessages messages={streamingMessage ? [...chatMessages, streamingMessage] : chatMessages} />
         <UnifiedInput
           value={input}
           onChange={handleInputChange}

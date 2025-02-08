@@ -9,6 +9,7 @@ export interface Space {
   created_at?: string;
   updated_at?: string;
   user_id: string;
+  isActive?: boolean;
 }
 
 export interface Conversation {

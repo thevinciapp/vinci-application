@@ -12,6 +12,15 @@ interface CommandModalProps {
   searchValue?: string;
   onSearchChange?: (value: string) => void;
   hideSearch?: boolean;
+  // Navigation state
+  showSpaceForm?: boolean;
+  setShowSpaceForm?: (show: boolean) => void;
+  showSpaces?: boolean;
+  setShowSpaces?: (show: boolean) => void;
+  showModels?: boolean;
+  setShowModels?: (show: boolean) => void;
+  selectedProvider?: any;
+  setSelectedProvider?: (provider: any) => void;
 }
 
 export function CommandModal({ 
@@ -23,7 +32,15 @@ export function CommandModal({
   footerElement,
   searchValue,
   onSearchChange,
-  hideSearch = false
+  hideSearch = false,
+  showSpaceForm,
+  setShowSpaceForm,
+  showSpaces,
+  setShowSpaces,
+  showModels,
+  setShowModels,
+  selectedProvider,
+  setSelectedProvider
 }: CommandModalProps) {
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -80,6 +97,22 @@ export function CommandModal({
                 onKeyDown={(e) => {
                   if (e.key === 'Escape') {
                     onClose();
+                  } else if (e.key === 'Backspace' && !searchValue) {
+                    // Handle back navigation when search is empty
+                    if (showSpaceForm && setShowSpaceForm) {
+                      setShowSpaceForm(false);
+                      e.preventDefault();
+                    } else if (showSpaces && setShowSpaces) {
+                      setShowSpaces(false);
+                      e.preventDefault();
+                    } else if (showModels && setShowModels) {
+                      if (selectedProvider && setSelectedProvider) {
+                        setSelectedProvider(null);
+                      } else {
+                        setShowModels(false);
+                      }
+                      e.preventDefault();
+                    }
                   }
                 }}
                 shouldFilter={true}
@@ -102,15 +135,23 @@ export function CommandModal({
                   )}
                 </div>
 
-                <Command.List className="max-h-[min(60vh,400px)] overflow-y-auto overscroll-contain scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 p-2">
-                  {!hideSearch && searchValue && (
-                    <Command.Empty className="py-6 text-center text-sm text-white/40">
-                      No results found.
-                    </Command.Empty>
-                  )}
+                <div className="flex flex-col h-[min(60vh,400px)]">
+                  <Command.List className="flex-1 overflow-y-auto overscroll-contain scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 p-2">
+                    {!hideSearch && searchValue && (
+                      <Command.Empty className="py-6 text-center text-sm text-white/40">
+                        No results found.
+                      </Command.Empty>
+                    )}
 
-                  {children}
-                </Command.List>
+                    {children}
+                  </Command.List>
+
+                  {footerElement && (
+                    <div className="flex items-center justify-center p-2 border-t border-white/10">
+                      {footerElement}
+                    </div>
+                  )}
+                </div>
               </Command>
             </div>
           </motion.div>
