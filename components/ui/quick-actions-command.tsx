@@ -8,10 +8,10 @@ import { useChatState } from '@/hooks/chat-state-provider';
 import { Command } from 'cmdk';
 import { useState, useEffect } from 'react';
 import { AVAILABLE_MODELS, DEFAULTS, PROVIDER_NAMES, type Provider } from '@/lib/constants';
-import { QuickActionsList } from './quick-actions-list';
-import { SpacesList } from './spaces-list';
-import { ModelsList } from './models-list';
-import { SpaceForm } from './space-form';
+import { QuickActionsList } from  '@/components/ui/quick-actions-list'
+import { SpacesList } from '@/components/ui/spaces-list'
+import { ModelsList } from '@/components/ui/models-list'
+import { SpaceForm } from '@/components/ui/space-form'
 
 interface QuickActionsCommandProps {
   isOpen: boolean;
