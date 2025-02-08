@@ -60,14 +60,28 @@ const MessagesContext = createContext<MessagesContextProps | undefined>(undefine
 
 export function MessagesProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(messagesReducer, initialState);
-  const { activeConversation } = useConversations();
+  const { activeConversation, state: conversationsState } = useConversations();
 
   // Load messages when active conversation changes
   useEffect(() => {
-    const loadMessages = async () => {
-      if (!activeConversation?.id) return;
+    if (!conversationsState.isInitialized) return;
+    
+    // If there's no active conversation but conversations are initialized,
+    // we should still mark messages as initialized with an empty state
+    if (!activeConversation?.id) {
+      dispatch({ type: MessagesActionType.SET_INITIALIZED, payload: true });
+      return;
+    }
 
+    // Don't reload if we already have messages for this conversation
+    if (state.messages[activeConversation.id]?.length > 0) {
+      dispatch({ type: MessagesActionType.SET_INITIALIZED, payload: true });
+      return;
+    }
+
+    const loadMessages = async () => {
       try {
+        dispatch({ type: MessagesActionType.SET_INITIALIZED, payload: false });
         const response = await fetch(`/api/messages/${activeConversation.id}`);
         const data = await response.json();
         
@@ -84,17 +98,8 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    // Clear messages when conversation changes
-    dispatch({
-      type: MessagesActionType.SET_MESSAGES,
-      payload: { conversationId: activeConversation?.id || '', messages: [] }
-    });
-
-    // Only load if there's an active conversation
-    if (activeConversation?.id) {
-      loadMessages();
-    }
-  }, [activeConversation?.id]);
+    loadMessages();
+  }, [activeConversation?.id, conversationsState.isInitialized]);
 
   const value = useMemo(() => ({ state, dispatch }), [state]);
 

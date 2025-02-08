@@ -4,9 +4,10 @@ import { Message } from '@/types';
 
 export async function GET(
   request: Request,
-  { params }: { params: { conversationId: string } }
+  context: { params: { conversationId: string } }
 ) {
   try {
+    const conversationId = context.params.conversationId;
     const supabase = await createClient();
 
     const {
@@ -20,7 +21,7 @@ export async function GET(
     const { data: messages, error } = await supabase
       .from('messages')
       .select('*')
-      .eq('conversation_id', params.conversationId)
+      .eq('conversation_id', conversationId)
       .eq('is_deleted', false)
       .order('created_at', { ascending: true });
 

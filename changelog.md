@@ -1,0 +1,149 @@
+# Changelog
+
+## [Unreleased]
+
+### Added
+- Search box clearing functionality when navigating between different command modal views
+  - Clears search when selecting a provider in models view
+  - Clears search when selecting a specific model
+  - Clears search when selecting a space
+  - Clears search when using quick actions to switch views 
+- New space creation form in command modal
+  - Added form interface with name, description, provider, and model fields
+  - Auto-populates available models based on selected provider
+  - Form validation and error handling
+  - Smooth navigation with back button support
+  - Removed search functionality in form view
+  - Fixed "No results found" message to only show during active search
+  - Improved space creation workflow from space tab
+  - Fixed back button visibility in form view
+- Added server-side active space management
+  - New setActive flag in space creation API
+  - Automatic active space persistence in database
+  - Proper active space state handling across sessions
+  - Upsert functionality to maintain single active space per user
+- Improved spaces list organization
+  - Spaces now sorted by last updated date
+  - Active space always appears at the top
+  - Enhanced visual indication of active space
+  - Added "Active" label to current space
+  - Improved contrast and visibility of active state
+  - Added spacing between space items
+  - Enhanced hover effects with subtle transitions
+  - Added backdrop blur and border effects
+  - Improved visual hierarchy with better shadows
+- Added automatic spaces list refresh
+  - Command window now fetches latest spaces data when opened
+  - Ensures active space is correctly reflected in UI
+  - Maintains consistency between backend and frontend state
+- Enhanced keyboard navigation in command modal
+  - Arrow keys now navigate between search input and list items
+  - Up arrow from first list item returns focus to search
+  - Down arrow from search moves focus to first list item
+  - Maintains natural focus flow for better user experience
+  - Preserves existing keyboard shortcuts and navigation
+
+### Fixed
+- Back button now properly visible at the top of the space creation form
+- Added proper padding to modal header when search is hidden
+- Adjusted create space button to be more compact and consistent with UI
+  - Reduced padding and font size
+  - Added border and backdrop blur
+  - Adjusted text opacity for better visual harmony
+  - Made button width more compact and centered
+- Fixed spaces list not updating immediately after creating a new space 
+  - Now fetches the complete updated list of spaces from the server after creation
+  - Ensures the UI reflects the latest state without requiring a page refresh
+- Fixed inconsistent modal behavior when opening from space tab
+  - Now uses openQuickActionsCommand instead of toggle to ensure consistent state
+  - Prevents state synchronization issues between different open methods
+- Fixed space creation initialization issues
+  - Now creates initial conversation and welcome message for new spaces
+  - Properly initializes all states (spaces, conversations, messages)
+  - Ensures smooth transition after space creation
+  - Prevents "stuck generating" state in new spaces
+  - Added consistent model tags for all messages
+  - Removed unnecessary loading states during creation
+  - Sets new space as active immediately after creation
+  - Persists active space state across page refreshes
+- Fixed infinite update loop in state management
+  - Removed unnecessary page reload after space creation
+  - Improved state update sequence to prevent circular dependencies
+  - Fixed maximum update depth exceeded error
+- Fixed chat message loading and state management
+  - Removed duplicate message loading effects
+  - Added message caching to prevent unnecessary reloads
+  - Fixed circular dependencies in effects and callbacks
+  - Improved streaming message state management
+  - Removed unnecessary state updates and re-renders
+- Fixed space switching behavior
+  - Removed loading states during space switching
+  - Prevents status tab from showing "generating" when changing spaces
+  - Smoother transition between spaces
+- Improved keyboard navigation in command modal
+  - Fixed arrow key navigation between search and list items
+  - Added proper focus management for list items
+  - Improved integration with CMDK's built-in navigation
+  - Enhanced accessibility for keyboard users
+  - Fixed edge cases with focus handling
+- Fixed command modal keyboard navigation
+  - Properly integrated with CMDK's native keyboard navigation
+  - Fixed arrow key navigation between search and items
+  - Added support for cycling through items with loop
+  - Corrected component hierarchy for better accessibility
+  - Removed custom navigation logic that interfered with built-in behavior
+- Optimized command modal structure
+  - Simplified DOM hierarchy to match CMDK's expectations
+  - Fixed keyboard navigation between search and items
+  - Enabled simultaneous focus of search and first item
+  - Improved filtering and sorting behavior
+  - Enhanced list scrolling and item cycling
+- Improved command modal structure and navigation
+  - Added proper Command.Group components for better keyboard navigation
+  - Fixed list item grouping and hierarchy
+  - Enhanced focus management between groups
+  - Improved accessibility with proper ARIA roles
+  - Maintained consistent styling within groups
+- Fixed Next.js API route params handling
+  - Updated messages and conversations API routes to properly handle async params
+  - Extracted params from context object to prevent sync access
+  - Improved error handling and type safety in route handlers
+  - Fixed "sync dynamic APIs" warning in all dynamic route endpoints
+  - Standardized params extraction pattern across API routes
+
+### Changed
+- Updated quick actions menu names to be more concise
+  - Changed "Switch Space" to "Spaces"
+  - Changed "Switch Model" to "Models"
+- Improved keyboard shortcut styling
+  - Made shortcut keys perfect squares with consistent dimensions
+  - Added flex layout for better centering
+  - Standardized size to 24x24 pixels
+- Improved command modal response time
+  - Modal now closes immediately upon selection (space or model)
+  - Actions continue in background after modal closes
+  - Better user experience with instant feedback
+- Improved space creation process
+  - Form now only requires space name to be valid
+  - Default model is automatically selected
+  - Modal closes immediately when creating space
+  - Creation process continues in background
+  - Faster and more responsive user experience 
+  - No loading indicators during space creation
+  - Immediate activation of newly created spaces
+  - Active space persists across page refreshes
+- Enhanced model selection interface
+  - Added visual indication of active model
+  - Consistent styling with spaces list
+  - Added "Active" label to current model
+  - Improved hover effects and transitions
+  - Better spacing and visual hierarchy
+  - Added backdrop blur and border effects
+- Unified command modal item styling
+  - Consistent hover effects across all items
+  - Added subtle borders and transitions
+  - Improved spacing and padding
+  - Enhanced visual feedback on interaction
+  - Standardized rounded corners
+  - Added backdrop blur effect to all items
+  - Smoother opacity transitions for icons 

@@ -11,6 +11,7 @@ interface CommandModalProps {
   footerElement?: React.ReactNode;
   searchValue?: string;
   onSearchChange?: (value: string) => void;
+  hideSearch?: boolean;
 }
 
 export function CommandModal({ 
@@ -21,21 +22,22 @@ export function CommandModal({
   leftElement,
   footerElement,
   searchValue,
-  onSearchChange
+  onSearchChange,
+  hideSearch = false
 }: CommandModalProps) {
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Auto-focus the input when the modal opens
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !hideSearch) {
       // Small delay to ensure the modal is rendered
       const timeoutId = setTimeout(() => {
         inputRef.current?.focus();
       }, 50);
       return () => clearTimeout(timeoutId);
     }
-  }, [isOpen]);
+  }, [isOpen, hideSearch]);
 
   return (
     <AnimatePresence>
@@ -80,38 +82,35 @@ export function CommandModal({
                     onClose();
                   }
                 }}
+                shouldFilter={true}
                 loop
               >
                 <div 
-                  className="flex items-center border-b border-white/10 px-4"
+                  className={`flex items-center px-4 ${!hideSearch ? 'border-b border-white/10' : 'py-3'}`}
                 >
                   {leftElement}
-                  <Command.Input
-                    ref={inputRef}
-                    value={searchValue}
-                    onValueChange={onSearchChange}
-                    placeholder={placeholder}
-                    onFocus={() => setIsFocused(true)}
-                    onBlur={() => setIsFocused(false)}
-                    className="flex-1 h-14 focus:bg-transparent border-none text-white/90 placeholder:text-white/40 outline-none"
-                  />
+                  {!hideSearch && (
+                    <Command.Input
+                      ref={inputRef}
+                      value={searchValue}
+                      onValueChange={onSearchChange}
+                      placeholder={placeholder}
+                      onFocus={() => setIsFocused(true)}
+                      onBlur={() => setIsFocused(false)}
+                      className="flex-1 h-14 focus:bg-transparent border-none text-white/90 placeholder:text-white/40 outline-none"
+                    />
+                  )}
                 </div>
 
-                <div className="flex flex-col max-h-[min(60vh,400px)]">
-                  <div className="flex-1 overflow-y-auto overscroll-contain scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 p-2">
+                <Command.List className="max-h-[min(60vh,400px)] overflow-y-auto overscroll-contain scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 p-2">
+                  {!hideSearch && searchValue && (
                     <Command.Empty className="py-6 text-center text-sm text-white/40">
                       No results found.
                     </Command.Empty>
-
-                    {children}
-                  </div>
-
-                  {footerElement && (
-                    <div className="flex-none border-t border-white/10 bg-black/50 backdrop-blur-xl">
-                      {footerElement}
-                    </div>
                   )}
-                </div>
+
+                  {children}
+                </Command.List>
               </Command>
             </div>
           </motion.div>

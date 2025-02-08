@@ -1,0 +1,6 @@
+---
+description: 
+globs: *
+---
+
+After each composer completion, you must add what we have done to a file called changelog.md at the rootlevel.

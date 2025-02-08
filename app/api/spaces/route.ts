@@ -5,14 +5,14 @@ import { AVAILABLE_MODELS, isValidModelForProvider, type Provider } from '@/conf
 /**
  * POST /api/space
  * Creates a new space record in the database.
- * Expects JSON body: { name: string, description?: string, model: string, provider: string }
+ * Expects JSON body: { name: string, description?: string, model: string, provider: string, setActive?: boolean }
  */
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     console.log('Received request body:', body);
 
-    const { name, description, model, provider } = body;
+    const { name, description, model, provider, setActive } = body;
     
     if (!name) {
       console.error('Name is required for space creation');
@@ -57,6 +57,25 @@ export async function POST(request: Request) {
     if (spaceError) {
       console.error('Error creating space:', spaceError);
       return NextResponse.json({ error: spaceError.message }, { status: 400 });
+    }
+
+    // Set as active space if requested
+    if (setActive && spaceData) {
+      const { error: activeError } = await supabase
+        .from('active_spaces')
+        .upsert({
+          user_id: user.id,
+          space_id: spaceData.id
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (activeError) {
+        console.error('Error setting active space:', activeError);
+        return NextResponse.json({ error: activeError.message }, { status: 400 });
+      }
+
+      spaceData.isActive = true;
     }
 
     if (!spaceError) {
@@ -112,27 +131,21 @@ export async function GET(request: Request) {
       .select('*')
       .eq('user_id', user.id)
       .eq('is_deleted', false)
-      .order('created_at', { ascending: false });
+      .order('updated_at', { ascending: false });
 
     if (error) {
       console.error('Error fetching spaces:', error);
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    // Add isActive flag to the spaces
-    const spacesWithActive = spaces.map(space => ({
-      ...space,
-      isActive: space.id === activeSpaceData?.space_id
-    }));
-
-    // If there's an active space, move it to the front of the array
-    if (activeSpaceData?.space_id) {
-      const activeIndex = spacesWithActive.findIndex(s => s.id === activeSpaceData.space_id);
-      if (activeIndex > -1) {
-        const [activeSpace] = spacesWithActive.splice(activeIndex, 1);
-        spacesWithActive.unshift(activeSpace);
-      }
-    }
+    // Add isActive flag and ensure active space is first
+    const activeSpace = spaces.find(space => space.id === activeSpaceData?.space_id);
+    const otherSpaces = spaces.filter(space => space.id !== activeSpaceData?.space_id);
+    
+    const spacesWithActive = [
+      ...(activeSpace ? [{ ...activeSpace, isActive: true }] : []),
+      ...otherSpaces.map(space => ({ ...space, isActive: false }))
+    ];
 
     return NextResponse.json(spacesWithActive);
   } catch (err: any) {

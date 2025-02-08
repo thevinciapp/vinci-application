@@ -45,22 +45,22 @@ function ChatContent() {
     isLoading: isStreaming,
   } = useChat({
     api: "/api/chat",
-    body: useMemo(() => ({
+    body: {
       spaceId: activeSpace?.id,
       model: activeSpace?.model,
       provider: activeSpace?.provider,
-    }), [activeSpace]),
+    },
     id: activeConversation?.id,
-    initialMessages: useMemo(() => chatMessages.map(convertToAIMessage), [chatMessages]),
-    onResponse: useCallback((response: Response) => {
+    initialMessages: chatMessages.map(convertToAIMessage),
+    onResponse: (response: Response) => {
       if (!response.ok) {
         console.error('Failed to get response from server', response.status, response.statusText);
         batchUpdate({ error: 'Failed to get response from server' });
       } else {
         batchUpdate({ isLoading: true, error: null });
       }
-    }, [batchUpdate]),
-    onFinish: useCallback(async (message: { content: string }) => {
+    },
+    onFinish: async (message: { content: string }) => {
       if (!activeSpace?.id || !activeConversation?.id || !userId) return;
 
       try {
@@ -95,26 +95,31 @@ function ChatContent() {
       } finally {
         batchUpdate({ isLoading: false });
       }
-    }, [activeSpace?.id, activeConversation?.id, userId, addMessage, batchUpdate])
+    },
   });
 
   // Update streaming message whenever AI messages change
   useEffect(() => {
-    if (isStreaming && aiMessages.length > 0) {
-      const lastMessage = aiMessages[aiMessages.length - 1];
-      if (lastMessage.role === 'assistant') {
-        setStreamingMessage({
-          id: lastMessage.id,
-          conversation_id: activeConversation?.id || '',
-          user_id: userId || '',
-          role: 'assistant',
-          content: lastMessage.content,
-          model_used: activeSpace?.model,
-          provider: activeSpace?.provider,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
-      }
+    if (!isStreaming || aiMessages.length === 0) return;
+    
+    const lastMessage = aiMessages[aiMessages.length - 1];
+    if (lastMessage.role === 'assistant') {
+      setStreamingMessage(prev => {
+        if (!prev || prev.content !== lastMessage.content) {
+          return {
+            id: lastMessage.id,
+            conversation_id: activeConversation?.id || '',
+            user_id: userId || '',
+            role: 'assistant',
+            content: lastMessage.content,
+            model_used: activeSpace?.model,
+            provider: activeSpace?.provider,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+        }
+        return prev;
+      });
     }
   }, [aiMessages, isStreaming, activeSpace?.model, activeSpace?.provider, activeConversation?.id, userId]);
 
@@ -168,20 +173,7 @@ function ChatContent() {
       // Clear streaming message if there's an error
       setStreamingMessage(null);
     }
-  }, [input, isStreaming, userId, activeConversation?.id, activeSpace?.model, activeSpace?.provider, originalHandleSubmit, batchUpdate]);
-
-  // Update streaming message content whenever AI messages change
-  useEffect(() => {
-    if (isStreaming && aiMessages.length > 0) {
-      const lastMessage = aiMessages[aiMessages.length - 1];
-      if (lastMessage.role === 'assistant' && streamingMessage) {
-        setStreamingMessage(prev => prev ? {
-          ...prev,
-          content: lastMessage.content
-        } : null);
-      }
-    }
-  }, [aiMessages, isStreaming]);
+  }, [input, isStreaming, userId, activeConversation?.id, activeSpace?.model, activeSpace?.provider, originalHandleSubmit, batchUpdate, addMessage]);
 
   // Loading state
   if (!spacesState.isInitialized || !conversationsState.isInitialized || !messagesState.isInitialized) {

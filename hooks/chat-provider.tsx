@@ -433,13 +433,6 @@ import { createClient } from '@/utils/supabase/client';
       }
     };
   
-    // Add useEffect to load messages when conversation changes
-    useEffect(() => {
-      if (conversationId) {
-        loadMessages(conversationId);
-      }
-    }, [conversationId]);
-  
     const setMessages = (messages: Message[]) => {
       if (conversationId) {
         dispatch({

@@ -1,10 +1,13 @@
-import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { NextResponse } from 'next/server';
 
 export async function GET(
   request: Request,
-  { params }: { params: { spaceId: string } }
+  context: { params: { spaceId: string } }
 ) {
+  const { params } = context;
+  const spaceId = params.spaceId;
+  
   try {
     const supabase = await createClient();
 
@@ -16,10 +19,10 @@ export async function GET(
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const { data, error } = await supabase
+    const { data: conversations, error } = await supabase
       .from('conversations')
       .select('*')
-      .eq('space_id', params.spaceId)
+      .eq('space_id', spaceId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -27,9 +30,9 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json(data);
-  } catch (err: any) {
-    console.error('Error in conversations fetch:', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(conversations);
+  } catch (error: any) {
+    console.error('Error in conversations fetch:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
