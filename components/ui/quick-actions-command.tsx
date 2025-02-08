@@ -1,14 +1,17 @@
 'use client';
 
 import { CommandModal } from '@/components/ui/command-modal';
-import { Sparkles, Image, Link, FileText, Share2, Bookmark, Globe, Plus, Cpu, ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Plus } from 'lucide-react';
 import { useQuickActionsCommand } from '@/components/ui/quick-actions-command-provider';
 import { useSpaces } from '@/hooks/spaces-provider';
 import { useChatState } from '@/hooks/chat-state-provider';
 import { Command } from 'cmdk';
 import { useState, useEffect } from 'react';
-import { AVAILABLE_MODELS, PROVIDER_NAMES, type Provider } from '@/config/models';
-import { ProviderIcon } from './provider-icon';
+import { AVAILABLE_MODELS, DEFAULTS, PROVIDER_NAMES, type Provider } from '@/lib/constants';
+import { QuickActionsList } from './quick-actions-list';
+import { SpacesList } from './spaces-list';
+import { ModelsList } from './models-list';
+import { SpaceForm } from './space-form';
 
 interface QuickActionsCommandProps {
   isOpen: boolean;
@@ -118,8 +121,8 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: spaceForm.name,
-          description: spaceForm.description,
+          name: spaceForm.name || DEFAULTS.SPACE_NAME,
+          description: spaceForm.description || DEFAULTS.SPACE_DESCRIPTION,
           model: spaceForm.model || AVAILABLE_MODELS[spaceForm.provider][0]?.id,
           provider: spaceForm.provider,
           setActive: true
@@ -215,85 +218,6 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
     }
   };
 
-  const quickActions = [
-    { 
-      id: 'spaces',
-      name: 'Spaces',
-      icon: <Globe className="w-4 h-4" />,
-      shortcut: ['⌘', 'S'],
-      callback: () => {
-        setShowSpaces(true)
-        setSearchValue('')
-      }
-    },
-    {
-      id: 'models',
-      name: 'Models',
-      icon: <Cpu className="w-4 h-4" />,
-      shortcut: ['⌘', 'M'],
-      callback: () => {
-        setShowModels(true)
-        setSearchValue('')
-      }
-    },
-    { 
-      id: 'generate',
-      name: 'Generate Content',
-      icon: <Sparkles className="w-4 h-4" />,
-      callback: () => handleGlobalCommand(() => console.log('Generate'))
-    },
-    { 
-      id: 'image',
-      name: 'Create Image',
-      icon: <Image className="w-4 h-4" />,
-      callback: () => handleGlobalCommand(() => console.log('Image'))
-    },
-    { 
-      id: 'link',
-      name: 'Add Link',
-      icon: <Link className="w-4 h-4" />,
-      callback: () => handleGlobalCommand(() => console.log('Link'))
-    },
-    { 
-      id: 'document',
-      name: 'New Document',
-      icon: <FileText className="w-4 h-4" />,
-      callback: () => handleGlobalCommand(() => console.log('Doc'))
-    },
-    { 
-      id: 'share',
-      name: 'Share',
-      icon: <Share2 className="w-4 h-4" />,
-      callback: () => handleGlobalCommand(() => console.log('Share'))
-    },
-    { 
-      id: 'bookmark',
-      name: 'Bookmark',
-      icon: <Bookmark className="w-4 h-4" />,
-      callback: () => handleGlobalCommand(() => console.log('Bookmark'))
-    },
-  ];
-
-  const commandItemBaseClass = `group relative flex items-center gap-3 mx-2 my-1 px-4 py-3 text-sm text-white/90 outline-none
-    transition-all duration-200 rounded-lg backdrop-blur-sm border border-transparent
-    data-[selected=true]:bg-white/[0.08] data-[selected=true]:border-white/20 data-[selected=true]:text-white
-    hover:bg-white/[0.08] hover:border-white/20`;
-
-  const createSpaceButton = (
-    <Command.Item
-      value="new-space create-space"
-      onSelect={() => {
-        setShowSpaceForm(true)
-        setSearchValue('')
-      }}
-      className="flex items-center gap-2 px-4 py-2 text-sm text-white/90 bg-[#5E6AD2] hover:bg-[#4F5ABF] rounded-md transition-colors
-        border border-white/10 backdrop-blur-xl w-full max-w-[200px] justify-center font-medium"
-    >
-      <Plus className="w-4 h-4" />
-      <span>Create New Space</span>
-    </Command.Item>
-  );
-
   return (
     <CommandModal
       isOpen={isOpen}
@@ -344,7 +268,20 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
           </button>
         ) : null
       }
-      footerElement={showSpaces && !showSpaceForm ? createSpaceButton : null}
+      footerElement={showSpaces && !showSpaceForm ? (
+        <Command.Item
+          value="new-space create-space"
+          onSelect={() => {
+            setShowSpaceForm(true)
+            setSearchValue('')
+          }}
+          className="flex items-center gap-2 px-4 py-2 text-sm text-white/90 bg-[#5E6AD2] hover:bg-[#4F5ABF] rounded-md transition-colors
+            border border-white/10 backdrop-blur-xl w-full max-w-[200px] justify-center font-medium"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Create New Space</span>
+        </Command.Item>
+      ) : null}
       showSpaceForm={showSpaceForm}
       setShowSpaceForm={setShowSpaceForm}
       showSpaces={showSpaces}
@@ -356,237 +293,42 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
     >
       <Command.List>
         {showSpaceForm ? (
-          <Command.Group>
-            <div className="flex flex-col">
-              <div className="p-4 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-white/70 mb-1">Name</label>
-                  <input
-                    type="text"
-                    value={spaceForm.name}
-                    onChange={(e) => setSpaceForm(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-md text-white/90 text-sm
-                      focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/50"
-                    placeholder="Enter space name"
-                    autoFocus
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-white/70 mb-1">Description (Optional)</label>
-                  <input
-                    type="text"
-                    value={spaceForm.description}
-                    onChange={(e) => setSpaceForm(prev => ({ ...prev, description: e.target.value }))}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-md text-white/90 text-sm
-                      focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/50"
-                    placeholder="Enter space description"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-white/70 mb-1">Provider</label>
-                  <select
-                    value={spaceForm.provider}
-                    onChange={(e) => {
-                      const provider = e.target.value as Provider;
-                      setSpaceForm(prev => ({ 
-                        ...prev, 
-                        provider,
-                        model: AVAILABLE_MODELS[provider][0]?.id || ''
-                      }));
-                    }}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-md text-white/90 text-sm
-                      focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/50"
-                  >
-                    {Object.entries(PROVIDER_NAMES).map(([provider, name]) => (
-                      <option key={provider} value={provider}>{name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-white/70 mb-1">Model</label>
-                  <select
-                    value={spaceForm.model}
-                    onChange={(e) => setSpaceForm(prev => ({ ...prev, model: e.target.value }))}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-md text-white/90 text-sm
-                      focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/50"
-                  >
-                    {AVAILABLE_MODELS[spaceForm.provider].map((model) => (
-                      <option key={model.id} value={model.id}>{model.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex justify-center">
-                  <button
-                    onClick={handleCreateSpace}
-                    disabled={!spaceForm.name}
-                    className="px-8 py-1.5 bg-[#5E6AD2] text-white/90 rounded-md text-xs font-medium
-                      hover:bg-[#4F5ABF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors
-                      border border-white/10 backdrop-blur-xl"
-                  >
-                    Create Space
-                  </button>
-                </div>
-              </div>
-            </div>
-          </Command.Group>
+          <SpaceForm
+            spaceForm={spaceForm}
+            onSpaceFormChange={setSpaceForm}
+            onSubmit={handleCreateSpace}
+          />
         ) : !showSpaces && !showModels ? (
-          <Command.Group>
-            {quickActions.map((item, index) => (
-              <Command.Item
-                key={item.id}
-                value={`${item.id} ${item.name}`}
-                onSelect={() => {
-                  item.callback?.();
-                }}
-                data-selected={index === 0 ? 'true' : undefined}
-                className={commandItemBaseClass}
-              >
-                <span className="flex-shrink-0 opacity-70 group-hover:opacity-100 group-data-[selected=true]:opacity-100 transition-opacity">
-                  {item.icon}
-                </span>
-                <span className="flex-1 transition-colors duration-200 group-hover:text-white">
-                  {item.name}
-                </span>
-                {item.shortcut?.length && (
-                  <span className="flex items-center gap-1">
-                    {item.shortcut.map((key, index) => (
-                      <kbd
-                        key={`${item.id}-shortcut-${index}`}
-                        className="flex items-center justify-center w-6 h-6 rounded bg-white/5 text-[10px] font-medium text-white/40 border border-white/10 transition-colors group-hover:bg-white/10 group-data-[selected=true]:bg-white/10"
-                      >
-                        {key}
-                      </kbd>
-                    ))}
-                  </span>
-                )}
-              </Command.Item>
-            ))}
-          </Command.Group>
+          <QuickActionsList
+            onShowSpaces={() => {
+              setShowSpaces(true)
+              setSearchValue('')
+            }}
+            onShowModels={() => {
+              setShowModels(true)
+              setSearchValue('')
+            }}
+            handleGlobalCommand={handleGlobalCommand}
+          />
         ) : showSpaces ? (
-          <Command.Group>
-            {spaces.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-white/40">
-                <p className="text-sm mb-4">No spaces found</p>
-              </div>
-            ) : (
-              <>
-                {spaces.map((space, index) => (
-                  <Command.Item
-                    key={space.id}
-                    value={`space ${space.id} ${space.name}`}
-                    onSelect={() => handleSpaceSelect(space.id)}
-                    data-selected={index === 0 ? 'true' : undefined}
-                    className={`group relative flex items-center gap-3 mx-2 my-1 px-4 py-3 text-sm outline-none
-                      transition-all duration-200 rounded-lg backdrop-blur-sm
-                      data-[selected=true]:bg-white/[0.08] data-[selected=true]:border-white/20 data-[selected=true]:text-white
-                      hover:bg-white/[0.08] hover:border-white/20
-                      ${space.isActive 
-                        ? 'bg-white/[0.05] border border-white/10 shadow-[0_0_1px_rgba(255,255,255,0.1)]' 
-                        : 'text-white/90 border border-transparent'}`}
-                  >
-                    <div className={`w-2 h-2 rounded-full transition-all duration-200 
-                      ${space.isActive 
-                        ? 'bg-blue-500 ring-2 ring-blue-500/20' 
-                        : 'bg-white/20 group-hover:bg-white/40 group-data-[selected=true]:bg-white/40'}`} />
-                    <span className={`transition-all duration-200 
-                      ${space.isActive 
-                        ? 'text-white font-medium' 
-                        : 'text-white/90 group-hover:text-white group-data-[selected=true]:text-white'}`}>
-                      {space.name}
-                    </span>
-                    {space.isActive && (
-                      <span className="ml-auto text-[10px] text-white/40 border border-white/10 px-1.5 py-0.5 rounded-md">
-                        Active
-                      </span>
-                    )}
-                  </Command.Item>
-                ))}
-              </>
-            )}
-          </Command.Group>
+          <SpacesList
+            spaces={spaces}
+            onSpaceSelect={handleSpaceSelect}
+            onCreateSpace={() => {
+              setShowSpaceForm(true)
+              setSearchValue('')
+            }}
+          />
         ) : (
-          <>
-            {!selectedProvider ? (
-              <Command.Group>
-                {Object.entries(PROVIDER_NAMES).map(([provider, name], index) => (
-                  <Command.Item
-                    key={provider}
-                    value={`provider ${provider} ${name}`}
-                    onSelect={() => {
-                      setSelectedProvider(provider as Provider)
-                      setSearchValue('')
-                    }}
-                    data-selected={index === 0 ? 'true' : undefined}
-                    className={`group relative flex items-center gap-3 mx-2 my-1 px-4 py-3 text-sm outline-none
-                      transition-all duration-200 rounded-lg backdrop-blur-sm
-                      data-[selected=true]:bg-white/[0.08] data-[selected=true]:border-white/20 data-[selected=true]:text-white
-                      hover:bg-white/[0.08] hover:border-white/20
-                      ${activeSpace?.provider === provider 
-                        ? 'bg-white/[0.05] border border-white/10 shadow-[0_0_1px_rgba(255,255,255,0.1)]' 
-                        : 'text-white/90 border border-transparent'}`}
-                  >
-                    <ProviderIcon 
-                      provider={provider as Provider} 
-                      size={16} 
-                      className={`transition-opacity duration-200 
-                        ${activeSpace?.provider === provider 
-                          ? 'opacity-100' 
-                          : 'opacity-75 group-hover:opacity-100 group-data-[selected=true]:opacity-100'}`} 
-                    />
-                    <span className={`transition-all duration-200 
-                      ${activeSpace?.provider === provider 
-                        ? 'text-white font-medium' 
-                        : 'text-white/90 group-hover:text-white group-data-[selected=true]:text-white'}`}>
-                      {name}
-                    </span>
-                    {activeSpace?.provider === provider && (
-                      <span className="ml-auto text-[10px] text-white/40 border border-white/10 px-1.5 py-0.5 rounded-md">
-                        Active
-                      </span>
-                    )}
-                  </Command.Item>
-                ))}
-              </Command.Group>
-            ) : (
-              <Command.Group>
-                {AVAILABLE_MODELS[selectedProvider].map((model, index) => (
-                  <Command.Item
-                    key={model.id}
-                    value={`model ${model.id} ${model.name}`}
-                    onSelect={() => handleModelSelect(model.id, selectedProvider)}
-                    data-selected={index === 0 ? 'true' : undefined}
-                    className={`group relative flex items-center gap-3 mx-2 my-1 px-4 py-3 text-sm outline-none
-                      transition-all duration-200 rounded-lg backdrop-blur-sm
-                      data-[selected=true]:bg-white/[0.08] data-[selected=true]:border-white/20 data-[selected=true]:text-white
-                      hover:bg-white/[0.08] hover:border-white/20
-                      ${activeSpace?.model === model.id 
-                        ? 'bg-white/[0.05] border border-white/10 shadow-[0_0_1px_rgba(255,255,255,0.1)]' 
-                        : 'text-white/90 border border-transparent'}`}
-                  >
-                    <ProviderIcon 
-                      provider={selectedProvider} 
-                      size={16} 
-                      className={`transition-opacity duration-200 
-                        ${activeSpace?.model === model.id 
-                          ? 'opacity-100' 
-                          : 'opacity-75 group-hover:opacity-100 group-data-[selected=true]:opacity-100'}`} 
-                    />
-                    <span className={`transition-all duration-200 
-                      ${activeSpace?.model === model.id 
-                        ? 'text-white font-medium' 
-                        : 'text-white/90 group-hover:text-white group-data-[selected=true]:text-white'}`}>
-                      {model.name}
-                    </span>
-                    {activeSpace?.model === model.id && (
-                      <span className="ml-auto text-[10px] text-white/40 border border-white/10 px-1.5 py-0.5 rounded-md">
-                        Active
-                      </span>
-                    )}
-                  </Command.Item>
-                ))}
-              </Command.Group>
-            )}
-          </>
+          <ModelsList
+            selectedProvider={selectedProvider}
+            onProviderSelect={(provider) => {
+              setSelectedProvider(provider)
+              setSearchValue('')
+            }}
+            onModelSelect={handleModelSelect}
+            activeSpace={activeSpace}
+          />
         )}
       </Command.List>
     </CommandModal>
