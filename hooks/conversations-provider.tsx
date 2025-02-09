@@ -61,6 +61,7 @@ export function ConversationsProvider({ children }: { children: ReactNode }) {
       if (!activeSpace?.id || !spacesState.isInitialized) return;
 
       try {
+        console.log('Loading conversations for space:', activeSpace.id);
         const response = await fetch(`/api/conversations/${activeSpace.id}`);
         const data = await response.json();
         
@@ -131,6 +132,7 @@ export function useConversations() {
   const loadConversations = async (spaceId: string) => {
     try {
       dispatch({ type: ConversationsActionType.SET_INITIALIZED, payload: false });
+      console.log('Loading conversations for space:', spaceId);
       const response = await fetch(`/api/conversations/${spaceId}`);
       const data = await response.json();
       

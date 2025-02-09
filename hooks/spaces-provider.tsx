@@ -27,7 +27,7 @@ enum ActionType {
 
 type Action =
   | { type: ActionType.SET_SPACES; payload: Space[] }
-  | { type: ActionType.SET_ACTIVE_SPACE; payload: Space }
+  | { type: ActionType.SET_ACTIVE_SPACE; payload: Space | null }
   | { type: ActionType.SET_INITIALIZED; payload: boolean }
   | { type: ActionType.SET_ERROR; payload: string | null }
 

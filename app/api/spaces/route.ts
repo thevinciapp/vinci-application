@@ -12,6 +12,13 @@ const redis = Redis.fromEnv()
  */
 export async function POST(request: Request) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED, { status: ERROR_MESSAGES.UNAUTHORIZED.status });
+    }
+
     const body = await request.json(); 
     const { name, description, model, provider, setActive } = body;
 
@@ -26,13 +33,6 @@ export async function POST(request: Request) {
     const selectedModel = getModelById(provider as Provider, model);
     if (!selectedModel) {
       return NextResponse.json(ERROR_MESSAGES.INVALID_MODEL, { status: ERROR_MESSAGES.INVALID_MODEL.status });
-    }
-
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED, { status: ERROR_MESSAGES.UNAUTHORIZED.status });
     }
 
     // Prepare space data

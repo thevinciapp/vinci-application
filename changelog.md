@@ -400,4 +400,5 @@
   - Improved type safety in message handling
   - Added proper error responses for invalid requests
   - Enhanced space access validation
+- Updated Action type in spaces-provider to allow null for SET_ACTIVE_SPACE payload, fixing type error during user logout
  

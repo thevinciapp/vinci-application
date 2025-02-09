@@ -8,10 +8,11 @@ const redis = Redis.fromEnv()
 
 export async function GET(
   request: Request,
-  context: { params: { conversationId: string } }
+  props: { params: Promise<{ conversationId: string }> }
 ) {
   try {
-    const { conversationId } = context.params;
+    const params = await props.params;
+    const { conversationId } = params;
     const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -50,19 +51,21 @@ export async function GET(
 
 export async function POST(
     request: Request,
-    context: { params: { conversationId: string } }
+    props: { params: Promise<{ conversationId: string }> }
 ) {
     try {
-        const { conversationId } = context.params;
-        const body = await request.json();
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+      const params = await props.params;
+      const { conversationId } = params;
 
-        if (!user) {
-            return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED, { status: ERROR_MESSAGES.UNAUTHORIZED.status });
-        }
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+  
+      if (!user) {
+        return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED, { status: ERROR_MESSAGES.UNAUTHORIZED.status });
+      }
 
-        const { content, role, model_used, provider, parent_message_id } = body;
+      const body = await request.json();
+      const { content, role, model_used, provider, parent_message_id } = body;
 
         if (!content || !role) {
             return NextResponse.json(ERROR_MESSAGES.MISSING_FIELDS, { status: ERROR_MESSAGES.MISSING_FIELDS.status });

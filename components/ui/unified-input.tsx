@@ -8,10 +8,9 @@ import {
   FolderPlus, Users, Clock, Upload, GitBranch, Layers, Globe, Archive, GitMerge
 } from 'lucide-react';
 import { SpaceTab } from '@/components/ui/space-tab';
-import QuickActionsTab from './quick-actions-tab';
+import QuickActionsTab from '@/components/ui/quick-actions-tab';
 import { StatusTab } from '@/components/ui/status-tab';
-import { useChatState } from '@/store/chatStateStore';
-import { ModelTab } from './model-tab';
+import { ModelTab } from '@/components/ui/model-tab';
 
 interface ActionItem {
   icon: React.ReactNode;
@@ -34,8 +33,6 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { status } = useChatState();
-  const isLoading = status === 'generating';
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -145,7 +142,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
                   transition-all duration-300
                   overflow-hidden backdrop-blur-sm
                   group
-                  ${isLoading || disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/[0.06] hover:border-white/[0.15]'}
+                  ${false || disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/[0.06] hover:border-white/[0.15]'}
                 `}
                 onClick={(e) => {
                   e.preventDefault();
@@ -153,7 +150,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
                     onSubmit();
                   }
                 }}
-                disabled={isLoading || disabled}
+                disabled={false || disabled}
               >
                 {/* Glow effects */}
                 <div className="absolute inset-0 bg-gradient-to-b from-white/[0.08] to-transparent opacity-80" />

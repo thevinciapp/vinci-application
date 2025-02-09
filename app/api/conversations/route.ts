@@ -12,18 +12,18 @@ const redis = Redis.fromEnv()
  */
 export async function GET(request: Request) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED, { status: ERROR_MESSAGES.UNAUTHORIZED.status });
+    }
+
     const { searchParams } = new URL(request.url);
     const spaceId = searchParams.get('spaceId');
 
     if (!spaceId) {
       return NextResponse.json(ERROR_MESSAGES.MISSING_SPACE_ID);
-    }
-
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED);
     }
 
     const cachedConversations = await redis.get(CACHE_KEYS.conversations(spaceId))

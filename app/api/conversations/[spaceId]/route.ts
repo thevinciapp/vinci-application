@@ -5,19 +5,19 @@ import { Redis } from "@upstash/redis"
 
 const redis = Redis.fromEnv()
 
-export async function GET(
-    request: Request,
-    context: { params: { spaceId: string } }
-) {
+export async function GET(request: Request, props: { params: Promise<{ spaceId: string }> }) {
+    const params = await props.params;
+
     try {
-        const { spaceId } = context.params;
-        const supabase = await createClient();
+      const supabase = await createClient();
+      
+      const { data: { user } } = await supabase.auth.getUser();
 
-        const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+          return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED, { status: ERROR_MESSAGES.UNAUTHORIZED.status });
+      }
 
-        if (!user) {
-            return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED, { status: ERROR_MESSAGES.UNAUTHORIZED.status });
-        }
+      const { spaceId } = params
 
         const cachedConversations = await redis.get(CACHE_KEYS.conversations(spaceId))
         if (cachedConversations) {
@@ -46,19 +46,21 @@ export async function GET(
 
 export async function POST(
     request: Request,
-    context: { params: { spaceId: string } }
+    props: { params: Promise<{ spaceId: string }> }
 ) {
     try {
-        const { spaceId } = context.params;
-        const body = await request.json();
-        const { title = DEFAULTS.CONVERSATION_TITLE } = body;
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+  
+      if (!user) {
+        return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED, { status: ERROR_MESSAGES.UNAUTHORIZED.status });
+      }
 
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED, { status: ERROR_MESSAGES.UNAUTHORIZED.status });
-        }
+      const params = await props.params;
+      const { spaceId } = params;
+      
+      const body = await request.json();
+      const { title = DEFAULTS.CONVERSATION_TITLE } = body;
 
         if (!spaceId) {
             return NextResponse.json(ERROR_MESSAGES.MISSING_SPACE_ID, { status: ERROR_MESSAGES.MISSING_SPACE_ID.status });

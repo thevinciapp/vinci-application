@@ -140,7 +140,7 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          space_id: newSpace.id,
+          spaceId: newSpace.id,
           title: 'Getting Started'
         })
       });

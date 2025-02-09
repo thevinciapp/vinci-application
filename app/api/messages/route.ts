@@ -13,20 +13,20 @@ const redis = Redis.fromEnv()
  */
 export async function GET(request: Request) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED, { status: ERROR_MESSAGES.UNAUTHORIZED.status });
+    }
+
     const { searchParams } = new URL(request.url);
     const conversationId = searchParams.get('conversationId');
 
     if (!conversationId) {
       return NextResponse.json(ERROR_MESSAGES.MISSING_CONVERSATION_ID);
     }
-
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED);
-    }
-
+    
     // Try to get messages from cache first
     const cachedMessages = await redis.get(CACHE_KEYS.messages(conversationId));
     if (cachedMessages) {

@@ -1,5 +1,6 @@
 import { Command } from 'cmdk';
 import { Globe, Cpu, Sparkles, Image, Link, FileText, Share2, Bookmark } from 'lucide-react';
+import { JSX } from 'react';
 
 interface QuickAction {
   id: string;

@@ -7,10 +7,11 @@ const redis = Redis.fromEnv()
 
 export async function GET(
   request: Request,
-  context: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = context.params;
+    const params = await props.params;
+    const { id } = params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -60,19 +61,20 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  context: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = context.params;
-    const body = await request.json();
-    const { name, description, model, provider, setActive } = body;
-
+    const params = await props.params;
+    const { id } = params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED, { status: ERROR_MESSAGES.UNAUTHORIZED.status });
     }
+
+    const body = await request.json();
+    const { name, description, model, provider, setActive } = body;
 
     // Validate provider and model if they are being updated
     if (provider) {
@@ -145,17 +147,18 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  context: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = context.params;
+    const params = await props.params;
+    const { id } = params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED, { status: ERROR_MESSAGES.UNAUTHORIZED.status });
     }
-
+      
     // Soft delete the space
     const { error: deleteError } = await supabase
       .from(DB_TABLES.SPACES)
