@@ -4,9 +4,12 @@ import { persist } from 'zustand/middleware';
 export interface Space {
   id: string;
   name: string;
+  user_id: string;
   description?: string;
   icon?: string;
   color?: string;
+  model: string;
+  provider: string;
   created_at: string;
   updated_at: string;
 }

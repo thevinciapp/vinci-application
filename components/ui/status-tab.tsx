@@ -1,45 +1,32 @@
-import React from 'react';
-import { useChatState } from '@/store/chat-state-store';
+import React, { useMemo } from 'react';
+import { useChatState } from '@/hooks/chat-state-provider';
 
-interface StatusTabProps {
-}
+export const StatusTab: React.FC = React.memo(() => {
+  const { state } = useChatState();
 
-export const StatusTab: React.FC<StatusTabProps> = () => {
-  const { status, error } = useChatState();
+  const { statusText, statusColor } = useMemo(() => {
+    const text = state.error 
+      ? state.error 
+      : state.isLoading 
+        ? 'Generating...' 
+        : 'Ready';
 
-  const getStatusText = () => {
-    switch (status) {
-      case 'generating':
-        return 'Generating...';
-      case 'error':
-        return error || 'Error';
-      case 'idle':
-      default:
-        return 'Ready';
-    }
-  };
+    const color = state.error 
+      ? 'bg-red-500' 
+      : state.isLoading 
+        ? 'bg-yellow-500' 
+        : 'bg-green-500';
 
-  const getStatusColor = () => {
-    switch (status) {
-      case 'generating':
-        return 'bg-yellow-500';
-      case 'error':
-        return 'bg-red-500';
-      case 'idle':
-      default:
-        return 'bg-green-500';
-    }
-  };
+    return { statusText: text, statusColor: color };
+  }, [state.error, state.isLoading]);
 
   return (
     <div
       className="px-3 py-1 rounded-t-lg backdrop-blur-2xl bg-white/[0.03] border border-white/[0.05] text-white text-xs font-medium flex items-center gap-1.5 relative overflow-hidden
         before:absolute before:inset-0 before:backdrop-blur-3xl before:bg-gradient-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10"
     >
-      <div
-        className={`w-1.5 h-1.5 rounded-full ${getStatusColor()}`}
-      />
-      <span>{getStatusText()}</span>
+      <div className={`w-1.5 h-1.5 rounded-full ${statusColor}`} />
+      <span>{statusText}</span>
     </div>
   );
-};
+});
