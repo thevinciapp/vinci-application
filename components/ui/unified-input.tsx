@@ -8,10 +8,9 @@ import {
   FolderPlus, Users, Clock, Upload, GitBranch, Layers, Globe, Archive, GitMerge
 } from 'lucide-react';
 import { SpaceTab } from '@/components/ui/space-tab';
-import QuickActionsTab from './quick-actions-tab';
+import QuickActionsTab from '@/components/ui/quick-actions-tab';
 import { StatusTab } from '@/components/ui/status-tab';
-import { useChatState } from '@/store/chat-state-store';
-import { useSpaceCommand } from './space-command-provider';
+import { ModelTab } from '@/components/ui/model-tab';
 
 interface ActionItem {
   icon: React.ReactNode;
@@ -22,18 +21,18 @@ interface ActionItem {
 interface UnifiedInputProps {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  onSubmit: () => void;
+  onSubmit: (e?: React.FormEvent) => Promise<void> | void;
+  disabled?: boolean;
 }
 
 export const UnifiedInput: React.FC<UnifiedInputProps> = ({ 
   value, 
   onChange, 
-  onSubmit
+  onSubmit,
+  disabled
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { status } = useChatState();
-  const isLoading = status === 'generating';
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -96,6 +95,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
               <SpaceTab />
               <StatusTab />
               <QuickActionsTab />
+              <ModelTab />
             </div>
           </div>
           
@@ -132,20 +132,43 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
                   placeholder="Type your message..."
                   className="w-full text-sm resize-none min-h-[48px] max-h-[200px] px-1 py-0.5 focus:bg-transparent bg-transparent focus:outline-none transition-colors duration-200 overflow-y-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] text-white/90 placeholder:text-white/40"
                   rows={1}
+                  disabled={disabled}
                 />
               </div>
               <button 
-                className={`btn btn-primary flex items-center gap-2 transition-all duration-300 ${isLoading ? 'opacity-50' : ''}`}
+                className={`
+                  flex items-center gap-2 px-4 py-2 rounded-md relative
+                  bg-white/[0.03] border border-white/[0.1]
+                  transition-all duration-300
+                  overflow-hidden backdrop-blur-sm
+                  group
+                  ${false || disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/[0.06] hover:border-white/[0.15]'}
+                `}
                 onClick={(e) => {
                   e.preventDefault();
                   if (value.trim()) {
                     onSubmit();
                   }
                 }}
-                disabled={isLoading}
+                disabled={false || disabled}
               >
-                <Send className="w-3.5 h-3.5" />
-                <span>Send</span>
+                {/* Glow effects */}
+                <div className="absolute inset-0 bg-gradient-to-b from-white/[0.08] to-transparent opacity-80" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(255,255,255,0.1),transparent)]" />
+                <div className="absolute inset-0 bg-white/5 shadow-[inset_0_0_15px_rgba(255,255,255,0.2)]" />
+                
+                {/* Content */}
+                <div className="relative z-10 flex items-center gap-2">
+                  <Send className="w-3.5 h-3.5 text-white/90" />
+                  <span className="text-sm font-medium text-white/90">Send</span>
+                </div>
+                
+                {/* Hover glow */}
+                <div className={`
+                  absolute inset-0 bg-white/5 opacity-0 blur-md
+                  transition-opacity duration-300
+                  group-hover:opacity-100
+                `} />
               </button>
             </div>
           </div>

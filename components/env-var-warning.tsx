@@ -10,16 +10,14 @@ export function EnvVarWarning() {
       </Badge>
       <div className="flex gap-2">
         <Button
-          asChild
           size="sm"
-          variant={"outline"}
+          variant={"ghost"}
           disabled
           className="opacity-75 cursor-none pointer-events-none"
         >
           <Link href="/sign-in">Sign in</Link>
         </Button>
         <Button
-          asChild
           size="sm"
           variant={"default"}
           disabled
