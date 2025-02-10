@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     
     // Validate required fields
-    const { conversation_id, content, role } = body;
+    const { conversation_id, content, role, model_used, provider, parent_message_id } = body;
     if (!conversation_id || !content || !role) {
       return NextResponse.json(ERROR_MESSAGES.MISSING_FIELDS);
     }
@@ -90,30 +90,30 @@ export async function POST(request: Request) {
 
     // Prepare message data with required fields
     const messageData: Partial<Message> = {
-      [COLUMNS.CONVERSATION_ID]: conversation_id,
       [COLUMNS.USER_ID]: user.id,
       [COLUMNS.ROLE]: role,
       [COLUMNS.CONTENT]: content,
       [COLUMNS.IS_DELETED]: false,
+      annotations: {
+        conversation_id,
+        ...(model_used && { model_used }),
+        ...(provider && { provider }),
+        ...(parent_message_id && { parent_message_id })
+      },
       [COLUMNS.CREATED_AT]: new Date().toISOString(),
       [COLUMNS.UPDATED_AT]: new Date().toISOString()
     };
 
-    // Add optional fields if present
-    if (body.model_used) messageData[COLUMNS.MODEL_USED] = body.model_used;
-    if (body.provider) messageData[COLUMNS.PROVIDER] = body.provider;
-    if (body.parent_message_id) {
-      // Validate parent_message_id exists if provided
+    // If parent_message_id is provided, validate it exists
+    if (parent_message_id) {
       const { data: parentMessage } = await supabase
         .from(DB_TABLES.MESSAGES)
         .select(COLUMNS.ID)
-        .eq(COLUMNS.ID, body.parent_message_id)
+        .eq(COLUMNS.ID, parent_message_id)
         .single();
 
-      if (parentMessage) {
-        messageData[COLUMNS.PARENT_MESSAGE_ID] = body.parent_message_id;
-      } else {
-        console.warn('Invalid parent_message_id provided:', body.parent_message_id);
+      if (!parentMessage) {
+        console.warn('Invalid parent_message_id provided:', parent_message_id);
       }
     }
 
@@ -128,12 +128,12 @@ export async function POST(request: Request) {
       return NextResponse.json(ERROR_MESSAGES.SERVER_ERROR(error.message));
     }
 
-    // Invalidate messages cache for this conversation
+    // Invalidate cache
     await redis.del(CACHE_KEYS.messages(conversation_id));
 
     return NextResponse.json(message);
   } catch (err: any) {
     console.error('Error in message creation:', err);
-    return NextResponse.json(ERROR_MESSAGES.SERVER_ERROR('Failed to create message: ' + err.message));
+    return NextResponse.json(ERROR_MESSAGES.SERVER_ERROR(err.message));
   }
 }

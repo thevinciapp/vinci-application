@@ -1,24 +1,13 @@
 import React, { useMemo } from 'react';
-import { useChatState } from '@/hooks/chat-state-provider';
 
 export const StatusTab: React.FC = React.memo(() => {
-  const { state } = useChatState();
 
   const { statusText, statusColor } = useMemo(() => {
-    const text = state.error 
-      ? state.error 
-      : state.isLoading 
-        ? 'Generating...' 
-        : 'Ready';
-
-    const color = state.error 
-      ? 'bg-red-500' 
-      : state.isLoading 
-        ? 'bg-yellow-500' 
-        : 'bg-green-500';
+    const text = 'Ready';
+    const color = 'bg-green-500';
 
     return { statusText: text, statusColor: color };
-  }, [state.error, state.isLoading]);
+  }, []);
 
   return (
     <div

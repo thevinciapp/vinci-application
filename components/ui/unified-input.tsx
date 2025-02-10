@@ -1,22 +1,8 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Send, Paperclip, AtSign, Mic, Search, Filter, 
-  Calendar, MessageSquare, Command, Sparkles, Image, Link,
-  FileText, Share2, Bookmark, Settings, Mail,
-  FolderPlus, Users, Clock, Upload, GitBranch, Layers, Globe, Archive, GitMerge
-} from 'lucide-react';
-import { SpaceTab } from '@/components/ui/space-tab';
-import QuickActionsTab from '@/components/ui/quick-actions-tab';
-import { StatusTab } from '@/components/ui/status-tab';
-import { ModelTab } from '@/components/ui/model-tab';
+import { Send } from 'lucide-react';
 
-interface ActionItem {
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-}
 
 interface UnifiedInputProps {
   value: string;
@@ -25,9 +11,9 @@ interface UnifiedInputProps {
   disabled?: boolean;
 }
 
-export const UnifiedInput: React.FC<UnifiedInputProps> = ({ 
-  value, 
-  onChange, 
+export const UnifiedInput: React.FC<UnifiedInputProps> = ({
+  value,
+  onChange,
   onSubmit,
   disabled
 }) => {
@@ -43,63 +29,10 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     }
   }, [value]);
 
-  const actions: ActionItem[] = [
-    {
-      label: 'History',
-      icon: <Clock className="w-5 h-5" />,
-      onClick: () => {/* TODO: Implement history view */}
-    },
-    {
-      label: 'Upload',
-      icon: <Upload className="w-5 h-5" />,
-      onClick: () => {/* TODO: Implement file upload */}
-    },
-    {
-      label: 'Branch',
-      icon: <GitBranch className="w-5 h-5" />,
-      onClick: () => {/* TODO: Create new conversation branch */}
-    },
-    {
-      label: 'Context',
-      icon: <Layers className="w-5 h-5" />,
-      onClick: () => {/* TODO: Open context manager */}
-    },
-    {
-      label: 'Space',
-      icon: <Globe className="w-5 h-5" />,
-      onClick: () => {/* TODO: Switch workspace */}
-    },
-    {
-      label: 'Archive',
-      icon: <Archive className="w-5 h-5" />,
-      onClick: () => {/* TODO: Archive conversation */}
-    },
-    {
-      label: 'Merge',
-      icon: <GitMerge className="w-5 h-5" />,
-      onClick: () => {/* TODO: Merge conversations */}
-    },
-    {
-      label: 'Actions',
-      icon: <Command className="w-5 h-5" />,
-      onClick: () => {/* TODO: Open actions view */}
-    }
-  ];
+
 
   return (
-    <>      
-      <div className="fixed left-1/2 bottom-8 -translate-x-1/2 w-[800px] z-50">
-        <div className="relative w-full">
-          <div className="absolute -top-8 left-0 right-0 flex justify-center z-[100]">
-            <div className="flex items-center gap-2">
-              <SpaceTab />
-              <StatusTab />
-              <QuickActionsTab />
-              <ModelTab />
-            </div>
-          </div>
-          
-          <div 
+          <div
             className={`
               bg-black border border-white/[0.2]
               before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/[0.05] before:to-white/[0.02] before:-z-10
@@ -107,7 +40,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
               shadow-[0_0_15px_-5px_rgba(94,106,210,0.4)]
               after:absolute after:inset-0 after:rounded-xl after:-z-20 after:transition-opacity after:duration-300
               after:bg-gradient-to-t after:from-[#5E6AD2]/20 after:to-transparent after:blur-xl
-              ${isFocused 
+              ${isFocused
                 ? 'ring-2 ring-[#5E6AD2]/30 ring-offset-0 shadow-[0_0_30px_-5px_rgba(94,106,210,0.6)] after:opacity-100'
                 : 'after:opacity-70'
               }
@@ -135,7 +68,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
                   disabled={disabled}
                 />
               </div>
-              <button 
+              <button
                 className={`
                   flex items-center gap-2 px-4 py-2 rounded-md relative
                   bg-white/[0.03] border border-white/[0.1]
@@ -156,13 +89,13 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
                 <div className="absolute inset-0 bg-gradient-to-b from-white/[0.08] to-transparent opacity-80" />
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(255,255,255,0.1),transparent)]" />
                 <div className="absolute inset-0 bg-white/5 shadow-[inset_0_0_15px_rgba(255,255,255,0.2)]" />
-                
+
                 {/* Content */}
                 <div className="relative z-10 flex items-center gap-2">
                   <Send className="w-3.5 h-3.5 text-white/90" />
                   <span className="text-sm font-medium text-white/90">Send</span>
                 </div>
-                
+
                 {/* Hover glow */}
                 <div className={`
                   absolute inset-0 bg-white/5 opacity-0 blur-md
@@ -172,8 +105,5 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
               </button>
             </div>
           </div>
-        </div>
-      </div>
-    </>
   );
 };

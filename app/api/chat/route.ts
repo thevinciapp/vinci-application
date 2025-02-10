@@ -1,4 +1,4 @@
-import { streamText } from 'ai';
+import { createDataStreamResponse, generateId, smoothStream, streamText } from 'ai';
 import { groq } from '@ai-sdk/groq';
 import { anthropic } from '@ai-sdk/anthropic';
 import { openai } from '@ai-sdk/openai';
@@ -11,8 +11,10 @@ import { deepseek } from '@ai-sdk/deepseek';
 import { cerebras } from '@ai-sdk/cerebras';
 import { perplexity } from '@ai-sdk/perplexity';
 import { createClient } from '@/utils/supabase/server';
-import { COLUMNS, DB_TABLES, Provider, ERROR_MESSAGES } from '@/lib/constants'; 
+import { COLUMNS, DB_TABLES, ERROR_MESSAGES } from '@/lib/constants';
+import { type Provider } from '@/config/models';
 import { NextResponse } from 'next/server';
+import { createMessage } from '@/app/actions';
 
 
 export const maxDuration = 60;
@@ -20,61 +22,124 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'edge';
 
 
-const providers: Record<Provider, (model: string, messages: any[]) => any> = { 
-  groq: (model, messages) => streamText({ model: groq(model), messages }),
-  anthropic: (model, messages) => streamText({ model: anthropic(model), messages }),
-  openai: (model, messages) => streamText({ model: openai(model), messages }),
-  cohere: (model, messages) => streamText({ model: cohere(model), messages }),
-  mistral: (model, messages) => streamText({ model: mistral(model), messages }),
-  google: (model, messages) => streamText({ model: google(model), messages }),
-  xai: (model, messages) => streamText({ model: xai(model), messages }),
-  togetherai: (model, messages) => streamText({ model: togetherai(model), messages }),
-  deepseek: (model, messages) => streamText({ model: deepseek(model), messages }),
-  cerebras: (model, messages) => streamText({ model: cerebras(model), messages }),
-  perplexity: (model, messages) => streamText({ model: perplexity(model), messages }),
+const providers: Record<Provider, (model: string) => any> = {
+  groq: (model) => groq(model),
+  anthropic: (model) => anthropic(model),
+  openai: (model) => openai(model),
+  cohere: (model) => cohere(model),
+  mistral: (model) => mistral(model),
+  google: (model) => google(model),
+  xai: (model) => xai(model),
+  togetherai: (model) => togetherai(model),
+  deepseek: (model) => deepseek(model),
+  cerebras: (model) => cerebras(model),
+  perplexity: (model) => perplexity(model),
 };
 
 
 export async function POST(req: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED, { status: ERROR_MESSAGES.UNAUTHORIZED.status });
+    return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED, {
+      status: ERROR_MESSAGES.UNAUTHORIZED.status,
+    });
   }
 
-  const { messages, spaceId } = await req.json();
+  const { messages, spaceId, conversationId } = await req.json();
 
   if (!spaceId) {
-    return NextResponse.json(ERROR_MESSAGES.MISSING_SPACE_ID, { status: ERROR_MESSAGES.MISSING_SPACE_ID.status });
+    return NextResponse.json(ERROR_MESSAGES.MISSING_SPACE_ID, {
+      status: ERROR_MESSAGES.MISSING_SPACE_ID.status,
+    });
   }
 
-
   const { data: spaceData, error: spaceError } = await supabase
-      .from(DB_TABLES.SPACES)
-      .select(`${COLUMNS.MODEL}, ${COLUMNS.PROVIDER}`)
-      .eq(COLUMNS.ID, spaceId)
-      .eq(COLUMNS.USER_ID, user.id)
-      .single();
+    .from(DB_TABLES.SPACES)
+    .select(`${COLUMNS.MODEL}, ${COLUMNS.PROVIDER}`)
+    .eq(COLUMNS.ID, spaceId)
+    .eq(COLUMNS.USER_ID, user.id)
+    .single();
 
-    if (spaceError || !spaceData) {
-      console.error("Space Error:", spaceError)
-      return NextResponse.json(ERROR_MESSAGES.SPACE_NOT_FOUND, { status: ERROR_MESSAGES.SPACE_NOT_FOUND.status });
-    }
+  if (spaceError || !spaceData) {
+    console.error("Space Error:", spaceError);
+    return NextResponse.json(ERROR_MESSAGES.SPACE_NOT_FOUND, {
+      status: ERROR_MESSAGES.SPACE_NOT_FOUND.status,
+    });
+  }
 
-    const provider = spaceData.provider as Provider;
-    const model = spaceData.model;
-
+  const provider = spaceData.provider as Provider;
+  const model = spaceData.model;
 
   if (!provider || !providers[provider]) {
-    return NextResponse.json(ERROR_MESSAGES.INVALID_PROVIDER, { status: ERROR_MESSAGES.INVALID_PROVIDER.status });
+    return NextResponse.json(ERROR_MESSAGES.INVALID_PROVIDER, {
+      status: ERROR_MESSAGES.INVALID_PROVIDER.status,
+    });
   }
 
   try {
-    const result = providers[provider](model, messages);
-    return await result.toDataStreamResponse({});
+    // Create user message
+    await createMessage({
+      [COLUMNS.CONTENT]: messages[messages.length - 1].content,
+      [COLUMNS.ROLE]: 'user',
+      [COLUMNS.ANNOTATIONS]: [
+        {
+          [COLUMNS.MODEL_USED]: model,
+          [COLUMNS.PROVIDER]: provider
+        }
+      ] // Annotations are now explicitly an array
+    }, conversationId);
+
+    const createModel = providers[provider];
+    if (!createModel) {
+      return NextResponse.json(ERROR_MESSAGES.INVALID_PROVIDER, {
+        status: ERROR_MESSAGES.INVALID_PROVIDER.status,
+      });
+    }
+
+    return createDataStreamResponse({
+      execute: dataStream => {
+        const modelInstance = createModel(model);
+        const result = streamText({
+          model: modelInstance,
+          messages,
+          onChunk() {
+            dataStream.writeMessageAnnotation({
+              id: generateId(),
+              [COLUMNS.MODEL_USED]: model,
+              [COLUMNS.PROVIDER]: provider,
+              [COLUMNS.SPACE_ID]: spaceId,
+              [COLUMNS.CONVERSATION_ID]: conversationId,
+            });
+          },
+          async onFinish(completion: string | { text: string }) {
+            const text = typeof completion === 'string' ? completion : completion.text;
+            await createMessage({
+              [COLUMNS.CONTENT]: text,
+              [COLUMNS.ROLE]: 'assistant',
+              [COLUMNS.ANNOTATIONS]: [
+                {
+                  [COLUMNS.MODEL_USED]: model,
+                  [COLUMNS.PROVIDER]: provider
+                }
+              ]
+            }, conversationId);
+          }
+        });
+
+        result.mergeIntoDataStream(dataStream);
+      },
+      onError: error => {
+        return error instanceof Error ? error.message : String(error);
+      },
+    });
   } catch (error) {
-    console.error('Error in chat route:', error);
-    return NextResponse.json(ERROR_MESSAGES.SERVER_ERROR('Error processing request'), { status: 500 });
+    console.error("Error in chat route:", error);
+    return NextResponse.json(ERROR_MESSAGES.SERVER_ERROR("Error processing request"), {
+      status: 500,
+    });
   }
 }

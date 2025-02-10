@@ -1,3 +1,4 @@
+// config/models.ts
 export const AVAILABLE_MODELS = {
   groq: [
     { id: 'deepseek-r1-distill-llama-70b', name: 'Deepseek R1 70B' },
@@ -58,7 +59,7 @@ export const AVAILABLE_MODELS = {
     { id: 'sonar-reasoning-pro', name: 'Sonar Reasoning Pro' },
     { id: 'sonar-reasoning', name: 'Sonar Reasoning' },
     { id: 'sonar-pro', name: 'Sonar Pro' },
-    { id: 'sonar', name: 'Sonar' },
+    { id: 'sonar', name: 'Sonar' }
   ]
 } as const;
 
@@ -88,4 +89,4 @@ export function isValidModelForProvider(provider: Provider, model: string): bool
 export function getModelName(provider: Provider, modelId: string): string {
   const model = AVAILABLE_MODELS[provider].find(m => m.id === modelId);
   return model?.name || modelId;
-} 
+}

@@ -1,16 +1,17 @@
+// components/ui/quick-actions-command-provider.tsx
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { QuickActionsCommand } from '@/components/ui/quick-actions-command';
-import { useCommandState } from '@/components/ui/command-state-provider';
+// Removed: import { useCommandState } from '@/components/ui/command-state-provider';
+// No longer needed
 
 interface QuickActionsCommandContextType {
   isOpen: boolean;
   openQuickActionsCommand: (withSpaces?: boolean) => void;
   closeQuickActionsCommand: () => void;
   toggleQuickActionsCommand: (withSpaces?: boolean, withModels?: boolean) => void;
-  isExecuting: boolean;
-  handleGlobalCommand: (handler: () => void) => void;
+  // Removed: isExecuting, handleGlobalCommand  (No longer needed)
   showSpaces: boolean;
   setShowSpaces: (show: boolean) => void;
   showModels: boolean;
@@ -22,8 +23,8 @@ const QuickActionsCommandContext = createContext<QuickActionsCommandContextType>
   openQuickActionsCommand: () => {},
   closeQuickActionsCommand: () => {},
   toggleQuickActionsCommand: () => {},
-  isExecuting: false,
-  handleGlobalCommand: () => {},
+  // Removed: isExecuting: false,
+  // Removed: handleGlobalCommand: () => {},
   showSpaces: false,
   setShowSpaces: () => {},
   showModels: false,
@@ -39,74 +40,52 @@ export const useQuickActionsCommand = () => {
 };
 
 export const QuickActionsCommandProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isExecuting, setIsExecuting] = useState(false);
+  // const [isExecuting, setIsExecuting] = useState(false); // Removed
   const [showSpaces, setShowSpaces] = useState(false);
   const [showModels, setShowModels] = useState(false);
-  const { activeCommand, setActiveCommand } = useCommandState();
-  const isOpen = activeCommand === 'quick-actions';
+  // Removed: const { activeCommand, setActiveCommand } = useCommandState();
+  const [isOpen, setIsOpen] = useState(false); // Directly manage isOpen here
 
-  const openQuickActionsCommand = (withSpaces = false) => {
-    setActiveCommand('quick-actions');
+  const openQuickActionsCommand = useCallback((withSpaces = false) => {
+    setIsOpen(true);
     setShowSpaces(withSpaces);
     setShowModels(false);
-  };
+  }, []); // Added useCallback
 
-  const closeQuickActionsCommand = () => {
-    setActiveCommand(null);
+  const closeQuickActionsCommand = useCallback(() => {
+    setIsOpen(false);
     setShowSpaces(false);
     setShowModels(false);
-  };
-  
-  const toggleQuickActionsCommand = (withSpaces = false, withModels = false) => {
-    if (isOpen) {
-      closeQuickActionsCommand();
-    } else {
-      setActiveCommand('quick-actions');
-      setShowSpaces(withSpaces);
-      setShowModels(withModels);
-    }
-  };
+  }, []); // Added useCallback
 
-  const handleGlobalCommand = (handler: () => void) => {
-    if (isExecuting) return;
-    setIsExecuting(true);
-    try {
-      handler();
-    } finally {
-      setIsExecuting(false);
-    }
-  };
+  const toggleQuickActionsCommand = useCallback((withSpaces = false, withModels = false) => {
+      setIsOpen((prevIsOpen) => {
+          const nextIsOpen = !prevIsOpen;
+          setShowSpaces(nextIsOpen && withSpaces); // Only show if opening AND withSpaces is true
+          setShowModels(nextIsOpen && withModels);  // Only show if opening AND withModels is true
+          return nextIsOpen;
+      });
+  }, []); // Added useCallback
+
+  // const handleGlobalCommand = (handler: () => void) => { // Removed
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey) {
-        // Handle Command/Ctrl + K
-        if (e.key.toLowerCase() === 'k') {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        toggleQuickActionsCommand(); // Just toggle, don't pass booleans
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        toggleQuickActionsCommand(true, false); // Open with spaces
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'm') {
           e.preventDefault();
-          if (!isExecuting) {
-            toggleQuickActionsCommand(false, false);
-          }
-        }
-        // Handle Command/Ctrl + S
-        else if (e.key.toLowerCase() === 's') {
-          e.preventDefault();
-          if (!isExecuting) {
-            toggleQuickActionsCommand(true, false);
-          }
-        }
-        // Handle Command/Ctrl + M
-        else if (e.key.toLowerCase() === 'm') {
-          e.preventDefault();
-          if (!isExecuting) {
-            toggleQuickActionsCommand(false, true);
-          }
-        }
+          toggleQuickActionsCommand(false, true); // Open with models
       }
     };
-  
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isExecuting, isOpen]);
+  }, [toggleQuickActionsCommand]); //  Dependency array now includes toggleQuickActionsCommand
 
   return (
     <QuickActionsCommandContext.Provider
@@ -115,8 +94,8 @@ export const QuickActionsCommandProvider: React.FC<{ children: React.ReactNode }
         openQuickActionsCommand,
         closeQuickActionsCommand,
         toggleQuickActionsCommand,
-        isExecuting,
-        handleGlobalCommand,
+        // Removed: isExecuting,
+        // Removed: handleGlobalCommand,
         showSpaces,
         setShowSpaces,
         showModels,

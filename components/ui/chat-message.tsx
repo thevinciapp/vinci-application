@@ -1,27 +1,29 @@
-'use client';
-
 import { User } from 'lucide-react';
 import { FC } from 'react';
-import { Message } from '@/types';
 import { getModelName, type Provider } from '@/config/models';
 import { ProviderIcon } from './provider-icon';
+import { Message } from 'ai';
 
 interface ChatMessageProps {
   message: Message;
 }
 
 export const ChatMessage: FC<ChatMessageProps> = ({ message }) => {
-  const isUser = message.role === 'user';
-  const content = isUser 
-    ? message.content 
-    : message.content;
+  const isUser = message.role === 'user'
 
-  // Get model name and provider display
-  const modelName = message.model_used && message.provider
-    ? getModelName(message.provider as Provider, message.model_used)
-    : message.model_used || 'AI';
-  const providerName = message.provider 
-    ? message.provider.charAt(0).toUpperCase() + message.provider.slice(1)
+  const annotations = message.annotations as Array<{
+    model_used?: string,
+    provider?: string
+  }> | undefined;
+
+  const modelAnnotation = annotations?.find(a => a.model_used);
+  const providerAnnotation = annotations?.find(a => a.provider);
+
+  const modelName = modelAnnotation?.model_used
+    ? getModelName(modelAnnotation.provider as Provider, modelAnnotation.model_used)
+    : 'AI';
+  const providerName = providerAnnotation?.provider
+    ? providerAnnotation.provider.charAt(0).toUpperCase() + providerAnnotation.provider.slice(1)
     : '';
 
   return (
@@ -37,12 +39,12 @@ export const ChatMessage: FC<ChatMessageProps> = ({ message }) => {
       )}
       <div className={`flex-1 space-y-2 overflow-hidden ${isUser ? 'text-right' : ''} max-w-[85%]`}>
         <div className={`prose prose-invert max-w-none ${isUser ? 'ml-auto' : 'mr-auto'}`}>
-          {message.role === 'assistant' && (
+          {message.role === 'assistant' && annotations && (
             <div className="flex items-center gap-1.5 mb-2.5">
-              {message.provider && (
+              {providerAnnotation?.provider && (
                 <div className="px-2 py-0.5 rounded backdrop-blur-2xl bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit
                   before:absolute before:inset-0 before:backdrop-blur-3xl before:bg-gradient-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10">
-                  <ProviderIcon provider={message.provider as Provider} size={14} />
+                  <ProviderIcon provider={providerAnnotation.provider as Provider} size={14} />
                 </div>
               )}
               <div className="px-2.5 py-0.5 rounded backdrop-blur-2xl bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit
@@ -51,18 +53,11 @@ export const ChatMessage: FC<ChatMessageProps> = ({ message }) => {
               </div>
             </div>
           )}
-          <p className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${
-            isUser 
-              ? 'text-white shadow-[0_0_15px_-5px_rgba(255,255,255,0.3)]' 
-              : 'text-white/90'
-          }`}>
-            {content || (
-              <span className="flex gap-1">
-                <span className="inline-block w-12 h-4 bg-white/[0.07] rounded animate-pulse" />
-                <span className="inline-block w-16 h-4 bg-white/[0.07] rounded animate-pulse" />
-                <span className="inline-block w-8 h-4 bg-white/[0.07] rounded animate-pulse" />
-              </span>
-            )}
+          <p className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${isUser
+            ? 'text-white shadow-[0_0_15px_-5px_rgba(255,255,255,0.3)]'
+            : 'text-white/90'
+            }`}>
+            {message.content}
           </p>
         </div>
       </div>

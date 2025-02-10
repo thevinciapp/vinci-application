@@ -1,4 +1,4 @@
-import { AVAILABLE_MODELS, PROVIDER_NAMES, type Provider } from '@/lib/constants';
+import { AVAILABLE_MODELS, PROVIDER_NAMES, type Provider } from '@/config/models';
 
 interface SpaceFormProps {
   spaceForm: {
@@ -13,7 +13,7 @@ interface SpaceFormProps {
     provider: Provider;
     model: string;
   }) => void;
-  onSubmit: () => void;
+  onSubmit: () => Promise<void>; // onSubmit is now async
 }
 
 export function SpaceForm({ spaceForm, onSpaceFormChange, onSubmit }: SpaceFormProps) {
@@ -49,8 +49,8 @@ export function SpaceForm({ spaceForm, onSpaceFormChange, onSubmit }: SpaceFormP
             value={spaceForm.provider}
             onChange={(e) => {
               const provider = e.target.value as Provider;
-              onSpaceFormChange({ 
-                ...spaceForm, 
+              onSpaceFormChange({
+                ...spaceForm,
                 provider,
                 model: AVAILABLE_MODELS[provider][0]?.id || ''
               });
@@ -76,18 +76,20 @@ export function SpaceForm({ spaceForm, onSpaceFormChange, onSubmit }: SpaceFormP
             ))}
           </select>
         </div>
-        <div className="flex justify-center">
-          <button
-            onClick={onSubmit}
-            disabled={!spaceForm.name}
-            className="px-8 py-1.5 bg-[#5E6AD2] text-white/90 rounded-md text-xs font-medium
-              hover:bg-[#4F5ABF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors
-              border border-white/10 backdrop-blur-xl"
-          >
-            Create Space
-          </button>
-        </div>
+          <div className="flex justify-center">
+              <button
+              onClick={async () => {
+                await onSubmit();
+                }}
+              disabled={!spaceForm.name}
+              className="px-8 py-1.5 bg-[#5E6AD2] text-white/90 rounded-md text-xs font-medium
+                  hover:bg-[#4F5ABF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors
+                  border border-white/10 backdrop-blur-xl"
+              >
+              Create Space
+              </button>
+          </div>
       </div>
     </div>
   );
-} 
+}

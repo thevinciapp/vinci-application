@@ -1,13 +1,303 @@
 "use server";
 
-import { encodedRedirect } from "@/utils/utils";
 import { createClient } from "@/utils/supabase/server";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import {
+  COLUMNS,
+  DB_TABLES,
+  DEFAULTS,
+} from "@/lib/constants";
+import { Conversation, Space } from "@/types";
+import { Message } from "ai";
+import { revalidatePath } from "next/cache";
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { encodedRedirect } from "@/utils/utils";
+
+// Spaces
+export async function getSpaces(): Promise<Space[] | null> {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        console.error("User not found");
+        return null;
+    }
+
+  const { data, error } = await supabase
+    .from(DB_TABLES.SPACES)
+    .select("*")
+    .eq(COLUMNS.USER_ID, user.id)
+        .eq(COLUMNS.IS_DELETED, false)
+        .order(COLUMNS.UPDATED_AT, { ascending: false });
+
+  if (error) {
+    console.error("Error fetching spaces:", error);
+    return null;
+  }
+  return data;
+}
+
+
+export async function createSpace(
+  name: string,
+  description: string,
+  model: string,
+    provider: string,
+  setActive: boolean
+): Promise<Space | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    console.error("User not found");
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from(DB_TABLES.SPACES)
+    .insert([
+      {
+        [COLUMNS.NAME]: name || DEFAULTS.SPACE_NAME,
+        [COLUMNS.DESCRIPTION]: description || DEFAULTS.SPACE_DESCRIPTION,
+        [COLUMNS.USER_ID]: user.id,
+        [COLUMNS.MODEL]: model,
+        [COLUMNS.PROVIDER]: provider,
+      },
+    ])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating space:", error);
+    return null;
+  }
+
+    if (setActive && data) {
+        await setActiveSpace(data.id)
+    }
+
+  return data;
+}
+
+export async function updateSpace(id: string, updates: Partial<Space>): Promise<Space | null> {
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        console.error("User not found");
+        return null;
+    }
+
+    const { data, error } = await supabase
+        .from(DB_TABLES.SPACES)
+        .update(updates)
+        .eq(COLUMNS.ID, id)
+        .eq(COLUMNS.USER_ID, user.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating space:', error);
+        return null;
+      }
+      return data;
+}
+
+export async function setActiveSpace(spaceId: string): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+      console.error("User not found");
+      return;
+  }
+
+  const { error: deleteError } = await supabase
+      .from(DB_TABLES.ACTIVE_SPACES)
+      .delete()
+      .eq(COLUMNS.USER_ID, user.id);
+
+  if (deleteError) {
+      console.error("Error removing existing active space:", deleteError);
+  }
+
+  const { error: insertError } = await supabase
+      .from(DB_TABLES.ACTIVE_SPACES)
+      .insert({
+          [COLUMNS.USER_ID]: user.id,
+          [COLUMNS.SPACE_ID]: spaceId
+      });
+
+
+  if (insertError) {
+      console.error("Error setting active space:", insertError);
+  }
+}
+
+export async function getActiveSpace(): Promise<Space | null> {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        console.error("User not found");
+        return null;
+    }
+
+    const { data: activeSpaceData, error: activeSpaceError } = await supabase
+        .from(DB_TABLES.ACTIVE_SPACES)
+        .select(COLUMNS.SPACE_ID)
+        .eq(COLUMNS.USER_ID, user.id)
+        .single();
+
+    if (activeSpaceError || !activeSpaceData) {
+      return null;
+    }
+
+    const { data: space, error: spaceError } = await supabase
+        .from(DB_TABLES.SPACES)
+        .select("*")
+        .eq(COLUMNS.ID, activeSpaceData.space_id)
+        .eq(COLUMNS.USER_ID, user.id)
+        .single();
+
+    if (spaceError) {
+        console.error("Error fetching active space:", spaceError);
+        return null;
+    }
+
+    return space;
+}
+
+// Conversations
+export async function getConversations(spaceId: string): Promise<Conversation[] | null> {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        console.error("User not found");
+        return null;
+    }
+
+    if (!spaceId) {
+        return []; // Return empty array if no space is active
+    }
+
+  const { data, error } = await supabase
+    .from(DB_TABLES.CONVERSATIONS)
+    .select("*")
+    .eq(COLUMNS.SPACE_ID, spaceId)
+    .order(COLUMNS.CREATED_AT, { ascending: false });
+
+  if (error) {
+    console.error("Error fetching conversations:", error);
+    return null;
+  }
+  return data;
+}
+
+export async function createConversation(spaceId: string, title: string): Promise<Conversation | null> {
+     const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        console.error("User not found");
+        return null;
+    }
+  const { data, error } = await supabase
+    .from(DB_TABLES.CONVERSATIONS)
+    .insert([
+      {
+        [COLUMNS.SPACE_ID]: spaceId,
+        [COLUMNS.TITLE]: title || DEFAULTS.CONVERSATION_TITLE,
+      },
+    ])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating conversation:", error);
+    return null;
+  }
+
+  return data;
+}
+
+export async function getMessages(conversationId: string): Promise<Message[] | null> {
+  if (!conversationId) {
+    console.error("Invalid conversation ID: Cannot fetch messages without a valid conversation ID");
+    return null;
+  }
+  
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from(DB_TABLES.MESSAGES)
+    .select("*")
+    .eq('conversation_id', conversationId)
+    .eq(COLUMNS.IS_DELETED, false)
+    .order(COLUMNS.CREATED_AT, { ascending: true });
+
+  if (error) {
+    console.error("Error fetching messages:", error);
+    return null;
+  }
+
+  return data;
+}
+
+export async function createMessage(messageData: Partial<Message>, conversationId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        console.error("No authenticated user found");
+        return null;
+    }
+
+    if (!messageData.content || !messageData.role) {
+        console.error("Missing required message data");
+        return null;
+    }
+    
+    
+    const { data, error } = await supabase
+        .from(DB_TABLES.MESSAGES)
+        .insert([{
+            [COLUMNS.CONTENT]: messageData.content,
+            [COLUMNS.ROLE]: messageData.role,
+            [COLUMNS.ANNOTATIONS]: messageData.annotations,
+            [COLUMNS.USER_ID]: user.id,
+            [COLUMNS.IS_DELETED]: false,
+            [COLUMNS.CREATED_AT]: new Date().toISOString(),
+            [COLUMNS.UPDATED_AT]: new Date().toISOString(),
+            [COLUMNS.CONVERSATION_ID]: conversationId
+        }])
+        .select()
+        .single();
+
+    if (error) {
+        console.error("Error creating message:", error);
+        return null;
+    }
+
+    return data;
+}
+
 
 export const signUpAction = async (formData: FormData) => {
-  const email = formData.get("email")?.toString();
-  const password = formData.get("password")?.toString();
+  const email = formData.get("email")?.toString();
+  const password = formData.get("password")?.toString();
   const supabase = await createClient();
   const origin = (await headers()).get("origin");
 

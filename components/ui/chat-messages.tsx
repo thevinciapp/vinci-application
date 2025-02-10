@@ -3,8 +3,7 @@
 import { useStickToBottom } from '@/hooks/use-stick-to-bottom';
 import { FC, useEffect, useState } from 'react';
 import { ChatMessage } from './chat-message';
-import { Message } from '@/types';
-import { useChatState } from '@/hooks/chat-state-provider';
+import { Message } from 'ai';
 
 interface ChatMessagesProps {
   messages: Message[];
@@ -12,17 +11,14 @@ interface ChatMessagesProps {
 
 export const ChatMessages: FC<ChatMessagesProps> = ({ messages }) => {
   const { containerRef,isStickToBottom } = useStickToBottom();
-  const { state: chatState } = useChatState();
   const [isMessagesReady, setIsMessagesReady] = useState(false);
 
-  // Wait for messages to be loaded before showing them
   useEffect(() => {
     if (messages.length > 0) {
       setIsMessagesReady(true);
     }
   }, [messages]);
 
-  // Reset ready state when messages are cleared
   useEffect(() => {
     if (messages.length === 0) {
       setIsMessagesReady(false);
@@ -31,7 +27,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({ messages }) => {
 
   return (
     <div className="relative flex-1 flex flex-col">
-      <div 
+      <div
         ref={isMessagesReady ? containerRef : null}
         className={`absolute inset-0 ${
           isMessagesReady ? 'overflow-y-auto' : 'overflow-hidden'

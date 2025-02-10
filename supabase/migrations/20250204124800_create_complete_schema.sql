@@ -70,19 +70,19 @@ CREATE POLICY "Users can create conversations in their spaces"
         )
     );
 
--- MESSAGES TABLE: Each message entry contains both user and assistant messages
 CREATE TABLE messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
     content TEXT NOT NULL,
-    model_used TEXT,
-    provider TEXT,
-    parent_message_id UUID REFERENCES messages(id) ON DELETE SET NULL,
+    annotations JSONB DEFAULT '[]'::jsonb,
+    conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
     is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    CONSTRAINT valid_annotations CHECK (
+        jsonb_typeof(annotations) = 'array'
+    )
 );
 
 -- Enable RLS on messages
@@ -104,12 +104,12 @@ CREATE POLICY "Users can view messages in their spaces"
 CREATE POLICY "Users can insert messages in their spaces"
     ON messages FOR INSERT
     WITH CHECK (
-        user_id = auth.uid() AND
+        messages.user_id = auth.uid() AND
         EXISTS (
             SELECT 1
             FROM spaces s
             JOIN conversations c ON c.space_id = s.id
-            WHERE c.id = conversation_id
+            WHERE c.id = messages.conversation_id
             AND s.user_id = auth.uid()
         )
     );
@@ -130,7 +130,6 @@ ALTER TABLE space_user_relations ENABLE ROW LEVEL SECURITY;
 CREATE INDEX idx_spaces_user_id ON spaces(user_id);
 CREATE INDEX idx_conversations_space_id ON conversations(space_id);
 CREATE INDEX idx_messages_conversation_id ON messages(conversation_id);
-CREATE INDEX idx_messages_parent_id ON messages(parent_message_id);
 CREATE INDEX idx_space_user_relations_space_id ON space_user_relations(space_id);
 CREATE INDEX idx_space_user_relations_user_id ON space_user_relations(user_id);
 
@@ -138,12 +137,10 @@ CREATE INDEX idx_space_user_relations_user_id ON space_user_relations(user_id);
 CREATE OR REPLACE FUNCTION get_conversation_messages(conversation_uuid UUID)
 RETURNS TABLE (
     id UUID,
-    conversation_id UUID,
     user_id UUID,
     role TEXT,
     content TEXT,
-    model_used TEXT,
-    parent_message_id UUID,
+    annotations JSONB,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ
 ) 
@@ -154,12 +151,10 @@ BEGIN
     RETURN QUERY
     SELECT 
         m.id,
-        m.conversation_id,
         m.user_id,
         m.role,
         m.content,
-        m.model_used,
-        m.parent_message_id,
+        m.annotations,
         m.created_at,
         m.updated_at
     FROM messages m

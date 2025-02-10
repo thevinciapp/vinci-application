@@ -1,28 +1,19 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { CACHE_KEYS, CACHE_TTL, DB_TABLES, COLUMNS, ERROR_MESSAGES, DEFAULTS } from '@/lib/constants';
-import { Redis } from "@upstash/redis"
-
-const redis = Redis.fromEnv()
+import {  DB_TABLES, COLUMNS, ERROR_MESSAGES, DEFAULTS } from '@/lib/constants';
 
 export async function GET(request: Request, props: { params: Promise<{ spaceId: string }> }) {
     const params = await props.params;
 
     try {
-      const supabase = await createClient();
-      
-      const { data: { user } } = await supabase.auth.getUser();
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
 
-      if (!user) {
-          return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED, { status: ERROR_MESSAGES.UNAUTHORIZED.status });
-      }
-
-      const { spaceId } = params
-
-        const cachedConversations = await redis.get(CACHE_KEYS.conversations(spaceId))
-        if (cachedConversations) {
-            return NextResponse.json(cachedConversations);
+        if (!user) {
+            return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED, { status: ERROR_MESSAGES.UNAUTHORIZED.status });
         }
+
+        const { spaceId } = params
 
         const { data: conversations, error } = await supabase
             .from(DB_TABLES.CONVERSATIONS)
@@ -34,8 +25,6 @@ export async function GET(request: Request, props: { params: Promise<{ spaceId: 
             console.error('Error fetching conversations:', error);
             return NextResponse.json(ERROR_MESSAGES.SERVER_ERROR(error.message), { status: 500 });
         }
-
-        await redis.set(CACHE_KEYS.conversations(spaceId), JSON.stringify(conversations), { ex: CACHE_TTL.CONVERSATIONS });
 
         return NextResponse.json(conversations);
     } catch (error: any) {
@@ -49,18 +38,18 @@ export async function POST(
     props: { params: Promise<{ spaceId: string }> }
 ) {
     try {
-      const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-  
-      if (!user) {
-        return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED, { status: ERROR_MESSAGES.UNAUTHORIZED.status });
-      }
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            return NextResponse.json(ERROR_MESSAGES.UNAUTHORIZED, { status: ERROR_MESSAGES.UNAUTHORIZED.status });
+        }
 
-      const params = await props.params;
-      const { spaceId } = params;
-      
-      const body = await request.json();
-      const { title = DEFAULTS.CONVERSATION_TITLE } = body;
+
+        const params = await props.params;
+        const { spaceId } = params;
+        const body = await request.json();
+        const { title = DEFAULTS.CONVERSATION_TITLE } = body;
+
 
         if (!spaceId) {
             return NextResponse.json(ERROR_MESSAGES.MISSING_SPACE_ID, { status: ERROR_MESSAGES.MISSING_SPACE_ID.status });
@@ -93,8 +82,6 @@ export async function POST(
             return NextResponse.json(ERROR_MESSAGES.SERVER_ERROR(error.message), { status: 500 });
         }
 
-        // Invalidate conversations cache for this space
-        await redis.del(CACHE_KEYS.conversations(spaceId));
 
         return NextResponse.json(conversation);
     } catch (error: any) {
