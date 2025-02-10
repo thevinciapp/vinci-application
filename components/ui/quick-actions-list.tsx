@@ -1,6 +1,7 @@
 import { Command } from 'cmdk';
-import {  Cpu, Sparkles, Globe } from 'lucide-react';
+import { Cpu, Sparkles, Globe } from 'lucide-react';
 import { JSX } from 'react';
+import { commandItemClass } from './command-item';
 
 interface QuickAction {
   id: string;
@@ -35,11 +36,6 @@ export function QuickActionsList({ onShowSpaces, onShowModels }: QuickActionsLis
     },
   ];
 
-  const commandItemBaseClass = `group relative flex items-center gap-3 mx-2 my-1 px-4 py-3 text-sm text-white/90 outline-none
-    transition-all duration-200 rounded-lg backdrop-blur-sm border border-transparent
-    data-[selected=true]:bg-white/[0.08] data-[selected=true]:border-white/20 data-[selected=true]:text-white
-    hover:bg-white/[0.08] hover:border-white/20`;
-
   return (
     <Command.Group>
       {quickActions.map((item, index) => (
@@ -50,7 +46,7 @@ export function QuickActionsList({ onShowSpaces, onShowModels }: QuickActionsLis
             item.callback?.();
           }}
           data-selected={index === 0 ? 'true' : undefined}
-          className={commandItemBaseClass}
+          className={commandItemClass()}
         >
           <span className="flex-shrink-0 opacity-70 group-hover:opacity-100 group-data-[selected=true]:opacity-100 transition-opacity">
             {item.icon}

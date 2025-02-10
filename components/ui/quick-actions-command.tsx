@@ -37,30 +37,11 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
     model: AVAILABLE_MODELS['groq'][0]?.id || ''
   });
 
-  const loadSpaces = async () => {
-    const fetchedSpaces = await getSpaces();
-    setSpaces(fetchedSpaces);
-    if (fetchedSpaces && fetchedSpaces.length > 0) {
-      const active = fetchedSpaces.find(space => space.isActive);
-      if (active) {
-        setActiveSpace(active);
-      }
-    }
-  }
-
-  // Clear search and selected provider when switching views
   useEffect(() => {
     setSearchValue('');
     setSelectedProvider(null);
   }, [showSpaces, showModels]);
 
-  useEffect(() => {
-    if (isOpen) {
-      loadSpaces();
-    }
-  }, [isOpen]);
-
-  // Reset form when closing modal
   useEffect(() => {
     if (!isOpen) {
       setShowSpaceForm(false);
@@ -100,14 +81,14 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
       spaceForm.name,
       spaceForm.description,
       spaceForm.model,
-        spaceForm.provider,
+      spaceForm.provider,
       true
     );
-      if(newSpace) {
-        const allSpaces = await getSpaces();
-          if(allSpaces) setSpaces(allSpaces);
-          setActiveSpace(newSpace);
-      }
+    if (newSpace) {
+      const allSpaces = await getSpaces();
+      if (allSpaces) setSpaces(allSpaces);
+      setActiveSpace(newSpace);
+    }
   };
 
   const handleModelSelect = async (modelId: string, provider: Provider) => {
@@ -116,26 +97,26 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
     onClose();
 
     const updatedSpace = await updateSpace(activeSpace.id, { model: modelId, provider: provider });
-        if (updatedSpace) {
-          setActiveSpace(updatedSpace); // Update the active space
-        }
+    if (updatedSpace) {
+      setActiveSpace(updatedSpace); // Update the active space
+    }
 
   };
 
-    const handleGoBack = () => {
-        if (showSpaceForm) {
-          setShowSpaceForm(false);
-        } else if (showSpaces) {
-            setShowSpaces(false);
-        } else if (showModels) {
-            if (selectedProvider) {
-                setSelectedProvider(null);
-            } else {
-                setShowModels(false);
-            }
-        }
-        setSearchValue('');
+  const handleGoBack = () => {
+    if (showSpaceForm) {
+      setShowSpaceForm(false);
+    } else if (showSpaces) {
+      setShowSpaces(false);
+    } else if (showModels) {
+      if (selectedProvider) {
+        setSelectedProvider(null);
+      } else {
+        setShowModels(false);
+      }
     }
+    setSearchValue('');
+  }
 
 
   return (
@@ -198,7 +179,7 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
       selectedProvider={selectedProvider}
       setSelectedProvider={setSelectedProvider}
     >
-          <Command.List>
+      <Command.List>
         {showSpaceForm ? (
           <SpaceForm
             spaceForm={spaceForm}
@@ -207,19 +188,20 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
           />
         ) : !showSpaces && !showModels ? (
           <QuickActionsList
-          onShowSpaces={() => {
-            setShowSpaces(true);
-            setSearchValue('');
-           }}
-          onShowModels={() => {
+            onShowSpaces={() => {
+              setShowSpaces(true);
+              setSearchValue('');
+            }}
+            onShowModels={() => {
               setShowModels(true);
               setSearchValue('');
-          }}
-        />
+            }}
+          />
         ) : showSpaces ? (
           <SpacesList
-              spaces={spaces}
+            spaces={spaces}
             onSpaceSelect={handleSpaceSelect}
+            activeSpaceId={activeSpace?.id}
           />
         ) : ( // showModels is true
           <ModelsList

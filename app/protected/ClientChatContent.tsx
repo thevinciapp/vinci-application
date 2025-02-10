@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, FormEvent } from "react";
 import { useChat } from "ai/react";
 import { ChatMessages } from "@/components/ui/chat-messages";
 import { UnifiedInput } from "@/components/ui/unified-input";
-import { createConversation, getConversations, getMessages } from "../actions";
+import { createConversation, getConversations, getMessages, getSpace } from "../actions";
 import { Conversation, Space, ExtendedMessage } from "@/types";
 import { SpaceTab } from "@/components/ui/space-tab";
 import { ModelTab } from "@/components/ui/model-tab";
@@ -30,19 +30,36 @@ export default function ClientChatContent({
     const { activeSpace, setActiveSpace, setSpaces } = useSpaceStore()
     const [conversations, setConversations] = useState<Conversation[]>(defaultConversations || []);
     const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         setActiveSpace(defaultSpace);
         setSpaces(spaces);
+        setIsLoading(false);
     }, [defaultSpace, spaces, setActiveSpace, setSpaces]);
 
     useEffect(() => {
-        const loadConversations = async () => {
+        const loadSpaceData = async () => {
+            setIsLoading(true);
+            setMessages([]);
+
             if (activeSpace?.id) {
+                const fetchedSpace = await getSpace(activeSpace.id);
+                if (fetchedSpace) {
+                    setActiveSpace(fetchedSpace);
+                }
+
                 const fetchedConversations = await getConversations(activeSpace.id);
                 setConversations(fetchedConversations || []);
+
                 if (fetchedConversations && fetchedConversations.length > 0) {
-                    setActiveConversation(fetchedConversations[0]);
+                    const latestConversation = fetchedConversations[0];
+                    setActiveConversation(latestConversation);
+
+                    const fetchedMessages = await getMessages(latestConversation.id);
+                    if (fetchedMessages) {
+                        setMessages(fetchedMessages);
+                    }
                 } else {
                     const newConversation = await createConversation(activeSpace.id, "New Chat");
                     if (newConversation) {
@@ -51,11 +68,13 @@ export default function ClientChatContent({
                     }
                 }
             }
+            setIsLoading(false);
         };
-        loadConversations();
+
+        loadSpaceData();
     }, [activeSpace?.id]);
 
-    const { messages, input, isLoading, handleInputChange, handleSubmit } = useChat({
+    const { messages, setMessages, input, isLoading: isChatLoading, handleInputChange, handleSubmit } = useChat({
         api: "/api/chat",
         initialMessages: defaultMessages || [],
         body: {
@@ -72,16 +91,22 @@ export default function ClientChatContent({
                     <div className="relative w-full">
                         <div className="absolute -top-8 left-0 right-0 flex justify-center z-[100]">
                             <div className="flex items-center gap-2">
-                                <SpaceTab spaces={spaces} activeSpaceId={activeSpace?.id || ''} />
+                                <SpaceTab
+                                    activeSpace={activeSpace}
+                                    isLoading={isLoading}
+                                />
                                 <QuickActionsTab />
-                                <ModelTab activeSpace={activeSpace} />
+                                <ModelTab
+                                    activeSpace={activeSpace}
+                                    isLoading={isLoading}
+                                />
                             </div>
                         </div>
                         <UnifiedInput
                             value={input}
                             onChange={handleInputChange}
                             onSubmit={handleSubmit}
-                            disabled={!activeSpace || isLoading}
+                            disabled={!activeSpace || isLoading || isChatLoading}
                         />
                     </div>
                 </div>

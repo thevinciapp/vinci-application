@@ -86,7 +86,12 @@ export function isValidModelForProvider(provider: Provider, model: string): bool
   return AVAILABLE_MODELS[provider].some(m => m.id === model);
 }
 
-export function getModelName(provider: Provider, modelId: string): string {
-  const model = AVAILABLE_MODELS[provider].find(m => m.id === modelId);
+export function getModelName(provider: Provider | undefined, modelId: string): string {
+  if (!provider || !modelId) return 'Select Model';
+  
+  const models = AVAILABLE_MODELS[provider];
+  if (!models) return modelId;
+
+  const model = models.find(m => m.id === modelId);
   return model?.name || modelId;
 }

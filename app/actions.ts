@@ -39,6 +39,32 @@ export async function getSpaces(): Promise<Space[] | null> {
   return data;
 }
 
+export async function getSpace(id: string): Promise<Space | null> {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+  
+  if (!user) {
+    console.error("User not found");
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from(DB_TABLES.SPACES)
+    .select("*")
+    .eq(COLUMNS.ID, id)
+    .eq(COLUMNS.USER_ID, user.id)
+    .single();
+
+  if (error) {
+    console.error("Error fetching space:", error);
+    return null;
+  }
+  return data;
+}
+
+
 
 export async function createSpace(
   name: string,
