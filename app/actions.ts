@@ -8,12 +8,31 @@ import {
 } from "@/lib/constants";
 import { Conversation, Space } from "@/types";
 import { Message } from "ai";
-import { revalidatePath } from "next/cache";
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { encodedRedirect } from "@/utils/utils";
+import { Redis } from "@upstash/redis";
 
-// Spaces
+const redis = Redis.fromEnv();
+
+const CACHE_KEYS = {
+  SPACES: (userId: string) => `spaces:${userId}`,
+  SPACE: (spaceId: string) => `space:${spaceId}`,
+  ACTIVE_SPACE: (userId: string) => `active_space:${userId}`,
+  CONVERSATIONS: (spaceId: string) => `conversations:${spaceId}`,
+  MESSAGES: (conversationId: string) => `messages:${conversationId}`,
+  SPACE_DATA: (spaceId: string) => `space_data:${spaceId}`,
+};
+
+const CACHE_TTL = {
+  SPACES: 60 * 5, // 5 minutes
+  SPACE: 60 * 5, // 5 minutes
+  ACTIVE_SPACE: 60 * 60, // 1 hour
+  CONVERSATIONS: 60 * 5, // 5 minutes
+  MESSAGES: 60 * 5, // 5 minutes
+  SPACE_DATA: 60 * 5, // 5 minutes
+};
+
 export async function getSpaces(): Promise<Space[] | null> {
     const supabase = await createClient();
     const {
@@ -25,18 +44,32 @@ export async function getSpaces(): Promise<Space[] | null> {
         return null;
     }
 
-  const { data, error } = await supabase
-    .from(DB_TABLES.SPACES)
-    .select("*")
-    .eq(COLUMNS.USER_ID, user.id)
+    // Try to get from cache first
+    const cacheKey = CACHE_KEYS.SPACES(user.id);
+    const cachedSpaces = await redis.get<Space[]>(cacheKey);
+    if (cachedSpaces) {
+        return cachedSpaces;
+    }
+
+    // If not in cache, get from DB
+    const { data, error } = await supabase
+        .from(DB_TABLES.SPACES)
+        .select("*")
+        .eq(COLUMNS.USER_ID, user.id)
         .eq(COLUMNS.IS_DELETED, false)
         .order(COLUMNS.UPDATED_AT, { ascending: false });
 
-  if (error) {
-    console.error("Error fetching spaces:", error);
-    return null;
-  }
-  return data;
+    if (error) {
+        console.error("Error fetching spaces:", error);
+        return null;
+    }
+
+    // Cache the result
+    if (data) {
+        await redis.set(cacheKey, data, { ex: CACHE_TTL.SPACES });
+    }
+
+    return data;
 }
 
 export async function getSpace(id: string): Promise<Space | null> {
@@ -45,68 +78,84 @@ export async function getSpace(id: string): Promise<Space | null> {
       data: { user },
     } = await supabase.auth.getUser();
   
-  if (!user) {
-    console.error("User not found");
-    return null;
-  }
-
-  const { data, error } = await supabase
-    .from(DB_TABLES.SPACES)
-    .select("*")
-    .eq(COLUMNS.ID, id)
-    .eq(COLUMNS.USER_ID, user.id)
-    .single();
-
-  if (error) {
-    console.error("Error fetching space:", error);
-    return null;
-  }
-  return data;
-}
-
-
-
-export async function createSpace(
-  name: string,
-  description: string,
-  model: string,
-    provider: string,
-  setActive: boolean
-): Promise<Space | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    console.error("User not found");
-    return null;
-  }
-
-  const { data, error } = await supabase
-    .from(DB_TABLES.SPACES)
-    .insert([
-      {
-        [COLUMNS.NAME]: name || DEFAULTS.SPACE_NAME,
-        [COLUMNS.DESCRIPTION]: description || DEFAULTS.SPACE_DESCRIPTION,
-        [COLUMNS.USER_ID]: user.id,
-        [COLUMNS.MODEL]: model,
-        [COLUMNS.PROVIDER]: provider,
-      },
-    ])
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Error creating space:", error);
-    return null;
-  }
-
-    if (setActive && data) {
-        await setActiveSpace(data.id)
+    if (!user) {
+        console.error("User not found");
+        return null;
     }
 
-  return data;
+    // Try to get from cache first
+    const cacheKey = CACHE_KEYS.SPACE(id);
+    const cachedSpace = await redis.get<Space>(cacheKey);
+    if (cachedSpace) {
+        return cachedSpace;
+    }
+
+    const { data, error } = await supabase
+        .from(DB_TABLES.SPACES)
+        .select("*")
+        .eq(COLUMNS.ID, id)
+        .eq(COLUMNS.USER_ID, user.id)
+        .single();
+
+    if (error) {
+        console.error("Error fetching space:", error);
+        return null;
+    }
+
+    // Cache the result
+    if (data) {
+        await redis.set(cacheKey, data, { ex: CACHE_TTL.SPACE });
+    }
+
+    return data;
+}
+
+export async function createSpace(
+    name: string,
+    description: string,
+    model: string,
+    provider: string,
+    setActive: boolean
+): Promise<Space | null> {
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        console.error("User not found");
+        return null;
+    }
+
+    const { data, error } = await supabase
+        .from(DB_TABLES.SPACES)
+        .insert([
+            {
+                [COLUMNS.NAME]: name || DEFAULTS.SPACE_NAME,
+                [COLUMNS.DESCRIPTION]: description || DEFAULTS.SPACE_DESCRIPTION,
+                [COLUMNS.USER_ID]: user.id,
+                [COLUMNS.MODEL]: model,
+                [COLUMNS.PROVIDER]: provider,
+            },
+        ])
+        .select()
+        .single();
+
+    if (error) {
+        console.error("Error creating space:", error);
+        return null;
+    }
+
+    if (data) {
+        // Invalidate spaces cache
+        await redis.del(CACHE_KEYS.SPACES(user.id));
+        
+        if (setActive) {
+            await setActiveSpace(data.id);
+        }
+    }
+
+    return data;
 }
 
 export async function updateSpace(id: string, updates: Partial<Space>): Promise<Space | null> {
@@ -128,53 +177,76 @@ export async function updateSpace(id: string, updates: Partial<Space>): Promise<
         .select()
         .single();
 
-      if (error) {
+    if (error) {
         console.error('Error updating space:', error);
         return null;
-      }
-      return data;
+    }
+
+    if (data) {
+        // Invalidate related caches
+        await Promise.all([
+            redis.del(CACHE_KEYS.SPACES(user.id)),
+            redis.del(CACHE_KEYS.SPACE(id)),
+            redis.del(CACHE_KEYS.ACTIVE_SPACE(user.id)),
+            redis.del(CACHE_KEYS.SPACE_DATA(id))
+        ]);
+    }
+
+    return data;
 }
 
 export async function setActiveSpace(spaceId: string): Promise<void> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) {
-      console.error("User not found");
-      return;
-  }
+    if (!user) {
+        console.error("User not found");
+        return;
+    }
 
-  const { error: deleteError } = await supabase
-      .from(DB_TABLES.ACTIVE_SPACES)
-      .delete()
-      .eq(COLUMNS.USER_ID, user.id);
+    const { error: deleteError } = await supabase
+        .from(DB_TABLES.ACTIVE_SPACES)
+        .delete()
+        .eq(COLUMNS.USER_ID, user.id);
 
-  if (deleteError) {
-      console.error("Error removing existing active space:", deleteError);
-  }
+    if (deleteError) {
+        console.error("Error removing existing active space:", deleteError);
+    }
 
-  const { error: insertError } = await supabase
-      .from(DB_TABLES.ACTIVE_SPACES)
-      .insert({
-          [COLUMNS.USER_ID]: user.id,
-          [COLUMNS.SPACE_ID]: spaceId
-      });
+    const { error: insertError } = await supabase
+        .from(DB_TABLES.ACTIVE_SPACES)
+        .insert({
+            [COLUMNS.USER_ID]: user.id,
+            [COLUMNS.SPACE_ID]: spaceId
+        });
 
-
-  if (insertError) {
-      console.error("Error setting active space:", insertError);
-  }
+    if (insertError) {
+        console.error("Error setting active space:", insertError);
+    } else {
+        // Update cache
+        const space = await getSpace(spaceId);
+        if (space) {
+            await redis.set(CACHE_KEYS.ACTIVE_SPACE(user.id), space, { ex: CACHE_TTL.ACTIVE_SPACE });
+        }
+    }
 }
 
 export async function getActiveSpace(): Promise<Space | null> {
     const supabase = await createClient();
     const {
-      data: { user },
+        data: { user },
     } = await supabase.auth.getUser();
 
     if (!user) {
         console.error("User not found");
         return null;
+    }
+
+    // Try to get from cache first
+    const cacheKey = CACHE_KEYS.ACTIVE_SPACE(user.id);
+    const cachedSpace = await redis.get<Space>(cacheKey);
+    if (cachedSpace) {
+        return cachedSpace;
     }
 
     const { data: activeSpaceData, error: activeSpaceError } = await supabase
@@ -184,7 +256,7 @@ export async function getActiveSpace(): Promise<Space | null> {
         .single();
 
     if (activeSpaceError || !activeSpaceData) {
-      return null;
+        return null;
     }
 
     const { data: space, error: spaceError } = await supabase
@@ -199,7 +271,91 @@ export async function getActiveSpace(): Promise<Space | null> {
         return null;
     }
 
+    // Cache the result
+    if (space) {
+        await redis.set(cacheKey, space, { ex: CACHE_TTL.ACTIVE_SPACE });
+    }
+
     return space;
+}
+
+interface SpaceData {
+    space: Space | null;
+    conversations: Conversation[] | null;
+    messages: Message[] | null;
+}
+
+export async function getSpaceData(spaceId: string): Promise<SpaceData | null> {
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        console.error("User not found");
+        return null;
+    }
+
+    // Try to get from cache first
+    const cacheKey = CACHE_KEYS.SPACE_DATA(spaceId);
+    const cachedData = await redis.get<SpaceData>(cacheKey);
+    if (cachedData) {
+        return cachedData;
+    }
+
+    // Fetch all data in parallel
+    const [space, conversations] = await Promise.all([
+        supabase
+            .from(DB_TABLES.SPACES)
+            .select("*")
+            .eq(COLUMNS.ID, spaceId)
+            .eq(COLUMNS.USER_ID, user.id)
+            .single()
+            .then(({ data, error }) => {
+                if (error) {
+                    console.error("Error fetching space:", error);
+                    return null;
+                }
+                return data;
+            }),
+        supabase
+            .from(DB_TABLES.CONVERSATIONS)
+            .select("*")
+            .eq(COLUMNS.SPACE_ID, spaceId)
+            .order(COLUMNS.CREATED_AT, { ascending: false })
+            .then(({ data, error }) => {
+                if (error) {
+                    console.error("Error fetching conversations:", error);
+                    return null;
+                }
+                return data;
+            })
+    ]);
+
+    let messages = null;
+    if (conversations && conversations.length > 0) {
+        const latestConversation = conversations[0];
+        messages = await supabase
+            .from(DB_TABLES.MESSAGES)
+            .select("*")
+            .eq('conversation_id', latestConversation.id)
+            .eq(COLUMNS.IS_DELETED, false)
+            .order(COLUMNS.CREATED_AT, { ascending: true })
+            .then(({ data, error }) => {
+                if (error) {
+                    console.error("Error fetching messages:", error);
+                    return null;
+                }
+                return data;
+            });
+    }
+
+    const spaceData = { space, conversations, messages };
+
+    // Cache the result
+    await redis.set(cacheKey, spaceData, { ex: CACHE_TTL.SPACE_DATA });
+
+    return spaceData;
 }
 
 // Conversations
@@ -218,17 +374,30 @@ export async function getConversations(spaceId: string): Promise<Conversation[] 
         return []; // Return empty array if no space is active
     }
 
-  const { data, error } = await supabase
-    .from(DB_TABLES.CONVERSATIONS)
-    .select("*")
-    .eq(COLUMNS.SPACE_ID, spaceId)
-    .order(COLUMNS.CREATED_AT, { ascending: false });
+    // Try to get from cache first
+    const cacheKey = CACHE_KEYS.CONVERSATIONS(spaceId);
+    const cachedConversations = await redis.get<Conversation[]>(cacheKey);
+    if (cachedConversations) {
+        return cachedConversations;
+    }
 
-  if (error) {
-    console.error("Error fetching conversations:", error);
-    return null;
-  }
-  return data;
+    const { data, error } = await supabase
+        .from(DB_TABLES.CONVERSATIONS)
+        .select("*")
+        .eq(COLUMNS.SPACE_ID, spaceId)
+        .order(COLUMNS.CREATED_AT, { ascending: false });
+
+    if (error) {
+        console.error("Error fetching conversations:", error);
+        return null;
+    }
+
+    // Cache the result
+    if (data) {
+        await redis.set(cacheKey, data, { ex: CACHE_TTL.CONVERSATIONS });
+    }
+
+    return data;
 }
 
 export async function createConversation(spaceId: string, title: string): Promise<Conversation | null> {
@@ -241,45 +410,62 @@ export async function createConversation(spaceId: string, title: string): Promis
         console.error("User not found");
         return null;
     }
-  const { data, error } = await supabase
-    .from(DB_TABLES.CONVERSATIONS)
-    .insert([
-      {
-        [COLUMNS.SPACE_ID]: spaceId,
-        [COLUMNS.TITLE]: title || DEFAULTS.CONVERSATION_TITLE,
-      },
-    ])
-    .select()
-    .single();
+    const { data, error } = await supabase
+        .from(DB_TABLES.CONVERSATIONS)
+        .insert([
+            {
+                [COLUMNS.SPACE_ID]: spaceId,
+                [COLUMNS.TITLE]: title || DEFAULTS.CONVERSATION_TITLE,
+            },
+        ])
+        .select()
+        .single();
 
-  if (error) {
-    console.error("Error creating conversation:", error);
-    return null;
-  }
+    if (error) {
+        console.error("Error creating conversation:", error);
+        return null;
+    }
 
-  return data;
+    if (data) {
+        // Invalidate conversations cache
+        await redis.del(CACHE_KEYS.CONVERSATIONS(spaceId));
+    }
+
+    return data;
 }
 
 export async function getMessages(conversationId: string): Promise<Message[] | null> {
-  if (!conversationId) {
-    console.error("Invalid conversation ID: Cannot fetch messages without a valid conversation ID");
-    return null;
-  }
-  
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from(DB_TABLES.MESSAGES)
-    .select("*")
-    .eq('conversation_id', conversationId)
-    .eq(COLUMNS.IS_DELETED, false)
-    .order(COLUMNS.CREATED_AT, { ascending: true });
+    if (!conversationId) {
+        console.error("Invalid conversation ID: Cannot fetch messages without a valid conversation ID");
+        return null;
+    }
+    
+    // Try to get from cache first
+    const cacheKey = CACHE_KEYS.MESSAGES(conversationId);
+    const cachedMessages = await redis.get<Message[]>(cacheKey);
+    if (cachedMessages) {
+        return cachedMessages;
+    }
 
-  if (error) {
-    console.error("Error fetching messages:", error);
-    return null;
-  }
+    const supabase = await createClient();
+    const { data, error } = await supabase
+        .from(DB_TABLES.MESSAGES)
+        .select("*")
+        .eq('conversation_id', conversationId)
+        .eq(COLUMNS.IS_DELETED, false)
+        .order(COLUMNS.CREATED_AT, { ascending: true });
 
-  return data;
+    if (error) {
+        console.error("Error fetching messages:", error);
+        return null;
+    }
+
+    // Cache the result
+    if (data) {
+        await redis.set(cacheKey, data, { ex: CACHE_TTL.MESSAGES });
+    }
+
+    return data;
 }
 
 export async function createMessage(messageData: Partial<Message>, conversationId: string) {
@@ -295,7 +481,6 @@ export async function createMessage(messageData: Partial<Message>, conversationI
         console.error("Missing required message data");
         return null;
     }
-    
     
     const { data, error } = await supabase
         .from(DB_TABLES.MESSAGES)
@@ -317,9 +502,13 @@ export async function createMessage(messageData: Partial<Message>, conversationI
         return null;
     }
 
+    if (data) {
+        // Invalidate messages cache
+        await redis.del(CACHE_KEYS.MESSAGES(conversationId));
+    }
+
     return data;
 }
-
 
 export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();

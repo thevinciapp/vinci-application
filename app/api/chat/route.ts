@@ -16,12 +16,6 @@ import { type Provider } from '@/config/models';
 import { NextResponse } from 'next/server';
 import { createMessage } from '@/app/actions';
 
-
-export const maxDuration = 60;
-export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
-
-
 const providers: Record<Provider, (model: string) => any> = {
   groq: (model) => groq(model),
   anthropic: (model) => anthropic(model),

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, FormEvent } from "react";
 import { useChat } from "ai/react";
 import { ChatMessages } from "@/components/ui/chat-messages";
 import { UnifiedInput } from "@/components/ui/unified-input";
-import { createConversation, getConversations, getMessages, getSpace } from "../actions";
+import { createConversation, getSpaceData, getMessages } from "../actions";
 import { Conversation, Space, ExtendedMessage } from "@/types";
 import { SpaceTab } from "@/components/ui/space-tab";
 import { ModelTab } from "@/components/ui/model-tab";
@@ -39,40 +39,49 @@ export default function ClientChatContent({
     }, [defaultSpace, spaces, setActiveSpace, setSpaces]);
 
     useEffect(() => {
-        const loadSpaceData = async () => {
-            setIsLoading(true);
-            setMessages([]);
+        async function loadSpaceData() {
+            setIsLoading(true)
+            setMessages([])
 
-            if (activeSpace?.id) {
-                const fetchedSpace = await getSpace(activeSpace.id);
-                if (fetchedSpace) {
-                    setActiveSpace(fetchedSpace);
+            if (!activeSpace?.id) {
+                setIsLoading(false)
+                return
+            }
+
+            const spaceData = await getSpaceData(activeSpace.id)
+            if (!spaceData) {
+                setIsLoading(false)
+                return
+            }
+
+            if (spaceData.space) {
+                setActiveSpace(spaceData.space)
+            }
+
+            const conversations = spaceData.conversations ?? []
+            setConversations(conversations)
+
+            if (conversations.length > 0) {
+                const latestConversation = conversations[0]
+                setActiveConversation(latestConversation)
+
+                const messageData = spaceData.messages ?? await getMessages(latestConversation.id)
+                if (messageData) {
+                    setMessages(messageData)
                 }
-
-                const fetchedConversations = await getConversations(activeSpace.id);
-                setConversations(fetchedConversations || []);
-
-                if (fetchedConversations && fetchedConversations.length > 0) {
-                    const latestConversation = fetchedConversations[0];
-                    setActiveConversation(latestConversation);
-
-                    const fetchedMessages = await getMessages(latestConversation.id);
-                    if (fetchedMessages) {
-                        setMessages(fetchedMessages);
-                    }
-                } else {
-                    const newConversation = await createConversation(activeSpace.id, "New Chat");
-                    if (newConversation) {
-                        setConversations([newConversation]);
-                        setActiveConversation(newConversation);
-                    }
+            } else {
+                const newConversation = await createConversation(activeSpace.id, 'New Chat')
+                if (newConversation) {
+                    setConversations([newConversation])
+                    setActiveConversation(newConversation)
                 }
             }
-            setIsLoading(false);
-        };
 
-        loadSpaceData();
-    }, [activeSpace?.id]);
+            setIsLoading(false)
+        }
+
+        loadSpaceData()
+    }, [activeSpace?.id])
 
     const { messages, setMessages, input, isLoading: isChatLoading, handleInputChange, handleSubmit } = useChat({
         api: "/api/chat",
