@@ -56,7 +56,7 @@ export const useSpaceStore = create<SpaceStore>()(
       setActiveSpace: (id) => set({ activeSpaceId: id }),
     }),
     {
-      name: 'spatial-spaces',
+      name: 'vinci-spaces',
     }
   )
 );

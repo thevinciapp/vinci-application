@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Spatial",
-  description: "Spatial App",
+  title: "Vinci",
+  description: "Vinci App",
 };
 
 export default function RootLayout({

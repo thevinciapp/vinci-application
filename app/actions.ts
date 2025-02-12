@@ -279,7 +279,7 @@ export async function getActiveSpace(): Promise<Space | null> {
     return space;
 }
 
-interface SpaceData {
+export interface SpaceData {
     space: Space | null;
     conversations: Conversation[] | null;
     messages: Message[] | null;

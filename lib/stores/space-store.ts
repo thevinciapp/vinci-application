@@ -9,12 +9,15 @@ interface SpaceStore {
   setSpaces: (spaces: Space[] | null) => void
 }
 
-export const useSpaceStore = create<SpaceStore>((set) => ({
+export const useSpaceStore = create<SpaceStore>((set, get) => ({
   activeSpace: null,
   setActiveSpace: async (spaceOrId) => {
     if (typeof spaceOrId === 'string') {
+      const space = get().spaces?.find(space => space.id === spaceOrId)
+      if (space) {
+        set({ activeSpace: space })
+      }
       await setActiveSpaceAction(spaceOrId)
-      set({ activeSpace: null }) // Clear until next fetch
     } else {
       set({ activeSpace: spaceOrId })
     }

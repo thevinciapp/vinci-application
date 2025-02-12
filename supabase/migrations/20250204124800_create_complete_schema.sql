@@ -1,4 +1,4 @@
--- Create complete schema for Spatial app
+-- Create complete schema for Vinci app
 -- Timestamp: 2025-02-04T12:48:00-07:00
 
 -- USERS TABLE: Supabase Auth will manage user accounts.

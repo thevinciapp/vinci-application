@@ -98,3 +98,152 @@ input:focus, textarea:focus {
   opacity: 0;
   transform: translateY(-10px);
 }
+
+/* ... (your existing styles) ... */
+
+/* cmdk Styles (Adapted for our modern aesthetic) */
+[cmdk-root] {
+  @apply max-w-2xl w-full bg-black/80 rounded-xl p-0 font-sans border border-white/[0.1] shadow-[0_0_30px_rgba(62,207,255,0.1)] backdrop-blur-xl;
+}
+
+[cmdk-input] {
+  @apply font-sans w-full text-sm p-4 outline-none bg-transparent text-white/90 placeholder:text-white/40 transition-colors duration-200;
+}
+
+[cmdk-item] {
+  @apply relative flex items-center gap-3 mx-2 my-1 px-4 py-3 text-sm outline-none transition-all duration-200 rounded-lg text-white/75 hover:text-white/90 backdrop-blur-sm;
+}
+
+[cmdk-item][data-selected="true"] {
+  @apply bg-white/[0.03] text-white shadow-[0_0_12px_rgba(62,207,255,0.06)] border border-white/[0.05];
+}
+
+[cmdk-item] svg {
+  @apply w-4 h-4 text-white/60 transition-colors duration-200;
+}
+
+[cmdk-item][data-selected="true"] svg {
+  @apply text-[#3ecfff] shadow-[0_0_8px_rgba(62,207,255,0.3)];
+}
+
+[cmdk-item][data-disabled="true"] {
+  @apply text-white/30 cursor-not-allowed;
+}
+
+[cmdk-group-heading] {
+  @apply select-none text-xs text-white/50 px-4 flex items-center py-2 font-medium;
+}
+
+[cmdk-empty] {
+  @apply text-sm flex items-center justify-center h-16 text-white/40 backdrop-blur-sm bg-white/[0.02] rounded-lg mx-2 border border-white/[0.05];
+}
+
+[cmdk-separator] {
+  @apply h-px w-full bg-gradient-to-r from-transparent via-white/[0.08] to-transparent my-1;
+}
+
+/* Updated shine effect for modern look */
+.dark {
+  [cmdk-root]:after {
+    content: '';
+    background: linear-gradient(
+      45deg,
+      rgba(62, 207, 255, 0.03) 0%,
+      rgba(62, 207, 255, 0.05) 25%,
+      rgba(62, 207, 255, 0.1) 50%,
+      rgba(62, 207, 255, 0.05) 75%,
+      rgba(62, 207, 255, 0.03) 100%
+    );
+    z-index: -1;
+    position: absolute;
+    border-radius: 12px;
+    top: -1px;
+    left: -1px;
+    width: calc(100% + 2px);
+    height: calc(100% + 2px);
+    animation: shine 3s ease infinite;
+    background-size: 200% 200%;
+  }
+
+  [cmdk-item][data-selected="true"]:after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    padding: 1px;
+    background: linear-gradient(
+      to right,
+      rgba(62, 207, 255, 0.1),
+      rgba(255, 255, 255, 0.1)
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+}
+
+/* Animations (added to global scope)*/
+
+@keyframes border {
+  to {
+    box-shadow: 0 0 0 1px var(--gray6); /* Using your existing --gray6 */
+  }
+}
+@keyframes showTopShine {
+    to {
+      opacity: 1;
+    }
+  }
+
+/* Loading animation, adapted for Tailwind */
+@keyframes loading {
+  0% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(100%);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+}
+
+/* add these in if needed in components*/
+/*.cmdk-loading-placeholder, .cmdk-loading-spinner {}*/
+
+/* Added Keyframes */
+/* For consistency, I'm adding slideIn/slideOut here even if not used *yet*. */
+@keyframes slideIn {
+ 0% {
+  opacity: 0;
+  transform: scale(0.96);
+ }
+
+ 100% {
+  opacity: 1;
+  transform: scale(1);
+ }
+}
+
+@keyframes slideOut {
+ 0% {
+  opacity: 1;
+  transform: scale(1);
+ }
+
+ 100% {
+  opacity: 0;
+  transform: scale(0.96);
+ }
+}
+
+/* Add additional custom variables as needed*/
+:root {
+   /* ...other variables...*/
+    --cmdk-shadow: 0 16px 70px rgb(0 0 0 / 20%); /* Example, might need adjustment */
+
+}

@@ -80,10 +80,9 @@ export const ERROR_MESSAGES = {
   SERVER_ERROR: (message: string) => ({ error: message, status: 500 })
 } as const
 
-// Default Values
 export const DEFAULTS = {
   CONVERSATION_TITLE: 'New Conversation',
   SPACE_NAME: 'My Space',
   SPACE_DESCRIPTION: 'My first space',
-  WELCOME_MESSAGE: 'Welcome to Spatial! I\'m here to help you explore and create. What would you like to do?'
+  WELCOME_MESSAGE: 'Welcome to Vinci! I\'m here to help you explore and create. What would you like to do?'
 } as const

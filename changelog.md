@@ -118,6 +118,29 @@
   - Added proper state refresh after initialization
   - Added proper default provider and model configuration
   - Fixed type safety for provider and model selection
+- Added Suspense boundaries with skeleton loading
+  - Created TabSkeleton component for navigation tabs
+  - Created ChatMessagesSkeleton component for chat messages
+  - Added loading states that match the visual style of the app
+  - Improved perceived performance with immediate loading feedback
+  - Enhanced user experience during data fetching
+- Conversations list feature in quick actions command
+  - Added ability to view and switch between conversations in the current space
+  - Added ability to create new conversations
+  - Integrated with existing space and model selection UI
+  - Added conversations list component with active conversation indicator
+- Added keyboard shortcuts for quick actions
+  - ⌘/Ctrl + S to open spaces
+  - ⌘/Ctrl + M to open models
+  - ⌘/Ctrl + C to open conversations
+  - Added visual keyboard shortcut hints to quick actions menu
+  - Automatic platform detection for Mac/Windows key symbols
+  - Styled keyboard shortcut badges with consistent design
+- Enhanced quick actions with command hints
+  - Added command hints (e.g., "> spaces", "> models") to each action
+  - Styled hints with monospace font and subtle color
+  - Combined hints with existing keyboard shortcuts
+  - Improved discoverability of command-based navigation
 
 ### Changed
 - Updated quick actions menu names to be more concise
@@ -225,6 +248,51 @@
   - Improved code organization with clear sections
   - Enhanced type safety with proper null checks
   - Added descriptive comments for better code clarity
+- Connected SpaceTab and ModelTab components directly to Zustand store for automatic updates
+- Removed prop drilling in favor of direct store connection
+- Added "No Model Selected" text to ModelTab empty state
+- Improved component reactivity for space and model selection changes
+- Optimized space switching for better responsiveness
+  - Added immediate UI updates when switching spaces
+  - Set active space from local state before backend update
+  - Improved perceived performance of space switching
+- Refactored navigation tabs for better consistency
+  - Created reusable BaseTab component
+  - Unified styling across all tabs
+  - Added consistent hover and active states
+  - Maintained specific min-widths for each tab type
+  - Improved component maintainability
+- Enhanced SpaceTab visual appearance
+  - Updated space icon with colorful gradient background
+  - Added vibrant indigo-to-pink gradient for better visual hierarchy
+  - Improved visual feedback for active spaces
+- Simplified command hints in quick actions
+  - Removed ">" prefix from commands
+  - Shows just the command text (e.g., "spaces", "models")
+  - Cleaner, more minimal command display
+  - Maintained monospace font and subtle styling
+- Updated quick actions command hints
+  - Changed to show full command keys (e.g., "> spaces", "> models")
+  - Improved visual alignment with Raycast-style command display
+  - Enhanced command discoverability with consistent prefix
+- Simplified quick actions display
+  - Removed command text hints
+  - Showing only keyboard shortcut badges
+  - Cleaner, more minimal interface
+  - Improved visual focus on essential elements
+- Reorganized navigation layout:
+  - Moved space tab to top center of screen
+  - Added conversation tab to bottom navigation
+  - Improved visual hierarchy with fixed positioning
+  - Maintained consistent styling across all tabs
+  - Added active conversation indicator
+  - Kept quick actions and model tabs in bottom navigation
+  - Enhanced user experience with clear navigation structure
+- Improved scroll to bottom button positioning
+  - Moved button to appear directly underneath space tab
+  - Maintained consistent styling with space tab
+  - Enhanced visual hierarchy with proper spacing
+  - Improved user experience with clear button placement
 
 ### Performance
 - Optimized Redis caching implementation
@@ -484,6 +552,14 @@
   - Fixed message state synchronization between UI and AI messages
   - Added proper timestamp updates for streaming messages
   - Improved message creation with complete required fields
+- Fixed chat messages skeleton loading
+  - Removed duplicate Suspense boundary in ChatMessages component
+  - Moved Suspense handling to parent component level
+  - Improved skeleton loading visibility
+- Improved QuickActionsTab styling consistency
+  - Added active state based on modal open state
+  - Matched background and border styling with other tabs
+  - Enhanced visual feedback when quick actions are active
 
 ## [2024-03-21]
 - Fixed event handler error in SpaceTab component by converting it to a Client Component

@@ -1,49 +1,27 @@
-// components/ui/quick-actions-command-provider.tsx
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { QuickActionsCommand } from '@/components/ui/quick-actions-command';
-// Removed: import { useCommandState } from '@/components/ui/command-state-provider';
-// No longer needed
 
 interface QuickActionsCommandContextType {
   isOpen: boolean;
   openQuickActionsCommand: (withSpaces?: boolean) => void;
   closeQuickActionsCommand: () => void;
   toggleQuickActionsCommand: (withSpaces?: boolean, withModels?: boolean) => void;
-  // Removed: isExecuting, handleGlobalCommand  (No longer needed)
   showSpaces: boolean;
   setShowSpaces: (show: boolean) => void;
   showModels: boolean;
   setShowModels: (show: boolean) => void;
+  showConversations: boolean;
+  setShowConversations: (show: boolean) => void;
 }
 
-const QuickActionsCommandContext = createContext<QuickActionsCommandContextType>({
-  isOpen: false,
-  openQuickActionsCommand: () => {},
-  closeQuickActionsCommand: () => {},
-  toggleQuickActionsCommand: () => {},
-  // Removed: isExecuting: false,
-  // Removed: handleGlobalCommand: () => {},
-  showSpaces: false,
-  setShowSpaces: () => {},
-  showModels: false,
-  setShowModels: () => {},
-});
+const QuickActionsCommandContext = createContext<QuickActionsCommandContextType | undefined>(undefined);
 
-export const useQuickActionsCommand = () => {
-  const context = useContext(QuickActionsCommandContext);
-  if (!context) {
-    throw new Error('useQuickActionsCommand must be used within a QuickActionsCommandProvider');
-  }
-  return context;
-};
-
-export const QuickActionsCommandProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // const [isExecuting, setIsExecuting] = useState(false); // Removed
+export function QuickActionsCommandProvider({ children }: { children: React.ReactNode }) {
   const [showSpaces, setShowSpaces] = useState(false);
   const [showModels, setShowModels] = useState(false);
-  // Removed: const { activeCommand, setActiveCommand } = useCommandState();
+  const [showConversations, setShowConversations] = useState(false);
   const [isOpen, setIsOpen] = useState(false); // Directly manage isOpen here
 
   const openQuickActionsCommand = useCallback((withSpaces = false) => {
@@ -80,12 +58,18 @@ export const QuickActionsCommandProvider: React.FC<{ children: React.ReactNode }
       } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'm') {
           e.preventDefault();
           toggleQuickActionsCommand(false, true); // Open with models
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        setIsOpen(true);
+        setShowConversations(true);
+        setShowSpaces(false);
+        setShowModels(false);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleQuickActionsCommand]); //  Dependency array now includes toggleQuickActionsCommand
+  }, [toggleQuickActionsCommand, setShowConversations, setShowSpaces, setShowModels]); //  Dependency array now includes toggleQuickActionsCommand
 
   return (
     <QuickActionsCommandContext.Provider
@@ -100,10 +84,20 @@ export const QuickActionsCommandProvider: React.FC<{ children: React.ReactNode }
         setShowSpaces,
         showModels,
         setShowModels,
+        showConversations,
+        setShowConversations
       }}
     >
       {children}
       <QuickActionsCommand isOpen={isOpen} onClose={closeQuickActionsCommand} />
     </QuickActionsCommandContext.Provider>
   );
-};
+}
+
+export function useQuickActionsCommand() {
+  const context = useContext(QuickActionsCommandContext);
+  if (context === undefined) {
+    throw new Error('useQuickActionsCommand must be used within a QuickActionsCommandProvider');
+  }
+  return context;
+}

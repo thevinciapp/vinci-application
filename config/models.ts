@@ -1,4 +1,3 @@
-// config/models.ts
 export const AVAILABLE_MODELS = {
   groq: [
     { id: 'deepseek-r1-distill-llama-70b', name: 'Deepseek R1 70B' },
@@ -47,14 +46,6 @@ export const AVAILABLE_MODELS = {
     { id: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free', name: 'Llama 3.3 70B Instruct Turbo' },
     { id: 'meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo', name: 'Llama 3.1 405B Instruct Turbo' },
   ],
-  deepseek: [
-    { id: 'deepseek-chat', name: 'DeepSeek V3' },
-    { id: 'deepseek-reasoner', name: 'DeepSeek R1' }
-  ],
-  cerebras: [
-    { id: 'llama3.1-8b', name: 'Llama 3.1 8B' },
-    { id: 'llama-3.3-70b', name: 'Llama 3.3 70B' },
-  ],
   perplexity: [
     { id: 'sonar-reasoning-pro', name: 'Sonar Reasoning Pro' },
     { id: 'sonar-reasoning', name: 'Sonar Reasoning' },
@@ -77,8 +68,6 @@ export const PROVIDER_NAMES: Record<Provider, string> = {
   google: 'Google',
   xai: 'xAI',
   togetherai: 'Together AI',
-  deepseek: 'DeepSeek',
-  cerebras: 'Cerebras',
   perplexity: 'Perplexity'
 };
 

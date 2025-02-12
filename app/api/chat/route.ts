@@ -7,8 +7,6 @@ import { mistral } from '@ai-sdk/mistral';
 import { google } from '@ai-sdk/google';
 import { xai } from '@ai-sdk/xai';
 import { togetherai } from '@ai-sdk/togetherai';
-import { deepseek } from '@ai-sdk/deepseek';
-import { cerebras } from '@ai-sdk/cerebras';
 import { perplexity } from '@ai-sdk/perplexity';
 import { createClient } from '@/utils/supabase/server';
 import { COLUMNS, DB_TABLES, ERROR_MESSAGES } from '@/lib/constants';
@@ -25,8 +23,6 @@ const providers: Record<Provider, (model: string) => any> = {
   google: (model) => google(model),
   xai: (model) => xai(model),
   togetherai: (model) => togetherai(model),
-  deepseek: (model) => deepseek(model),
-  cerebras: (model) => cerebras(model),
   perplexity: (model) => perplexity(model),
 };
 

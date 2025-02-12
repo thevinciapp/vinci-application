@@ -27,7 +27,7 @@ export const ChatMessage: FC<ChatMessageProps> = ({ message }) => {
     : '';
 
   return (
-    <div className={`flex items-start gap-4 ${isUser ? 'justify-end' : ''} w-full max-w-7xl mx-auto group transition-opacity`}>
+    <div className={`flex items-start gap-4 ${isUser ? 'justify-end' : ''} w-full mx-auto group transition-opacity`}>
       {!isUser && (
         <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-gradient-to-b from-white/[0.07] to-white/[0.03] border-white/[0.05] relative">
           <div className="absolute inset-0 rounded-md bg-blue-500/20 blur-sm" />

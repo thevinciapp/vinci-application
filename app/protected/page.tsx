@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import ClientChatContent from "@/app/protected/ClientChatContent";
 import { createClient } from "@/utils/supabase/server";
-import { createSpace, getActiveSpace, getConversations, getSpaces, setActiveSpace, createConversation, createMessage, getMessages } from "../actions";
+import { createSpace, getActiveSpace, getConversations, getSpaces, setActiveSpace, createConversation, createMessage, getMessages, getSpaceData } from "../actions";
 import { Providers } from "@/components/providers";
 import { COLUMNS, DEFAULTS } from "@/lib/constants";
 import { AVAILABLE_MODELS, type Provider } from "@/config/models";
+import { Tabs } from "@/components/tabs";
 
 const DEFAULT_PROVIDER: Provider = 'anthropic'
 const DEFAULT_MODEL = AVAILABLE_MODELS[DEFAULT_PROVIDER][0].id
@@ -53,6 +54,7 @@ export default async function ChatPage() {
 
   const defaultConversations = await getConversations(activeSpace?.id || '');
   const defaultMessages = await getMessages(defaultConversations?.[0]?.id || '');
+  
 
   return (
     <Providers>
