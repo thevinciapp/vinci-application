@@ -71,7 +71,7 @@ export function CommandModal({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="absolute inset-0 bg-black/90 backdrop-blur-2xl"
+                        className="absolute inset-0 bg-black/90"
                         onClick={onClose}
                     />
 
@@ -87,7 +87,7 @@ export function CommandModal({
                         className="relative w-full max-w-2xl"
                     >
                         <Command
-                            className="relative overflow-hidden w-full bg-black/80 border border-white/[0.1] shadow-[0_0_30px_rgba(62,207,255,0.1)] rounded-xl backdrop-blur-xl"
+                            className="relative overflow-hidden w-full bg-black/80 border border-white/[0.1] shadow-[0_0_30px_rgba(62,207,255,0.1)] rounded-xl"
                             onKeyDown={(e) => {
                                 if (e.key === 'Escape') {
                                     onClose();

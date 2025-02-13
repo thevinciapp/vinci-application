@@ -84,7 +84,7 @@ export function SpaceForm({ spaceForm, onSpaceFormChange, onSubmit }: SpaceFormP
               disabled={!spaceForm.name}
               className="px-8 py-1.5 bg-[#5E6AD2] text-white/90 rounded-md text-xs font-medium
                   hover:bg-[#4F5ABF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors
-                  border border-white/10 backdrop-blur-xl"
+                  border border-white/10"
               >
               Create Space
               </button>
