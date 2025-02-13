@@ -15,9 +15,10 @@ interface QuickActionsListProps {
     onShowSpaces: () => void;
     onShowModels: () => void;
     onShowConversations: () => void;
+    onCreateSpace?: () => void;
 }
 
-export function QuickActionsList({ onShowSpaces, onShowModels, onShowConversations }: QuickActionsListProps) {
+export function QuickActionsList({ onShowSpaces, onShowModels, onShowConversations, onCreateSpace }: QuickActionsListProps) {
 
     const currentConversationActions: QuickAction[] = [
         {
@@ -33,13 +34,12 @@ export function QuickActionsList({ onShowSpaces, onShowModels, onShowConversatio
     ];
 
     const conversationActions: QuickAction[] = [
-
         {
             id: 'conversations',
             name: 'Search Conversations',
             icon: <Search className="w-4 h-4" />,
             callback: onShowConversations,
-            shortcut: ['Meta', 'C']
+            shortcut: ['⌘', 'C']
         },
         {
             id: 'new-conversation',
@@ -59,14 +59,20 @@ export function QuickActionsList({ onShowSpaces, onShowModels, onShowConversatio
             name: 'Spaces',
             icon: <Globe className="w-4 h-4" />,
             callback: onShowSpaces,
-            shortcut: ['Meta', 'S']
+            shortcut: ['⌘', 'S']
+        },
+        {
+            id: 'create-space',
+            name: 'Create New Space',
+            icon: <Plus className="w-4 h-4" />,
+            callback: onCreateSpace
         },
         {
             id: 'models',
             name: 'Models',
             icon: <Cpu className="w-4 h-4" />,
             callback: onShowModels,
-             shortcut: ['Meta', 'M']
+            shortcut: ['⌘', 'M']
         },
     ];
 

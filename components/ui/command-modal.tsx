@@ -113,7 +113,7 @@ export function CommandModal({
                                         setShowConversations(false);
                                         e.preventDefault();
                                     }
-                                    setSearchValue('');
+                                    onSearchChange?.('');
                                 }
                             }}
                            shouldFilter={true} // Enable filtering.

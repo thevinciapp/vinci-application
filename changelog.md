@@ -655,6 +655,71 @@
 - Improved debugging with detailed logging
 - Consistent JSONB array structure across operations
 
+## [2024-03-19] Command Window Functionality
+
+### Added
+- Created new custom hook `useCommandWindow` to manage command window state and actions
+- Added click handlers to all tab components to open their respective command windows
+- Updated `QuickActionsCommandProvider` to use the new hook
+- Added `isActive` prop to `BaseTab` component
+
+### Changed
+- Refactored command window state management into a reusable hook
+- Updated keyboard shortcuts to use the new command window functionality
+- Improved type safety with proper TypeScript interfaces
+
+### Technical Details
+- Created new hook in `lib/hooks/use-command-window.ts`
+- Updated all tab components to use the `useQuickActionsCommand` hook
+- Standardized the command window opening/closing behavior across the application
+
+## [2024-03-19] Create New Space UI Enhancement
+
+### Changed
+- Moved "Create New Space" from footer to list item in spaces view
+- Added "Create New Space" to quick actions list
+- Improved space creation accessibility through multiple entry points
+- Unified space creation UI across the application
+
+### Technical Details
+- Added "Create New Space" as first item in spaces list with dedicated group
+- Added create space action to quick actions list under Space section
+- Removed footer element from command modal
+- Improved component props to handle create space callback
+- Maintained consistent styling and behavior across all entry points
+
+## [2024-03-19] Conversation Management Enhancement
+
+### Added
+- Created new Zustand store for managing conversations globally
+- Added preloading of conversations in ClientChatContent
+- Added "Create New Conversation" action to conversations list
+
+### Changed
+- Updated ConversationsList to use global conversation store
+- Improved conversation state management with Zustand
+- Enhanced conversation loading and state persistence
+- Removed local conversation state in favor of global store
+
+### Technical Details
+- Created new store in `lib/stores/conversation-store.ts`
+- Updated ClientChatContent to initialize conversation store
+- Modified ConversationsList to use global state
+- Added proper conversation creation and selection handling
+- Improved conversation state synchronization across components
+
+## [2024-03-19] Conversation Shortcut Update
+
+### Changed
+- Updated conversation command shortcut from ⌘T to ⌘D for better accessibility
+- Updated ConversationTab to display 'D' as the shortcut
+- Improved conversation tab label text
+
+### Technical Details
+- Modified keyboard event handler in QuickActionsCommandProvider
+- Updated shortcut display in ConversationTab component
+- Maintained consistent shortcut behavior across the application
+
 ## [Unreleased]
 
 ### Added

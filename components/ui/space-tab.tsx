@@ -1,8 +1,10 @@
 import { useSpaceStore } from '@/lib/stores/space-store';
 import { BaseTab } from './base-tab';
+import { useQuickActionsCommand } from './quick-actions-command-provider';
 
 export const SpaceTab = () => {
   const activeSpace = useSpaceStore((state) => state.activeSpace);
+  const { toggleQuickActionsCommand } = useQuickActionsCommand();
 
   return (
     <BaseTab
@@ -12,6 +14,7 @@ export const SpaceTab = () => {
       isActive={!!activeSpace}
       minWidth="space"
       roundedBottom
+      onClick={() => toggleQuickActionsCommand({ withSpaces: true })}
     />
   );
 };

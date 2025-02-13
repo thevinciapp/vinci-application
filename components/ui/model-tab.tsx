@@ -3,10 +3,12 @@ import { ProviderIcon } from './provider-icon'
 import React from 'react'
 import { useSpaceStore } from '@/lib/stores/space-store'
 import { BaseTab } from './base-tab'
+import { useQuickActionsCommand } from './quick-actions-command-provider'
 
 export const ModelTab = () => {
   const activeSpace = useSpaceStore((state) => state.activeSpace)
   const hasModel = !!(activeSpace?.provider && activeSpace?.model)
+  const { toggleQuickActionsCommand } = useQuickActionsCommand()
 
   return (
     <BaseTab
@@ -23,6 +25,7 @@ export const ModelTab = () => {
       shortcut="M"
       isActive={hasModel}
       minWidth="model"
+      onClick={() => toggleQuickActionsCommand({ withModels: true })}
     />
   )
 }

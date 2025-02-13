@@ -20,6 +20,7 @@ body {
   overflow: hidden;
   background: var(--background);
   font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  scroll-behavior: smooth;
 }
 
 .glass {
@@ -115,15 +116,19 @@ input:focus, textarea:focus {
 }
 
 [cmdk-item][data-selected="true"] {
-  @apply bg-white/[0.03] text-white shadow-[0_0_12px_rgba(62,207,255,0.06)] border border-white/[0.05];
+  @apply bg-white/[0.03] text-white border border-white/[0.05];
 }
 
 [cmdk-item] svg {
-  @apply w-4 h-4 text-white/60 transition-colors duration-200;
+  @apply w-4 h-4 text-white/60 transition-colors duration-300;
 }
 
 [cmdk-item][data-selected="true"] svg {
-  @apply text-[#3ecfff] shadow-[0_0_8px_rgba(62,207,255,0.3)];
+  @apply text-[#3ecfff];
+}
+
+[cmdk-item]:hover svg {
+  @apply text-[#3ecfff]/80;
 }
 
 [cmdk-item][data-disabled="true"] {

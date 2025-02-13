@@ -10,9 +10,10 @@ interface SpacesListProps {
   spaces: Space[] | null;
   onSpaceSelect: (spaceId: string) => Promise<void>;
   activeSpaceId?: string;
+  onCreateSpace?: () => void;
 }
 
-export function SpacesList({ spaces, onSpaceSelect, activeSpaceId }: SpacesListProps) {
+export function SpacesList({ spaces, onSpaceSelect, activeSpaceId, onCreateSpace }: SpacesListProps) {
 
 
   if (!spaces) {
@@ -24,30 +25,42 @@ export function SpacesList({ spaces, onSpaceSelect, activeSpaceId }: SpacesListP
 
   return (
     <>
-    <Command.Group>
-      {spaces.map((space) => (  // Corrected: Removed unnecessary index
+      <Command.Group heading="Create">
         <Command.Item
-          key={space.id}
-          value={`${space.id} ${space.name}`} // Use a combination of ID and name for the value
-          onSelect={() => onSpaceSelect(space.id)}
-          className={commandItemClass(space.id === activeSpaceId)}
-
+          value="create new space"
+          onSelect={() => onCreateSpace?.()}
+          className={commandItemClass()}
         >
-          <div className={`w-2 h-2 rounded-full transition-opacity duration-200 
-            ${space.id === activeSpaceId ? 'bg-blue-500' : 'bg-gray-500/50'}`} 
-           />
-          <span className={`transition-opacity duration-200 
-            ${space.id === activeSpaceId ? 'text-white' : 'text-white/75'}`}>
-            {space.name}
+          <div className="w-4 h-4 text-white/60 group-hover:text-[#3ecfff]/80 transition-colors duration-300">
+            <Plus className="w-4 h-4" />
+          </div>
+          <span className="text-white/75 transition-colors duration-300 group-hover:text-white/95">
+            Create New Space
           </span>
-          {/* Display "Active" label if it's the active space */}
-          {space.id === activeSpaceId && (
-            <span className="ml-auto text-[10px] text-white/40 border border-white/10 px-1.5 py-0.5 rounded-md">
-              Active
-            </span>
-          )}
         </Command.Item>
-      ))}
+      </Command.Group>
+
+      <Command.Group heading="Spaces">
+        {spaces.map((space) => (
+          <Command.Item
+            key={space.id}
+            value={`${space.id} ${space.name}`}
+            onSelect={() => onSpaceSelect(space.id)}
+            className={commandItemClass(space.id === activeSpaceId)}
+          >
+            <div className={`w-2 h-2 rounded-full transition-colors duration-300 
+              ${space.id === activeSpaceId ? 'bg-[#3ecfff]' : 'bg-white/60 group-hover:bg-[#3ecfff]/80'}`} 
+            />
+            <span className="text-white/75 transition-colors duration-300 group-hover:text-white/95">
+              {space.name}
+            </span>
+            {space.id === activeSpaceId && (
+              <span className="ml-auto text-[10px] text-white/40 border border-white/10 px-1.5 py-0.5 rounded-md">
+                Active
+              </span>
+            )}
+          </Command.Item>
+        ))}
       </Command.Group>
     </>
 

@@ -33,19 +33,17 @@ export function ModelsList({ selectedProvider, onProviderSelect, onModelSelect, 
                         key={provider}
                         value={`provider ${provider} ${name}`}
                         onSelect={() => onProviderSelect(provider as Provider)}
-
                         className={commandItemClass(activeSpace?.provider === provider)}
                     >
                         <ProviderIcon
                             provider={provider as Provider}
                             size={16}
-                            className={`transition-opacity duration-200
-                ${activeSpace?.provider === provider ? 'opacity-100' : 'opacity-75 group-hover:opacity-100'}`}
+                            className={`transition-colors duration-300 
+                                ${activeSpace?.provider === provider ? 'text-[#3ecfff]' : 'text-white/60 group-hover:text-[#3ecfff]/80'}`}
                         />
-                         <span className={`transition-opacity duration-200
-       ${activeSpace?.provider === provider ? 'text-white' : 'text-white/75'}`}>
-              {name}
-            </span>
+                        <span className="text-white/75 transition-colors duration-300 group-hover:text-white/95">
+                            {name}
+                        </span>
                         {activeSpace?.provider === provider && (
                             <span className="ml-auto text-[10px] text-white/40 border border-white/10 px-1.5 py-0.5 rounded-md">
                                 Active
@@ -67,19 +65,17 @@ export function ModelsList({ selectedProvider, onProviderSelect, onModelSelect, 
                     key={model.id}
                     value={`model ${model.id} ${model.name}`}
                     onSelect={() => handleModelSelection(model.id, selectedProvider)}
-
                     className={commandItemClass(activeSpace?.model === model.id)}
                 >
                     <ProviderIcon
                         provider={selectedProvider}
                         size={16}
-                        className={`transition-opacity duration-200
-                ${activeSpace?.model === model.id ? 'opacity-100' : 'opacity-75 group-hover:opacity-100'}`}
+                        className={`transition-colors duration-300 
+                            ${activeSpace?.model === model.id ? 'text-[#3ecfff]' : 'text-white/60 group-hover:text-[#3ecfff]/80'}`}
                     />
-                     <span className={`transition-opacity duration-200
-                ${activeSpace?.model === model.id ? 'text-white' : 'text-white/75'}`}>
-              {model.name}
-            </span>
+                    <span className="text-white/75 transition-colors duration-300 group-hover:text-white/95">
+                        {model.name}
+                    </span>
                     {activeSpace?.model === model.id && (
                         <span className="ml-auto text-[10px] text-white/40 border border-white/10 px-1.5 py-0.5 rounded-md">
                             Active

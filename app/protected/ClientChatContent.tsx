@@ -17,6 +17,7 @@ import QuickActionsTab from "@/components/ui/quick-actions-tab";
 import { ModelTab } from "@/components/ui/model-tab";
 import { ArrowDown, Search, Sparkles, Settings, Plus } from "lucide-react";
 import { BaseTab } from "@/components/ui/base-tab";
+import { useConversationStore } from '@/lib/stores/conversation-store'
 
 interface ClientChatContentProps {
     userId: string;
@@ -34,17 +35,20 @@ export default function ClientChatContent({
     spaces,
 }: ClientChatContentProps) {
     const { activeSpace, setActiveSpace, setSpaces } = useSpaceStore()
-    const [conversations, setConversations] = useState<Conversation[]>(defaultConversations || []);
-    const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isStickToBottom, setIsStickToBottom] = useState(true);
-    const messagesContainerRef = useRef<HTMLDivElement>(null);
+    const { setConversations, setActiveConversation, activeConversation } = useConversationStore()
+    const [isLoading, setIsLoading] = useState(true)
+    const [isStickToBottom, setIsStickToBottom] = useState(true)
+    const messagesContainerRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
-        setActiveSpace(defaultSpace);
-        setSpaces(spaces);
-        setIsLoading(false);
-    }, [defaultSpace, spaces, setActiveSpace, setSpaces]);
+        setActiveSpace(defaultSpace)
+        setSpaces(spaces)
+        setConversations(defaultConversations)
+        if (defaultConversations && defaultConversations.length > 0) {
+            setActiveConversation(defaultConversations[0])
+        }
+        setIsLoading(false)
+    }, [defaultSpace, spaces, defaultConversations, setActiveSpace, setSpaces, setConversations, setActiveConversation])
 
     useEffect(() => {
         async function loadSpaceData() {
