@@ -1,15 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
-import { useChat } from "ai/react";
+import { useChat } from "@ai-sdk/react";
 import { ChatMessages } from "@/components/ui/chat-messages";
 import { UnifiedInput } from "@/components/ui/unified-input";
-import { getSpaceData, getMessages } from "../actions";
+import { getSpaceData, getMessages, createConversation, getConversations } from "../actions";
 import { Conversation, Space } from "@/types";
 import { useSpaceStore } from "@/lib/stores/space-store";
 import { Message } from "ai";
-import { Tabs } from "@/components/tabs";
-import { TabSkeleton } from "@/components/ui/tab-skeleton";
 import { ChatMessagesSkeleton } from "@/components/ui/chat-messages-skeleton";
 import { SpaceTab } from "@/components/ui/space-tab";
 import { ConversationTab } from "@/components/ui/conversation-tab";
@@ -48,7 +46,7 @@ export default function ClientChatContent({
             setActiveConversation(defaultConversations[0])
         }
         setIsLoading(false)
-    }, [defaultSpace, spaces, defaultConversations, setActiveSpace, setSpaces, setConversations, setActiveConversation])
+    }, [defaultSpace, spaces, defaultConversations])
 
     useEffect(() => {
         async function loadSpaceData() {
@@ -66,16 +64,26 @@ export default function ClientChatContent({
                 return
             }
             
-            const conversations = spaceData.conversations ?? []
+            const conversations = spaceData.conversations ?? await getConversations(activeSpace.id)
             setConversations(conversations)
 
-            if (conversations.length > 0) {
+            if (conversations && conversations.length > 0) {
                 const latestConversation = conversations[0]
                 setActiveConversation(latestConversation)
 
                 const messageData = spaceData.messages ?? await getMessages(latestConversation.id)
                 if (messageData) {
                     setMessages(messageData)
+                }
+            } else {
+                const newConversation = await createConversation(activeSpace.id)
+                if (newConversation) {
+                    setActiveConversation(newConversation)
+
+                    const messageData = await getMessages(newConversation.id)
+                    if (messageData) {
+                        setMessages(messageData)
+                    }
                 }
             }
 
@@ -87,7 +95,6 @@ export default function ClientChatContent({
 
     const { messages, setMessages, input, isLoading: isChatLoading, handleInputChange, handleSubmit } = useChat({
         api: "/api/chat",
-        initialMessages: defaultMessages || [],
         body: {
             spaceId: activeSpace?.id || '',
             conversationId: activeConversation?.id || null
@@ -95,10 +102,11 @@ export default function ClientChatContent({
     });
 
     const handleScrollToBottom = () => {
-        if (messagesContainerRef.current) {
-            messagesContainerRef.current.scrollTo({ 
-                top: messagesContainerRef.current.scrollHeight, 
-                behavior: 'smooth' 
+        const messagesContainer = document.querySelector('.messages-container');
+        if (messagesContainer) {
+            messagesContainer.scrollTo({
+                top: messagesContainer.scrollHeight,
+                behavior: 'smooth'
             });
         }
     };
@@ -121,15 +129,7 @@ export default function ClientChatContent({
                                 <BaseTab
                                     icon={<ArrowDown className="w-3 h-3" />}
                                     label="Scroll to Bottom"
-                                    onClick={() => {
-                                        const messagesContainer = document.querySelector('.messages-container');
-                                        if (messagesContainer) {
-                                            messagesContainer.scrollTo({
-                                                top: messagesContainer.scrollHeight,
-                                                behavior: 'smooth'
-                                            });
-                                        }
-                                    }}
+                                    onClick={handleScrollToBottom}
                                 />
                             </div>
                         )}
@@ -147,6 +147,7 @@ export default function ClientChatContent({
                         messages={messages} 
                         onStickToBottomChange={setIsStickToBottom}
                         ref={messagesContainerRef}
+                        isLoading={isChatLoading}
                     />
                 </Suspense>
                 <div className="fixed left-1/2 bottom-8 -translate-x-1/2 w-[800px] z-50">

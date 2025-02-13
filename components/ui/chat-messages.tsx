@@ -3,16 +3,18 @@
 import { useStickToBottom } from '@/hooks/use-stick-to-bottom';
 import { FC, useEffect, useState, forwardRef } from 'react';
 import { ChatMessage } from './chat-message';
+import { LoadingMessage } from './loading-message';
 import { Message } from 'ai';
 
 interface ChatMessagesProps {
   messages: Message[];
   onStickToBottomChange?: (isStickToBottom: boolean) => void;
   onScrollToBottom?: () => void;
+  isLoading?: boolean;
 }
 
 export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
-  ({ messages, onStickToBottomChange, onScrollToBottom }, ref) => {
+  ({ messages, onStickToBottomChange, onScrollToBottom, isLoading }, ref) => {
     const { containerRef, isStickToBottom } = useStickToBottom();
     const [isMessagesReady, setIsMessagesReady] = useState(false);
 
@@ -32,7 +34,6 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
       onStickToBottomChange?.(isStickToBottom);
     }, [isStickToBottom, onStickToBottomChange]);
 
-    // Expose scrollToBottom method through ref
     useEffect(() => {
       if (containerRef.current && onScrollToBottom) {
         onScrollToBottom();
@@ -52,15 +53,11 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
       <div className="relative flex-1 flex flex-col">
         <div
           ref={containerRef}
-          className={`messages-container absolute inset-0 ${
-            isMessagesReady ? 'overflow-y-auto' : 'overflow-hidden'
-          } py-12 px-4 pb-52 transition-opacity duration-200 ${
-            isMessagesReady ? 'opacity-100' : 'opacity-0'
-          }`}
+          className="messages-container absolute inset-0 overflow-y-auto py-12 px-4 pb-52"
         >
           <div className="max-w-[85%] mx-auto">
             <div className="space-y-12 min-h-full">
-              {isMessagesReady && messages.map((message, index) => (
+              {messages.map((message, index) => (
                 <div key={message.id}>
                   <ChatMessage message={message} />
                   {index < messages.length - 1 && messages[index].role !== messages[index + 1].role && (
@@ -70,6 +67,16 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
                   )}
                 </div>
               ))}
+              {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
+                <>
+                  {messages.length > 0 && (
+                    <div className="w-full flex justify-center my-8">
+                      <div className="w-1/3 h-px bg-white/[0.05]" />
+                    </div>
+                  )}
+                  <LoadingMessage />
+                </>
+              )}
             </div>
           </div>
         </div>

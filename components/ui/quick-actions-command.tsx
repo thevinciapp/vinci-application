@@ -115,6 +115,7 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
       true,
       spaceForm.color
     );
+    
     if (newSpace) {
       const conversation = await createConversation(newSpace.id, "New Conversation");
       if (conversation) {
@@ -123,6 +124,7 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
       
       const allSpaces = await getSpaces();
       if (allSpaces) setSpaces(allSpaces);
+      
       setActiveSpace(newSpace);
     }
   };

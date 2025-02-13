@@ -399,7 +399,7 @@ export async function getConversations(spaceId: string): Promise<Conversation[] 
     return data;
 }
 
-export async function createConversation(spaceId: string, title: string): Promise<Conversation | null> {
+export async function createConversation(spaceId: string, title?: string): Promise<Conversation | null> {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -414,7 +414,6 @@ export async function createConversation(spaceId: string, title: string): Promis
         .insert([{
             space_id: spaceId,
             title: title || DEFAULTS.CONVERSATION_TITLE,
-            user_id: user.id,
             created_at: timestamp,
             updated_at: timestamp
         }])
@@ -426,7 +425,6 @@ export async function createConversation(spaceId: string, title: string): Promis
         return null;
     }
 
-    // Invalidate cache
     await redis.del(CACHE_KEYS.SPACE_DATA(spaceId));
 
     return data;

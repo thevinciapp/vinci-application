@@ -71,7 +71,6 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Create user message
     await createMessage({
       [COLUMNS.CONTENT]: messages[messages.length - 1].content,
       [COLUMNS.ROLE]: 'user',
@@ -80,7 +79,7 @@ export async function POST(req: Request) {
           [COLUMNS.MODEL_USED]: model,
           [COLUMNS.PROVIDER]: provider
         }
-      ] // Annotations are now explicitly an array
+      ]
     }, conversationId);
 
     const createModel = providers[provider];
