@@ -10,6 +10,7 @@ CREATE TABLE spaces (
     user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     description TEXT,
+    color TEXT DEFAULT '#3ecfff',
     is_archived BOOLEAN DEFAULT FALSE,
     is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT now(),

@@ -110,8 +110,15 @@ export default function ClientChatContent({
     return (
         <div className="flex flex-col h-full bg-black text-white">
             <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
-                <div className="p-1 rounded-full bg-white/[0.03] border border-white/[0.05] backdrop-blur-xl shadow-[0_0_15px_rgba(62,207,255,0.1)]">
-                    <div className="flex items-center divide-x divide-white/[0.05]">
+                <div className="relative p-1 rounded-full bg-black/40 border border-white/[0.12] backdrop-blur-xl transition-all duration-300"
+                     style={{
+                        background: `color-mix(in srgb, ${activeSpace?.color || '#3ecfff'}20, rgba(0,0,0,0.4))`,
+                        boxShadow: `0 0 15px ${activeSpace?.color || '#3ecfff'}25,
+                                  0 0 35px ${activeSpace?.color || '#3ecfff'}15,
+                                  0 0 70px ${activeSpace?.color || '#3ecfff'}08,
+                                  inset 0 0 15px ${activeSpace?.color || '#3ecfff'}15`
+                     }}>
+                    <div className="flex items-center divide-x divide-white/[0.12]">
                         <div className="px-1 first:pl-1 last:pr-1">
                             <SpaceTab />
                         </div>

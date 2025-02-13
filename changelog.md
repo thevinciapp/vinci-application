@@ -720,6 +720,21 @@
 - Updated shortcut display in ConversationTab component
 - Maintained consistent shortcut behavior across the application
 
+## [2024-03-19] Space Customization Enhancement
+
+### Added
+- Added icon/emoji support for spaces
+- Added color customization for spaces
+- Enhanced space form UI with icon picker and color selector
+- Updated space tab to display custom icons and colors
+
+### Technical Details
+- Added icon and color fields to spaces table in database
+- Updated Space type definition to include new fields
+- Enhanced SpaceForm component with modern UI for icon and color selection
+- Modified SpaceTab to dynamically display space icons and colors
+- Added default color (#3ecfff) for new spaces
+
 ## [Unreleased]
 
 ### Added

@@ -11,7 +11,7 @@ import { QuickActionsList } from '@/components/ui/quick-actions-list'
 import { SpacesList } from '@/components/ui/spaces-list'
 import { ModelsList } from '@/components/ui/models-list'
 import { ConversationsList } from '@/components/ui/conversations-list'
-import { createSpace, getSpaces, setActiveSpace, updateSpace, getConversations } from '@/app/actions';
+import { createSpace, getSpaces, setActiveSpace, updateSpace, getConversations, createConversation } from '@/app/actions';
 import { useSpaceStore } from '@/lib/stores/space-store';
 import { SpaceForm } from './space-form';
 import { Conversation } from '@/types';
@@ -37,11 +37,13 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
     description: string;
     provider: Provider;
     model: string;
+    color: string;
   }>({
     name: '',
     description: '',
     provider: 'groq',
-    model: AVAILABLE_MODELS['groq'][0]?.id || ''
+    model: AVAILABLE_MODELS['groq'][0]?.id || '',
+    color: ''
   });
 
   useEffect(() => {
@@ -56,7 +58,8 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
         name: '',
         description: '',
         provider: 'groq',
-        model: AVAILABLE_MODELS['groq'][0]?.id || ''
+        model: AVAILABLE_MODELS['groq'][0]?.id || '',
+        color: ''
       });
     }
   }, [isOpen]);
@@ -109,9 +112,15 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
       spaceForm.description,
       spaceForm.model,
       spaceForm.provider,
-      true
+      true,
+      spaceForm.color
     );
     if (newSpace) {
+      const conversation = await createConversation(newSpace.id, "New Conversation");
+      if (conversation) {
+        setActiveConversation(conversation);
+      }
+      
       const allSpaces = await getSpaces();
       if (allSpaces) setSpaces(allSpaces);
       setActiveSpace(newSpace);

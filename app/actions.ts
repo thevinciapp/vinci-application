@@ -115,7 +115,8 @@ export async function createSpace(
     description: string,
     model: string,
     provider: string,
-    setActive: boolean
+    setActive: boolean,
+    color?: string
 ): Promise<Space | null> {
     const supabase = await createClient();
     const {
@@ -136,6 +137,7 @@ export async function createSpace(
                 [COLUMNS.USER_ID]: user.id,
                 [COLUMNS.MODEL]: model,
                 [COLUMNS.PROVIDER]: provider,
+                [COLUMNS.COLOR]: color || '#3ecfff',
             },
         ])
         .select()

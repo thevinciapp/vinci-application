@@ -56,7 +56,8 @@ export const COLUMNS = {
   CONTENT: 'content',
   MODEL_USED: 'model_used',
   PARENT_MESSAGE_ID: 'parent_message_id',
-  ANNOTATIONS: 'annotations'
+  ANNOTATIONS: 'annotations',
+  COLOR: 'color',
 } as const
 
 // Message Roles

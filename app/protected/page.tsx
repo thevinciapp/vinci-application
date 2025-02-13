@@ -44,7 +44,7 @@ export default async function ChatPage() {
       throw new Error("Failed to create initial conversation");
     }
 
-    spaces = await getSpaces();
+    spaces?.push(space);
   }
 
   if (!activeSpace && spaces && spaces.length > 0) {
