@@ -29,32 +29,38 @@ export default async function ChatPage() {
       DEFAULTS.SPACE_DESCRIPTION,
       DEFAULT_MODEL,
       DEFAULT_PROVIDER,
-      false
+      true // Set as active immediately
     );
 
     if (!space) {
       throw new Error("Failed to create default space");
     }
 
-    await setActiveSpace(space.id);
-    activeSpace = space;
-
     const conversation = await createConversation(space.id, "Welcome");
     if (!conversation) {
       throw new Error("Failed to create initial conversation");
     }
 
-    spaces?.push(space);
+    spaces = [space];
+    activeSpace = space;
   }
 
   if (!activeSpace && spaces && spaces.length > 0) {
-    await setActiveSpace(spaces[0].id);
-    activeSpace = spaces[0];
+    const firstSpace = spaces[0];
+    await setActiveSpace(firstSpace.id);
+    activeSpace = firstSpace;
   }
 
-  const defaultConversations = await getConversations(activeSpace?.id || '');
-  const defaultMessages = await getMessages(defaultConversations?.[0]?.id || '');
+  const spaceData = await getSpaceData(activeSpace?.id || '');
   
+  if (spaceData?.space) {
+    activeSpace = spaceData.space;
+  }
+
+  const defaultConversations = spaceData?.conversations || [];
+  const defaultMessages = defaultConversations.length > 0 
+    ? await getMessages(defaultConversations[0].id)
+    : null;
 
   return (
     <Providers>

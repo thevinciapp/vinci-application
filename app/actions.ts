@@ -298,6 +298,10 @@ export async function getSpaceData(spaceId: string): Promise<SpaceData | null> {
         return null;
     }
 
+    if (!spaceId) {
+        return { space: null, conversations: [], messages: null };
+    }
+
     // Try to get from cache first
     const cacheKey = CACHE_KEYS.SPACE_DATA(spaceId);
     const cachedData = await redis.get<SpaceData>(cacheKey);
@@ -305,7 +309,7 @@ export async function getSpaceData(spaceId: string): Promise<SpaceData | null> {
         return cachedData;
     }
 
-    // Fetch all data in parallel
+    // Fetch space and conversations in parallel
     const [space, conversations] = await Promise.all([
         supabase
             .from(DB_TABLES.SPACES)
@@ -324,43 +328,38 @@ export async function getSpaceData(spaceId: string): Promise<SpaceData | null> {
             .from(DB_TABLES.CONVERSATIONS)
             .select("*")
             .eq(COLUMNS.SPACE_ID, spaceId)
-            .order(COLUMNS.CREATED_AT, { ascending: false })
+            .order(COLUMNS.UPDATED_AT, { ascending: false })
             .then(({ data, error }) => {
                 if (error) {
                     console.error("Error fetching conversations:", error);
-                    return null;
+                    return [];
                 }
-                return data;
+                return data || [];
             })
     ]);
 
+    // If we have conversations, get messages for the most recent one
     let messages = null;
-    if (conversations && conversations.length > 0) {
-        const latestConversation = conversations[0];
-        messages = await supabase
+    if (conversations.length > 0) {
+        const { data, error } = await supabase
             .from(DB_TABLES.MESSAGES)
             .select("*")
-            .eq('conversation_id', latestConversation.id)
+            .eq('conversation_id', conversations[0].id)
             .eq(COLUMNS.IS_DELETED, false)
-            .order(COLUMNS.CREATED_AT, { ascending: true })
-            .then(({ data, error }) => {
-                if (error) {
-                    console.error("Error fetching messages:", error);
-                    return null;
-                }
-                return data;
-            });
+            .order(COLUMNS.CREATED_AT, { ascending: true });
+
+        if (error) {
+            console.error("Error fetching messages:", error);
+        } else {
+            messages = data;
+        }
     }
 
     const spaceData = { space, conversations, messages };
-
-    // Cache the result
     await redis.set(cacheKey, spaceData, { ex: CACHE_TTL.SPACE_DATA });
-
     return spaceData;
 }
 
-// Conversations
 export async function getConversations(spaceId: string): Promise<Conversation[] | null> {
     const supabase = await createClient();
     const {
@@ -373,10 +372,9 @@ export async function getConversations(spaceId: string): Promise<Conversation[] 
     }
 
     if (!spaceId) {
-        return []; // Return empty array if no space is active
+        return [];
     }
 
-    // Try to get from cache first
     const cacheKey = CACHE_KEYS.CONVERSATIONS(spaceId);
     const cachedConversations = await redis.get<Conversation[]>(cacheKey);
     if (cachedConversations) {
@@ -387,14 +385,13 @@ export async function getConversations(spaceId: string): Promise<Conversation[] 
         .from(DB_TABLES.CONVERSATIONS)
         .select("*")
         .eq(COLUMNS.SPACE_ID, spaceId)
-        .order(COLUMNS.CREATED_AT, { ascending: false });
+        .order(COLUMNS.UPDATED_AT, { ascending: false });
 
     if (error) {
         console.error("Error fetching conversations:", error);
         return null;
     }
 
-    // Cache the result
     if (data) {
         await redis.set(cacheKey, data, { ex: CACHE_TTL.CONVERSATIONS });
     }
@@ -403,23 +400,24 @@ export async function getConversations(spaceId: string): Promise<Conversation[] 
 }
 
 export async function createConversation(spaceId: string, title: string): Promise<Conversation | null> {
-     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) {
-        console.error("User not found");
+    if (!user || !spaceId) {
+        console.error("Missing required data for conversation creation");
         return null;
     }
+
+    const timestamp = new Date().toISOString();
     const { data, error } = await supabase
         .from(DB_TABLES.CONVERSATIONS)
-        .insert([
-            {
-                [COLUMNS.SPACE_ID]: spaceId,
-                [COLUMNS.TITLE]: title || DEFAULTS.CONVERSATION_TITLE,
-            },
-        ])
+        .insert([{
+            space_id: spaceId,
+            title: title || DEFAULTS.CONVERSATION_TITLE,
+            user_id: user.id,
+            created_at: timestamp,
+            updated_at: timestamp
+        }])
         .select()
         .single();
 
@@ -428,10 +426,8 @@ export async function createConversation(spaceId: string, title: string): Promis
         return null;
     }
 
-    if (data) {
-        // Invalidate conversations cache
-        await redis.del(CACHE_KEYS.CONVERSATIONS(spaceId));
-    }
+    // Invalidate cache
+    await redis.del(CACHE_KEYS.SPACE_DATA(spaceId));
 
     return data;
 }
@@ -474,42 +470,58 @@ export async function createMessage(messageData: Partial<Message>, conversationI
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) {
-        console.error("No authenticated user found");
+    if (!user || !messageData.content || !messageData.role || !conversationId) {
+        console.error("Missing required data for message creation");
         return null;
     }
 
-    if (!messageData.content || !messageData.role) {
-        console.error("Missing required message data");
-        return null;
-    }
-    
-    const { data, error } = await supabase
-        .from(DB_TABLES.MESSAGES)
-        .insert([{
-            [COLUMNS.CONTENT]: messageData.content,
-            [COLUMNS.ROLE]: messageData.role,
-            [COLUMNS.ANNOTATIONS]: messageData.annotations,
-            [COLUMNS.USER_ID]: user.id,
-            [COLUMNS.IS_DELETED]: false,
-            [COLUMNS.CREATED_AT]: new Date().toISOString(),
-            [COLUMNS.UPDATED_AT]: new Date().toISOString(),
-            [COLUMNS.CONVERSATION_ID]: conversationId
-        }])
-        .select()
+    const timestamp = new Date().toISOString();
+
+    // Get conversation to check space_id
+    const { data: conversation } = await supabase
+        .from(DB_TABLES.CONVERSATIONS)
+        .select("space_id")
+        .eq(COLUMNS.ID, conversationId)
         .single();
 
-    if (error) {
-        console.error("Error creating message:", error);
+    if (!conversation) {
+        console.error("Conversation not found");
         return null;
     }
 
-    if (data) {
-        // Invalidate messages cache
-        await redis.del(CACHE_KEYS.MESSAGES(conversationId));
+    // Create message and update conversation in parallel
+    const [messageResult, updateResult] = await Promise.all([
+        supabase
+            .from(DB_TABLES.MESSAGES)
+            .insert([{
+                content: messageData.content,
+                role: messageData.role,
+                annotations: messageData.annotations,
+                user_id: user.id,
+                is_deleted: false,
+                created_at: timestamp,
+                updated_at: timestamp,
+                conversation_id: conversationId
+            }])
+            .select()
+            .single(),
+        supabase
+            .from(DB_TABLES.CONVERSATIONS)
+            .update({ updated_at: timestamp })
+            .eq(COLUMNS.ID, conversationId)
+    ]);
+
+    if (messageResult.error) {
+        console.error("Error creating message:", messageResult.error);
+        return null;
     }
 
-    return data;
+    // Invalidate caches
+    await Promise.all([
+        redis.del(CACHE_KEYS.SPACE_DATA(conversation.space_id))
+    ]);
+
+    return messageResult.data;
 }
 
 export const signUpAction = async (formData: FormData) => {

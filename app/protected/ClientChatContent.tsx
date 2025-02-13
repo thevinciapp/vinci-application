@@ -65,11 +65,7 @@ export default function ClientChatContent({
                 setIsLoading(false)
                 return
             }
-
-            if (spaceData.space) {
-                setActiveSpace(spaceData.space)
-            }
-
+            
             const conversations = spaceData.conversations ?? []
             setConversations(conversations)
 
@@ -110,15 +106,13 @@ export default function ClientChatContent({
     return (
         <div className="flex flex-col h-full bg-black text-white">
             <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
-                <div className="relative p-1 rounded-full bg-black/40 border border-white/[0.12] backdrop-blur-xl transition-all duration-300"
+                <div className="relative p-1 rounded-full bg-black/20 border border-white/[0.08] backdrop-blur-xl"
                      style={{
-                        background: `color-mix(in srgb, ${activeSpace?.color || '#3ecfff'}20, rgba(0,0,0,0.4))`,
-                        boxShadow: `0 0 15px ${activeSpace?.color || '#3ecfff'}25,
-                                  0 0 35px ${activeSpace?.color || '#3ecfff'}15,
-                                  0 0 70px ${activeSpace?.color || '#3ecfff'}08,
-                                  inset 0 0 15px ${activeSpace?.color || '#3ecfff'}15`
+                        background: `color-mix(in srgb, ${activeSpace?.color || '#3ecfff'}10, transparent)`,
+                        boxShadow: `0 0 20px ${activeSpace?.color || '#3ecfff'}10,
+                                  inset 0 0 20px ${activeSpace?.color || '#3ecfff'}05`
                      }}>
-                    <div className="flex items-center divide-x divide-white/[0.12]">
+                    <div className="flex items-center divide-x divide-white/[0.08]">
                         <div className="px-1 first:pl-1 last:pr-1">
                             <SpaceTab />
                         </div>
