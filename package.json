@@ -51,6 +51,7 @@
     "isomorphic-dompurify": "^2.21.0",
     "lucide-react": "^0.468.0",
     "markdown-it": "^14.1.0",
+    "markdown-it-jsx": "^1.1.0",
     "marked": "^15.0.7",
     "marked-base-url": "^1.1.6",
     "marked-gfm-heading-id": "^4.1.1",

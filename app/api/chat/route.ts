@@ -26,6 +26,16 @@ const providers: Record<Provider, (model: string) => any> = {
   perplexity: (model) => perplexity(model),
 };
 
+const systemPrompt = `You are a helpful AI assistant.  Your responses should *ALWAYS* be formatted as Markdown.  Use Markdown for:
+
+*   **Bold** and *Italics*
+*   Headings (#, ##, ###, etc.)
+*   Lists (-, *, or numbered)
+*   \`inline code\` and code blocks (\`\`\`language)
+*   Links ([link text](url))
+*   Prefer using headers instead of bold text to emphasize the importance of a section.
+
+Do *not* include any HTML tags in your response.  Keep responses concise and to the point.`;
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -95,6 +105,7 @@ export async function POST(req: Request) {
         const result = streamText({
           model: modelInstance,
           messages,
+          system: systemPrompt,
           onChunk() {
             dataStream.writeMessageAnnotation({
               id: generateId(),

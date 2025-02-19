@@ -22,7 +22,7 @@ export function CodeBlock({ code, language = 'plain', className = '' }: CodeBloc
       return hljs.highlightAuto(code).value
     } catch (error) {
       console.error('Error highlighting code:', error)
-      return code
+    return code
     }
   }, [code, language])
 
@@ -62,7 +62,7 @@ export function CodeBlock({ code, language = 'plain', className = '' }: CodeBloc
           <pre className="hljs !bg-transparent pl-4 pt-12 pb-4">
             <code 
               className={`text-[13px] leading-relaxed hljs language-${language}`}
-              dangerouslySetInnerHTML={{ __html: highlightedCode }}
+            dangerouslySetInnerHTML={{ __html: highlightedCode }}
             />
           </pre>
         </div>
