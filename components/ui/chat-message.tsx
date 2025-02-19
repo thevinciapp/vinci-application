@@ -3,6 +3,7 @@ import { FC } from 'react';
 import { getModelName, type Provider } from '@/config/models';
 import { ProviderIcon } from './provider-icon';
 import { Message } from 'ai';
+import { MarkdownRenderer } from './markdown-renderer';
 
 interface ChatMessageProps {
   message: Message;
@@ -53,12 +54,13 @@ export const ChatMessage: FC<ChatMessageProps> = ({ message }) => {
               </div>
             </div>
           )}
-          <p className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${isUser
-            ? 'text-white shadow-[0_0_15px_-5px_rgba(255,255,255,0.3)]'
-            : 'text-white/90'
-            }`}>
-            {message.content}
-          </p>
+          {isUser ? (
+            <div className="text-sm leading-relaxed whitespace-pre-wrap break-words text-white shadow-[0_0_15px_-5px_rgba(255,255,255,0.3)]">
+              {message.content}
+            </div>
+          ) : (
+              <MarkdownRenderer content={message.content} />
+          )}
         </div>
       </div>
       {isUser && (

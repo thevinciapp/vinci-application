@@ -141,6 +141,74 @@
   - Styled hints with monospace font and subtle color
   - Combined hints with existing keyboard shortcuts
   - Improved discoverability of command-based navigation
+- Created new `LLMResponseFormatter` component for efficient markdown and code block formatting
+  - Highly performant implementation without external dependencies
+  - Support for code block syntax highlighting
+  - Markdown formatting including bold, italic, links, and lists
+  - Automatic language detection for code blocks
+  - Hover effects and language badges for code blocks
+  - Memoized content processing for optimal performance
+- Enhanced LLMResponseFormatter with comprehensive markdown support:
+  - Added copy-to-clipboard functionality for code blocks
+  - Added support for all header levels (H1-H3)
+  - Added support for tables, blockquotes, and horizontal rules
+  - Added task lists with checkbox support
+  - Added definition lists and abbreviations
+  - Added footnotes and improved link handling
+  - Added superscript and subscript support
+  - Added image support with lazy loading
+  - Improved code block styling with language detection
+  - Enhanced accessibility with ARIA labels and semantic HTML
+  - Optimized performance with better memoization
+  - Added visual feedback for code copying
+  - Improved list handling and nesting
+- Enhanced LLMResponseFormatter with advanced syntax highlighting:
+  - Added custom lightweight syntax highlighter
+  - Support for Python, JavaScript, and TypeScript
+  - VS Code-like theme with carefully chosen colors
+  - Language-specific token highlighting
+  - Performance-optimized implementation
+  - No external dependencies
+  - Automatic language detection
+  - Copy-to-clipboard functionality
+  - Improved code block styling
+  - Enhanced accessibility
+  - Better visual hierarchy
+- Replaced `marked` with `markdown-it` for markdown rendering
+  - Improved performance and reliability
+  - Better TypeScript support
+  - Added syntax highlighting with highlight.js
+  - Added copy button for code blocks
+  - Automatic external link handling
+  - Responsive typography with Tailwind's prose classes
+  - Proper HTML sanitization with DOMPurify
+- Implemented new markdown renderer using Marked library:
+  - Added syntax highlighting with highlight.js
+  - Added copy button for code blocks
+  - Added target="_blank" for external links
+  - Added proper sanitization with DOMPurify
+  - Added support for GitHub Flavored Markdown
+  - Added proper code block language detection
+  - Added proper HTML sanitization
+  - Added proper link handling
+  - Added proper code block styling
+- Implemented MarkdownRenderer component with the following features:
+  - Markdown parsing using Marked library
+  - Code syntax highlighting with highlight.js
+  - Copy button for code blocks
+  - Automatic external link handling
+  - HTML sanitization with DOMPurify
+  - GitHub Flavored Markdown support
+  - Heading IDs and URL handling
+  - Responsive design with Tailwind Typography
+- Added inline code block support in markdown:
+  - Added custom inline code renderer
+  - Added consistent styling for inline code
+  - Added proper padding and borders
+  - Added monospace font and appropriate sizing
+  - Added subtle background and border effects
+  - Improved readability with proper spacing
+  - Maintained visual consistency with code blocks
 
 ### Changed
 - Updated quick actions menu names to be more concise
@@ -293,6 +361,15 @@
   - Maintained consistent styling with space tab
   - Enhanced visual hierarchy with proper spacing
   - Improved user experience with clear button placement
+- Switched from react-markdown to marked for better performance and customization
+- Improved code block rendering with copy functionality
+- Enhanced link handling with proper external link detection
+- Improved markdown sanitization with DOMPurify
+- Enhanced MarkdownRenderer with inline code support:
+  - Customized markdown-it renderer for inline code
+  - Added highlight function for consistent code handling
+  - Added styling utilities for inline code blocks
+  - Improved visual hierarchy with subtle styling
 
 ### Performance
 - Optimized Redis caching implementation
@@ -560,6 +637,11 @@
   - Added active state based on modal open state
   - Matched background and border styling with other tabs
   - Enhanced visual feedback when quick actions are active
+- Fixed `MarkdownRenderer` component to display code blocks in correct order
+- Updated token processing to maintain proper sequence of content
+- Improved text content handling with proper markdown rendering
+- Added proper Token type import from markdown-it
+- Enhanced spacing between content segments
 
 ## [2024-03-21]
 - Fixed event handler error in SpaceTab component by converting it to a Client Component
@@ -777,5 +859,52 @@
   - Improved code organization and maintainability
   - Removed console.log statements
   - Simplified error handling with early returns
+
+## [2024-02-05]
+- Added LLMResponseFormatter component for formatting AI responses:
+  - Code block syntax highlighting with Prism.js
+  - Copy to clipboard functionality
+  - Markdown link parsing
+  - Bullet point formatting
+  - XML tag handling
+  - Support for multiple programming languages
+  - Dark theme styling
+  - Responsive design with proper spacing
+  - Improved code readability with syntax highlighting
+  - Added Dracula theme for code blocks
+
+### Performance Issues
+- Identified performance bottleneck in markdown renderer:
+  - Slow rendering of large markdown content
+  - TypeScript type conflicts with marked library
+  - Issues with highlight.js integration
+  - Investigating alternative approaches for better performance
+
+### Fixed
+- Improved markdown spacing and formatting:
+  - Added proper paragraph and line break handling
+  - Added consistent margins between elements
+  - Improved whitespace handling and trimming
+  - Added proper margin collapse for nested elements
+  - Enhanced heading spacing hierarchy
+  - Added proper list and blockquote spacing
+  - Fixed code block margins with special first/last handling
+
+### Changed
+- Enhanced MarkdownRenderer configuration:
+  - Enabled breaks option in markdown-it
+  - Added prose-specific margin utilities
+  - Improved token processing for better spacing
+  - Added prose-spacing class for better margin control
+
+## [Unreleased]
+
+### Fixed
+- Improved code block syntax highlighting:
+  - Fixed markdown-it highlight function to properly handle code blocks
+  - Improved language detection and handling
+  - Separated inline code and fence block handling
+  - Added proper content trimming for code blocks
+  - Enhanced language fallback to 'plain' when not specified
 
  

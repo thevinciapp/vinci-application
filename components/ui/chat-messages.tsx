@@ -16,19 +16,6 @@ interface ChatMessagesProps {
 export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
   ({ messages, onStickToBottomChange, onScrollToBottom, isLoading }, ref) => {
     const { containerRef, isStickToBottom } = useStickToBottom();
-    const [isMessagesReady, setIsMessagesReady] = useState(false);
-
-    useEffect(() => {
-      if (messages.length > 0) {
-        setIsMessagesReady(true);
-      }
-    }, [messages]);
-
-    useEffect(() => {
-      if (messages.length === 0) {
-        setIsMessagesReady(false);
-      }
-    }, [messages.length]);
 
     useEffect(() => {
       onStickToBottomChange?.(isStickToBottom);
@@ -39,15 +26,6 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
         onScrollToBottom();
       }
     }, [onScrollToBottom]);
-
-    const scrollToBottom = () => {
-      if (containerRef.current) {
-        containerRef.current.scrollTo({
-          top: containerRef.current.scrollHeight,
-          behavior: 'smooth'
-        });
-      }
-    };
 
     return (
       <div className="relative flex-1 flex flex-col">

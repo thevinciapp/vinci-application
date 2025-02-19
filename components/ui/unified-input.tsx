@@ -21,8 +21,9 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-resize textarea as content changes
   useEffect(() => {
+    console.log(value)
+    
     const textarea = textareaRef.current;
     if (!textarea) return;
 
