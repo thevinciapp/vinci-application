@@ -1,7 +1,6 @@
 "use client";
 
 import React, { ChangeEvent, useRef, useState, useEffect } from 'react';
-import { Send } from 'lucide-react';
 
 interface UnifiedInputProps {
   value: string;
@@ -22,8 +21,6 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    console.log(value)
-    
     const textarea = textareaRef.current;
     if (!textarea) return;
 
@@ -35,6 +32,11 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
 
     adjustHeight();
   }, [value]);
+
+  const handleSubmit = () => {
+    if (!value.trim() || disabled) return;
+    onSubmit();
+  };
 
   return (
     <div className="relative">
@@ -59,16 +61,13 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  if (value.trim()) {
-                    onSubmit();
-                  }
+                  handleSubmit();
                 }
               }}
-              placeholder="Type your message..."
+              placeholder={"Type your message..."}
               className="w-full text-sm resize-none min-h-[48px] max-h-[200px] px-4 py-3 focus:bg-transparent bg-transparent focus:outline-none transition-colors duration-200 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent text-white/90 placeholder:text-white/40"
               style={{ overflow: value.split('\n').length > 8 ? 'auto' : 'hidden' }}
               rows={1}
-              disabled={disabled}
             />
           </div>
           <button
@@ -82,9 +81,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
             `}
             onClick={(e) => {
               e.preventDefault();
-              if (value.trim()) {
-                onSubmit();
-              }
+              handleSubmit();
             }}
             disabled={disabled}
           >

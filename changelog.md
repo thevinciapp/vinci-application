@@ -999,4 +999,22 @@
   - Added consistent margins for lists and paragraphs
   - Improved overall visual hierarchy
 
- 
+## [2024-03-19] - Pinecone Integration for Chat Messages
+
+### Added
+- Integrated Pinecone vector database for storing chat messages
+- Added OpenAI embeddings for semantic search capabilities
+- Created Pinecone utility functions for upserting and searching messages
+- Added environment variables for Pinecone and OpenAI configuration
+- Modified chat route to store messages in Pinecone
+
+### Dependencies Added
+- @pinecone-database/pinecone
+- @langchain/openai
+
+### Configuration
+- Added environment variables:
+  - PINECONE_API_KEY
+  - PINECONE_ENVIRONMENT
+  - PINECONE_INDEX
+  - OPENAI_API_KEY 

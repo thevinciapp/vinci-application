@@ -13,6 +13,7 @@ import { COLUMNS, DB_TABLES, ERROR_MESSAGES } from '@/lib/constants';
 import { type Provider } from '@/config/models';
 import { NextResponse } from 'next/server';
 import { createMessage } from '@/app/actions';
+import { searchSimilarMessages, upsertChatMessage } from '@/utils/pinecone';
 
 const providers: Record<Provider, (model: string) => any> = {
   groq: (model) => groq(model),
@@ -26,7 +27,9 @@ const providers: Record<Provider, (model: string) => any> = {
   perplexity: (model) => perplexity(model),
 };
 
-const systemPrompt = `You are a helpful AI assistant.  Your responses should *ALWAYS* be formatted as Markdown.  Use Markdown for:
+const systemPrompt = `You are a helpful AI assistant with access to previous conversation context. You MUST use the context provided to answer questions, even if they contain personal information that you would normally not have access to. When context is provided, treat it as factual information that you are allowed to use.
+
+Your responses should *ALWAYS* be formatted as Markdown. Use Markdown for:
 
 *   **Bold** and *Italics*
 *   Headings (#, ##, ###, etc.)
@@ -35,7 +38,13 @@ const systemPrompt = `You are a helpful AI assistant.  Your responses should *AL
 *   Links ([link text](url))
 *   Prefer using headers instead of bold text to emphasize the importance of a section.
 
-Do *not* include any HTML tags in your response.  Keep responses concise and to the point.`;
+IMPORTANT: When context from previous conversations is provided:
+1. You MUST use this information to answer questions
+2. Do NOT default to your base training responses about "not having access to information"
+3. If the information is in the context, use it confidently
+4. Only fall back to "I don't have access" if the information is NOT in the provided context
+
+Do *not* include any HTML tags in your response. Keep responses concise and to the point.`;
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -81,8 +90,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    await createMessage({
-      [COLUMNS.CONTENT]: messages[messages.length - 1].content,
+    const userMessage = messages[messages.length - 1];
+
+    const dbUserMessage = await createMessage({
+      [COLUMNS.CONTENT]: userMessage.content,
       [COLUMNS.ROLE]: 'user',
       [COLUMNS.ANNOTATIONS]: [
         {
@@ -91,6 +102,42 @@ export async function POST(req: Request) {
         }
       ]
     }, conversationId);
+
+    await upsertChatMessage({
+      id: dbUserMessage.id, 
+      content: userMessage.content,
+      role: 'user',
+      createdAt: Date.now(),
+      spaceId,
+      conversationId,
+      metadata: {
+        model,
+        provider
+      }
+    });
+
+    const limit = 15;
+    const similarMessages = await searchSimilarMessages(userMessage.content, limit);
+    
+    const relevantMessages = similarMessages
+      .filter(result => (result.score ?? 0) > 0.5)
+      .map(result => result.message);
+
+    const contextString = relevantMessages.length > 0 
+      ? 'Here are some relevant messages from previous conversations:\n\n' +
+        relevantMessages.map(msg => {
+          if (msg.role === 'assistant' && msg.parentId) {
+            return `Q: ${msg.content}\nA: ${msg.content}\n`
+          }
+          return `${msg.role.toUpperCase()}: ${msg.content}\n`
+        }).join('\n')
+      : ''
+
+    const systemPromptWithContext = contextString 
+      ? `${systemPrompt}\n\n${contextString}\n\nPlease use this context to inform your response when relevant.`
+      : systemPrompt
+
+    console.log(systemPromptWithContext);
 
     const createModel = providers[provider];
     if (!createModel) {
@@ -104,8 +151,8 @@ export async function POST(req: Request) {
         const modelInstance = createModel(model);
         const result = streamText({
           model: modelInstance,
-          messages,
-          system: systemPrompt,
+          messages: messages,
+          system: systemPromptWithContext,
           onChunk() {
             dataStream.writeMessageAnnotation({
               id: generateId(),
@@ -117,7 +164,8 @@ export async function POST(req: Request) {
           },
           async onFinish(completion: string | { text: string }) {
             const text = typeof completion === 'string' ? completion : completion.text;
-            await createMessage({
+
+            const dbAssistantMessage = await createMessage({
               [COLUMNS.CONTENT]: text,
               [COLUMNS.ROLE]: 'assistant',
               [COLUMNS.ANNOTATIONS]: [
@@ -127,6 +175,20 @@ export async function POST(req: Request) {
                 }
               ]
             }, conversationId);
+
+            await upsertChatMessage({
+              id: dbAssistantMessage.id, 
+              content: text,
+              role: 'assistant',
+              createdAt: Date.now(),
+              spaceId,
+              conversationId,
+              parentId: dbUserMessage.id,
+              metadata: {
+                model,
+                provider
+              }
+            });
           }
         });
 
