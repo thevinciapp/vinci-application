@@ -1,6 +1,8 @@
 import { Command } from 'cmdk';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
+import { Search } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface CommandModalProps {
     isOpen: boolean;
@@ -120,31 +122,42 @@ export function CommandModal({
                             loop
                         >
                             <div
-                                className={`flex items-center px-4 ${!hideSearch ? 'border-b border-white/[0.08]' : 'py-3'}`}
+                                className={cn(
+                                    "flex items-center px-4 gap-3",
+                                    !hideSearch ? 'border-b border-white/[0.08]' : 'py-3'
+                                )}
                             >
                                 {leftElement && (
-                                    <div className="text-white/60 mr-3 transition-colors duration-200 group-hover:text-white/80">
+                                    <div className="text-white/60 transition-colors duration-200 group-hover:text-white/80">
                                         {leftElement}
                                     </div>
                                 )}
                                 {!hideSearch && (
-                                    <Command.Input
-                                        ref={inputRef}
-                                        value={searchValue}
-                                        onValueChange={onSearchChange}
-                                        placeholder={placeholder}
-                                        onFocus={() => setIsFocused(true)}
-                                        onBlur={() => setIsFocused(false)}
-                                        className="flex-1 h-14 bg-transparent text-white/90 placeholder:text-white/40 outline-none text-sm transition-colors duration-200 focus:bg-white/[0.02]"
-                                    />
+                                    <div className="flex items-center flex-1 gap-3">
+                                        <Search className="w-5 h-5 text-white/40" />
+                                        <Command.Input
+                                            ref={inputRef}
+                                            value={searchValue}
+                                            onValueChange={onSearchChange}
+                                            placeholder={placeholder}
+                                            onFocus={() => setIsFocused(true)}
+                                            onBlur={() => setIsFocused(false)}
+                                            className={cn(
+                                                "flex-1 h-14 bg-transparent text-white/90 outline-none",
+                                                "text-base placeholder:text-white/40 transition-colors duration-200",
+                                                "focus:placeholder:text-white/60 focus:bg-white/[0.02]"
+                                            )}
+                                        />
+                                    </div>
                                 )}
                             </div>
 
-                            <div className="flex flex-col h-[min(60vh,400px)]">
-                                <Command.List className="flex-1 overflow-y-auto overscroll-contain scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 p-2 space-y-1.5">
+                            <div className="flex flex-col h-[min(70vh,500px)]">
+                                <Command.List className="flex-1 overflow-y-auto overscroll-contain scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 p-4 space-y-2">
                                     {!hideSearch && searchValue && (
-                                        <Command.Empty className="py-6 text-center text-sm text-white/40">
-                                            No results found.
+                                        <Command.Empty className="py-8 text-center">
+                                            <p className="text-sm text-white/40">No results found.</p>
+                                            <p className="text-xs text-white/30 mt-1">Try searching for actions, conversations, or spaces</p>
                                         </Command.Empty>
                                     )}
 

@@ -66,7 +66,7 @@ export default async function ChatPage() {
     <Providers>
       <div className="flex flex-col h-screen bg-black text-white">
         <ClientChatContent
-          userId={session.user.id}
+          user={session.user}
           defaultSpace={activeSpace}
           defaultConversations={defaultConversations}
           defaultMessages={defaultMessages}

@@ -1017,4 +1017,135 @@
   - PINECONE_API_KEY
   - PINECONE_ENVIRONMENT
   - PINECONE_INDEX
+  - OPENAI_API_KEY
+
+## [User Profile Position Update] - 2024-02-20
+### Changed
+- Moved UserProfileDropdown to top right corner of protected page
+- Added user state management in ClientChatContent
+- Improved user profile accessibility and visibility
+- Enhanced layout with proper z-index and positioning
+
+## [Unreleased]
+
+### Added
+- Added Zustand store for managing active space state globally
+- Fixed space selection sync between command window and chat interface
+
+### Changed
+- Improved initial space creation and setup flow
+  - Added proper sequencing of space creation, activation, and conversation setup
+  - Created welcome conversation with initial message
+  - Added fallback for setting first space as active if none active
+  - Improved error handling with descriptive messages
+  - Added proper state refresh after initialization
+  - Added proper default provider and model configuration
+  - Fixed type safety for provider and model selection
+- Improved prop naming in ClientChatContent component
+  - Renamed `initialActiveSpace` to `defaultSpace`
+  - Renamed `initialConversations` to `defaultConversations`
+  - Made prop names more concise and descriptive
+- Updated ClientChatContent to use global space store
+- Updated QuickActionsCommand to use global space store
+- Improved space selection handling to maintain consistency across components
+
+### Fixed
+- Fixed model configuration import paths
+  - Updated imports to use correct path from @/config/models
+  - Separated model configuration from general constants
+  - Fixed type error in getModelName function
+  - Improved module organization for model-related code
+- Fixed active space management in database
+  - Resolved unique constraint violation in active_spaces table
+  - Improved set_active_space function to properly handle existing records
+  - Added explicit check for existing records before update/insert
+  - Added DELETE policy for active_spaces table
+  - Enhanced error handling in space activation process
+
+## [2024-02-05]
+- Refactored ClientChatContent.tsx to split large useEffect into multiple focused effects:
+  - Added separate effects for initial setup, space data loading, conversation management, and message loading
+  - Improved code organization and maintainability
+  - Removed console.log statements
+  - Simplified error handling with early returns
+
+## [2024-02-05]
+- Added LLMResponseFormatter component for formatting AI responses:
+  - Code block syntax highlighting with Prism.js
+  - Copy to clipboard functionality
+  - Markdown link parsing
+  - Bullet point formatting
+  - XML tag handling
+  - Support for multiple programming languages
+  - Dark theme styling
+  - Responsive design with proper spacing
+  - Improved code readability with syntax highlighting
+  - Added Dracula theme for code blocks
+
+### Performance Issues
+- Identified performance bottleneck in markdown renderer:
+  - Slow rendering of large markdown content
+  - TypeScript type conflicts with marked library
+  - Issues with highlight.js integration
+  - Investigating alternative approaches for better performance
+
+### Fixed
+- Improved markdown spacing and formatting:
+  - Added proper paragraph and line break handling
+  - Added consistent margins between elements
+  - Improved whitespace handling and trimming
+  - Added proper margin collapse for nested elements
+  - Enhanced heading spacing hierarchy
+  - Added proper list and blockquote spacing
+  - Fixed code block margins with special first/last handling
+
+### Changed
+- Enhanced MarkdownRenderer configuration:
+  - Enabled breaks option in markdown-it
+  - Added prose-specific margin utilities
+  - Improved token processing for better spacing
+  - Added prose-spacing class for better margin control
+
+## [Unreleased]
+
+### Fixed
+- Improved code block syntax highlighting:
+  - Fixed markdown-it highlight function to properly handle code blocks
+  - Improved language detection and handling
+  - Separated inline code and fence block handling
+  - Added proper content trimming for code blocks
+  - Enhanced language fallback to 'plain' when not specified
+
+### Changed
+- Modified MarkdownRenderer to wrap all segments in a single container instead of creating separate divs for each segment
+
+## [Unreleased]
+
+### Changed
+- Refactored markdown renderer styling:
+  - Replaced Tailwind prose with custom arbitrary selectors
+  - Added specific styling for all heading levels
+  - Improved spacing and typography for all elements
+  - Enhanced blockquote and link styling
+  - Added consistent margins for lists and paragraphs
+  - Improved overall visual hierarchy
+
+## [2024-03-19] - Pinecone Integration for Chat Messages
+
+### Added
+- Integrated Pinecone vector database for storing chat messages
+- Added OpenAI embeddings for semantic search capabilities
+- Created Pinecone utility functions for upserting and searching messages
+- Added environment variables for Pinecone and OpenAI configuration
+- Modified chat route to store messages in Pinecone
+
+### Dependencies Added
+- @pinecone-database/pinecone
+- @langchain/openai
+
+### Configuration
+- Added environment variables:
+  - PINECONE_API_KEY
+  - PINECONE_ENVIRONMENT
+  - PINECONE_INDEX
   - OPENAI_API_KEY 

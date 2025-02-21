@@ -646,6 +646,24 @@ export const resetPasswordAction = async (formData: FormData) => {
 
 export const signOutAction = async () => {
   const supabase = await createClient();
-  await supabase.auth.signOut();
-  return redirect("/sign-in");
+  
+  try {
+    // Clear all redis cache for the user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await Promise.all([
+        redis.del(CACHE_KEYS.SPACES(user.id)),
+        redis.del(CACHE_KEYS.ACTIVE_SPACE(user.id))
+      ]);
+    }
+
+    // Sign out from Supabase
+    await supabase.auth.signOut();
+
+    // No need to return redirect since we handle navigation client-side
+    return { success: true };
+  } catch (error) {
+    console.error('Error during sign out:', error);
+    return { success: false, error };
+  }
 };

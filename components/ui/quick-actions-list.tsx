@@ -6,9 +6,11 @@ import { commandItemClass } from './command-item';
 interface QuickAction {
     id: string;
     name: string;
+    description?: string;
     icon: JSX.Element;
     callback?: () => void;
-    shortcut?: string[]; // Keep shortcut as an array of strings
+    shortcut?: string[];
+    category?: 'navigation' | 'creation' | 'action';
 }
 
 interface QuickActionsListProps {
@@ -20,60 +22,76 @@ interface QuickActionsListProps {
 
 export function QuickActionsList({ onShowSpaces, onShowModels, onShowConversations, onCreateSpace }: QuickActionsListProps) {
 
-    const currentConversationActions: QuickAction[] = [
+    const aiActions: QuickAction[] = [
         {
             id: 'generate',
             name: 'Generate Content',
+            description: 'Create new AI-generated content',
             icon: <Sparkles className="w-4 h-4" />,
+            category: 'action'
         },
         {
             id: 'continue',
             name: 'Continue Generation',
+            description: 'Continue from the last AI response',
             icon: <ArrowRight className="w-4 h-4" />,
+            category: 'action'
         }
     ];
 
-    const conversationActions: QuickAction[] = [
+    const navigationActions: QuickAction[] = [
         {
             id: 'conversations',
             name: 'Search Conversations',
+            description: 'Find and switch between conversations',
             icon: <Search className="w-4 h-4" />,
             callback: onShowConversations,
-            shortcut: ['⌘', 'C']
-        },
-        {
-            id: 'new-conversation',
-            name: 'New Conversation',
-            icon: <Plus className="w-4 h-4" />
+            shortcut: ['⌘', 'C'],
+            category: 'navigation'
         },
         {
             id: 'recent-conversations',
             name: 'Recent Conversations',
-            icon: <History className="w-4 h-4" />
+            description: 'View your latest conversations',
+            icon: <History className="w-4 h-4" />,
+            category: 'navigation'
+        },
+        {
+            id: 'spaces',
+            name: 'Switch Space',
+            description: 'Change to a different workspace',
+            icon: <Globe className="w-4 h-4" />,
+            callback: onShowSpaces,
+            shortcut: ['⌘', 'S'],
+            category: 'navigation'
+        },
+        {
+            id: 'models',
+            name: 'Change Model',
+            description: 'Select a different AI model',
+            icon: <Cpu className="w-4 h-4" />,
+            callback: onShowModels,
+            shortcut: ['⌘', 'M'],
+            category: 'navigation'
         }
     ];
 
-    const spaceActions: QuickAction[] = [
+    const creationActions: QuickAction[] = [
         {
-            id: 'spaces',
-            name: 'Spaces',
-            icon: <Globe className="w-4 h-4" />,
-            callback: onShowSpaces,
-            shortcut: ['⌘', 'S']
+            id: 'new-conversation',
+            name: 'New Conversation',
+            description: 'Start a fresh conversation',
+            icon: <Plus className="w-4 h-4" />,
+            category: 'creation'
         },
         {
             id: 'create-space',
             name: 'Create New Space',
+            description: 'Create a new workspace',
             icon: <Plus className="w-4 h-4" />,
-            callback: onCreateSpace
-        },
-        {
-            id: 'models',
-            name: 'Models',
-            icon: <Cpu className="w-4 h-4" />,
-            callback: onShowModels,
-            shortcut: ['⌘', 'M']
-        },
+            callback: onCreateSpace,
+            category: 'creation'
+        }
     ];
 
 
@@ -81,48 +99,58 @@ export function QuickActionsList({ onShowSpaces, onShowModels, onShowConversatio
         return actions.map((item, index) => (
             <Command.Item
                 key={item.id}
-                value={`${item.id} ${item.name}`}
+                value={`${item.id} ${item.name} ${item.description || ''}`}
                 onSelect={() => {
                     item.callback?.();
                 }}
-                 data-selected={index === 0 ? 'true' : undefined} // Select first by default
+                data-selected={index === 0 ? 'true' : undefined}
                 className={commandItemClass()}
             >
-                <span className="flex-shrink-0 opacity-70 group-hover:opacity-100 group-data-[selected=true]:opacity-100 transition-opacity">
-                    {item.icon}
-                </span>
-               <span className="flex-1 transition-colors duration-200 group-hover:text-white">
-                    {item.name}
-                </span>
-                {item.shortcut && (
-                    <div className="flex items-center gap-2">
-                        <span className="flex gap-1 items-center">
-                           {item.shortcut.map((key, i) => (
-                                <kbd key={i} className="flex items-center justify-center w-6 h-6 rounded bg-white/10 border border-white/20 text-white/70 text-xs font-medium">
-                                    {key}
-                                </kbd>
-                            ))}
-                        </span>
+                <div className="flex items-center gap-3 w-full">
+                    <span className="flex-shrink-0 opacity-70 group-hover:opacity-100 group-data-[selected=true]:opacity-100 transition-opacity">
+                        {item.icon}
+                    </span>
+                    <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                            <span className="font-medium transition-colors duration-200 group-hover:text-white">
+                                {item.name}
+                            </span>
+                            {item.shortcut && (
+                                <div className="flex items-center gap-2">
+                                    <span className="flex gap-1 items-center">
+                                        {item.shortcut.map((key, i) => (
+                                            <kbd key={i} className="flex items-center justify-center w-6 h-6 rounded bg-white/10 border border-white/20 text-white/70 text-xs font-medium">
+                                                {key}
+                                            </kbd>
+                                        ))}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                        {item.description && (
+                            <p className="text-sm text-white/50 group-hover:text-white/70 transition-colors">
+                                {item.description}
+                            </p>
+                        )}
                     </div>
-                )}
+                </div>
             </Command.Item>
         ));
     };
 
     return (
         <>
-            <Command.Group heading="Current Conversation">
-                {renderQuickActions(currentConversationActions)}
+            <Command.Group heading="Quick Actions" className="pb-4">
+                {renderQuickActions(aiActions)}
             </Command.Group>
 
-             <Command.Group heading="Conversations">
-                {renderQuickActions(conversationActions)}
+            <Command.Group heading="Navigation" className="pb-4">
+                {renderQuickActions(navigationActions)}
             </Command.Group>
 
-            <Command.Group heading="Space">
-                {renderQuickActions(spaceActions)}
+            <Command.Group heading="Create New" className="pb-4">
+                {renderQuickActions(creationActions)}
             </Command.Group>
-
         </>
     );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { ChangeEvent, useRef, useState, useEffect } from 'react';
+import { Button } from './button';
 
 interface UnifiedInputProps {
   value: string;
@@ -70,23 +71,17 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
               rows={1}
             />
           </div>
-          <button
-            className={`
-              flex items-center gap-2 px-4 py-2 mt-2 mr-2 rounded-xl relative
-              bg-[#1B1B1B] border border-white/[0.05]
-              transition-all duration-300
-              overflow-hidden backdrop-blur-xl
-              group shrink-0
-              ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/[0.06] hover:border-white/[0.15]'}
-            `}
+          <Button
+            variant="cyan"
             onClick={(e) => {
               e.preventDefault();
               handleSubmit();
             }}
             disabled={disabled}
+            className="mt-2 mr-2"
           >
-            <span className="text-white/90 text-sm font-medium">Send</span>
-          </button>
+            Send
+          </Button>
         </div>
       </div>
     </div>

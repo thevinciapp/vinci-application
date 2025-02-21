@@ -16,9 +16,12 @@ import { ModelTab } from "@/components/ui/model-tab";
 import { ArrowDown, Search, Sparkles, Settings, Plus } from "lucide-react";
 import { BaseTab } from "@/components/ui/base-tab";
 import { useConversationStore } from '@/lib/stores/conversation-store'
+import { UserProfileDropdown } from "@/components/ui/user-profile-dropdown";
+import { createClient } from "@/utils/supabase/client";
+import { User } from "@supabase/supabase-js";
 
 interface ClientChatContentProps {
-    userId: string;
+    user: User;
     defaultSpace: Space | null;
     defaultConversations: Conversation[] | null;
     spaces: Space[] | null;
@@ -26,7 +29,7 @@ interface ClientChatContentProps {
 }
 
 export default function ClientChatContent({
-    userId,
+    user,
     defaultSpace,
     defaultConversations,
     defaultMessages,
@@ -93,6 +96,13 @@ export default function ClientChatContent({
         loadSpaceData()
     }, [activeSpace?.id])
 
+    const handleConversationSelect = async (conversationId: string) => {
+        const messageData = await getMessages(conversationId)
+        if (messageData) {
+            setMessages(messageData)
+        }
+    }
+
     const { messages, setMessages, input, isLoading: isChatLoading, handleInputChange, handleSubmit } = useChat({
         api: "/api/chat",
         body: {
@@ -113,6 +123,9 @@ export default function ClientChatContent({
 
     return (
         <div className="flex flex-col h-full bg-black text-white">
+            <div className="fixed top-4 right-4 z-50">
+                {user && <UserProfileDropdown user={user} />}
+            </div>
             <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
                 <div className="relative p-1 rounded-full bg-black/20 border border-white/[0.08] backdrop-blur-xl"
                      style={{
@@ -180,7 +193,10 @@ export default function ClientChatContent({
                                     />
                                 </div>
                                 <div className="px-1 first:pl-2 last:pr-2 py-1 flex-1">
-                                    <ConversationTab activeConversation={activeConversation} />
+                                    <ConversationTab 
+                                        activeConversation={activeConversation} 
+                                        onSelect={handleConversationSelect}
+                                    />
                                 </div>
                             </div>
                         </UnifiedInput>
