@@ -3,6 +3,7 @@
 import { useSpaceStore } from '@/lib/stores/space-store';
 import { BaseTab } from './base-tab';
 import { useQuickActionsCommand } from './quick-actions-command-provider';
+import PlanetIcon from './planet-icon';
 
 export const SpaceTab = () => {
   const activeSpace = useSpaceStore((state) => state.activeSpace);
@@ -11,7 +12,8 @@ export const SpaceTab = () => {
   const spaceColor = activeSpace?.color || '#3ecfff';
 
   return (
-    <div className="relative">
+    <div className="relative flex items-center">
+      {activeSpace && <PlanetIcon size={20} seed={activeSpace.id} className="mr-2" />}
       <BaseTab
         color={spaceColor}
         label={activeSpace ? activeSpace.name : 'No Active Space'}

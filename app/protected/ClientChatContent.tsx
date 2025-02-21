@@ -192,7 +192,7 @@ export default function ClientChatContent({
                                         shortcut="P"
                                     />
                                 </div>
-                                <div className="px-1 first:pl-2 last:pr-2 py-1 flex-1">
+                                <div className="flex-shrink min-w-0 flex-1 flex items-center px-1 first:pl-2 last:pr-2 py-1">
                                     <ConversationTab 
                                         activeConversation={activeConversation} 
                                         onSelect={handleConversationSelect}

@@ -133,7 +133,7 @@ export async function createSpace(
         .insert([
             {
                 [COLUMNS.NAME]: name || DEFAULTS.SPACE_NAME,
-                [COLUMNS.DESCRIPTION]: description || DEFAULTS.SPACE_DESCRIPTION,
+                [COLUMNS.DESCRIPTION]: description || '',
                 [COLUMNS.USER_ID]: user.id,
                 [COLUMNS.MODEL]: model,
                 [COLUMNS.PROVIDER]: provider,

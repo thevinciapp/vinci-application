@@ -12,11 +12,9 @@ const DEFAULT_MODEL = AVAILABLE_MODELS[DEFAULT_PROVIDER][0].id
 
 export default async function ChatPage() {
   const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!session?.user) {
+  if (!user) {
     redirect("/sign-in");
   }
 
@@ -26,7 +24,7 @@ export default async function ChatPage() {
   if (!spaces || spaces.length === 0) {
     const space = await createSpace(
       DEFAULTS.SPACE_NAME,
-      DEFAULTS.SPACE_DESCRIPTION,
+      '',
       DEFAULT_MODEL,
       DEFAULT_PROVIDER,
       true // Set as active immediately
@@ -66,7 +64,7 @@ export default async function ChatPage() {
     <Providers>
       <div className="flex flex-col h-screen bg-black text-white">
         <ClientChatContent
-          user={session.user}
+          user={user}
           defaultSpace={activeSpace}
           defaultConversations={defaultConversations}
           defaultMessages={defaultMessages}

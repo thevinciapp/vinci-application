@@ -23,12 +23,14 @@ interface ModelsListProps {
 
 export function ModelsList({ selectedProvider, onProviderSelect, onModelSelect, activeSpace }: ModelsListProps) {
     const handleModelSelection = async (modelId: string, provider: Provider) => {
-        if (!activeSpace) return;
-        const updatedSpace = await updateSpace(activeSpace.id, { model: modelId, provider: provider });
-        if (updatedSpace) {
-            onModelSelect(modelId, provider)
-        } else {
-            console.error('Failed to update space with new model.');
+        if (!activeSpace || (activeSpace.model === modelId && activeSpace.provider === provider)) return;
+        try {
+            const updatedSpace = await updateSpace(activeSpace.id, { model: modelId, provider: provider });
+            if (updatedSpace) {
+                await onModelSelect(modelId, provider);
+            }
+        } catch (error) {
+            console.error('Failed to update space with new model:', error);
         }
     };
 
