@@ -133,8 +133,8 @@ export function CommandModal({
                                     </div>
                                 )}
                                 {!hideSearch && (
-                                    <div className="flex items-center flex-1 gap-3">
-                                        <Search className="w-5 h-5 text-white/40" />
+                                    <div className="flex items-center flex-1">
+                                        <Search className="w-5 h-5 text-white/50 transition duration-150 hover:text-white/70" />
                                         <Command.Input
                                             ref={inputRef}
                                             value={searchValue}
@@ -143,9 +143,10 @@ export function CommandModal({
                                             onFocus={() => setIsFocused(true)}
                                             onBlur={() => setIsFocused(false)}
                                             className={cn(
-                                                "flex-1 h-14 bg-transparent text-white/90 outline-none",
-                                                "text-base placeholder:text-white/40 transition-colors duration-200",
-                                                "focus:placeholder:text-white/60 focus:bg-white/[0.02]"
+                                                "flex-1 h-12 bg-transparent text-white/90 outline-none",
+                                                "text-base placeholder:text-white/50",
+                                                "focus:placeholder:text-white/70 focus:bg-white/[0.02]",
+                                                "px-3 py-2"
                                             )}
                                         />
                                     </div>

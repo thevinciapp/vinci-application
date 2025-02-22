@@ -18,6 +18,8 @@ import { Conversation } from '@/types';
 import { useConversationStore } from '@/lib/stores/conversation-store'
 import { ConversationTab } from '@/components/ui/conversation-tab'
 import { BaseTab } from '@/components/ui/base-tab'
+import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface QuickActionsCommandProps {
   isOpen: boolean;
@@ -92,6 +94,30 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
       }
     }
   };
+
+  const handleCreateConversation = async () => {
+    onClose();
+
+    const newConversation = await createConversation(activeSpace.id, 'New Conversation');
+    if (newConversation) {
+      setActiveConversation(newConversation);
+      setConversations([...(conversations || []), newConversation]);
+    }
+
+
+    toast({
+      title: 'New Conversation Created',
+      description: 'You can start chatting right away.',
+      variant: 'default',
+      className: cn(
+        'bg-black/90 border border-white/10',
+        'backdrop-blur-xl shadow-xl shadow-black/20',
+        'text-white/90 font-medium',
+        'rounded-lg'  
+      ),
+      duration: 2000,
+    })
+  }
 
   const handleConversationSelect = async (conversationId: string) => {
     setSearchValue('');
@@ -217,8 +243,10 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
               setSearchValue('')
             }}
             onCreateSpace={() => {
-              setShowSpaceForm(true)
               setSearchValue('')
+            }}
+            onCreateConversation={() => {
+              handleCreateConversation()
             }}
           />
         ) : showSpaces ? (

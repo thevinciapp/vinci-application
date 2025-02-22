@@ -17,10 +17,9 @@ import { useToast } from '@/hooks/use-toast'
 
 interface ConversationTabProps {
   activeConversation: Conversation | null
-  onSelect?: (conversationId: string) => Promise<void>
 }
 
-export function ConversationTab({ activeConversation, onSelect }: ConversationTabProps) {
+export function ConversationTab({ activeConversation }: ConversationTabProps) {
   const { toggleQuickActionsCommand } = useQuickActionsCommand()
   const { activeSpace } = useSpaceStore()
   const { setActiveConversation } = useConversationStore()
@@ -37,11 +36,7 @@ export function ConversationTab({ activeConversation, onSelect }: ConversationTa
       
       if (newConversation) {
         setActiveConversation(newConversation)
-        if (onSelect) {
-          await onSelect(newConversation.id)
-        }
-        
-        // Show success state
+
         setShowSuccess(true)
         setTimeout(() => setShowSuccess(false), 1500)
         

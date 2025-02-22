@@ -18,9 +18,10 @@ interface QuickActionsListProps {
     onShowModels: () => void;
     onShowConversations: () => void;
     onCreateSpace?: () => void;
+    onCreateConversation?: () => void;
 }
 
-export function QuickActionsList({ onShowSpaces, onShowModels, onShowConversations, onCreateSpace }: QuickActionsListProps) {
+export function QuickActionsList({ onShowSpaces, onShowModels, onShowConversations, onCreateSpace, onCreateConversation }: QuickActionsListProps) {
 
     const aiActions: QuickAction[] = [
         {
@@ -82,6 +83,7 @@ export function QuickActionsList({ onShowSpaces, onShowModels, onShowConversatio
             name: 'New Conversation',
             description: 'Start a fresh conversation',
             icon: <Plus className="w-4 h-4" />,
+            callback: onCreateConversation,
             category: 'creation'
         },
         {

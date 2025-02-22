@@ -94,14 +94,7 @@ export default function ClientChatContent({
         }
 
         loadSpaceData()
-    }, [activeSpace?.id])
-
-    const handleConversationSelect = async (conversationId: string) => {
-        const messageData = await getMessages(conversationId)
-        if (messageData) {
-            setMessages(messageData)
-        }
-    }
+    }, [activeSpace?.id, activeConversation?.id])
 
     const { messages, setMessages, input, isLoading: isChatLoading, handleInputChange, handleSubmit } = useChat({
         api: "/api/chat",
@@ -195,7 +188,6 @@ export default function ClientChatContent({
                                 <div className="flex-shrink min-w-0 flex-1 flex items-center px-1 first:pl-2 last:pr-2 py-1">
                                     <ConversationTab 
                                         activeConversation={activeConversation} 
-                                        onSelect={handleConversationSelect}
                                     />
                                 </div>
                             </div>
