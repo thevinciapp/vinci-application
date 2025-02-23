@@ -1,6 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useEffect } from 'react';
+import React, { createContext, useContext } from 'react';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { QuickActionsCommand } from '@/components/ui/quick-actions-command';
 import { useCommandWindow } from '@/lib/hooks/use-command-window';
 
@@ -33,26 +34,25 @@ export function QuickActionsCommandProvider({ children }: { children: React.Reac
     toggleCommandWindow: toggleQuickActionsCommand
   } = useCommandWindow();
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        toggleQuickActionsCommand();
-      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        toggleQuickActionsCommand({ withSpaces: true });
-      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'm') {
-        e.preventDefault();
-        toggleQuickActionsCommand({ withModels: true });
-      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') {
-        e.preventDefault();
-        openQuickActionsCommand({ withConversations: true });
-      }
-    };
+  useHotkeys('meta+k, ctrl+k', (e) => {
+    e.preventDefault();
+    toggleQuickActionsCommand();
+  }, { enableOnFormTags: true });
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [openQuickActionsCommand, toggleQuickActionsCommand]);
+  useHotkeys('meta+s, ctrl+s', (e) => {
+    e.preventDefault();
+    toggleQuickActionsCommand({ withSpaces: true });
+  }, { enableOnFormTags: true });
+
+  useHotkeys('meta+m, ctrl+m', (e) => {
+    e.preventDefault();
+    toggleQuickActionsCommand({ withModels: true });
+  }, { enableOnFormTags: true });
+
+  useHotkeys('meta+d, ctrl+d', (e) => {
+    e.preventDefault();
+    openQuickActionsCommand({ withConversations: true });
+  }, { enableOnFormTags: true });
 
   return (
     <QuickActionsCommandContext.Provider

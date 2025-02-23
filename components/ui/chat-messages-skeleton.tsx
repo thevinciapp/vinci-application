@@ -1,8 +1,8 @@
 export function ChatMessagesSkeleton() {
   return (
     <div className="relative flex-1 flex flex-col">
-      <div className="absolute inset-0 overflow-y-auto py-12 px-4 pb-52">
-        <div className="max-w-7xl mx-auto">
+      <div className="messages-container absolute inset-0 overflow-y-auto py-12 px-4 pb-52">
+        <div className="max-w-[85%] mx-auto">
           <div className="space-y-12 min-h-full animate-pulse">
             {/* AI Message Skeleton */}
             <div className="flex items-start gap-4">

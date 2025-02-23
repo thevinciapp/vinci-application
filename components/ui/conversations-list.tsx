@@ -2,7 +2,7 @@ import { Command } from 'cmdk'
 import { Plus, MessageSquare, Clock, MessageCircle } from 'lucide-react'
 import { Conversation } from '@/types'
 import { commandItemClass } from './command-item'
-import { createConversation } from '@/app/actions'
+import { createConversation, setActiveConversation as setActiveConversationDB } from '@/app/actions'
 import { useConversationStore } from '@/lib/stores/conversation-store'
 import { CommandBadge } from './command-badge'
 import { cn } from '@/lib/utils'
@@ -16,7 +16,7 @@ export function ConversationsList({
   onConversationSelect,
   spaceId
 }: ConversationsListProps) {
-  const { conversations, activeConversation } = useConversationStore()
+  const { conversations, activeConversation, setActiveConversation } = useConversationStore()
 
   if (!conversations) {
     return (
@@ -43,9 +43,10 @@ export function ConversationsList({
         <Command.Item
           value="create new conversation start conversation"
           onSelect={async () => {
-            const newConversation = await createConversation(spaceId, 'New Conversation')
+            const newConversation = await createConversation(spaceId, 'New Conversation');
             if (newConversation) {
-              onConversationSelect(newConversation.id)
+              await setActiveConversationDB(newConversation.id);
+              await onConversationSelect(newConversation.id);
             }
           }}
           className={commandItemClass()}
@@ -67,7 +68,10 @@ export function ConversationsList({
           <Command.Item
             key={conversation.id}
             value={`conversation ${conversation.id} ${conversation.title}`}
-            onSelect={() => onConversationSelect(conversation.id)}
+            onSelect={async () => {
+              await setActiveConversationDB(conversation.id);
+              await onConversationSelect(conversation.id);
+            }}
             className={commandItemClass(conversation.id === activeConversation?.id)}
           >
             <div className="flex items-center gap-3 w-full">

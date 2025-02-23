@@ -1,7 +1,7 @@
 import { Command } from 'cmdk';
 import { Cpu, Sparkles, Globe, MessageSquare, Plus, Search, ArrowRight, History } from 'lucide-react';
 import { JSX } from 'react';
-import { commandItemClass } from './command-item';
+import { AnimatedCommandItem } from './command-item';
 
 interface QuickAction {
     id: string;
@@ -99,14 +99,13 @@ export function QuickActionsList({ onShowSpaces, onShowModels, onShowConversatio
 
     const renderQuickActions = (actions: QuickAction[]) => {
         return actions.map((item, index) => (
-            <Command.Item
+            <AnimatedCommandItem
                 key={item.id}
                 value={`${item.id} ${item.name} ${item.description || ''}`}
                 onSelect={() => {
                     item.callback?.();
                 }}
                 data-selected={index === 0 ? 'true' : undefined}
-                className={commandItemClass()}
             >
                 <div className="flex items-center gap-3 w-full">
                     <span className="flex-shrink-0 opacity-70 group-hover:opacity-100 group-data-[selected=true]:opacity-100 transition-opacity">
@@ -136,7 +135,7 @@ export function QuickActionsList({ onShowSpaces, onShowModels, onShowConversatio
                         )}
                     </div>
                 </div>
-            </Command.Item>
+            </AnimatedCommandItem>
         ));
     };
 

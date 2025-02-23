@@ -27,7 +27,8 @@ export const DB_TABLES = {
   SPACES: 'spaces',
   CONVERSATIONS: 'conversations',
   MESSAGES: 'messages',
-  ACTIVE_SPACES: 'active_spaces'
+  ACTIVE_SPACES: 'active_spaces',
+  ACTIVE_CONVERSATIONS: 'active_conversations'
 } as const
 
 // Common Table Columns

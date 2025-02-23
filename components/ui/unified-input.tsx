@@ -1,6 +1,7 @@
 "use client";
 
-import React, { ChangeEvent, useRef, useState, useEffect } from 'react';
+import React, { ChangeEvent, useRef, useState, useEffect, useCallback } from 'react';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { Button } from './button';
 
 interface UnifiedInputProps {
@@ -20,6 +21,15 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const focusInput = useCallback(() => {
+    textareaRef.current?.focus();
+  }, []);
+
+  useHotkeys('/', (e) => {
+    e.preventDefault();
+    focusInput();
+  }, { enableOnFormTags: true });
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -51,39 +61,38 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
           ${isFocused ? 'bg-white/[0.05] border-white/[0.1]' : ''}
         `}
       >
-        <div className="flex items-start gap-3">
-          <div className="flex-1">
-            <textarea
-              ref={textareaRef}
-              value={value}
-              onChange={onChange}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSubmit();
-                }
-              }}
-              placeholder={"Type your message..."}
-              className="w-full text-sm resize-none min-h-[48px] max-h-[200px] px-4 py-3 focus:bg-transparent bg-transparent focus:outline-none transition-colors duration-200 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent text-white/90 placeholder:text-white/40"
-              style={{ overflow: value.split('\n').length > 8 ? 'auto' : 'hidden' }}
-              rows={1}
-            />
-          </div>
-          <Button
-            variant="cyan"
-            onClick={(e) => {
-              e.preventDefault();
-              handleSubmit();
+        <div className="flex items-center gap-2">
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={onChange}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit();
+              }
             }}
-            disabled={disabled}
-            className="mt-2 mr-2"
-          >
-            Send
-          </Button>
+            placeholder={"Type your message... (Press / to focus)"}
+            className="flex-1 text-sm resize-none min-h-[48px] max-h-[200px] px-4 py-3 focus:bg-transparent bg-transparent focus:outline-none transition-colors duration-200 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent text-white/90 placeholder:text-white/40"
+            style={{ overflow: value.split('\n').length > 8 ? 'auto' : 'hidden' }}
+            rows={1}
+          />
+
+            <Button
+              variant="cyan"
+              onClick={(e) => {
+                e.preventDefault();
+                handleSubmit();
+              }}
+              disabled={disabled}
+              className="h-8"
+            >
+              Send
+            </Button>
+          </div>
         </div>
-      </div>
-    </div>
+        </div>
   );
 };

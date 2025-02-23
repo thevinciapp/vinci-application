@@ -33,7 +33,6 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
   const [searchValue, setSearchValue] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [showSpaceForm, setShowSpaceForm] = useState(false);
-  const [conversations, setConversations] = useState<Conversation[] | null>(null);
   const [spaceForm, setSpaceForm] = useState<{
     name: string;
     description: string;
@@ -66,18 +65,6 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
     }
   }, [isOpen]);
 
-  useEffect(() => {
-    const loadConversations = async () => {
-      if (activeSpace?.id) {
-        const conversationsData = await getConversations(activeSpace.id);
-        setConversations(conversationsData);
-      }
-    };
-
-    if (showConversations) {
-      loadConversations();
-    }
-  }, [activeSpace?.id, showConversations]);
 
   const handleSpaceSelect = async (spaceId: string) => {
     setSearchValue('');
@@ -123,9 +110,10 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
     setSearchValue('');
     onClose();
     
+    const { conversations } = useConversationStore.getState()
     const conversation = conversations?.find(c => c.id === conversationId)
     if (conversation) {
-      setActiveConversation(conversation)
+      await setActiveConversation(conversation)
     }
   };
 
@@ -270,13 +258,10 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
             activeSpace={activeSpace}
           />
         ) : showConversations && activeSpace ? (
-          <div className="px-1 first:pl-2 last:pr-2 py-1 flex-1">
-            <BaseTab
-              icon={<Search className="w-3 h-3" />}
-              label="Messages"
-              shortcut="F"
-            />
-          </div>
+          <ConversationsList
+            spaceId={activeSpace.id}
+            onConversationSelect={handleConversationSelect}
+          />
         ) : null}
       </Command.List>
     </CommandModal>

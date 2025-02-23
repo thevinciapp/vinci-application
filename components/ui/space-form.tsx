@@ -16,7 +16,7 @@ interface SpaceFormProps {
 
 export function SpaceForm({ spaceForm, onSpaceFormChange, onSubmit }: SpaceFormProps) {
   return (
-    <div className="p-4 space-y-6">
+    <div className="pt-1 pb-4 pl-4 pr-4 space-y-6">
       <div className="space-y-4">
         <div className="space-y-2">
           <label className="text-xs font-medium text-white/40">Name</label>
