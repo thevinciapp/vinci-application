@@ -81,11 +81,51 @@ const config = {
   				to: {
   					height: '0'
   				}
-  			}
+  			},
+        'pulse-fast': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.4' }
+        },
+        'pulse-slow': {
+          '0%, 100%': { opacity: '0.9' },
+          '50%': { opacity: '0.4' }
+        },
+        'shimmer': {
+          '0%': { backgroundPosition: '-100% 0' },
+          '100%': { backgroundPosition: '200% 0' }
+        },
+        'glow': {
+          '0%, 100%': { opacity: '0.8' },
+          '50%': { opacity: '0.5' }
+        },
+        'rotate-slow': {
+          '0%': { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' }
+        },
+        'halo-pulse': {
+          '0%, 100%': { transform: 'scale(1)', opacity: '0.6' },
+          '50%': { transform: 'scale(1.1)', opacity: '0.2' }
+        },
+        'float': {
+          '0%, 100%': { transform: 'translateY(0px)' },
+          '50%': { transform: 'translateY(-3px)' }
+        },
+        'appear': {
+          '0%': { opacity: '0', transform: 'scale(0.97)' },
+          '100%': { opacity: '1', transform: 'scale(1)' }
+        }
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
+  			'accordion-up': 'accordion-up 0.2s ease-out',
+        'pulse-fast': 'pulse-fast 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'pulse-slow': 'pulse-slow 3s ease-in-out infinite',
+        'shimmer': 'shimmer 3s linear infinite',
+        'glow': 'glow 2s ease-in-out infinite',
+        'rotate-slow': 'rotate-slow 10s linear infinite',
+        'halo-pulse': 'halo-pulse 3s ease-in-out infinite',
+        'float': 'float 3s ease-in-out infinite',
+        'appear': 'appear 0.5s cubic-bezier(0.26, 0.53, 0.74, 1.48)'
   		}
   	}
   },

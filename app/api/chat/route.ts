@@ -189,54 +189,51 @@ function getDaySuffix(day: number): string {
 }
 
 export async function POST(req: Request) {
-  console.time('total_request');
   const supabase = await createClient();
 
-  try {
-    console.time('request_setup');
-    console.time('auth_and_body');
-    const [user, { messages, spaceId, conversationId, provider, model }] = await Promise.all([
-      validateUser(supabase),
-      req.json(),
-    ]);
-    console.timeEnd('auth_and_body');
+  const [user, { messages, spaceId, conversationId, provider, model }] = await Promise.all([
+    validateUser(supabase),
+    req.json(),
+  ]);
 
-    if (!spaceId) return NextResponse.json(ERROR_MESSAGES.MISSING_SPACE_ID, { status: 400 });
-    if (!conversationId) return NextResponse.json(ERROR_MESSAGES.MISSING_CONVERSATION_ID, { status: 400 });
+  if (!spaceId) throw new Error(JSON.stringify(ERROR_MESSAGES.MISSING_SPACE_ID));
+  if (!conversationId) throw new Error(JSON.stringify(ERROR_MESSAGES.MISSING_CONVERSATION_ID));
 
-    const userMessage = messages[messages.length - 1];
-    const conversationContext = messages.slice(0, -1).map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`).join('\n');
+  return createDataStreamResponse({
+    execute: async (dataStream) => {
+      dataStream.writeData('Initialized request');
 
-    const numberOfMessages = 15;
-    console.time('context_generation');
-    const userTags = await generateTags(userMessage.content, conversationContext);
-    console.timeEnd('context_generation');
+      try {
+        const userMessage = messages[messages.length - 1];
+        const conversationContext = messages.slice(0, -1)
+          .map((msg: { role: string; content: string }) => `${msg.role.toUpperCase()}: ${msg.content}`)
+          .join('\n');
 
-    console.time('similar_messages_search');
-    const similarMessages = await searchSimilarMessages(userMessage.content, numberOfMessages, userTags);
-    console.timeEnd('similar_messages_search');
+        const numberOfMessages = 15;
 
-    console.time('context_string_build');
-    const contextString = buildContextString(similarMessages.map((result) => result.message));
-    console.timeEnd('context_string_build');
+        dataStream.writeData('Searching for similar messages');
+        const userTags = await generateTags(userMessage.content, conversationContext);
+        const similarMessages = await searchSimilarMessages(userMessage.content, numberOfMessages, userTags);
 
-    const systemPromptWithContext = contextString
-      ? `${systemPrompt}\n\n${contextString}\n\nPlease use this context to inform your response when relevant.`
-      : systemPrompt;
+        dataStream.writeData('Building context');
+        const contextString = buildContextString(similarMessages.map((result) => result.message));
 
-    const createModel = providers[provider as Provider];
-    if (!createModel) throw new Error(JSON.stringify(ERROR_MESSAGES.INVALID_PROVIDER));
-    const modelInstance = createModel(model);
-    const wrappedLanguageModel = wrapLanguageModel({ model: modelInstance, middleware });
+        const systemPromptWithContext = contextString
+          ? `${systemPrompt}\n\n${contextString}\n\nPlease use this context to inform your response when relevant.`
+          : systemPrompt;
 
-    const result = streamText({
-      model: wrappedLanguageModel,
-      messages,
-      system: systemPromptWithContext,
-      experimental_transform: smoothStream(),
-      onChunk() {
-        createDataStreamResponse({
-          execute: (dataStream) => {
+        const createModel = providers[provider as Provider];
+        if (!createModel) throw new Error(JSON.stringify(ERROR_MESSAGES.INVALID_PROVIDER));
+        const modelInstance = createModel(model);
+        const wrappedLanguageModel = wrapLanguageModel({ model: modelInstance, middleware });
+
+        dataStream.writeData('Generating response');
+        const result = streamText({
+          model: wrappedLanguageModel,
+          messages,
+          system: systemPromptWithContext,
+          experimental_transform: smoothStream(),
+          onChunk() {
             dataStream.writeMessageAnnotation({
               id: generateId(),
               [COLUMNS.MODEL_USED]: model,
@@ -246,83 +243,81 @@ export async function POST(req: Request) {
             });
           },
         });
-      },
-    });
 
-    console.timeEnd('request_setup');
-    
-    result.text.then(async (text) => {
-      console.time('post_stream_processing');
-      console.log('Stream finished');
+        result.text.then(async (text) => {
+          const [assistantTags, dbUserMessage] = await Promise.all([
+            generateTags(text, conversationContext),
+            saveMessage({
+              content: userMessage.content,
+              role: 'user',
+              model,
+              provider,
+              spaceId,
+              conversationId,
+              tags: await generateTags(userMessage.content, conversationContext),
+            }),
+          ]);
 
-      console.time('save_messages');
-      const [assistantTags, dbUserMessage] = await Promise.all([
-        generateTags(text, conversationContext),
-        saveMessage({
-          content: userMessage.content,
-          role: 'user',
-          model,
-          provider,
-          spaceId,
-          conversationId,
-          tags: await generateTags(userMessage.content, conversationContext),
-        }),
-      ]);
+          await saveMessage({
+            content: text,
+            role: 'assistant',
+            model,
+            provider,
+            spaceId,
+            conversationId,
+            parentId: dbUserMessage.id,
+            tags: assistantTags,
+          });
 
-      const dbAssistantMessage = await saveMessage({
-        content: text,
-        role: 'assistant',
-        model,
-        provider,
-        spaceId,
-        conversationId,
-        parentId: dbUserMessage.id,
-        tags: assistantTags,
-      });
-
-      console.timeEnd('save_messages');
-
-      console.time('title_generation');
-      const allMessages = await getMessages(conversationId);
-      if (allMessages && allMessages.length >= 3) {
-        const titleSystemPrompt = `
-          You are a title generator. Generate a concise title (2-4 words) capturing the conversation's main topic. Return only the title.
-          Example: Python Learning Path
-        `;
-        const fastModel = providers['groq']('llama-3.1-8b-instant');
-        const messageTexts = allMessages.map((m) => m.content).join('\n');
-        const { text: newTitle } = await generateText({
-          model: fastModel,
-          system: titleSystemPrompt,
-          prompt: messageTexts,
-          temperature: 0.3,
-          maxTokens: 20,
+          const allMessages = await getMessages(conversationId);
+          if (allMessages && allMessages.length >= 3) {
+            dataStream.writeData('Generating conversation title');
+            const titleSystemPrompt = `
+              You are a title generator. Generate a concise title (2-4 words) capturing the conversation's main topic. Return only the title.
+              Example: Python Learning Path
+            `;
+            const fastModel = providers['groq']('llama-3.1-8b-instant');
+            const messageTexts = allMessages.map((m) => m.content).join('\n');
+            const { text: newTitle } = await generateText({
+              model: fastModel,
+              system: titleSystemPrompt,
+              prompt: messageTexts,
+              temperature: 0.3,
+              maxTokens: 20,
+            });
+            await updateConversationTitle(conversationId, newTitle);
+          }
+        }).catch((error) => {
+          dataStream.writeData(`Error during post-processing: ${error.message}`);
         });
-        await updateConversationTitle(conversationId, newTitle);
-      }
-      console.timeEnd('title_generation');
-      console.timeEnd('post_stream_processing');
-    }).catch((error) => {
-      console.error("Error processing completion:", error);
-    });
 
-    console.log("Stream started");
-    
-    const response = result.toDataStreamResponse();
-    console.timeEnd('total_request');
-    return response;
-  } catch (error) {
-    console.error("Error in chat route:", error);
-    let errorMessage;
-    if (error instanceof Error) {
-      try {
-        errorMessage = JSON.parse(error.message);
-      } catch {
-        errorMessage = ERROR_MESSAGES.SERVER_ERROR(error.message);
+        result.mergeIntoDataStream(dataStream);
+      } catch (error) {
+        let errorMessage;
+        if (error instanceof Error) {
+          try {
+            errorMessage = JSON.parse(error.message);
+          } catch {
+            errorMessage = ERROR_MESSAGES.SERVER_ERROR(error.message);
+          }
+        } else {
+          errorMessage = ERROR_MESSAGES.SERVER_ERROR("Error processing request");
+        }
+        dataStream.writeData(`Error: ${errorMessage.message || String(errorMessage)}`);
       }
-    } else {
-      errorMessage = ERROR_MESSAGES.SERVER_ERROR("Error processing request");
-    }
-    return NextResponse.json(errorMessage, { status: errorMessage.status || 500 });
-  }
+    },
+    onError: (error) => {
+      let errorMessage;
+      if (error instanceof Error) {
+        try {
+          errorMessage = JSON.parse(error.message);
+        } catch {
+          errorMessage = ERROR_MESSAGES.SERVER_ERROR(error.message);
+        }
+      } else {
+        errorMessage = ERROR_MESSAGES.SERVER_ERROR("Error processing request");
+      }
+      return errorMessage.message || String(errorMessage);
+    },
+  });
 }

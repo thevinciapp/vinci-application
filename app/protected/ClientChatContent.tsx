@@ -18,8 +18,6 @@ import { UnifiedInput } from "@/components/ui/unified-input";
 import { ChatMessages } from '@/components/ui/chat-messages';
 import { UserProfileDropdown } from "@/components/ui/user-profile-dropdown";
 import { Space, Conversation } from "@/types";
-import { debounce } from 'lodash';
-import { useStickToBottom } from "@/hooks/use-stick-to-bottom";
 
 interface ClientChatContentProps {
   user: User;
@@ -42,40 +40,29 @@ export default function ClientChatContent({
   const [isSpacesLoading, setIsSpacesLoading] = useState(true);
   const [isConversationsLoading, setIsConversationsLoading] = useState(true);
   const [isMessagesLoading, setIsMessagesLoading] = useState(true);
-  const [isStickToBottom, setIsStickToBottom] = useState(true)
-  const [searchMode, setSearchMode] = useState<'chat' | 'search' | 'semantic' | 'hybrid'>('chat')
-  const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const [isStickToBottom, setIsStickToBottom] = useState(true);
+  const [searchMode, setSearchMode] = useState<'chat' | 'search' | 'semantic' | 'hybrid'>('chat');
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const cachedSpaces = useMemo(() => spaces || [], [spaces]);
 
-  // Handle conversation selection - this ensures both DB and local state are updated
   const handleConversationSelect = async (conversationId: string) => {
     if (!conversationId) return;
     
     setIsMessagesLoading(true);
     try {
-      // Get the latest conversations from the store to ensure we're using the most up-to-date list
       const currentConversations = useConversationStore.getState().conversations || [];
+      const selectedConversation = currentConversations.find(conv => conv.id === conversationId && !conv.is_deleted);
       
-      // Find the selected conversation in the current state
-      const selectedConversation = currentConversations.find(
-        conv => conv.id === conversationId && !conv.is_deleted
-      );
-      
-      // If the conversation doesn't exist or is deleted, don't proceed
       if (!selectedConversation) {
         console.error(`Conversation ${conversationId} not found or has been deleted`);
         setIsMessagesLoading(false);
         return;
       }
       
-      // Update the active conversation in database
       await setActiveConversationDB(conversationId);
-      
-      // Update the local state
       setActiveConversation(selectedConversation);
       
-      // Load messages for this conversation
       const messageData = await getMessages(conversationId);
       setMessages(messageData || []);
     } catch (error) {
@@ -86,7 +73,7 @@ export default function ClientChatContent({
     }
   };
 
-  const { messages, setMessages, input, isLoading: isChatLoading, handleInputChange, handleSubmit } = useChat({
+  const { messages, setMessages, input, isLoading: isChatLoading, handleInputChange, handleSubmit, data, setData } = useChat({
     id: searchMode,
     api: "/api/chat",
     body: {
@@ -94,6 +81,9 @@ export default function ClientChatContent({
       conversationId: activeConversation?.id || null,
       provider: activeSpace?.provider || '',
       model: activeSpace?.model || '',
+    },
+    onFinish() {
+      setData([]);
     },
     initialMessages: defaultMessages || [],
   });
@@ -110,10 +100,7 @@ export default function ClientChatContent({
           setIsSpacesLoading(false);
         }
         
-        // Filter out deleted conversations from the cached conversations
         const nonDeletedConversations = cachedConversations.filter(conv => !conv.is_deleted);
-        
-        // Always update the conversations store with filtered list to ensure consistency
         setConversations(nonDeletedConversations);
         
         if (!activeConversation || !nonDeletedConversations.length) {
@@ -134,7 +121,6 @@ export default function ClientChatContent({
     initializeChat();
   }, [defaultSpace, cachedConversations, cachedSpaces, setActiveSpace, setConversations, setActiveConversation, setSpaces]);
 
-  // Load space data
   const loadSpaceData = useCallback(async (spaceId: string) => {
     if (!spaceId) return;
     
@@ -143,36 +129,25 @@ export default function ClientChatContent({
     setMessages([]);
     try {
       const conversations = await getConversations(spaceId);
-      
-      // Filter out deleted conversations
       const nonDeletedConversations = conversations?.filter((conv) => !conv.is_deleted) || [];
       
       setConversations(nonDeletedConversations);
-      // Cache the conversations for local use
       setCachedConversations(nonDeletedConversations);
       
-      // Get the active conversation from DB
       const activeConvData = await getActiveConversation();
       const activeConv = activeConvData && nonDeletedConversations.find(c => c.id === activeConvData.id);
       
-      // Set active conversation if one exists and is not deleted
       if (activeConv && !activeConv.is_deleted) {
         setActiveConversation(activeConv);
-        
-        // Load messages for the active conversation
         const messageData = await getMessages(activeConv.id);
         setMessages(messageData || []);
       } else if (nonDeletedConversations.length > 0) {
-        // If no active conversation or active conversation is deleted, select the first available one
         const newActiveConversation = nonDeletedConversations[0];
         setActiveConversation(newActiveConversation);
         await setActiveConversationDB(newActiveConversation.id);
-        
-        // Load messages for the newly selected conversation
         const messageData = await getMessages(newActiveConversation.id);
         setMessages(messageData || []);
       } else {
-        // No conversations available
         setActiveConversation(null);
         setMessages([]);
       }
@@ -209,7 +184,6 @@ export default function ClientChatContent({
     loadConversationMessages();
   }, [activeConversation?.id, setMessages]);
 
-  // Load space data when active space changes
   useEffect(() => {
     if (activeSpace?.id) {
       loadSpaceData(activeSpace.id);
@@ -219,13 +193,12 @@ export default function ClientChatContent({
   const handleScrollToBottom = () => {
     const messagesContainer = document.querySelector('.messages-container');
     if (messagesContainer) {
-        messagesContainer.scrollTo({
-            top: messagesContainer.scrollHeight,
-            behavior: 'smooth'
-        });
+      messagesContainer.scrollTo({
+        top: messagesContainer.scrollHeight,
+        behavior: 'smooth',
+      });
     }
-}
-
+  };
 
   return (
     <div className="flex flex-col h-full bg-black text-white relative chat-container">
@@ -274,6 +247,7 @@ export default function ClientChatContent({
             onStickToBottomChange={setIsStickToBottom}
             ref={messagesContainerRef}
             isLoading={isChatLoading}
+            streamData={data}
           />
         )}
         <div className="fixed left-1/2 bottom-8 -translate-x-1/2 w-[800px] z-50">

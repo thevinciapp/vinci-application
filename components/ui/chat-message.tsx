@@ -2,13 +2,16 @@ import { User } from 'lucide-react';
 import { FC } from 'react';
 import { getModelName, type Provider } from '@/config/models';
 import { ProviderIcon } from './provider-icon';
-import { Message } from 'ai';
+import { JSONValue, Message } from 'ai';
 import { MarkdownRenderer } from './markdown-renderer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { StreamStatus } from './stream-status';
 
 interface ChatMessageProps {
     message: Message;
     userAvatarUrl?: string;
+    isLoading?: boolean;
+    streamData?: JSONValue[] | undefined;
 }
 
 const UserAvatar = ({ avatarUrl }: { avatarUrl?: string }) => (
@@ -22,38 +25,46 @@ const UserAvatar = ({ avatarUrl }: { avatarUrl?: string }) => (
 
 const AIAvatar = () => (
     <div className="relative group">
-        {/* Subtle outer glow with dynamic pulsing */}
-        <div className="absolute -inset-2 bg-gradient-to-r from-cyan-500/20 via-blue-400/20 to-cyan-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 animate-pulse-slow" />
+        {/* Refined outer glow */}
+        <div className="absolute -inset-1.5 bg-gradient-to-r from-cyan-500/10 via-indigo-400/10 to-purple-500/10 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
         
-        {/* Animated aura ring with rotating gradient */}
-        <div className="absolute -inset-4 opacity-60">
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-500/15 to-blue-500/15 animate-rotate-slow" />
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-500/10 to-blue-500/10 animate-halo-pulse" />
+        {/* Elegant halo effect */}
+        <div className="absolute -inset-3 opacity-0 group-hover:opacity-70 transition-opacity duration-500">
+            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-500/8 to-indigo-500/8 animate-pulse-slow" />
         </div>
         
-        {/* Main avatar container with dynamic gradient and shine */}
-        <Avatar className="relative h-8 w-8 rounded-full bg-gradient-to-b from-cyan-900/30 to-blue-900/30 backdrop-blur-sm border border-white/20 shadow-lg shadow-cyan-500/30 overflow-hidden">
-            <AvatarImage src="" />
-            <AvatarFallback className="bg-transparent">
-                <div className="relative w-full h-full flex items-center justify-center">
-                    {/* Shimmering background with subtle particle effect */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 animate-shimmer" />
-                    
-                    {/* Subtle light rays with pulsing effect */}
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.4),transparent_60%)] animate-pulse-slow" />
-                    
-                    {/* Central orb with dynamic glow */}
-                    <div className="relative w-4 h-4 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center animate-bounce-slow">
-                        <div className="absolute inset-[1px] rounded-full bg-gradient-to-b from-white/70 to-white/30" />
-                        <div className="absolute inset-0 rounded-full shadow-[inset_0_0_8px_rgba(255,255,255,0.8)] animate-glow" />
+        {/* Main avatar container with polished styling */}
+        <div className="relative h-8 w-8 flex items-center justify-center">
+            <Avatar className="relative h-8 w-8 rounded-full backdrop-blur-sm border border-white/10 
+                               shadow-[0_0_15px_rgba(56,189,248,0.15)] overflow-hidden
+                               bg-gradient-to-b from-slate-800 to-slate-900">
+                <AvatarImage src="" />
+                <AvatarFallback className="bg-transparent">
+                    <div className="relative w-full h-full flex items-center justify-center">
+                        {/* Glass effect background */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-sm" />
                         
-                        {/* Tiny particle effect for liveliness */}
-                        <div className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-white/50 rounded-full animate-float" />
-                        <div className="absolute -bottom-1 -left-1 w-1.5 h-1.5 bg-white/50 rounded-full animate-float delay-1000" />
+                        {/* Glossy highlight */}
+                        <div className="absolute top-0 left-0 right-0 h-1/3 bg-gradient-to-b from-white/10 to-transparent rounded-t-full" />
+                        
+                        {/* Center circle with refined gradient */}
+                        <div className="relative w-4 h-4 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-[0_0_10px_rgba(56,189,248,0.5)]">
+                            {/* Inner glow effect */}
+                            <div className="absolute inset-[0.5px] rounded-full bg-gradient-to-b from-cyan-200/50 to-cyan-400/30" />
+                            
+                            {/* Reflective shine */}
+                            <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/60 to-transparent rounded-t-full" />
+                            
+                            {/* Subtle pulse effect */}
+                            <div className="absolute inset-0 rounded-full animate-pulse-slow" />
+                        </div>
                     </div>
-                </div>
-            </AvatarFallback>
-        </Avatar>
+                </AvatarFallback>
+            </Avatar>
+            
+            {/* Subtle orbital accent */}
+            <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-gradient-to-br from-cyan-300 to-cyan-400 shadow-[0_0_5px_rgba(6,182,212,0.7)] animate-float" />
+        </div>
     </div>
 );
 
@@ -71,7 +82,7 @@ const ModelInfo = ({ provider, modelName }: { provider?: Provider; modelName: st
 );
 
 
-export const ChatMessage: FC<ChatMessageProps> = ({ message, userAvatarUrl }) => {
+export const ChatMessage: FC<ChatMessageProps> = ({ message, userAvatarUrl, isLoading, streamData }) => {
     const isUser = message.role === 'user';
 
     const annotations = message.annotations as Array<{
@@ -90,13 +101,16 @@ export const ChatMessage: FC<ChatMessageProps> = ({ message, userAvatarUrl }) =>
         ? providerAnnotation.provider.charAt(0).toUpperCase() + providerAnnotation.provider.slice(1)
         : '';
 
+    
+    const isStreamingAssistant = !isUser && isLoading && message.content.length <= 0
+
     return (
         <div className={`flex items-start gap-4 w-full mx-auto group transition-opacity ${isUser ? 'flex-row-reverse' : ''}`}>
             {isUser ? <UserAvatar avatarUrl={userAvatarUrl} /> : <AIAvatar />}
 
-            <div className="space-y-2 overflow-hidden">
+            <div className="space-y-2 overflow-hidden max-w-[85%]">
                 <div className="prose prose-invert max-w-none w-full">
-                    {message.role === 'assistant' && annotations && (
+                    {message.role === 'assistant' && annotations && !isStreamingAssistant && (
                         <ModelInfo
                             provider={providerAnnotation?.provider as Provider}
                             modelName={modelName}
@@ -106,6 +120,22 @@ export const ChatMessage: FC<ChatMessageProps> = ({ message, userAvatarUrl }) =>
                     {isUser ? (
                         <div className="text-sm leading-relaxed whitespace-pre-wrap break-words text-white shadow-[0_0_15px_-5px_rgba(255,255,255,0.3)]">
                             {message.content}
+                        </div>
+                    ) : isStreamingAssistant ? (
+                        <div className="transition-all duration-500 ease-in-out will-change-transform">
+                            {annotations && (
+                                <ModelInfo
+                                    provider={providerAnnotation?.provider as Provider}
+                                    modelName={modelName}
+                                />
+                            )}
+                            {/* Add a growing animation to the StreamStatus container */}
+                            <div 
+                                className="animate-appear transform-gpu transition-all duration-500 ease-out"
+                                style={{ animationFillMode: 'both' }}
+                            >
+                                <StreamStatus streamData={streamData} />
+                            </div>
                         </div>
                     ) : (
                         <MarkdownRenderer content={message.content} />

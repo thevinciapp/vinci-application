@@ -19,6 +19,7 @@ export function useStickToBottom(threshold = 150) {
     const container = containerRef.current;
     if (!container) return;
 
+    // Ensure we scroll all the way to the bottom
     container.scrollTop = container.scrollHeight;
   }, []);
 
@@ -62,6 +63,11 @@ export function useStickToBottom(threshold = 150) {
       prevScrollHeightRef.current = scrollHeight;
     }
   });
+
+  // Always scroll to bottom on initial render
+  useEffect(() => {
+    scrollToBottom();
+  }, []);
 
   return {
     containerRef,
