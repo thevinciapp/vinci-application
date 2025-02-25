@@ -17,11 +17,39 @@
   - Fixed "No results found" message to only show during active search
   - Improved space creation workflow from space tab
   - Fixed back button visibility in form view
+- Added space editing functionality:
+  - Edit button for each space in the spaces list
+  - Consistent navigation with space creation flow using command modal
+  - Pre-populated form for editing space details
+  - Ability to update name, description, provider, and model
+  - Toast notifications for success and error states
+  - Proper state updates for edited spaces
+- Added inline conversation title editing:
+  - Direct editing of conversation titles in the conversation tab
+  - Edit button appears on hover for active conversations
+  - Input field with save and cancel buttons
+  - Keyboard support for saving (Enter) and canceling (Escape) edits
+  - Local and server-side state updates
+  - Validation to prevent empty titles
+  - Proper error handling
+  - Enhanced BaseTab component with rightElement prop support
+  - Improved user experience with inline editing vs dialog
 - Added server-side active space management
   - New setActive flag in space creation API
   - Automatic active space persistence in database
   - Proper active space state handling across sessions
   - Upsert functionality to maintain single active space per user
+- Modified UnifiedInput component to use Command+/ (⌘+/) hotkey instead of just /
+  - Updated placeholder text to reflect the new keyboard shortcut
+  - Improved user experience with more intentional input focus trigger
+- Added conversation deletion functionality
+  - Created DeleteConversationDialog component for confirming deletions
+  - Added delete button to each conversation in the conversations list
+  - Implemented server-side deleteConversation action
+  - Added space history recording for conversation deletions
+  - Ensured proper cache invalidation after deletion
+  - Implemented automatic selection of another conversation when active one is deleted
+  - Added toast notifications for user feedback
 - Improved spaces list organization
   - Spaces now sorted by last updated date
   - Active space always appears at the top
@@ -225,6 +253,25 @@
   - Maintained consistent styling with proper fallback
   - Improved error handling for highlighting failures
   - Enhanced visual consistency with code blocks
+- Implemented soft delete functionality for conversations
+  - Added `is_deleted` field to Conversation interface
+  - Updated `deleteConversation` function to perform soft delete
+  - Modified conversation retrieval functions to filter out deleted conversations
+  - Enhanced cache handling to prevent serving deleted conversations
+  - Set `is_deleted` to false by default in `createConversation` function
+  - Created SQL migration script for database schema update
+- Added conversation title editing functionality:
+  - Inline editing directly in the conversations list
+  - Edit button next to each conversation in the command modal
+  - Keyboard shortcuts (Enter to save, Escape to cancel)
+  - Visual feedback with save/cancel buttons
+  - Proper focus management for improved accessibility
+  - Client-side state updates for immediate feedback
+  - Server-side persistence with the updateConversationTitle function
+- Added improved conversation selection logic after deletion:
+  - Prioritizes selecting a conversation from the same space when a conversation is deleted
+  - Falls back to other spaces only if no conversations remain in the current space
+  - Properly handles empty state when all conversations are deleted
 
 ### Changed
 - Updated quick actions menu names to be more concise
@@ -398,6 +445,59 @@
   - Added correct indentation for list items
   - Enhanced list item spacing and hierarchy
   - Fixed strong tag conversion for heading-like items
+- Updated chat route to use dynamic current date in system prompt
+  - Added getCurrentFormattedDate function for consistent date formatting
+  - System prompt now shows actual current date instead of hardcoded value
+  - Year references in date formatting rules are now dynamic
+- Simplified conversation tab interface:
+  - Removed title editing capability from conversation tab header
+  - Kept editing functionality in the conversations list for better UX
+  - Streamlined tab header with cleaner appearance
+- Enhanced ClientChatContent component with improved data handling:
+  - Added better filtering of deleted conversations from cached data
+  - Improved space data loading with filtering for deleted conversations
+  - Added proper handling of active conversation selection after deletion
+  - Enhanced cache state management with separate cachedConversations state
+- Removed conversation title editing from ConversationTab:
+  - Simplified component to display conversation title without editing
+  - Removed editing-related state and functions
+  - Streamlined UI by removing edit button and editing interface
+  - Maintained core functionality of displaying conversation and creating new ones
+
+### Fixed
+- Fixed issue with deleted conversations still appearing after page reload:
+  - Corrected filtering in ClientChatContent to properly exclude deleted conversations
+  - Enhanced getActiveConversation to ensure it doesn't return deleted conversations
+  - Fixed cache invalidation for active conversation when a conversation is deleted
+  - Improved DeleteConversationDialog to select relevant conversations after deletion
+- Fixed conversation loading issues when switching between spaces:
+  - Added space-aware conversation selection when deleting conversations
+  - Corrected loadSpaceData function to properly filter deleted conversations
+  - Enhanced error handling in conversation selection process
+- Fixed issue with deleted conversations still showing in the UI until page refresh:
+  - Added filtering of deleted conversations in the ConversationsList component
+  - Ensured proper store updates after conversation deletion
+  - Added consistent filtering of deleted conversations across all components
+  - Improved sync between UI state and database state
+- Improved cache invalidation when switching models:
+  - Added cache clearing for all conversations in a space
+  - Added cache clearing for all messages in affected conversations
+  - Added cache clearing for active space and spaces list
+  - Fixed issue where old model settings were persisting in cache
+  - Added proper cache invalidation triggers in space update endpoint
+  - Improved cache key management for model-specific data
+  - Enhanced cache consistency during model switches
+- Fixed BaseTab component styling regression:
+  - Restored original styling while preserving rightElement functionality
+  - Fixed minWidth prop to accept 'space', 'model', or 'actions' values
+  - Ensured proper button positioning and spacing
+  - Maintained original hover effects and transitions
+  - Preserved correct text and icon coloring
+- Fixed space creation form showing editing data:
+  - Corrected "Create Space" action in quick actions menu to properly reset form
+  - Ensured form starts with a blank slate when creating a new space
+  - Fixed form state management to clear previous editing data
+  - Properly reset space editing state when creating a new space
 
 ### Performance
 - Optimized Redis caching implementation
@@ -423,729 +523,13 @@
   - Reduced re-renders during message streaming
   - Optimized array operations for better performance
 
-### Fixed
-- Improved cache invalidation when switching models:
-  - Added cache clearing for all conversations in a space
-  - Added cache clearing for all messages in affected conversations
-  - Added cache clearing for active space and spaces list
-  - Fixed issue where old model settings were persisting in cache
-  - Added proper cache invalidation triggers in space update endpoint
-  - Improved cache key management for model-specific data
-  - Enhanced cache consistency during model switches
-- Improved message creation error handling:
-  - Added proper validation for required fields (content and role)
-  - Added clear error messages for missing fields
-  - Improved type safety with Message interface
-  - Added proper handling of optional fields
-  - Enhanced error logging and status codes
-  - Fixed "Missing required fields" error during chat
-- Fixed JSON parsing errors in Redis caching implementation:
-  - Updated conversations route to use new cache helper functions
-  - Updated messages route to use new cache helper functions
-  - Removed manual JSON.parse/stringify operations
-  - Improved error handling in cache operations
-  - Fixed type safety in cache data handling
-- Improved error handling in API routes
-- Enhanced type safety in API responses
-- Fixed back button now properly visible at the top of the space creation form
-- Added proper padding to modal header when search is hidden
-- Adjusted create space button to be more compact and consistent with UI
-  - Reduced padding and font size
-  - Added border and backdrop blur
-  - Adjusted text opacity for better visual harmony
-  - Made button width more compact and centered
-- Fixed spaces list not updating immediately after creating a new space 
-  - Now fetches the complete updated list of spaces from the server after creation
-  - Ensures the UI reflects the latest state without requiring a page refresh
-- Fixed inconsistent modal behavior when opening from space tab
-  - Now uses openQuickActionsCommand instead of toggle to ensure consistent state
-  - Prevents state synchronization issues between different open methods
-- Fixed space creation initialization issues
-  - Now creates initial conversation and welcome message for new spaces
-  - Properly initializes all states (spaces, conversations, messages)
-  - Ensures smooth transition after space creation
-  - Prevents "stuck generating" state in new spaces
-  - Added consistent model tags for all messages
-  - Removed unnecessary loading states during creation
-  - Sets new space as active immediately after creation
-  - Persists active space state across page refreshes
-- Fixed infinite update loop in state management
-  - Removed unnecessary page reload after space creation
-  - Improved state update sequence to prevent circular dependencies
-  - Fixed maximum update depth exceeded error
-- Fixed chat message loading and state management
-  - Removed duplicate message loading effects
-  - Added message caching to prevent unnecessary reloads
-  - Fixed circular dependencies in effects and callbacks
-  - Improved streaming message state management
-  - Removed unnecessary state updates and re-renders
-- Fixed space switching behavior
-  - Removed all loading states during space switching
-  - Eliminated error state updates for non-critical operations
-  - Enhanced user experience with instant space transitions
-  - Prevented loading screen from appearing during space changes
-  - Maintained smooth UI transitions without interruptions
-- Improved keyboard navigation in command modal
-  - Fixed arrow key navigation between search and list items
-  - Added proper focus management for list items
-  - Improved integration with CMDK's built-in navigation
-  - Enhanced accessibility for keyboard users
-  - Fixed edge cases with focus handling
-- Fixed command modal keyboard navigation
-  - Properly integrated with CMDK's native keyboard navigation
-  - Fixed arrow key navigation between search and items
-  - Added support for cycling through items with loop
-  - Corrected component hierarchy for better accessibility
-  - Removed custom navigation logic that interfered with built-in behavior
-- Optimized command modal structure
-  - Simplified DOM hierarchy to match CMDK's expectations
-  - Fixed keyboard navigation between search and items
-  - Enabled simultaneous focus of search and first item
-  - Improved filtering and sorting behavior
-  - Enhanced list scrolling and item cycling
-- Improved command modal structure and navigation
-  - Added proper Command.Group components for better keyboard navigation
-  - Fixed list item grouping and hierarchy
-  - Enhanced focus management between groups
-  - Improved accessibility with proper ARIA roles
-  - Maintained consistent styling within groups
-- Updated Next.js API route params handling for version 15
-  - Properly awaiting params object in dynamic route handlers
-  - Updated type definitions to reflect Promise-based params
-  - Fixed params access pattern to match Next.js 15 requirements
-  - Improved type safety with proper Promise typing
-  - Added proper async handling in spaces API routes
-  - Standardized params handling across all dynamic routes
-  - Added model validation in spaces update endpoint
-  - Improved space update data handling
-- Fixed automatic space creation on first load
-  - Added proper error handling in spaces provider
-  - Improved initialization logic for new users
-  - Added automatic creation of first space when none exist
-  - Set proper default values for initial space
-- Fixed create space button visibility
-  - Button now shows consistently in spaces view
-  - Appears both when spaces list is empty and when spaces exist
-  - Improved button placement and styling
-  - Enhanced user experience for space creation workflow
-- Improved keyboard navigation visual feedback
-  - Added proper hover effects for keyboard-selected items
-  - Unified hover and keyboard selection styles
-  - Added data-selected state handling for all command items
-  - Enhanced visual feedback for keyboard navigation
-  - Improved accessibility with consistent focus styles
-  - Fixed opacity transitions for icons during keyboard navigation
-  - Added proper group data attributes for nested elements
-- Fixed spaces list and creation functionality
-  - Added automatic default space creation for new users
-  - Improved create space button visibility and styling
-  - Fixed empty state handling in spaces list
-  - Added proper autofocus to space creation form
-  - Enhanced visual feedback for space creation
-  - Improved error handling in spaces API
-  - Added proper type checking for space active state
-  - Fixed space switching behavior
-  - Improved user experience for first-time users
-- Improved modal structure for fixed footer
-  - Added proper flex layout for scrollable content
-  - Fixed footer positioning at bottom of modal
-  - Added border separator for visual clarity
-  - Maintained consistent padding and spacing
-- Fixed multiple active spaces issue
-  - Added proper clearing of previous active space when creating new space
-  - Updated client-side state management to correctly handle active states
-  - Removed upsert in favor of delete + insert for active space management
-  - Ensured only one space can be active at a time
-  - Fixed active state visual indicators
-- Fixed active space management in database
-  - Resolved unique constraint violation in active_spaces table
-  - Improved set_active_space function to properly handle existing records
-  - Added explicit check for existing records before update/insert
-  - Added DELETE policy for active_spaces table
-  - Enhanced error handling in space activation process
-- Improved model switching behavior
-  - Removed unnecessary loading state updates in status tab
-  - Simplified model selection logic
-  - Removed error state updates for non-critical operations
-  - Enhanced user experience with smoother model switching
-- Improved command modal focus management
-  - Added automatic focus on first item in nested lists
-  - Ensured consistent focus behavior across all navigation states
-  - Fixed focus when switching between providers and models
-  - Added proper data-selected attributes for visual feedback
-  - Improved keyboard navigation experience
-- Fixed model name display in default space creation
-  - Updated default space creation to use correct model ID from AVAILABLE_MODELS configuration
-  - Ensures consistent model naming between UI and backend
-  - Fixed customer-facing model names in initial space setup
-  - Removed hardcoded model IDs in favor of configuration-based values
-- Optimized space creation performance
-  - Removed unnecessary loading states during space creation
-  - Made modal close immediately after initiating space creation
-  - Moved conversation and message creation to background operations
-  - Improved initial space creation responsiveness
-  - Reduced perceived latency in space switching
-  - Eliminated loading screen during space operations
-  - Enhanced user experience with instant feedback
-  - Optimized state updates for smoother transitions
-  - Improved error handling with silent background operations
-- Further optimized space creation performance
-  - Made conversation and welcome message creation synchronous
-  - Ensured initial message appears immediately without refresh
-  - Improved state updates to include all related data
-  - Enhanced space provider initialization
-  - Made initial space creation synchronous
-  - Added proper active space handling during initialization
-  - Reduced overall latency in space operations
-  - Improved state consistency across components
-  - Fixed missing welcome message on first load
-- Further optimized loading states during space operations
-  - Removed loading screen during space creation and initialization
-  - Initialized spaces provider with isInitialized true by default
-  - Simplified loading state logic to only show during initial auth check
-  - Improved state management to prevent unnecessary loading screens
-  - Enhanced user experience with immediate UI feedback
-  - Optimized space provider initialization flow
-  - Removed redundant loading states in protected route
-  - Streamlined space creation and switching process
-- Fixed JSON parsing errors in Redis caching implementation
-  - Updated conversations route to use new cache helper functions
-  - Updated messages route to use new cache helper functions
-  - Removed manual JSON.parse/stringify operations
-  - Improved error handling in cache operations
-  - Fixed type safety in cache data handling
-- Improved error handling in API routes
-- Enhanced type safety in API responses
-- Enhanced message creation with proper schema validation:
-  - Added validation for role field (must be 'user' or 'assistant')
-  - Added proper handling of is_deleted field
-  - Added validation for parent_message_id existence
-  - Added all required fields from database schema
-  - Improved error messages for invalid fields
-  - Added warning for invalid parent message references
-  - Added required model_used and provider validation for assistant messages
-  - Fixed missing fields error during message creation
-  - Enhanced error handling and response formatting
-  - Improved type safety with Message interface
-  - Added proper cache invalidation after message creation
-- Refactored chat route for better provider handling:
-  - Added centralized provider configuration
-  - Improved error handling and response formatting
-  - Enhanced type safety with Provider type
-  - Added proper validation for provider and model
-  - Improved space validation and error messages
-  - Enhanced response streaming configuration
-  - Added proper error handling for invalid providers
-  - Improved type safety in message handling
-  - Added proper error responses for invalid requests
-  - Enhanced space access validation
-- Updated Action type in spaces-provider to allow null for SET_ACTIVE_SPACE payload, fixing type error during user logout
-- Fixed model configuration type error
-  - Added proper type safety for provider selection
-  - Added constants for default provider and model
-  - Fixed undefined provider access in getModelName
-  - Improved type checking for model configuration
-- Fixed model configuration import paths
-  - Updated imports to use correct path from @/config/models
-  - Separated model configuration from general constants
-  - Fixed type error in getModelName function
-  - Improved module organization for model-related code
-- Improved message handling in chat interface
-  - Fixed assistant message streaming and display
-  - Added proper message property handling for both user and assistant messages
-  - Added model and provider information to assistant messages
-  - Fixed message state synchronization between UI and AI messages
-  - Added proper timestamp updates for streaming messages
-  - Improved message creation with complete required fields
-- Fixed chat messages skeleton loading
-  - Removed duplicate Suspense boundary in ChatMessages component
-  - Moved Suspense handling to parent component level
-  - Improved skeleton loading visibility
-- Improved QuickActionsTab styling consistency
-  - Added active state based on modal open state
-  - Matched background and border styling with other tabs
-  - Enhanced visual feedback when quick actions are active
-- Fixed `MarkdownRenderer` component to display code blocks in correct order
-- Updated token processing to maintain proper sequence of content
-- Improved text content handling with proper markdown rendering
-- Added proper Token type import from markdown-it
-- Enhanced spacing between content segments
-- Added consistent vertical margins (1.5rem) to code blocks in markdown renderer
-  - Improved spacing between code blocks and surrounding content
-  - Enhanced readability with proper vertical rhythm
-- Improved markdown renderer token handling:
-  - Fixed issue with empty list items appearing in rendered content
-  - Improved token grouping for better content structure
-  - Added proper handling of line breaks and empty content
-  - Enhanced content sanitization with empty content checks
-  - Maintained proper ordering of code blocks and regular content
-- Improved markdown list handling:
-  - Fixed numbered list preservation
-  - Added proper handling of bullet points
-  - Maintained correct numbering sequence
-  - Enhanced list item detection
-  - Improved formatting consistency
-- Enhanced markdown list and title formatting:
-  - Added custom list item renderer for proper numbering
-  - Improved handling of titles in list items
-  - Added proper strong tag styling for titles
-  - Enhanced list item indentation and spacing
-  - Fixed numbered list formatting with descriptions
-- Fixed ordered list number cutoff:
-  - Increased ordered list padding for better number visibility
-  - Adjusted list item padding to prevent double-spacing
-  - Added specific styling for ordered list items
-  - Improved overall list spacing and alignment
-- Fixed inline code rendering in markdown:
-  - Added custom renderer for inline code blocks
-  - Updated styling selectors for better specificity
-  - Improved inline code visual consistency
-  - Maintained proper font and background styling
-- Improved ordered list handling in markdown renderer:
-  - Leveraged markdown-it's native list rendering capabilities
-  - Fixed numbered list preservation and formatting
-  - Added proper handling of titles within list items
-  - Maintained correct list numbering sequence
-  - Enhanced list item styling with proper Tailwind classes
-- Restored previous inline code styling:
-  - Moved styles directly into code_inline renderer
-  - Fixed background, border, and text styling
-  - Restored proper padding and font size
-  - Improved visual consistency
-  - Removed reliance on container class selectors
-- Refactored MarkdownRenderer for better maintainability:
-  - Extracted configuration into separate functions
-  - Improved code organization with modular structure
-  - Removed unnecessary comments
-  - Enhanced type safety with proper function signatures
-  - Simplified Tailwind class organization
-  - Improved code readability and maintainability
+### Deprecated
 
-## [2024-03-21]
-- Fixed event handler error in SpaceTab component by converting it to a Client Component
-- Added 'use client' directive to SpaceTab component
-- Removed unused handleClick function and onClick handler
-- Improved component architecture by properly separating client and server components
-- Repositioned navigation tabs (Space, Status, Quick Actions, Model) from top of page to bottom
-- Added gradient background for bottom navigation area
-- Improved visual hierarchy with tabs appearing directly above UnifiedInput
-- Enhanced UX by grouping related controls together at the bottom
-- Fixed type error in handleSubmit function to properly handle optional event parameter
-- Refined navigation tabs positioning to match UnifiedInput width and placement
-- Adjusted tabs to be outside UnifiedInput but maintain same visual alignment
-- Fixed width to 800px to match input component
-- Improved spacing and centering of navigation elements
-- Repositioned navigation tabs to appear above UnifiedInput with proper z-index
-- Fine-tuned spacing between tabs and input for better visual hierarchy
+### Removed
 
-## [2024-02-04] Schema Update: Messages Table Annotations - Part 2
-- Moved `conversation_id` and `parent_message_id` into the `annotations` JSONB field
-- Added database constraint to ensure `conversation_id` is present and valid in annotations
-- Updated `get_conversation_messages` function to use conversation_id from annotations
-- Improved alignment with Vercel AI SDK message structure
+### Security 
 
-## [2024-02-04] Message Structure Refactoring
-- Updated all routes and server actions to use annotations for message metadata
-- Moved conversation_id, model_used, provider, and parent_message_id into annotations
-- Updated database queries to use JSONB operators for filtering
-- Updated RLS policies to use conversation_id from annotations
-- Updated Message type definition to reflect new structure
-- Improved message creation with proper annotations handling
-- Enhanced type safety across all message-related operations
-
-## [2024-02-04] Database Schema Update - Annotations Array Structure
-
-### Changed
-- Modified `messages` table `annotations` column from `JSONB` to `JSONB[]` to support array of JSON values
-- Updated all queries and indexes to work with the new array-based structure
-- Modified validation constraints to handle array structure
-- Updated `get_conversation_messages` function to work with JSONB arrays
-- Enhanced trigger function to validate both array presence and conversation_id
-
-### Technical Details
-- Uses PostgreSQL's native array type with JSONB elements
-- Maintains backward compatibility by keeping conversation_id in annotations[0]
-- Added array length validation in constraints
-- Updated all related queries to use array index notation [0] for accessing conversation_id
-
-## [2024-02-04] Database Schema Fix - JSONB Syntax and Storage
-
-### Changed
-- Switched `annotations` from `JSONB[]` to `JSONB` type storing a JSON array
-- Updated all JSONB array access syntax from `[0]` to `->0`
-- Improved JSONB validation using `jsonb_typeof`
-- Updated trigger function to use `jsonb_array_length`
-- Fixed all queries and indexes to use proper JSONB operators
-
-### Technical Details
-- Now using native JSONB array instead of array of JSONB
-- Proper JSONB array access syntax for PostgreSQL
-- More robust validation of array structure
-- Better handling of NULL cases
-- Improved query performance with correct JSONB operators
-
-## [2024-02-04] Message Creation Fix - JSONB Array Handling
-
-### Fixed
-- Fixed JSONB array handling in message creation
-  - Removed manual JSON stringification
-  - Let Supabase handle JSONB serialization
-  - Fixed "cannot get array length of scalar" error
-  - Improved array handling with proper defaults
-
-### Technical Details
-- Direct array passing to Supabase for proper JSONB conversion
-- Removed unnecessary JSON.stringify step
-- Proper handling of undefined annotations
-- Fixed scalar vs array type mismatch
-
-## [2024-02-04] Message Handling Fix - JSONB Path and Format
-
-### Fixed
-- Fixed message creation and fetching with proper JSONB handling
-  - Updated JSONB path syntax for message queries
-  - Fixed annotations array format in message creation
-  - Improved message fetching performance with eq instead of filter
-  - Added proper conversion of annotations to JSONB array format
-
-### Technical Details
-- Using correct JSONB path syntax: `annotations->0->conversation_id`
-- Proper wrapping of annotations in array format
-- Better query performance with eq operator
-- Improved debugging with detailed logging
-- Consistent JSONB array structure across operations
-
-## [2024-03-19] Command Window Functionality
+## [0.1.0] - 2023-XX-XX
 
 ### Added
-- Created new custom hook `useCommandWindow` to manage command window state and actions
-- Added click handlers to all tab components to open their respective command windows
-- Updated `QuickActionsCommandProvider` to use the new hook
-- Added `isActive` prop to `BaseTab` component
-
-### Changed
-- Refactored command window state management into a reusable hook
-- Updated keyboard shortcuts to use the new command window functionality
-- Improved type safety with proper TypeScript interfaces
-
-### Technical Details
-- Created new hook in `lib/hooks/use-command-window.ts`
-- Updated all tab components to use the `useQuickActionsCommand` hook
-- Standardized the command window opening/closing behavior across the application
-
-## [2024-03-19] Create New Space UI Enhancement
-
-### Changed
-- Moved "Create New Space" from footer to list item in spaces view
-- Added "Create New Space" to quick actions list
-- Improved space creation accessibility through multiple entry points
-- Unified space creation UI across the application
-
-### Technical Details
-- Added "Create New Space" as first item in spaces list with dedicated group
-- Added create space action to quick actions list under Space section
-- Removed footer element from command modal
-- Improved component props to handle create space callback
-- Maintained consistent styling and behavior across all entry points
-
-## [2024-03-19] Conversation Management Enhancement
-
-### Added
-- Created new Zustand store for managing conversations globally
-- Added preloading of conversations in ClientChatContent
-- Added "Create New Conversation" action to conversations list
-
-### Changed
-- Updated ConversationsList to use global conversation store
-- Improved conversation state management with Zustand
-- Enhanced conversation loading and state persistence
-- Removed local conversation state in favor of global store
-
-### Technical Details
-- Created new store in `lib/stores/conversation-store.ts`
-- Updated ClientChatContent to initialize conversation store
-- Modified ConversationsList to use global state
-- Added proper conversation creation and selection handling
-- Improved conversation state synchronization across components
-
-## [2024-03-19] Conversation Shortcut Update
-
-### Changed
-- Updated conversation command shortcut from ⌘T to ⌘D for better accessibility
-- Updated ConversationTab to display 'D' as the shortcut
-- Improved conversation tab label text
-
-### Technical Details
-- Modified keyboard event handler in QuickActionsCommandProvider
-- Updated shortcut display in ConversationTab component
-- Maintained consistent shortcut behavior across the application
-
-## [2024-03-19] Space Customization Enhancement
-
-### Added
-- Added icon/emoji support for spaces
-- Added color customization for spaces
-- Enhanced space form UI with icon picker and color selector
-- Updated space tab to display custom icons and colors
-
-### Technical Details
-- Added icon and color fields to spaces table in database
-- Updated Space type definition to include new fields
-- Enhanced SpaceForm component with modern UI for icon and color selection
-- Modified SpaceTab to dynamically display space icons and colors
-- Added default color (#3ecfff) for new spaces
-
-## [Unreleased]
-
-### Added
-- Added Zustand store for managing active space state globally
-- Fixed space selection sync between command window and chat interface
-
-### Changed
-- Improved initial space creation and setup flow
-  - Added proper sequencing of space creation, activation, and conversation setup
-  - Created welcome conversation with initial message
-  - Added fallback for setting first space as active if none active
-  - Improved error handling with descriptive messages
-  - Added proper state refresh after initialization
-  - Added proper default provider and model configuration
-  - Fixed type safety for provider and model selection
-- Improved prop naming in ClientChatContent component
-  - Renamed `initialActiveSpace` to `defaultSpace`
-  - Renamed `initialConversations` to `defaultConversations`
-  - Made prop names more concise and descriptive
-- Updated ClientChatContent to use global space store
-- Updated QuickActionsCommand to use global space store
-- Improved space selection handling to maintain consistency across components
-
-### Fixed
-- Fixed model configuration import paths
-  - Updated imports to use correct path from @/config/models
-  - Separated model configuration from general constants
-  - Fixed type error in getModelName function
-  - Improved module organization for model-related code
-- Fixed active space management in database
-  - Resolved unique constraint violation in active_spaces table
-  - Improved set_active_space function to properly handle existing records
-  - Added explicit check for existing records before update/insert
-  - Added DELETE policy for active_spaces table
-  - Enhanced error handling in space activation process
-
-## [2024-02-05]
-- Refactored ClientChatContent.tsx to split large useEffect into multiple focused effects:
-  - Added separate effects for initial setup, space data loading, conversation management, and message loading
-  - Improved code organization and maintainability
-  - Removed console.log statements
-  - Simplified error handling with early returns
-
-## [2024-02-05]
-- Added LLMResponseFormatter component for formatting AI responses:
-  - Code block syntax highlighting with Prism.js
-  - Copy to clipboard functionality
-  - Markdown link parsing
-  - Bullet point formatting
-  - XML tag handling
-  - Support for multiple programming languages
-  - Dark theme styling
-  - Responsive design with proper spacing
-  - Improved code readability with syntax highlighting
-  - Added Dracula theme for code blocks
-
-### Performance Issues
-- Identified performance bottleneck in markdown renderer:
-  - Slow rendering of large markdown content
-  - TypeScript type conflicts with marked library
-  - Issues with highlight.js integration
-  - Investigating alternative approaches for better performance
-
-### Fixed
-- Improved markdown spacing and formatting:
-  - Added proper paragraph and line break handling
-  - Added consistent margins between elements
-  - Improved whitespace handling and trimming
-  - Added proper margin collapse for nested elements
-  - Enhanced heading spacing hierarchy
-  - Added proper list and blockquote spacing
-  - Fixed code block margins with special first/last handling
-
-### Changed
-- Enhanced MarkdownRenderer configuration:
-  - Enabled breaks option in markdown-it
-  - Added prose-specific margin utilities
-  - Improved token processing for better spacing
-  - Added prose-spacing class for better margin control
-
-## [Unreleased]
-
-### Fixed
-- Improved code block syntax highlighting:
-  - Fixed markdown-it highlight function to properly handle code blocks
-  - Improved language detection and handling
-  - Separated inline code and fence block handling
-  - Added proper content trimming for code blocks
-  - Enhanced language fallback to 'plain' when not specified
-
-### Changed
-- Modified MarkdownRenderer to wrap all segments in a single container instead of creating separate divs for each segment
-
-## [Unreleased]
-
-### Changed
-- Refactored markdown renderer styling:
-  - Replaced Tailwind prose with custom arbitrary selectors
-  - Added specific styling for all heading levels
-  - Improved spacing and typography for all elements
-  - Enhanced blockquote and link styling
-  - Added consistent margins for lists and paragraphs
-  - Improved overall visual hierarchy
-
-## [2024-03-19] - Pinecone Integration for Chat Messages
-
-### Added
-- Integrated Pinecone vector database for storing chat messages
-- Added OpenAI embeddings for semantic search capabilities
-- Created Pinecone utility functions for upserting and searching messages
-- Added environment variables for Pinecone and OpenAI configuration
-- Modified chat route to store messages in Pinecone
-
-### Dependencies Added
-- @pinecone-database/pinecone
-- @langchain/openai
-
-### Configuration
-- Added environment variables:
-  - PINECONE_API_KEY
-  - PINECONE_ENVIRONMENT
-  - PINECONE_INDEX
-  - OPENAI_API_KEY
-
-## [User Profile Position Update] - 2024-02-20
-### Changed
-- Moved UserProfileDropdown to top right corner of protected page
-- Added user state management in ClientChatContent
-- Improved user profile accessibility and visibility
-- Enhanced layout with proper z-index and positioning
-
-## [Unreleased]
-
-### Added
-- Added Zustand store for managing active space state globally
-- Fixed space selection sync between command window and chat interface
-
-### Changed
-- Improved initial space creation and setup flow
-  - Added proper sequencing of space creation, activation, and conversation setup
-  - Created welcome conversation with initial message
-  - Added fallback for setting first space as active if none active
-  - Improved error handling with descriptive messages
-  - Added proper state refresh after initialization
-  - Added proper default provider and model configuration
-  - Fixed type safety for provider and model selection
-- Improved prop naming in ClientChatContent component
-  - Renamed `initialActiveSpace` to `defaultSpace`
-  - Renamed `initialConversations` to `defaultConversations`
-  - Made prop names more concise and descriptive
-- Updated ClientChatContent to use global space store
-- Updated QuickActionsCommand to use global space store
-- Improved space selection handling to maintain consistency across components
-
-### Fixed
-- Fixed model configuration import paths
-  - Updated imports to use correct path from @/config/models
-  - Separated model configuration from general constants
-  - Fixed type error in getModelName function
-  - Improved module organization for model-related code
-- Fixed active space management in database
-  - Resolved unique constraint violation in active_spaces table
-  - Improved set_active_space function to properly handle existing records
-  - Added explicit check for existing records before update/insert
-  - Added DELETE policy for active_spaces table
-  - Enhanced error handling in space activation process
-
-## [2024-02-05]
-- Refactored ClientChatContent.tsx to split large useEffect into multiple focused effects:
-  - Added separate effects for initial setup, space data loading, conversation management, and message loading
-  - Improved code organization and maintainability
-  - Removed console.log statements
-  - Simplified error handling with early returns
-
-## [2024-02-05]
-- Added LLMResponseFormatter component for formatting AI responses:
-  - Code block syntax highlighting with Prism.js
-  - Copy to clipboard functionality
-  - Markdown link parsing
-  - Bullet point formatting
-  - XML tag handling
-  - Support for multiple programming languages
-  - Dark theme styling
-  - Responsive design with proper spacing
-  - Improved code readability with syntax highlighting
-  - Added Dracula theme for code blocks
-
-### Performance Issues
-- Identified performance bottleneck in markdown renderer:
-  - Slow rendering of large markdown content
-  - TypeScript type conflicts with marked library
-  - Issues with highlight.js integration
-  - Investigating alternative approaches for better performance
-
-### Fixed
-- Improved markdown spacing and formatting:
-  - Added proper paragraph and line break handling
-  - Added consistent margins between elements
-  - Improved whitespace handling and trimming
-  - Added proper margin collapse for nested elements
-  - Enhanced heading spacing hierarchy
-  - Added proper list and blockquote spacing
-  - Fixed code block margins with special first/last handling
-
-### Changed
-- Enhanced MarkdownRenderer configuration:
-  - Enabled breaks option in markdown-it
-  - Added prose-specific margin utilities
-  - Improved token processing for better spacing
-  - Added prose-spacing class for better margin control
-
-## [Unreleased]
-
-### Fixed
-- Improved code block syntax highlighting:
-  - Fixed markdown-it highlight function to properly handle code blocks
-  - Improved language detection and handling
-  - Separated inline code and fence block handling
-  - Added proper content trimming for code blocks
-  - Enhanced language fallback to 'plain' when not specified
-
-### Changed
-- Modified MarkdownRenderer to wrap all segments in a single container instead of creating separate divs for each segment
-
-## [Unreleased]
-
-### Changed
-- Refactored markdown renderer styling:
-  - Replaced Tailwind prose with custom arbitrary selectors
-  - Added specific styling for all heading levels
-  - Improved spacing and typography for all elements
-  - Enhanced blockquote and link styling
-  - Added consistent margins for lists and paragraphs
-  - Improved overall visual hierarchy
-
-## [2024-03-19] - Pinecone Integration for Chat Messages
-
-### Added
-- Integrated Pinecone vector database for storing chat messages
-- Added OpenAI embeddings for semantic search capabilities
-- Created Pinecone utility functions for upserting and searching messages
-- Added environment variables for Pinecone and OpenAI configuration
-- Modified chat route to store messages in Pinecone
-
-### Dependencies Added
-- @pinecone-database/pinecone
-- @langchain/openai
-
-### Configuration
-- Added environment variables:
-  - PINECONE_API_KEY
-  - PINECONE_ENVIRONMENT
-  - PINECONE_INDEX
-  - OPENAI_API_KEY 
+- Initial release 

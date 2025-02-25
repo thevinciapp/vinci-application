@@ -12,9 +12,11 @@ interface SpaceFormProps {
   }
   onSpaceFormChange: (form: any) => void
   onSubmit: () => void
+  isCreating?: boolean
+  isEditing?: boolean
 }
 
-export function SpaceForm({ spaceForm, onSpaceFormChange, onSubmit }: SpaceFormProps) {
+export function SpaceForm({ spaceForm, onSpaceFormChange, onSubmit, isCreating = false, isEditing = false }: SpaceFormProps) {
   return (
     <div className="pt-1 pb-4 pl-4 pr-4 space-y-6">
       <div className="space-y-4">
@@ -98,14 +100,18 @@ export function SpaceForm({ spaceForm, onSpaceFormChange, onSubmit }: SpaceFormP
 
       <button
         onClick={onSubmit}
-        disabled={!spaceForm.name}
+        disabled={!spaceForm.name || isCreating}
         className={`w-full px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ${
-          spaceForm.name
+          spaceForm.name && !isCreating
             ? 'bg-[#3ecfff] hover:bg-[#3ecfff]/90 text-black shadow-lg shadow-[#3ecfff]/20'
             : 'bg-white/5 text-white/40 cursor-not-allowed border border-white/10'
         }`}
       >
-        Create Space
+        {isCreating ? (
+          <span className="loading-dots">{isEditing ? 'Updating space' : 'Creating space'}</span>
+        ) : (
+          isEditing ? 'Update Space' : 'Create Space'
+        )}
       </button>
     </div>
   )

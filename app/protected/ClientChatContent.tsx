@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Message, useChat } from "@ai-sdk/react";
 import { ChatMessagesSkeleton } from "@/components/ui/chat-messages-skeleton";
 import { SpaceTab } from "@/components/ui/space-tab";
@@ -13,7 +13,7 @@ import { BaseTab } from "@/components/ui/base-tab";
 import { useConversationStore } from '@/lib/stores/conversation-store';
 import { useSpaceStore } from "@/lib/stores/space-store";
 import { User } from "@supabase/supabase-js";
-import { getMessages, getConversations, setActiveConversation as setActiveConversationDB } from "../actions";
+import { getMessages, getConversations, setActiveConversation as setActiveConversationDB, getActiveConversation } from "../actions";
 import { UnifiedInput } from "@/components/ui/unified-input";
 import { ChatMessages } from '@/components/ui/chat-messages';
 import { UserProfileDropdown } from "@/components/ui/user-profile-dropdown";
@@ -37,16 +37,54 @@ export default function ClientChatContent({
   spaces,
 }: ClientChatContentProps) {
   const { activeSpace, setActiveSpace, setSpaces } = useSpaceStore();
-  const { setConversations, setActiveConversation, activeConversation } = useConversationStore();
+  const { setConversations, setActiveConversation, activeConversation, conversations } = useConversationStore();
+  const [cachedConversations, setCachedConversations] = useState<Conversation[]>(defaultConversations || []);
   const [isSpacesLoading, setIsSpacesLoading] = useState(true);
   const [isConversationsLoading, setIsConversationsLoading] = useState(true);
   const [isMessagesLoading, setIsMessagesLoading] = useState(true);
   const [isStickToBottom, setIsStickToBottom] = useState(true)
-  const [searchMode, setSearchMode] = useState('chat')
+  const [searchMode, setSearchMode] = useState<'chat' | 'search' | 'semantic' | 'hybrid'>('chat')
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
-  const cachedConversations = useMemo(() => defaultConversations || [], [defaultConversations]);
   const cachedSpaces = useMemo(() => spaces || [], [spaces]);
+
+  // Handle conversation selection - this ensures both DB and local state are updated
+  const handleConversationSelect = async (conversationId: string) => {
+    if (!conversationId) return;
+    
+    setIsMessagesLoading(true);
+    try {
+      // Get the latest conversations from the store to ensure we're using the most up-to-date list
+      const currentConversations = useConversationStore.getState().conversations || [];
+      
+      // Find the selected conversation in the current state
+      const selectedConversation = currentConversations.find(
+        conv => conv.id === conversationId && !conv.is_deleted
+      );
+      
+      // If the conversation doesn't exist or is deleted, don't proceed
+      if (!selectedConversation) {
+        console.error(`Conversation ${conversationId} not found or has been deleted`);
+        setIsMessagesLoading(false);
+        return;
+      }
+      
+      // Update the active conversation in database
+      await setActiveConversationDB(conversationId);
+      
+      // Update the local state
+      setActiveConversation(selectedConversation);
+      
+      // Load messages for this conversation
+      const messageData = await getMessages(conversationId);
+      setMessages(messageData || []);
+    } catch (error) {
+      console.error('Error selecting conversation:', error);
+      setMessages([]);
+    } finally {
+      setIsMessagesLoading(false);
+    }
+  };
 
   const { messages, setMessages, input, isLoading: isChatLoading, handleInputChange, handleSubmit } = useChat({
     id: searchMode,
@@ -71,12 +109,19 @@ export default function ClientChatContent({
           ]);
           setIsSpacesLoading(false);
         }
-        if (!activeConversation || !cachedConversations.length) {
+        
+        // Filter out deleted conversations from the cached conversations
+        const nonDeletedConversations = cachedConversations.filter(conv => !conv.is_deleted);
+        
+        // Always update the conversations store with filtered list to ensure consistency
+        setConversations(nonDeletedConversations);
+        
+        if (!activeConversation || !nonDeletedConversations.length) {
           setIsConversationsLoading(true);
-          await Promise.all([
-            setConversations(cachedConversations),
-            cachedConversations.length && setActiveConversation(cachedConversations[0]),
-          ]);
+          if (nonDeletedConversations.length) {
+            await setActiveConversationDB(nonDeletedConversations[0].id);
+            setActiveConversation(nonDeletedConversations[0]);
+          }
           setIsConversationsLoading(false);
         }
       } catch (error) {
@@ -89,35 +134,59 @@ export default function ClientChatContent({
     initializeChat();
   }, [defaultSpace, cachedConversations, cachedSpaces, setActiveSpace, setConversations, setActiveConversation, setSpaces]);
 
-  useEffect(() => {
-    const loadSpaceData = async () => {
-      if (!activeSpace?.id) return;
-      setIsConversationsLoading(true);
-      setIsMessagesLoading(true);
-      setMessages([]);
-      try {
-        const conversations = await getConversations(activeSpace.id);
-        setConversations(conversations || []);
-        const newActiveConversation = conversations?.length ? conversations[0] : null;
-        if (newActiveConversation) {
-          await setActiveConversationDB(newActiveConversation.id);
-          setActiveConversation(newActiveConversation);
-        } else {
-          setActiveConversation(null);
-          setMessages([]);
-        }
-      } catch (error) {
-        console.error('Error loading space data:', error);
-        setConversations([]);
+  // Load space data
+  const loadSpaceData = useCallback(async (spaceId: string) => {
+    if (!spaceId) return;
+    
+    setIsConversationsLoading(true);
+    setIsMessagesLoading(true);
+    setMessages([]);
+    try {
+      const conversations = await getConversations(spaceId);
+      
+      // Filter out deleted conversations
+      const nonDeletedConversations = conversations?.filter((conv) => !conv.is_deleted) || [];
+      
+      setConversations(nonDeletedConversations);
+      // Cache the conversations for local use
+      setCachedConversations(nonDeletedConversations);
+      
+      // Get the active conversation from DB
+      const activeConvData = await getActiveConversation();
+      const activeConv = activeConvData && nonDeletedConversations.find(c => c.id === activeConvData.id);
+      
+      // Set active conversation if one exists and is not deleted
+      if (activeConv && !activeConv.is_deleted) {
+        setActiveConversation(activeConv);
+        
+        // Load messages for the active conversation
+        const messageData = await getMessages(activeConv.id);
+        setMessages(messageData || []);
+      } else if (nonDeletedConversations.length > 0) {
+        // If no active conversation or active conversation is deleted, select the first available one
+        const newActiveConversation = nonDeletedConversations[0];
+        setActiveConversation(newActiveConversation);
+        await setActiveConversationDB(newActiveConversation.id);
+        
+        // Load messages for the newly selected conversation
+        const messageData = await getMessages(newActiveConversation.id);
+        setMessages(messageData || []);
+      } else {
+        // No conversations available
         setActiveConversation(null);
         setMessages([]);
-      } finally {
-        setIsConversationsLoading(false);
-        setIsMessagesLoading(false);
       }
-    };
-    loadSpaceData();
-  }, [activeSpace?.id, setConversations, setActiveConversation, setMessages]);
+    } catch (error) {
+      console.error('Error loading space data:', error);
+      setConversations([]);
+      setCachedConversations([]);
+      setActiveConversation(null);
+      setMessages([]);
+    } finally {
+      setIsConversationsLoading(false);
+      setIsMessagesLoading(false);
+    }
+  }, [getConversations, getMessages, setActiveConversationDB, getActiveConversation]);
 
   useEffect(() => {
     const loadConversationMessages = async () => {
@@ -139,6 +208,13 @@ export default function ClientChatContent({
     };
     loadConversationMessages();
   }, [activeConversation?.id, setMessages]);
+
+  // Load space data when active space changes
+  useEffect(() => {
+    if (activeSpace?.id) {
+      loadSpaceData(activeSpace.id);
+    }
+  }, [activeSpace?.id, loadSpaceData]);
 
   const handleScrollToBottom = () => {
     const messagesContainer = document.querySelector('.messages-container');
@@ -198,7 +274,6 @@ export default function ClientChatContent({
             onStickToBottomChange={setIsStickToBottom}
             ref={messagesContainerRef}
             isLoading={isChatLoading}
-            userAvatarUrl={user?.user_metadata?.avatar_url}
           />
         )}
         <div className="fixed left-1/2 bottom-8 -translate-x-1/2 w-[800px] z-50">
@@ -206,10 +281,6 @@ export default function ClientChatContent({
             <UnifiedInput
               value={input}
               onChange={handleInputChange}
-              onSubmit={handleSubmit}
-              disabled={isChatLoading}
-              searchMode={searchMode}
-              onSearchModeChange={setSearchMode}
               onSubmit={handleSubmit}
               disabled={!activeSpace || isSpacesLoading || isConversationsLoading || isMessagesLoading || isChatLoading}
             >
@@ -235,7 +306,7 @@ export default function ClientChatContent({
                   />
                 </div>
                 <div className="flex-shrink min-w-0 flex-1 flex items-center px-1 first:pl-2 last:pr-2 py-1">
-                  <ConversationTab activeConversation={activeConversation} />
+                  <ConversationTab activeConversation={activeConversation} onConversationSelect={handleConversationSelect} />
                 </div>
               </div>
             </UnifiedInput>

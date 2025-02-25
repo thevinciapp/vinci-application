@@ -55,6 +55,8 @@ export default async function ChatPage() {
     activeSpace = spaceData.space;
   }
 
+  console.log('spaceData', spaceData);
+
   const defaultConversations = spaceData?.conversations || [];
   const defaultMessages = defaultConversations.length > 0 
     ? await getMessages(defaultConversations[0].id)

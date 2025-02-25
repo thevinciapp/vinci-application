@@ -25,6 +25,7 @@ interface CommandModalProps {
     setSelectedProvider?: (provider: any) => void;
     showConversations?: boolean; //for showing conversations list
     setShowConversations?: (show: boolean) => void; //for showing conversations list
+    isCreatingSpace?: boolean;
 }
 
 export function CommandModal({

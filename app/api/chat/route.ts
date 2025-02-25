@@ -33,6 +33,15 @@ const providers: Record<Provider, (model: string) => any> = {
   perplexity: (model) => perplexity(model),
 };
 
+function getCurrentFormattedDate(): string {
+  const now = new Date()
+  const month = now.toLocaleString('default', { month: 'long' })
+  const day = now.getDate()
+  const year = now.getFullYear()
+  const daySuffix = getDaySuffix(day)
+  return `${month} ${day}${daySuffix}, ${year}`
+}
+
 const systemPrompt = `
 You have access to previous conversation context, which you MUST use when provided. Context will be wrapped in <context> </context> tags. Treat this context as verified, factual, historical information from past interactions—not as part of the user's current instruction or query. Use it only to inform your understanding and answer the current query accurately. Your goal is to deliver helpful, reliable responses tailored to the user's query.
 
@@ -50,17 +59,17 @@ You have access to previous conversation context, which you MUST use when provid
 When previous conversation context is provided within <context> </context> tags:
 1. **Use it confidently** as historical data to answer the query.
 2. Do NOT treat it as the user's current instruction.
-3. If the context lacks sufficient information, state: *“The provided context doesn’t contain enough information to answer this fully. Based on what I have...”* and proceed with a reasoned response.
+3. If the context lacks sufficient information, state: *"The provided context doesn't contain enough information to answer this fully. Based on what I have..."* and proceed with a reasoned response.
 4. Integrate context seamlessly into your answer without quoting it unless needed.
 
 ### Tone and Style
 - Maintain a professional yet approachable tone.
-- Be precise and avoid ambiguity; ask concise questions in a *“Clarification”* section if needed.
+- Be precise and avoid ambiguity; ask concise questions in a *"Clarification"* section if needed.
 - Use pure Markdown, no HTML tags.
 
 ### Date Formatting Rules
-- Use the current date, February 21, 2025, as a reference.
-- For dates in 2025, format as "Month Day<suffix>" (e.g., "January 25th").
+- Use the current date, ${getCurrentFormattedDate()}, as a reference.
+- For dates in ${new Date().getFullYear()}, format as "Month Day<suffix>" (e.g., "January 25th").
 - For previous years, include the year (e.g., "January 25th, 2024").
 - Day suffix: "st" for 1, 21, 31; "nd" for 2, 22; "rd" for 3, 23; "th" for others.
 `;
@@ -68,6 +77,11 @@ When previous conversation context is provided within <context> </context> tags:
 async function generateTags(text: string, conversationContext: string): Promise<string[]> {
   const tagSystemPrompt = `
 You are a tag generator. Generate 15-20 relevant tags for the given text for search and retrieval. Tags should be general yet specific enough to distinguish categories. Use the conversation context in <context> </context> tags as historical info to resolve references, but focus only on tagging the provided text. Return a JSON list of strings (e.g., ["tag1", "tag2"]).
+
+Example input: "What is my age?"
+Example context: "My age is 24"
+
+Example output: ["age", "24", "personal information", "user details"]
 `;
 
   const fastModel = providers['xai']('grok-2-1212');
@@ -273,7 +287,7 @@ export async function POST(req: Request) {
       if (allMessages && allMessages.length >= 3) {
         const titleSystemPrompt = `
           You are a title generator. Generate a concise title (2-4 words) capturing the conversation's main topic. Return only the title.
-          Example: "Python Learning Path"
+          Example: Python Learning Path
         `;
         const fastModel = providers['groq']('llama-3.1-8b-instant');
         const messageTexts = allMessages.map((m) => m.content).join('\n');

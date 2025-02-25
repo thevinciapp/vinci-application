@@ -121,18 +121,6 @@ input:focus, textarea:focus {
   @apply bg-white/[0.03] text-white border border-white/[0.05];
 }
 
-[cmdk-item] svg {
-  @apply w-4 h-4 text-white/60 transition-colors duration-300;
-}
-
-[cmdk-item][data-selected="true"] svg {
-  @apply text-[#3ecfff];
-}
-
-[cmdk-item]:hover svg {
-  @apply text-[#3ecfff]/80;
-}
-
 [cmdk-item][data-disabled="true"] {
   @apply text-white/30 cursor-not-allowed;
 }
@@ -197,6 +185,19 @@ input:focus, textarea:focus {
     box-shadow: 0 0 0 1px var(--gray6); /* Using your existing --gray6 */
   }
 }
+@keyframes loadingDots {
+  0% { content: '.' }
+  33% { content: '..' }
+  66% { content: '...' }
+  100% { content: '.' }
+}
+
+.loading-dots::after {
+  content: '.';
+  display: inline-block;
+  animation: loadingDots 1.5s infinite;
+}
+
 @keyframes showTopShine {
     to {
       opacity: 1;

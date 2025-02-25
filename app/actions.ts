@@ -16,6 +16,8 @@ import { Redis } from "@upstash/redis";
 const redis = Redis.fromEnv();
 
 const CACHE_KEYS = {
+  SPACE_HISTORY: (spaceId: string) => `space_history:${spaceId}`,
+  NOTIFICATIONS: (userId: string) => `notifications:${userId}`,
   SPACES: (userId: string) => `spaces:${userId}`,
   SPACE: (spaceId: string) => `space:${spaceId}`,
   ACTIVE_SPACE: (userId: string) => `active_space:${userId}`,
@@ -26,6 +28,8 @@ const CACHE_KEYS = {
 };
 
 const CACHE_TTL = {
+  SPACE_HISTORY: 60 * 5, // 5 minutes
+  NOTIFICATIONS: 60 * 5, // 5 minutes
   SPACES: 60 * 5, // 5 minutes
   SPACE: 60 * 5, // 5 minutes
   ACTIVE_SPACE: 60 * 60, // 1 hour
@@ -304,14 +308,12 @@ export async function getSpaceData(spaceId: string): Promise<SpaceData | null> {
         return { space: null, conversations: [], messages: null };
     }
 
-    // Try to get from cache first
     const cacheKey = CACHE_KEYS.SPACE_DATA(spaceId);
     const cachedData = await redis.get<SpaceData>(cacheKey);
     if (cachedData) {
         return cachedData;
     }
 
-    // Fetch space and conversations in parallel
     const [space, conversations] = await Promise.all([
         supabase
             .from(DB_TABLES.SPACES)
@@ -330,6 +332,7 @@ export async function getSpaceData(spaceId: string): Promise<SpaceData | null> {
             .from(DB_TABLES.CONVERSATIONS)
             .select("*")
             .eq(COLUMNS.SPACE_ID, spaceId)
+            .eq(COLUMNS.IS_DELETED, false)
             .order(COLUMNS.UPDATED_AT, { ascending: false })
             .then(({ data, error }) => {
                 if (error) {
@@ -340,7 +343,6 @@ export async function getSpaceData(spaceId: string): Promise<SpaceData | null> {
             })
     ]);
 
-    // If we have conversations, get messages for the most recent one
     let messages = null;
     if (conversations.length > 0) {
         const { data, error } = await supabase
@@ -387,6 +389,7 @@ export async function getConversations(spaceId: string): Promise<Conversation[] 
         .from(DB_TABLES.CONVERSATIONS)
         .select("*")
         .eq(COLUMNS.SPACE_ID, spaceId)
+        .eq(COLUMNS.IS_DELETED, false)
         .order(COLUMNS.UPDATED_AT, { ascending: false });
 
     if (error) {
@@ -417,7 +420,8 @@ export async function createConversation(spaceId: string, title?: string): Promi
             space_id: spaceId,
             title: title || DEFAULTS.CONVERSATION_TITLE,
             created_at: timestamp,
-            updated_at: timestamp
+            updated_at: timestamp,
+            is_deleted: false
         }])
         .select()
         .single();
@@ -481,7 +485,12 @@ export async function getActiveConversation(): Promise<Conversation | null> {
     const cacheKey = CACHE_KEYS.ACTIVE_CONVERSATION(user.id);
     const cachedConversation = await redis.get<Conversation>(cacheKey);
     if (cachedConversation) {
-        return cachedConversation;
+        // If the cached conversation is marked as deleted, clear the cache and fetch from DB
+        if (cachedConversation.is_deleted) {
+            await redis.del(cacheKey);
+        } else {
+            return cachedConversation;
+        }
     }
 
     const { data: activeConversationData, error: activeConversationError } = await supabase
@@ -498,6 +507,7 @@ export async function getActiveConversation(): Promise<Conversation | null> {
         .from(DB_TABLES.CONVERSATIONS)
         .select("*")
         .eq(COLUMNS.ID, activeConversationData.conversation_id)
+        .eq(COLUMNS.IS_DELETED, false) // Don't return deleted conversations
         .single();
 
     if (conversationError) {
@@ -526,6 +536,7 @@ export async function getConversation(id: string): Promise<Conversation | null> 
         .from(DB_TABLES.CONVERSATIONS)
         .select("*")
         .eq(COLUMNS.ID, id)
+        .eq(COLUMNS.IS_DELETED, false) // Don't return deleted conversations
         .single();
 
     if (error) {
@@ -702,8 +713,8 @@ export async function createMessage(messageData: Partial<Message>, conversationI
 }
 
 export const signUpAction = async (formData: FormData) => {
-  const email = formData.get("email")?.toString();
-  const password = formData.get("password")?.toString();
+  const email = formData.get("email")?.toString();
+  const password = formData.get("password")?.toString();
   const supabase = await createClient();
   const origin = (await headers()).get("origin");
 
@@ -823,6 +834,395 @@ export const resetPasswordAction = async (formData: FormData) => {
   encodedRedirect("success", "/protected/reset-password", "Password updated");
 };
 
+export async function deleteSpace(spaceId: string): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('Unauthorized');
+  }
+
+  // Soft delete the space
+  const { error } = await supabase
+    .from(DB_TABLES.SPACES)
+    .update({ [COLUMNS.IS_DELETED]: true })
+    .eq(COLUMNS.ID, spaceId)
+    .eq(COLUMNS.USER_ID, user.id);
+
+  if (error) {
+    console.error('Error deleting space:', error);
+    throw new Error('Failed to delete space');
+  }
+
+  // Clear related cache
+  const cacheKeys = [
+    CACHE_KEYS.SPACES(user.id),
+    CACHE_KEYS.SPACE(spaceId),
+    CACHE_KEYS.SPACE_DATA(spaceId),
+  ];
+
+  await Promise.all(cacheKeys.map(key => redis.del(key)));
+}
+
+export async function deleteConversation(conversationId: string): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    console.error('No user authenticated');
+    throw new Error('Unauthorized');
+  }
+
+  console.log(`Attempting to delete conversation with ID: ${conversationId} for user: ${user.id}`);
+
+  // Step 1: Fetch conversation to verify it exists and get space_id
+  const { data: conversation, error: fetchError } = await supabase
+    .from(DB_TABLES.CONVERSATIONS)
+    .select(`${COLUMNS.ID}, ${COLUMNS.SPACE_ID}, ${COLUMNS.IS_DELETED}`)
+    .eq(COLUMNS.ID, conversationId)
+    .single();
+
+  if (fetchError || !conversation) {
+    console.error('Fetch error:', fetchError?.message || 'Conversation not found');
+    throw new Error('Failed to find conversation');
+  }
+
+  console.log(`Found conversation: ID=${conversation[COLUMNS.ID]}, space_id=${conversation[COLUMNS.SPACE_ID]}, is_deleted=${conversation[COLUMNS.IS_DELETED]}`);
+
+  if (conversation[COLUMNS.IS_DELETED]) {
+    console.log('Conversation is already deleted, no update needed');
+    return;
+  }
+
+  // Step 2: Verify space ownership (redundant with RLS, but kept for safety)
+  const spaceId = conversation[COLUMNS.SPACE_ID];
+  const { data: space, error: spaceError } = await supabase
+    .from(DB_TABLES.SPACES)
+    .select('id')
+    .eq(COLUMNS.ID, spaceId)
+    .eq(COLUMNS.USER_ID, user.id)
+    .single();
+
+  if (spaceError || !space) {
+    console.error('Space verification error:', spaceError?.message || 'Space not found or not owned by user');
+    throw new Error('Unauthorized: Space does not belong to user');
+  }
+
+  console.log(`Verified space ownership for space_id: ${spaceId}`);
+
+  // Step 3: Perform the soft delete
+  const { data: updateData, error: deleteError } = await supabase
+    .from(DB_TABLES.CONVERSATIONS)
+    .update({ 
+      [COLUMNS.IS_DELETED]: true, 
+      [COLUMNS.UPDATED_AT]: new Date().toISOString() 
+    })
+    .eq(COLUMNS.ID, conversationId)
+    .select();
+
+  if (deleteError) {
+    console.error('Delete error:', deleteError.message);
+    throw new Error(`Failed to delete conversation: ${deleteError.message}`);
+  }
+
+  if (!updateData || updateData.length === 0) {
+    console.error('No rows updated - RLS or data issue persists');
+    throw new Error('No rows updated');
+  }
+
+  console.log('Conversation successfully deleted:', updateData);
+
+  const cacheKeys = [
+    CACHE_KEYS.CONVERSATIONS(spaceId),        
+    CACHE_KEYS.SPACE_DATA(spaceId),            
+    CACHE_KEYS.ACTIVE_CONVERSATION(user.id),  
+  ];
+
+  try {
+    await Promise.all(cacheKeys.map(key => redis.del(key)));
+    console.log(`Cleared caches: ${cacheKeys.join(', ')}`);
+  } catch (cacheError) {
+    console.error('Error invalidating caches:', cacheError);
+  }
+}
+
+
+export type SpaceActionType = 
+  | 'created'
+  | 'deleted'
+  | 'updated'
+  | 'model_changed'
+  | 'conversation_added'
+  | 'conversation_deleted';
+
+export interface SpaceHistoryEntry {
+  id: string;
+  space_id: string;
+  user_id: string;
+  action_type: SpaceActionType;
+  title: string;
+  description: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+}
+
+export interface CreateSpaceHistoryOptions {
+  spaceId: string;
+  actionType: SpaceActionType;
+  title: string;
+  description: string;
+  metadata?: Record<string, any>;
+}
+
+export async function createSpaceHistory({
+  spaceId,
+  actionType,
+  title,
+  description,
+  metadata
+}: CreateSpaceHistoryOptions): Promise<SpaceHistoryEntry | null> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    console.error("User not found");
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('space_history')
+    .insert([{
+      space_id: spaceId,
+      user_id: user.id,
+      action_type: actionType,
+      title,
+      description,
+      metadata
+    }])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating space history entry:", error);
+    return null;
+  }
+
+  // Update space history cache
+  const cacheKey = CACHE_KEYS.SPACE_HISTORY(spaceId);
+  const cachedHistory = await redis.get<SpaceHistoryEntry[]>(cacheKey) || [];
+  await redis.set(cacheKey, [data, ...cachedHistory], { ex: CACHE_TTL.SPACE_HISTORY });
+
+  return data;
+}
+
+export async function getSpaceHistory(spaceId: string, limit = 50): Promise<SpaceHistoryEntry[]> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    console.error("User not found");
+    return [];
+  }
+
+  // Try to get from cache first
+  const cacheKey = CACHE_KEYS.SPACE_HISTORY(spaceId);
+  const cachedHistory = await redis.get<SpaceHistoryEntry[]>(cacheKey);
+  if (cachedHistory) {
+    return cachedHistory;
+  }
+
+  const { data, error } = await supabase
+    .from('space_history')
+    .select("*")
+    .eq("space_id", spaceId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("Error fetching space history:", error);
+    return [];
+  }
+
+  // Cache the result
+  if (data) {
+    await redis.set(cacheKey, data, { ex: CACHE_TTL.SPACE_HISTORY });
+  }
+
+  return data;
+}
+
+export type NotificationType = 
+  | 'space_created'
+  | 'space_deleted'
+  | 'model_changed'
+  | 'conversation_created'
+  | 'conversation_deleted';
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  description: string;
+  metadata?: Record<string, any>;
+  is_read: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateNotificationOptions {
+  type: NotificationType;
+  title: string;
+  description: string;
+  metadata?: Record<string, any>;
+  isInApp?: boolean; // If true, notification will be marked as read automatically
+}
+
+export async function createNotification({
+  type,
+  title,
+  description,
+  metadata,
+  isInApp = true // Default to true for backward compatibility
+}: CreateNotificationOptions): Promise<Notification | null> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    console.error("User not found");
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from(DB_TABLES.NOTIFICATIONS)
+    .insert([{
+      user_id: user.id,
+      type,
+      title,
+      description,
+      metadata,
+      is_read: isInApp, // Automatically mark as read if it's an in-app notification
+    }])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating notification:", error);
+    return null;
+  }
+
+  // Update notifications cache
+  const cacheKey = CACHE_KEYS.NOTIFICATIONS(user.id);
+  const cachedNotifications = await redis.get<Notification[]>(cacheKey) || [];
+  await redis.set(cacheKey, [data, ...cachedNotifications], { ex: CACHE_TTL.NOTIFICATIONS });
+
+  return data;
+}
+
+export async function getNotifications(limit = 50): Promise<Notification[]> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    console.error("User not found");
+    return [];
+  }
+
+  // Try to get from cache first
+  const cacheKey = CACHE_KEYS.NOTIFICATIONS(user.id);
+  const cachedNotifications = await redis.get<Notification[]>(cacheKey);
+  if (cachedNotifications) {
+    return cachedNotifications;
+  }
+
+  const { data, error } = await supabase
+    .from(DB_TABLES.NOTIFICATIONS)
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("Error fetching notifications:", error);
+    return [];
+  }
+
+  // Cache the result
+  if (data) {
+    await redis.set(cacheKey, data, { ex: CACHE_TTL.NOTIFICATIONS });
+  }
+
+  return data;
+}
+
+export async function markNotificationAsRead(notificationId: string): Promise<boolean> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    console.error("User not found");
+    return false;
+  }
+
+  const { error } = await supabase
+    .from(DB_TABLES.NOTIFICATIONS)
+    .update({ is_read: true })
+    .eq("id", notificationId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("Error marking notification as read:", error);
+    return false;
+  }
+
+  // Update cache
+  const cacheKey = CACHE_KEYS.NOTIFICATIONS(user.id);
+  const cachedNotifications = await redis.get<Notification[]>(cacheKey);
+  if (cachedNotifications) {
+    const updatedNotifications = cachedNotifications.map(n =>
+      n.id === notificationId ? { ...n, is_read: true } : n
+    );
+    await redis.set(cacheKey, updatedNotifications, { ex: CACHE_TTL.NOTIFICATIONS });
+  }
+
+  return true;
+}
+
+export async function markAllNotificationsAsRead(): Promise<boolean> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    console.error("User not found");
+    return false;
+  }
+
+  const { error } = await supabase
+    .from(DB_TABLES.NOTIFICATIONS)
+    .update({ is_read: true })
+    .eq("user_id", user.id)
+    .eq("is_read", false);
+
+  if (error) {
+    console.error("Error marking all notifications as read:", error);
+    return false;
+  }
+
+  // Update cache
+  const cacheKey = CACHE_KEYS.NOTIFICATIONS(user.id);
+  const cachedNotifications = await redis.get<Notification[]>(cacheKey);
+  if (cachedNotifications) {
+    const updatedNotifications = cachedNotifications.map(n => ({ ...n, is_read: true }));
+    await redis.set(cacheKey, updatedNotifications, { ex: CACHE_TTL.NOTIFICATIONS });
+  }
+
+  return true;
+}
+
 export const signOutAction = async () => {
   const supabase = await createClient();
   
@@ -832,7 +1232,8 @@ export const signOutAction = async () => {
     if (user) {
       await Promise.all([
         redis.del(CACHE_KEYS.SPACES(user.id)),
-        redis.del(CACHE_KEYS.ACTIVE_SPACE(user.id))
+        redis.del(CACHE_KEYS.ACTIVE_SPACE(user.id)),
+        redis.del(CACHE_KEYS.NOTIFICATIONS(user.id))
       ]);
     }
 

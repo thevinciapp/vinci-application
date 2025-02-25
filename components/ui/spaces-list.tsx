@@ -1,5 +1,5 @@
 import { Command } from 'cmdk';
-import { Plus, Settings } from 'lucide-react';
+import { Plus, Settings, Edit2 } from 'lucide-react';
 import PlanetIcon from './planet-icon';
 import { Space } from '@/types';
 import { createSpace } from '@/app/actions';
@@ -10,17 +10,17 @@ import { CommandBadge } from './command-badge';
 import { cn } from '@/lib/utils';
 import { ProviderIcon } from './provider-icon';
 import { PROVIDER_NAMES } from '@/config/models';
+import { DeleteSpaceDialog } from './delete-space-dialog';
 
 interface SpacesListProps {
   spaces: Space[] | null;
   onSpaceSelect: (spaceId: string) => Promise<void>;
   activeSpaceId?: string;
   onCreateSpace?: () => void;
+  onEditSpace?: (space: Space) => void;
 }
 
-export function SpacesList({ spaces, onSpaceSelect, activeSpaceId, onCreateSpace }: SpacesListProps) {
-
-
+export function SpacesList({ spaces, onSpaceSelect, activeSpaceId, onCreateSpace, onEditSpace }: SpacesListProps) {
   if (!spaces) {
     return (
       <div className="py-8 text-center">
@@ -77,8 +77,28 @@ export function SpacesList({ spaces, onSpaceSelect, activeSpaceId, onCreateSpace
                     {space.id === activeSpaceId && <CommandBadge variant="active">Active</CommandBadge>}
                     {space.provider && (
                       <div className="w-5 h-5 flex items-center justify-center">
-                  <ProviderIcon provider={space.provider} size={16} />
-                </div>
+                        <ProviderIcon provider={space.provider} size={16} />
+                      </div>
+                    )}
+                    {!space.id.includes('default') && (
+                      <>
+                        <div className="flex items-center justify-center w-5 h-5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditSpace?.(space);
+                            }}
+                            className="flex items-center justify-center text-white/50 hover:text-white/90 transition-colors"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                        </div>
+                        {spaces.length > 1 && (
+                          <div className="flex items-center justify-center w-5 h-5">
+                            <DeleteSpaceDialog spaceId={space.id} spaceName={space.name} />
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -91,6 +111,5 @@ export function SpacesList({ spaces, onSpaceSelect, activeSpaceId, onCreateSpace
         ))}
       </Command.Group>
     </>
-
-  );
+  );
 }

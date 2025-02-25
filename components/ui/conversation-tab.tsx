@@ -11,18 +11,19 @@ import { Conversation } from '@/types'
 import { useQuickActionsCommand } from './quick-actions-command-provider'
 import { useSpaceStore } from '@/lib/stores/space-store'
 import { useConversationStore } from '@/lib/stores/conversation-store'
-import { createConversation } from '@/app/actions'
+import { createConversation, setActiveConversation as setActiveConversationDB } from '@/app/actions'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 
 interface ConversationTabProps {
   activeConversation: Conversation | null
+  onConversationSelect?: (conversationId: string) => Promise<void>
 }
 
-export function ConversationTab({ activeConversation }: ConversationTabProps) {
+export function ConversationTab({ activeConversation, onConversationSelect }: ConversationTabProps) {
   const { toggleQuickActionsCommand } = useQuickActionsCommand()
   const { activeSpace } = useSpaceStore()
-  const { setActiveConversation } = useConversationStore()
+  const { setActiveConversation, conversations, setConversations } = useConversationStore()
   const { toast } = useToast()
   const [isCreating, setIsCreating] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
@@ -35,7 +36,18 @@ export function ConversationTab({ activeConversation }: ConversationTabProps) {
       const newConversation = await createConversation(activeSpace.id, 'New Conversation')
       
       if (newConversation) {
+        await setActiveConversationDB(newConversation.id)
         setActiveConversation(newConversation)
+        
+        if (conversations) {
+          setConversations([newConversation, ...conversations])
+        } else {
+          setConversations([newConversation])
+        }
+        
+        if (onConversationSelect) {
+          await onConversationSelect(newConversation.id)
+        }
 
         setShowSuccess(true)
         setTimeout(() => setShowSuccess(false), 1500)
@@ -51,7 +63,7 @@ export function ConversationTab({ activeConversation }: ConversationTabProps) {
             'rounded-lg'  
           ),
           duration: 2000,
-        })
+        });
       }
     } finally {
       setIsCreating(false)
@@ -59,18 +71,19 @@ export function ConversationTab({ activeConversation }: ConversationTabProps) {
   }
 
   return (
-    <div className="flex items-center w-full gap-px min-w-0">
-      <div className="flex-1 min-w-0 overflow-hidden">
-        <BaseTab
-          icon={<MessageSquare className="w-3 h-3" />}
-          label={activeConversation?.title || 'Conversations'}
-          shortcut="D"
-          isActive={!!activeConversation}
-          minWidth="space"
-          onClick={() => toggleQuickActionsCommand({ withConversations: true })}
-          className="overflow-hidden text-ellipsis"
-        />
-      </div>
+    <div className="flex h-full overflow-hidden">
+      {activeSpace ? (
+        <div className="flex-1 overflow-hidden">
+          <BaseTab
+            icon={<MessageSquare className="w-3 h-3" />}
+            label={activeConversation?.title || 'Conversations'}
+            shortcut="D"
+            minWidth="space"
+            onClick={() => toggleQuickActionsCommand({ withConversations: true })}
+            className="overflow-hidden text-ellipsis"
+          />
+        </div>
+      ) : null}
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>

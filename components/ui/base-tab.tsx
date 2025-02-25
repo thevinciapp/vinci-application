@@ -12,18 +12,20 @@ interface BaseTabProps {
   wrapperStyle?: CSSProperties
   className?: string
   color?: string
+  rightElement?: ReactNode
 }
 
-export function BaseTab({ 
-  icon, 
+export function BaseTab({
+  icon,
   color,
-  label, 
-  shortcut, 
-  onClick, 
-  minWidth, 
+  label,
+  shortcut,
+  onClick,
+  minWidth,
   style,
   wrapperStyle,
-  className = ''
+  className = '',
+  rightElement
 }: BaseTabProps) {
   const minWidthClass = {
     space: 'min-w-[100px]',
@@ -32,17 +34,17 @@ export function BaseTab({
   }[minWidth || 'actions']
 
   return (
-    <div 
+    <div
       className={`relative`}
-      style={{
-        ...wrapperStyle
+      style={{ 
+        ...wrapperStyle 
       }}
     >
       <div
         onClick={onClick}
         className={`px-3 py-1.5 text-white text-xs font-medium flex items-center gap-1.5 relative overflow-hidden cursor-pointer ${minWidthClass}
            transition-all duration-300 group ${className}`}
-        style={{
+        style={{ 
           ...style,
         }}
       >
@@ -56,6 +58,11 @@ export function BaseTab({
         </span>
         {shortcut && (
           <span className="text-white/60 text-[10px] ml-auto shrink-0 relative z-10">⌘{shortcut}</span>
+        )}
+        {rightElement && (
+          <div className="ml-auto relative z-10">
+            {rightElement}
+          </div>
         )}
       </div>
     </div>

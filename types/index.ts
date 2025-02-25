@@ -19,4 +19,7 @@ export interface Conversation {
   title?: string;
   created_at?: string;
   updated_at?: string;
+  is_deleted?: boolean;
+  messageCount?: number;
+  lastMessage?: string;
 }

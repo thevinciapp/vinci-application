@@ -24,6 +24,7 @@ export const API_ROUTES = {
 
 // Database Tables
 export const DB_TABLES = {
+  NOTIFICATIONS: 'notifications',
   SPACES: 'spaces',
   CONVERSATIONS: 'conversations',
   MESSAGES: 'messages',
