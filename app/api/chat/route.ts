@@ -117,6 +117,22 @@ async function validateUser(supabase: any) {
   return user;
 }
 
+// Define a type for annotations to properly include similarMessages
+type MessageAnnotation = {
+  [COLUMNS.MODEL_USED]?: string;
+  [COLUMNS.PROVIDER]?: Provider;
+  [COLUMNS.SPACE_ID]?: string;
+  [COLUMNS.CONVERSATION_ID]?: string;
+  similarMessages?: Array<{
+    id: string;
+    content: string;
+    role: string;
+    createdAt: number;
+    score: number;
+    metadata?: Record<string, any>;
+  }>;
+};
+
 async function saveMessage({
   content,
   role,
@@ -126,21 +142,36 @@ async function saveMessage({
   conversationId,
   parentId,
   tags,
+  similarMessages,
 }: {
   content: string;
   role: 'user' | 'assistant';
-  model: string;
+  model: string;  
   provider: Provider;
   spaceId: string;
   conversationId: string;
   parentId?: string;
   tags: string[];
+  similarMessages?: Array<{
+    id: string;
+    content: string;
+    role: string;
+    createdAt: number;
+    score: number;
+    metadata?: Record<string, any>;
+  }>;
 }) {
+  const annotations: MessageAnnotation[] = [{ [COLUMNS.MODEL_USED]: model, [COLUMNS.PROVIDER]: provider }];
+  
+  if (similarMessages && similarMessages.length > 0) {
+    annotations.push({ similarMessages });
+  }
+
   const dbMessage = await createMessage(
     {
       [COLUMNS.CONTENT]: content,
       [COLUMNS.ROLE]: role,
-      [COLUMNS.ANNOTATIONS]: [{ [COLUMNS.MODEL_USED]: model, [COLUMNS.PROVIDER]: provider }],
+      [COLUMNS.ANNOTATIONS]: annotations,
     },
     conversationId
   );
@@ -153,7 +184,7 @@ async function saveMessage({
     spaceId,
     conversationId,
     ...(parentId && { parentId }),
-    metadata: { model, provider, tags },
+    metadata: { model, provider, tags, ...(similarMessages && { similarMessages }) },
   });
 
   return dbMessage;
@@ -214,6 +245,7 @@ export async function POST(req: Request) {
         dataStream.writeData('Searching for similar messages');
         const userTags = await generateTags(userMessage.content, conversationContext);
         const similarMessages = await searchSimilarMessages(userMessage.content, numberOfMessages, userTags);
+        console.log('Similar messages found:', similarMessages.length);
 
         dataStream.writeData('Building context');
         const contextString = buildContextString(similarMessages.map((result) => result.message));
@@ -228,6 +260,7 @@ export async function POST(req: Request) {
         const wrappedLanguageModel = wrapLanguageModel({ model: modelInstance, middleware });
 
         dataStream.writeData('Generating response');
+        
         const result = streamText({
           model: wrappedLanguageModel,
           messages,
@@ -240,23 +273,45 @@ export async function POST(req: Request) {
               [COLUMNS.PROVIDER]: provider,
               [COLUMNS.SPACE_ID]: spaceId,
               [COLUMNS.CONVERSATION_ID]: conversationId,
+              similarMessages: similarMessages.map(result => ({
+                id: result.message.id,
+                content: result.message.content,
+                role: result.message.role,
+                createdAt: result.message.createdAt,
+                score: result.score ?? 0,
+                conversationId: result.message.conversationId,
+                metadata: result.message.metadata || {}
+              }))
             });
           },
         });
 
+        result.mergeIntoDataStream(dataStream);
+        
         result.text.then(async (text) => {
-          const [assistantTags, dbUserMessage] = await Promise.all([
-            generateTags(text, conversationContext),
-            saveMessage({
-              content: userMessage.content,
-              role: 'user',
-              model,
-              provider,
-              spaceId,
-              conversationId,
-              tags: await generateTags(userMessage.content, conversationContext),
-            }),
-          ]);
+          dataStream.writeData('Processing and saving messages');
+          
+          const userTags = await generateTags(userMessage.content, conversationContext);
+          const assistantTags = await generateTags(text, conversationContext);
+          
+          const dbUserMessage = await saveMessage({
+            content: userMessage.content,
+            role: 'user',
+            model,
+            provider,
+            spaceId,
+            conversationId,
+            tags: userTags,
+            similarMessages: similarMessages.map(result => ({
+              id: result.message.id,
+              content: result.message.content,
+              role: result.message.role,
+              createdAt: result.message.createdAt,
+              score: result.score ?? 0,
+              conversationId: result.message.conversationId,
+              metadata: result.message.metadata || {}
+            }))
+          });
 
           await saveMessage({
             content: text,
@@ -267,6 +322,15 @@ export async function POST(req: Request) {
             conversationId,
             parentId: dbUserMessage.id,
             tags: assistantTags,
+            similarMessages: similarMessages.map(result => ({
+              id: result.message.id,
+              content: result.message.content,
+              role: result.message.role,
+              createdAt: result.message.createdAt,
+              score: result.score ?? 0,
+              conversationId: result.message.conversationId,
+              metadata: result.message.metadata || {}
+            })),
           });
 
           const allMessages = await getMessages(conversationId);
@@ -287,11 +351,11 @@ export async function POST(req: Request) {
             });
             await updateConversationTitle(conversationId, newTitle);
           }
+          
+          dataStream.writeData('Completed processing');
         }).catch((error) => {
           dataStream.writeData(`Error during post-processing: ${error.message}`);
         });
-
-        result.mergeIntoDataStream(dataStream);
       } catch (error) {
         let errorMessage;
         if (error instanceof Error) {

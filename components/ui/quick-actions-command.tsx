@@ -1,7 +1,7 @@
 'use client';
 
 import { CommandModal } from '@/components/ui/command-modal';
-import { ArrowLeft, Plus, Search, Sparkles } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Sparkles, MessageSquare } from 'lucide-react';
 import { useQuickActionsCommand } from '@/components/ui/quick-actions-command-provider';
 import { Command } from 'cmdk';
 import { useState, useEffect } from 'react';
@@ -10,7 +10,7 @@ import { QuickActionsList } from '@/components/ui/quick-actions-list'
 import { SpacesList } from '@/components/ui/spaces-list'
 import { ModelsList } from '@/components/ui/models-list'
 import { ConversationsList } from '@/components/ui/conversations-list'
-import { createSpace, getSpaces, setActiveSpace, updateSpace, getConversations, createConversation, createMessage, createSpaceHistory } from '@/app/actions';
+import { createSpace, getSpaces, setActiveSpace, updateSpace, getConversations, createConversation, createMessage, createSpaceHistory, setActiveConversation as setActiveConversationDB } from '@/app/actions';
 import { useSpaceStore } from '@/lib/stores/space-store';
 import { SpaceForm } from './space-form';
 import { Conversation, Space } from '@/types';
@@ -19,6 +19,203 @@ import { ConversationTab } from '@/components/ui/conversation-tab'
 import { BaseTab } from '@/components/ui/base-tab'
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { commandItemClass } from './command-item';
+import { useRouter } from 'next/navigation';
+
+// Define the SimilarMessage type
+interface SimilarMessage {
+  id: string;
+  content: string;
+  role: 'user' | 'assistant';
+  createdAt: number;
+  score: number;
+  conversationId?: string;
+  metadata?: Record<string, any>;
+}
+
+// Add a SimilarMessagesList component
+const SimilarMessagesList = ({ messages }: { messages: SimilarMessage[] }) => {
+  const [activeFilter, setActiveFilter] = useState<'all' | 'user' | 'assistant'>('all');
+  const { closeQuickActionsCommand } = useQuickActionsCommand();
+  const { activeSpace } = useSpaceStore();
+  const { conversations, setActiveConversation } = useConversationStore();
+  const router = useRouter();
+  
+  // Function to navigate to a specific message in its conversation
+  const navigateToMessage = async (message: SimilarMessage) => {
+    closeQuickActionsCommand();
+    
+    // First try to get the conversationId directly from the message object
+    // Only fall back to metadata if not found directly
+    const conversationId = message.conversationId || message.metadata?.conversationId;
+    if (!conversationId) {
+      toast({
+        title: 'Navigation Error',
+        description: 'Could not find the conversation for this message.',
+        variant: "destructive",
+        duration: 3000,
+      });
+      return;
+    }
+    
+    // Find the conversation in the current space
+    const conversation = conversations?.find(c => c.id === conversationId && !c.is_deleted);
+    if (!conversation) {
+      toast({
+        title: 'Conversation Not Found',
+        description: 'The conversation may have been deleted.',
+        variant: "destructive",
+        duration: 3000,
+      });
+      return;
+    }
+    
+    // Set the active conversation
+    await setActiveConversation(conversation);
+    
+    // We need to set the active conversation in the database too
+    await setActiveConversationDB(conversationId);
+    
+    // Show success toast with instructions
+    toast({
+      title: 'Navigating to message',
+      description: 'The message will be highlighted. Click anywhere to dismiss the highlight.',
+      variant: "default",
+      duration: 4000,
+    });
+    
+    // Navigate to the conversation and include a highlight parameter for the message
+    router.push(`/protected?highlight=${message.id}`);
+  };
+  
+  if (!messages || messages.length === 0) {
+    return (
+      <div className="py-8 text-center">
+        <p className="text-sm text-white/40">No similar messages found.</p>
+        <p className="text-xs text-white/30 mt-1">Try searching for different content</p>
+      </div>
+    );
+  }
+  
+  const filteredMessages = messages.filter(message => {
+    if (activeFilter === 'all') return true;
+    return message.role === activeFilter;
+  });
+
+  // Helper function to format relative time
+  const formatRelativeTime = (timestamp: number) => {
+    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+    const now = Date.now();
+    const diffInSeconds = Math.floor((now - timestamp) / 1000);
+    
+    if (diffInSeconds < 60) return rtf.format(-diffInSeconds, 'second');
+    if (diffInSeconds < 3600) return rtf.format(-Math.floor(diffInSeconds / 60), 'minute');
+    if (diffInSeconds < 86400) return rtf.format(-Math.floor(diffInSeconds / 3600), 'hour');
+    if (diffInSeconds < 2592000) return rtf.format(-Math.floor(diffInSeconds / 86400), 'day');
+    if (diffInSeconds < 31536000) return rtf.format(-Math.floor(diffInSeconds / 2592000), 'month');
+    return rtf.format(-Math.floor(diffInSeconds / 31536000), 'year');
+  };
+
+  // Get conversation titles for the messages
+  const getConversationTitle = (message: SimilarMessage) => {
+    // First try to get the conversationId directly from the message
+    const conversationId = message.conversationId || message.metadata?.conversationId;
+    if (!conversationId) return 'Unknown Conversation';
+    
+    const conversation = conversations?.find(c => c.id === conversationId && !c.is_deleted);
+    return conversation?.title || 'Untitled Conversation';
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="px-3 py-2 flex justify-between items-center border-b border-white/[0.08] pb-3">
+        <div className="text-sm text-white/80 font-medium">
+          Similar Messages
+        </div>
+        <div className="flex items-center gap-1 p-1 rounded-lg bg-black/40 border border-white/10">
+          <button 
+            className={`px-3 py-1 text-xs rounded-md transition-all ${activeFilter === 'all' 
+              ? 'bg-white/10 text-white shadow-sm' 
+              : 'text-white/60 hover:text-white/80'}`}
+            onClick={() => setActiveFilter('all')}
+          >
+            All
+          </button>
+          <button 
+            className={`px-3 py-1 text-xs rounded-md transition-all ${activeFilter === 'user' 
+              ? 'bg-white/10 text-white shadow-sm' 
+              : 'text-white/60 hover:text-white/80'}`}
+            onClick={() => setActiveFilter('user')}
+          >
+            User
+          </button>
+          <button 
+            className={`px-3 py-1 text-xs rounded-md transition-all ${activeFilter === 'assistant' 
+              ? 'bg-white/10 text-white shadow-sm' 
+              : 'text-white/60 hover:text-white/80'}`}
+            onClick={() => setActiveFilter('assistant')}
+          >
+            Assistant
+          </button>
+        </div>
+      </div>
+      
+      {filteredMessages.length === 0 ? (
+        <div className="py-6 text-center">
+          <p className="text-sm text-white/40">No {activeFilter} messages found.</p>
+          <p className="text-xs text-white/30 mt-1">Try a different filter</p>
+        </div>
+      ) : (
+        <div className="space-y-3 px-2">
+          {filteredMessages.map((message) => (
+            <Command.Item
+              key={message.id}
+              className={commandItemClass()}
+              value={`message-${message.id}`}
+              onSelect={() => navigateToMessage(message)}
+            >
+              <div className="flex items-center gap-3 w-full">
+                <div className={`flex-shrink-0 w-8 h-8 rounded-md ${message.role === 'user' 
+                  ? 'bg-cyan-500/10 text-cyan-400' 
+                  : 'bg-indigo-500/10 text-indigo-400'} flex items-center justify-center`}>
+                  {message.role === 'user' 
+                    ? <MessageSquare className="w-4 h-4" /> 
+                    : <Sparkles className="w-4 h-4" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-white/90 truncate">
+                      {message.role === 'user' ? 'User' : 'Assistant'}
+                    </span>
+                    <div className="ml-2">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${message.role === 'user'
+                        ? 'bg-cyan-500/10 text-cyan-400/90' 
+                        : 'bg-indigo-500/10 text-indigo-400/90'}`}>
+                        {Math.round(message.score * 100)}% match
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="text-xs text-white/50 flex items-center gap-1 mt-1">
+                    <span className="text-white/60 font-medium">
+                      {getConversationTitle(message)}
+                    </span>
+                    <span className="text-white/40">•</span>
+                    <span>{formatRelativeTime(message.createdAt)}</span>
+                  </div>
+                  
+                  <p className="text-sm text-white/70 mt-1.5 line-clamp-3 hover:line-clamp-none transition-all duration-300">
+                    {message.content}
+                  </p>
+                </div>
+              </div>
+            </Command.Item>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface QuickActionsCommandProps {
   isOpen: boolean;
@@ -26,7 +223,13 @@ interface QuickActionsCommandProps {
 }
 
 export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProps) => {
-  const { showSpaces, setShowSpaces, showModels, setShowModels, showConversations, setShowConversations } = useQuickActionsCommand();
+  const { 
+    showSpaces, setShowSpaces, 
+    showModels, setShowModels, 
+    showConversations, setShowConversations,
+    showSimilarMessages, setShowSimilarMessages,
+    similarMessages
+  } = useQuickActionsCommand();
   const { spaces, setSpaces, activeSpace, setActiveSpace } = useSpaceStore();
   const { activeConversation, setActiveConversation } = useConversationStore();
   const [searchValue, setSearchValue] = useState('');
@@ -100,15 +303,9 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
     toast({
       title: 'New Conversation Created',
       description: 'You can start chatting right away.',
-      variant: 'default',
-      className: cn(
-        'bg-black/90 border border-white/10',
-        'backdrop-blur-xl shadow-xl shadow-black/20',
-        'text-white/90 font-medium',
-        'rounded-lg'  
-      ),
+      variant: "success",
       duration: 2000,
-    })
+    });
   }
 
   const handleConversationSelect = async (conversationId: string) => {
@@ -182,13 +379,7 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
     toast({
       title: 'Space Created',
       description: `${spaceForm.name} has been created.`,
-      variant: 'default',
-      className: cn(
-        'bg-black/90 border border-white/10',
-        'backdrop-blur-xl shadow-xl shadow-black/20',
-        'text-white/90 font-medium',
-        'rounded-lg'
-      ),
+      variant: "success",
       duration: 3000,
     });
 
@@ -247,13 +438,7 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
         toast({
           title: 'Space Updated',
           description: `"${updatedSpace.name}" has been updated successfully.`,
-          variant: 'default',
-          className: cn(
-            'bg-black/90 border border-white/10',
-            'backdrop-blur-xl shadow-xl shadow-black/20',
-            'text-white/90 font-medium',
-            'rounded-lg'
-          ),
+          variant: "success",
           duration: 3000,
         });
         
@@ -275,7 +460,7 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
       toast({
         title: 'Error',
         description: 'Failed to update space. Please try again.',
-        variant: 'destructive',
+        variant: "destructive",
         duration: 3000,
       });
     } finally {
@@ -310,6 +495,8 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
       }
     } else if (showConversations) {
       setShowConversations(false);
+    } else if (showSimilarMessages) {
+      setShowSimilarMessages(false);
     }
     setSearchValue('');
   };
@@ -322,6 +509,7 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
         setShowSpaces(false)
         setShowModels(false)
         setShowConversations(false)
+        setShowSimilarMessages(false)
         setSearchValue('')
         setSelectedProvider(null)
         setShowSpaceForm(false)
@@ -331,11 +519,13 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
       placeholder={showSpaceForm ? isEditingSpace ? "Edit your space..." : "Configure your new space..." :
         showSpaces ? "Search spaces..." :
         showModels ? (selectedProvider ? `Search ${PROVIDER_NAMES[selectedProvider]} models...` : "Select a provider...") :
-        showConversations ? "Search conversations..." : "Search quick actions..."}
+        showConversations ? "Search conversations..." : 
+        showSimilarMessages ? "Search similar messages..." :
+        "Search quick actions..."}
       searchValue={showSpaceForm ? '' : searchValue}
       onSearchChange={showSpaceForm ? undefined : setSearchValue}
       hideSearch={showSpaceForm}
-      leftElement={(showSpaces || showModels || showConversations || showSpaceForm) ? (
+      leftElement={(showSpaces || showModels || showConversations || showSpaceForm || showSimilarMessages) ? (
         <button
           onClick={handleGoBack}
           className="flex items-center gap-2 text-white/70 hover:text-white transition-colors px-2 py-1 rounded-md
@@ -354,6 +544,11 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
       setShowModels={setShowModels}
       selectedProvider={selectedProvider}
       setSelectedProvider={setSelectedProvider}
+      showConversations={showConversations}
+      setShowConversations={setShowConversations}
+      showSimilarMessages={showSimilarMessages}
+      setShowSimilarMessages={setShowSimilarMessages}
+      similarMessages={similarMessages}
     >
       <Command.List>
         {showSpaceForm ? (
@@ -364,7 +559,7 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
             isCreating={isCreatingSpace}
             isEditing={isEditingSpace}
           />
-        ) : !showSpaces && !showModels && !showConversations ? (
+        ) : !showSpaces && !showModels && !showConversations && !showSimilarMessages ? (
           <QuickActionsList
             onShowSpaces={() => {
               setShowSpaces(true)
@@ -430,6 +625,8 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
             spaceId={activeSpace.id}
             onConversationSelect={handleConversationSelect}
           />
+        ) : showSimilarMessages ? (
+          <SimilarMessagesList messages={similarMessages} />
         ) : null}
       </Command.List>
     </CommandModal>

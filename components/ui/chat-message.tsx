@@ -1,17 +1,28 @@
-import { User } from 'lucide-react';
-import { FC } from 'react';
+import { User, MessageSquareIcon } from 'lucide-react';
+import { FC, useState } from 'react';
 import { getModelName, type Provider } from '@/config/models';
 import { ProviderIcon } from './provider-icon';
 import { JSONValue, Message } from 'ai';
 import { MarkdownRenderer } from './markdown-renderer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { StreamStatus } from './stream-status';
+import { useQuickActionsCommand } from '@/components/ui/quick-actions-command-provider';
 
 interface ChatMessageProps {
     message: Message;
     userAvatarUrl?: string;
     isLoading?: boolean;
     streamData?: JSONValue[] | undefined;
+}
+
+// Define the SimilarMessage type
+interface SimilarMessage {
+  id: string;
+  content: string;
+  role: 'user' | 'assistant';
+  createdAt: number;
+  score: number;
+  metadata?: Record<string, any>;
 }
 
 const UserAvatar = ({ avatarUrl }: { avatarUrl?: string }) => (
@@ -68,19 +79,41 @@ const AIAvatar = () => (
     </div>
 );
 
-const ModelInfo = ({ provider, modelName }: { provider?: Provider; modelName: string }) => (
+const ModelInfo = ({ provider, modelName, similarMessages }: { 
+  provider?: Provider; 
+  modelName: string;
+  similarMessages?: SimilarMessage[];
+}) => {
+  const { openQuickActionsCommand } = useQuickActionsCommand();
+  
+  const hasSimilarMessages = similarMessages && similarMessages.length > 0;
+  
+  return (
     <div className="flex items-center gap-1.5 mb-2.5">
-        {provider && (
-            <div className="px-2 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10">
-                <ProviderIcon provider={provider} size={14} />
-            </div>
-        )}
-        <div className="px-2.5 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10">
-            <span className="text-white">{modelName}</span>
+      {provider && (
+        <div className="px-2 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10">
+          <ProviderIcon provider={provider} size={14} />
         </div>
+      )}
+      <div className="px-2.5 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10">
+        <span className="text-white">{modelName}</span>
+      </div>
+      
+      {hasSimilarMessages && (
+        <button
+          onClick={() => openQuickActionsCommand({ 
+            withSimilarMessages: true, 
+            similarMessages 
+          })}
+          className="px-2.5 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10 hover:bg-white/[0.07] transition-colors"
+        >
+          <MessageSquareIcon size={11} className="text-cyan-400/80" />
+          <span>{similarMessages.length} similar</span>
+        </button>
+      )}
     </div>
-);
-
+  );
+};
 
 export const ChatMessage: FC<ChatMessageProps> = ({ message, userAvatarUrl, isLoading, streamData }) => {
     const isUser = message.role === 'user';
@@ -88,10 +121,14 @@ export const ChatMessage: FC<ChatMessageProps> = ({ message, userAvatarUrl, isLo
     const annotations = message.annotations as Array<{
         model_used?: string;
         provider?: string;
+        similarMessages?: SimilarMessage[];
     }> | undefined;
 
     const modelAnnotation = annotations?.find(a => a.model_used);
     const providerAnnotation = annotations?.find(a => a.provider);
+    const similarMessagesAnnotation = annotations?.find(a => a.similarMessages);
+    
+    const similarMessages = similarMessagesAnnotation?.similarMessages || [];
 
     const modelName = modelAnnotation?.model_used
         ? getModelName(modelAnnotation.provider as Provider, modelAnnotation.model_used)
@@ -114,6 +151,7 @@ export const ChatMessage: FC<ChatMessageProps> = ({ message, userAvatarUrl, isLo
                         <ModelInfo
                             provider={providerAnnotation?.provider as Provider}
                             modelName={modelName}
+                            similarMessages={similarMessages}
                         />
                     )}
 

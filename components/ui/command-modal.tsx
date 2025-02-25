@@ -4,6 +4,16 @@ import { useState, useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// Define the SimilarMessage type
+interface SimilarMessage {
+  id: string;
+  content: string;
+  role: 'user' | 'assistant';
+  createdAt: number;
+  score: number;
+  metadata?: Record<string, any>;
+}
+
 interface CommandModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -26,6 +36,9 @@ interface CommandModalProps {
     showConversations?: boolean; //for showing conversations list
     setShowConversations?: (show: boolean) => void; //for showing conversations list
     isCreatingSpace?: boolean;
+    showSimilarMessages?: boolean; // for showing similar messages
+    setShowSimilarMessages?: (show: boolean) => void; // for showing similar messages
+    similarMessages?: SimilarMessage[]; // the similar messages to display
 }
 
 export function CommandModal({
@@ -44,10 +57,12 @@ export function CommandModal({
     setShowSpaces,
     showModels,
     setShowModels,
-     selectedProvider,
+    selectedProvider,
     setSelectedProvider,
     showConversations,
-    setShowConversations
+    setShowConversations,
+    showSimilarMessages,
+    setShowSimilarMessages
 }: CommandModalProps) {
 
     const [isFocused, setIsFocused] = useState(false);
@@ -94,7 +109,6 @@ export function CommandModal({
                             onKeyDown={(e) => {
                                 if (e.key === 'Escape') {
                                     onClose();
-
                                 } else if (e.key === 'Backspace' && !searchValue) {
                                     // Handle back navigation when search is empty
 
@@ -104,22 +118,24 @@ export function CommandModal({
                                     } else if (showSpaces && setShowSpaces) {
                                         setShowSpaces(false);
                                         e.preventDefault();
-                                     } else if (showModels && setShowModels) {
+                                    } else if (showModels && setShowModels) {
                                         if(selectedProvider && setSelectedProvider){
                                             setSelectedProvider(null);
                                         } else {
                                             setShowModels(false);
                                         }
                                         e.preventDefault();
-                                    }
-                                     else if (showConversations && setShowConversations) { //handle back for conv.
+                                    } else if (showConversations && setShowConversations) { //handle back for conv.
                                         setShowConversations(false);
+                                        e.preventDefault();
+                                    } else if (showSimilarMessages && setShowSimilarMessages) { // handle back for similar messages
+                                        setShowSimilarMessages(false);
                                         e.preventDefault();
                                     }
                                     onSearchChange?.('');
                                 }
                             }}
-                           shouldFilter={true} // Enable filtering.
+                            shouldFilter={true} // Enable filtering.
                             loop
                         >
                             <div

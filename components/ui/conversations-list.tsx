@@ -107,13 +107,7 @@ export function ConversationsList({
       toast({
         title: 'Conversation Updated',
         description: 'The conversation title has been updated.',
-        variant: 'default',
-        className: cn(
-          'bg-black/90 border border-white/10',
-          'backdrop-blur-xl shadow-xl shadow-black/20',
-          'text-white/90 font-medium',
-          'rounded-lg'
-        ),
+        variant: "success",
         duration: 2000,
       })
     } catch (error) {
@@ -121,7 +115,7 @@ export function ConversationsList({
       toast({
         title: 'Error',
         description: 'Failed to update conversation title.',
-        variant: 'destructive',
+        variant: "destructive",
         duration: 3000,
       })
     } finally {
@@ -155,13 +149,7 @@ export function ConversationsList({
               toast({
                 title: 'New Conversation Created',
                 description: 'You can start chatting right away.',
-                variant: 'default',
-                className: cn(
-                  'bg-black/90 border border-white/10',
-                  'backdrop-blur-xl shadow-xl shadow-black/20',
-                  'text-white/90 font-medium',
-                  'rounded-lg'
-                ),
+                variant: "success",
                 duration: 2000,
               });
             }

@@ -49,17 +49,10 @@ export function DeleteSpaceDialog({ spaceId, spaceName }: DeleteSpaceDialogProps
       setIsOpen(false);
 
       // Show toast notification
-      // Show toast notification
       toast({
         title: 'Space Deleted',
         description: `${spaceName} has been deleted.`,
-        variant: 'default',
-        className: cn(
-          'bg-black/90 border border-white/10',
-          'backdrop-blur-xl shadow-xl shadow-black/20',
-          'text-white/90 font-medium',
-          'rounded-lg'
-        ),
+        variant: "default",
         duration: 3000,
       });
 
@@ -77,6 +70,14 @@ export function DeleteSpaceDialog({ spaceId, spaceName }: DeleteSpaceDialogProps
       }
     } catch (error) {
       console.error('Error deleting space:', error);
+      
+      // Add error toast notification
+      toast({
+        title: 'Error',
+        description: 'Failed to delete space. Please try again.',
+        variant: "destructive",
+        duration: 3000,
+      });
     } finally {
       setIsDeleting(false);
     }

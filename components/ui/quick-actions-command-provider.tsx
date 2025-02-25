@@ -1,21 +1,47 @@
 'use client';
 
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { QuickActionsCommand } from '@/components/ui/quick-actions-command';
 import { useCommandWindow } from '@/lib/hooks/use-command-window';
 
+// Define the SimilarMessage type
+interface SimilarMessage {
+  id: string;
+  content: string;
+  role: 'user' | 'assistant';
+  createdAt: number;
+  score: number;
+  metadata?: Record<string, any>;
+}
+
 interface QuickActionsCommandContextType {
   isOpen: boolean;
-  openQuickActionsCommand: (options?: { withSpaces?: boolean; withModels?: boolean; withConversations?: boolean }) => void;
+  openQuickActionsCommand: (options?: { 
+    withSpaces?: boolean; 
+    withModels?: boolean; 
+    withConversations?: boolean;
+    withSimilarMessages?: boolean;
+    similarMessages?: SimilarMessage[];
+  }) => void;
   closeQuickActionsCommand: () => void;
-  toggleQuickActionsCommand: (options?: { withSpaces?: boolean; withModels?: boolean; withConversations?: boolean }) => void;
+  toggleQuickActionsCommand: (options?: { 
+    withSpaces?: boolean; 
+    withModels?: boolean; 
+    withConversations?: boolean;
+    withSimilarMessages?: boolean;
+    similarMessages?: SimilarMessage[];
+  }) => void;
   showSpaces: boolean;
   setShowSpaces: (show: boolean) => void;
   showModels: boolean;
   setShowModels: (show: boolean) => void;
   showConversations: boolean;
   setShowConversations: (show: boolean) => void;
+  showSimilarMessages: boolean;
+  setShowSimilarMessages: (show: boolean) => void;
+  similarMessages: SimilarMessage[];
+  setSimilarMessages: (messages: SimilarMessage[]) => void;
 }
 
 const QuickActionsCommandContext = createContext<QuickActionsCommandContextType | undefined>(undefined);
@@ -29,10 +55,47 @@ export function QuickActionsCommandProvider({ children }: { children: React.Reac
     setShowSpaces,
     setShowModels,
     setShowConversations,
-    openCommandWindow: openQuickActionsCommand,
+    openCommandWindow: openQuickActionsCommandBase,
     closeCommandWindow: closeQuickActionsCommand,
-    toggleCommandWindow: toggleQuickActionsCommand
+    toggleCommandWindow: toggleQuickActionsCommandBase
   } = useCommandWindow();
+
+  const [showSimilarMessages, setShowSimilarMessages] = useState(false);
+  const [similarMessages, setSimilarMessages] = useState<SimilarMessage[]>([]);
+
+  // Wrap the openCommandWindow function to handle similarMessages
+  const openQuickActionsCommand = (options?: { 
+    withSpaces?: boolean; 
+    withModels?: boolean; 
+    withConversations?: boolean;
+    withSimilarMessages?: boolean;
+    similarMessages?: SimilarMessage[];
+  }) => {
+    if (options?.withSimilarMessages) {
+      setShowSimilarMessages(true);
+      if (options.similarMessages) {
+        setSimilarMessages(options.similarMessages);
+      }
+    }
+    openQuickActionsCommandBase(options);
+  };
+
+  // Wrap the toggleCommandWindow function to handle similarMessages
+  const toggleQuickActionsCommand = (options?: { 
+    withSpaces?: boolean; 
+    withModels?: boolean; 
+    withConversations?: boolean;
+    withSimilarMessages?: boolean;
+    similarMessages?: SimilarMessage[];
+  }) => {
+    if (options?.withSimilarMessages) {
+      setShowSimilarMessages(true);
+      if (options.similarMessages) {
+        setSimilarMessages(options.similarMessages);
+      }
+    }
+    toggleQuickActionsCommandBase(options);
+  };
 
   useHotkeys('meta+k, ctrl+k', (e) => {
     e.preventDefault();
@@ -66,7 +129,11 @@ export function QuickActionsCommandProvider({ children }: { children: React.Reac
         showModels,
         setShowModels,
         showConversations,
-        setShowConversations
+        setShowConversations,
+        showSimilarMessages,
+        setShowSimilarMessages,
+        similarMessages,
+        setSimilarMessages
       }}
     >
       {children}

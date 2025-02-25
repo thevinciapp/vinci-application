@@ -78,13 +78,7 @@ export function DeleteConversationDialog({
       toast({
         title: 'Conversation Deleted',
         description: `"${conversationTitle}" has been deleted.`,
-        variant: 'default',
-        className: cn(
-          'bg-black/90 border border-white/10',
-          'backdrop-blur-xl shadow-xl shadow-black/20',
-          'text-white/90 font-medium',
-          'rounded-lg'
-        ),
+        variant: "default",
         duration: 3000,
       });
 
@@ -100,7 +94,7 @@ export function DeleteConversationDialog({
       toast({
         title: 'Error',
         description: 'Failed to delete conversation. Please try again.',
-        variant: 'destructive',
+        variant: "destructive",
         duration: 3000,
       });
     } finally {

@@ -856,6 +856,18 @@ export async function deleteSpace(spaceId: string): Promise<void> {
     throw new Error('Failed to delete space');
   }
 
+  // Delete all messages for this space from Pinecone
+  try {
+    // Import deleteMessagesBySpaceId from the Pinecone utils
+    const { deleteMessagesBySpaceId } = await import('@/utils/pinecone');
+    await deleteMessagesBySpaceId(spaceId);
+    console.log(`Successfully deleted messages from Pinecone for space: ${spaceId}`);
+  } catch (pineconeError) {
+    console.error('Error deleting messages from Pinecone:', pineconeError);
+    // We don't want to fail the whole operation if Pinecone deletion fails
+    // Just log the error and continue
+  }
+
   // Clear related cache
   const cacheKeys = [
     CACHE_KEYS.SPACES(user.id),
@@ -935,6 +947,18 @@ export async function deleteConversation(conversationId: string): Promise<void> 
   }
 
   console.log('Conversation successfully deleted:', updateData);
+
+  // Step 4: Delete the messages from Pinecone as well
+  try {
+    // Import deleteMessagesByConversationId from the Pinecone utils
+    const { deleteMessagesByConversationId } = await import('@/utils/pinecone');
+    await deleteMessagesByConversationId(conversationId);
+    console.log(`Successfully deleted messages from Pinecone for conversation: ${conversationId}`);
+  } catch (pineconeError) {
+    console.error('Error deleting messages from Pinecone:', pineconeError);
+    // We don't want to fail the whole operation if Pinecone deletion fails
+    // Just log the error and continue
+  }
 
   const cacheKeys = [
     CACHE_KEYS.CONVERSATIONS(spaceId),        

@@ -98,6 +98,11 @@ const config = {
           '0%, 100%': { opacity: '0.8' },
           '50%': { opacity: '0.5' }
         },
+        'highlight-glow': {
+          '0%': { boxShadow: '0 0 5px rgba(62,207,255,0.3)', borderColor: 'rgba(62,207,255,0.3)' },
+          '50%': { boxShadow: '0 0 20px rgba(62,207,255,0.8)', borderColor: 'rgba(62,207,255,0.8)' },
+          '100%': { boxShadow: '0 0 5px rgba(62,207,255,0.3)', borderColor: 'rgba(62,207,255,0.3)' }
+        },
         'rotate-slow': {
           '0%': { transform: 'rotate(0deg)' },
           '100%': { transform: 'rotate(360deg)' }
@@ -122,6 +127,7 @@ const config = {
         'pulse-slow': 'pulse-slow 3s ease-in-out infinite',
         'shimmer': 'shimmer 3s linear infinite',
         'glow': 'glow 2s ease-in-out infinite',
+        'highlight-glow': 'highlight-glow 3s ease-in-out infinite',
         'rotate-slow': 'rotate-slow 10s linear infinite',
         'halo-pulse': 'halo-pulse 3s ease-in-out infinite',
         'float': 'float 3s ease-in-out infinite',

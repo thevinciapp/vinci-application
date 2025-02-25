@@ -172,7 +172,6 @@
 - Created new `LLMResponseFormatter` component for efficient markdown and code block formatting
   - Highly performant implementation without external dependencies
   - Support for code block syntax highlighting
-  - Markdown formatting including bold, italic, links, and lists
   - Automatic language detection for code blocks
   - Hover effects and language badges for code blocks
   - Memoized content processing for optimal performance
@@ -304,6 +303,48 @@
   - Improved typography with better contrast and readability
   - Added subtle animations for better visual feedback during streaming
   - Optimized spacing and layout for cleaner appearance
+- Added similar messages as annotations to chat responses:
+  - Integrated top 5 semantically similar messages in chat responses
+  - Implemented collapsible UI for viewing related messages
+  - Added score display showing match percentage
+  - Included message metadata and creation date
+  - Improved context awareness by surfacing relevant historical messages
+  - Enhanced user experience with non-intrusive, expandable interface
+  - Updated similar messages display in command modal with consistent styling
+  - Aligned styling with spaces and conversations list for visual consistency
+  - Improved message card layout following application design patterns
+  - Persisted similar messages in message annotations for data consistency after page refreshes
+  - Added similar messages to both user and assistant messages for complete context
+- Added message highlighting functionality for navigating from similar messages:
+  - Implemented a query parameter-based highlighting system in ChatMessages component
+  - Added ability to scroll to and visually highlight specific messages when navigating from similar messages
+  - Created highlight effect with cyan border, subtle background, and shadow animation
+  - Integrated with useSearchParams for tracking highlighted message IDs
+  - Added automatic highlight removal after 5 seconds with setTimeout
+  - Enhanced SimilarMessagesList component with ability to navigate to specific messages
+  - Implemented router navigation with highlight query parameter
+  - Added conversation context to similar messages display
+  - Improved similar message UI with role indicators, match percentage, and relative timestamps
+  - Enhanced message interaction with hover effects and expandable content
+  - Fixed highlight animation with subtle pulsing effect for better visibility
+  - Fixed conversation ID handling to ensure proper navigation from similar messages
+  - Added error handling with toast notifications for navigation failures
+  - Improved similar messages structure with conversationId at the top level for more reliable navigation
+  - Simplified message structure to reduce duplication and improve code clarity
+- Implemented proper cleanup of deleted conversations and spaces in Pinecone:
+  - Added filtering to exclude messages from deleted conversations and spaces in similar message searches
+  - Added functions to delete messages from Pinecone when conversations or spaces are deleted
+  - Ensured Pinecone data stays synchronized with database state
+  - Added graceful error handling for Pinecone operations
+  - Improved reliability of similar message retrieval by excluding deleted content
+- Enhanced message highlighting functionality:
+  - Replaced automatic timeout with user interaction-based dismissal
+  - Added more prominent visual styling with stronger border and glow effect
+  - Improved user experience with clear instructions for dismissing highlights
+  - Added feedback toast when navigating to highlighted messages
+  - Improved UI for highlighted messages with "Click to dismiss" indicator
+  - Enhanced animation with new highlight-glow effect for better visibility
+  - Made highlight state persist across user interactions until explicitly dismissed
 
 ### Changed
 - Updated quick actions menu names to be more concise
@@ -333,6 +374,17 @@
   - Improved hover effects and transitions
   - Better spacing and visual hierarchy
   - Added backdrop blur and border effects
+- Improved toast notification system by:
+  - Migrated from custom toastStyle function to shadcn's built-in toast variants
+  - Enhanced shadcn toast components with sleek glass-effect styling
+  - Added dedicated success variant with green border and glow effects
+  - Standardized toast styling across all components
+  - Improved visual consistency with application theme
+  - Made code simpler and better integrated with the UI component system
+  - Repositioned toast notifications to appear in the top-right corner of the screen
+  - Simplified toast styles with minimal light gray borders for a cleaner look
+  - Updated animation to slide in/out from the top for more natural movement
+  - Optimized toast width and spacing for better readability
 - Unified command modal item styling
   - Consistent hover effects across all items
   - Added subtle borders and transitions
@@ -509,6 +561,13 @@
   - Improved glass effect and transparency
   - Added more sophisticated hover interactions
   - Enhanced overall visual quality and professionalism
+- Unified toast notification styling across the application:
+  - Implemented a centralized toastStyle utility function for consistent visual aesthetics
+  - Applied the cyan glow effect to all notification types for visual cohesion
+  - Created variant-specific styling with appropriate color-coding (red for errors, green for success)
+  - Enhanced notification visibility with backdrop blur and subtle shadow effects
+  - Updated all components to use the standardized notification styling
+  - Improved user experience with consistent notification appearance
 
 ### Fixed
 - Fixed issue with deleted conversations still appearing after page reload:
@@ -533,6 +592,17 @@
   - Enhanced useStickToBottom hook to ensure proper initial scroll position
   - Better alignment of messages for improved readability and user experience
 - Fixed TypeScript error in ClientChatContent component by changing 'stream' prop to 'streamData' to match the ChatMessages component interface
+- Fixed Pinecone integration to properly handle complex metadata:
+  - Resolved "Metadata value must be a string, number, boolean or list of strings" error
+  - Implemented proper serialization of complex objects (like similarMessages) in Pinecone metadata
+  - Added robust parsing of serialized data when retrieving messages
+  - Improved error handling for message reconstruction from Pinecone
+  - Enhanced type safety for Pinecone metadata fields
+- Fixed toast notification styling issue:
+  - Corrected border color inconsistencies by ensuring proper application of border styles
+  - Removed conflicting style definitions that were causing white borders to appear
+  - Standardized toast styling implementation across all components
+  - Enhanced visual consistency of notifications with proper cyan, green, and red borders based on type
 
 ### Performance
 - Optimized Redis caching implementation
@@ -575,36 +645,23 @@
 ### Added
 - Initial release 
 
-### UI Improvements
+## UI Improvements
+- Enhanced AI message streaming experience with immediate appearance of messages and improved visual continuity
+- Improved stream status component with animated indicators and removal of progress bar
+- Added new animation effects and enhanced styling for better UI feedback
+- Fixed scrolling issues in the chat container
+- Enhanced similar messages display with visually distinct user/assistant messages and added toggle filter
+- Improved similar messages UI with cleaner design (removed side border) and fixed scrolling issues
 
-#### Chat Experience
-- Enhanced AI message streaming experience:
-  - AI messages now appear immediately when processing starts
-  - Stream status is displayed within the message until content is ready
-  - Seamless transition from processing to final content
-  - Better visual continuity throughout the conversation
-- Improved stream status component:
-  - Redesigned with tab-like styling for UI consistency
-  - Enhanced visual feedback with animated indicator
-  - Removed progress bar for a cleaner, more focused interface
-  - Added animated status history with elegant fade effects
-  - Improved minimum transition times between status changes
-  - Added hover states and color transitions matching other UI components
-  - Better integration with the overall chat UI
-  - Fixed status history to properly include initial "Processing..." state
-- Added new animation effects:
-  - Smooth 'appear' animation for new elements
-  - Enhanced pulse animations for status indicators
-  - Refined transitions between UI states
+## Chat Experience
+- Redesigned chat interface for better readability and visual hierarchy
+- Added support for displaying similar messages in command modal with improved aesthetics
+- Added filters to switch between user and assistant similar messages
+- Improved message display with expandable content on hover
+- Added visual indicators to distinguish between user and assistant messages
 
-#### Styling & Performance
-- Added tailwind animations for improved UI feedback:
-  - `pulse-fast` for rapid blinking effects
-  - `pulse-slow` for subtle breathing animations
-  - `appear` for smooth entrance of new elements
-  - `float` for delicate hover effects
-- Enhanced AI avatar with refined visual effects:
-  - Improved glow animations
-  - More realistic shimmer effects
-  - Better hover state transitions
-- Fixed scrolling issues in chat container 
+## Styling & Performance
+- Added new keyframe animations for appearing elements
+- Enhanced UI component transitions for smoother interactions
+- Improved overall component styling and visual hierarchy
+- Optimized rendering of stream status indicators 

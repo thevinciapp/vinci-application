@@ -55,13 +55,7 @@ export function ConversationTab({ activeConversation, onConversationSelect }: Co
         toast({
           title: 'New Conversation Created',
           description: 'You can start chatting right away.',
-          variant: 'default',
-          className: cn(
-            'bg-black/90 border border-white/10',
-            'backdrop-blur-xl shadow-xl shadow-black/20',
-            'text-white/90 font-medium',
-            'rounded-lg'  
-          ),
+          variant: "success",
           duration: 2000,
         });
       }
