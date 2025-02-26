@@ -184,7 +184,7 @@ async function saveMessage({
     spaceId,
     conversationId,
     ...(parentId && { parentId }),
-    metadata: { model, provider, tags, ...(similarMessages && { similarMessages }) },
+    metadata: { model, provider, tags }
   });
 
   return dbMessage;
@@ -232,8 +232,6 @@ export async function POST(req: Request) {
 
   return createDataStreamResponse({
     execute: async (dataStream) => {
-      dataStream.writeData('Initialized request');
-
       try {
         const userMessage = messages[messages.length - 1];
         const conversationContext = messages.slice(0, -1)
@@ -266,31 +264,35 @@ export async function POST(req: Request) {
           messages,
           system: systemPromptWithContext,
           experimental_transform: smoothStream(),
-          onChunk() {
-            dataStream.writeMessageAnnotation({
-              id: generateId(),
-              [COLUMNS.MODEL_USED]: model,
-              [COLUMNS.PROVIDER]: provider,
-              [COLUMNS.SPACE_ID]: spaceId,
-              [COLUMNS.CONVERSATION_ID]: conversationId,
-              similarMessages: similarMessages.map(result => ({
-                id: result.message.id,
-                content: result.message.content,
-                role: result.message.role,
-                createdAt: result.message.createdAt,
-                score: result.score ?? 0,
-                conversationId: result.message.conversationId,
-                metadata: result.message.metadata || {}
-              }))
-            });
-          },
+          onChunk: (() => {
+            let isFirstChunk = true;
+            return () => {
+              if (isFirstChunk) {
+                dataStream.writeMessageAnnotation({
+                  id: generateId(),
+                  [COLUMNS.MODEL_USED]: model,
+                  [COLUMNS.PROVIDER]: provider,
+                  [COLUMNS.SPACE_ID]: spaceId,
+                  [COLUMNS.CONVERSATION_ID]: conversationId,
+                  similarMessages: similarMessages.map(result => ({
+                    id: result.message.id,
+                    content: result.message.content,
+                    role: result.message.role,
+                    createdAt: result.message.createdAt,
+                    score: result.score ?? 0,
+                    conversationId: result.message.conversationId,
+                    metadata: result.message.metadata || {}
+                  }))
+                });
+                isFirstChunk = false;
+              }
+            };
+          })(),
         });
 
         result.mergeIntoDataStream(dataStream);
         
         result.text.then(async (text) => {
-          dataStream.writeData('Processing and saving messages');
-          
           const userTags = await generateTags(userMessage.content, conversationContext);
           const assistantTags = await generateTags(text, conversationContext);
           
@@ -335,7 +337,6 @@ export async function POST(req: Request) {
 
           const allMessages = await getMessages(conversationId);
           if (allMessages && allMessages.length >= 3) {
-            dataStream.writeData('Generating conversation title');
             const titleSystemPrompt = `
               You are a title generator. Generate a concise title (2-4 words) capturing the conversation's main topic. Return only the title.
               Example: Python Learning Path
@@ -352,9 +353,7 @@ export async function POST(req: Request) {
             await updateConversationTitle(conversationId, newTitle);
           }
           
-          dataStream.writeData('Completed processing');
         }).catch((error) => {
-          dataStream.writeData(`Error during post-processing: ${error.message}`);
         });
       } catch (error) {
         let errorMessage;
@@ -367,7 +366,6 @@ export async function POST(req: Request) {
         } else {
           errorMessage = ERROR_MESSAGES.SERVER_ERROR("Error processing request");
         }
-        dataStream.writeData(`Error: ${errorMessage.message || String(errorMessage)}`);
       }
     },
     onError: (error) => {

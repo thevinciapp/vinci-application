@@ -182,7 +182,7 @@ export default function ClientChatContent({
       }
     };
     loadConversationMessages();
-  }, [activeConversation?.id, setMessages]);
+  }, [activeConversation?.id]);
 
   useEffect(() => {
     if (activeSpace?.id) {
@@ -261,9 +261,6 @@ export default function ClientChatContent({
               <div className="flex items-center divide-x divide-white/[0.05] bg-white/[0.03] border-t border-l border-r border-white/[0.05] rounded-t-2xl overflow-hidden backdrop-blur-xl w-full shadow-[0_-4px_20px_rgba(62,207,255,0.03)]">
                 <div className="px-1 first:pl-2 last:pr-2 py-1 flex-1">
                   <QuickActionsTab />
-                </div>
-                <div className="px-1 first:pl-2 last:pr-2 py-1 flex-1">
-                  <ModelTab />
                 </div>
                 <div className="px-1 first:pl-2 last:pr-2 py-1 flex-1">
                   <BaseTab

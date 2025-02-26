@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, memo } from 'react';
 import { JSONValue } from 'ai';
 import { cn } from '@/lib/utils';
 
@@ -8,58 +8,73 @@ interface StreamStatusProps {
   streamData?: JSONValue[] | undefined;
 }
 
-export function StreamStatus({ streamData }: StreamStatusProps) {
+// Extract the latest status from stream data
+function getLatestStatus(streamData?: JSONValue[]): string {
+  if (!streamData || !Array.isArray(streamData) || streamData.length === 0) {
+    return 'Processing...';
+  }
+  
+  const lastItem = streamData[streamData.length - 1];
+  
+  // Handle case when we pass a status object directly
+  if (typeof lastItem === 'object' && lastItem !== null && 'status' in lastItem) {
+    return String(lastItem.status);
+  }
+  
+  return String(lastItem);
+}
+
+export const StreamStatus = memo(({ streamData }: StreamStatusProps) => {
   const [statusHistory, setStatusHistory] = useState<string[]>([]);
   const [currentStatus, setCurrentStatus] = useState<string>('Processing...');
   const lastUpdateTimeRef = useRef<number>(Date.now());
   const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const initialProcessingShownRef = useRef<boolean>(false);
+  const lastProcessedDataLengthRef = useRef<number>(0);
   
   useEffect(() => {
-    if (streamData && Array.isArray(streamData) && streamData.length > 0) {
-      const newStatus = String(streamData[streamData.length - 1]);
-      const currentTime = Date.now();
-      
-      // Only add status to history if it's different from the last one
-      if (newStatus !== currentStatus) {
-        // Clear any existing transition timeout
-        if (transitionTimeoutRef.current) {
-          clearTimeout(transitionTimeoutRef.current);
-        }
-        
-        // Ensure minimum transition time of 600ms between status changes
-        const timeSinceLastUpdate = currentTime - lastUpdateTimeRef.current;
-        const transitionDelay = Math.max(0, 600 - timeSinceLastUpdate);
-        
-        transitionTimeoutRef.current = setTimeout(() => {
-          // First, add the current status to history (including the initial "Processing...")
-          setStatusHistory(prev => {
-            // Only add "Processing..." to history once when the first real status arrives
-            if (currentStatus === 'Processing...' && !initialProcessingShownRef.current) {
-              initialProcessingShownRef.current = true;
-              return [currentStatus, ...prev].slice(0, 3); // Keep last 3 statuses
-            }
-            return [currentStatus, ...prev].slice(0, 3); // Keep last 3 statuses
-          });
-          
-          // Then, update current status to the new status
-          setCurrentStatus(newStatus);
-          lastUpdateTimeRef.current = Date.now();
-        }, transitionDelay);
-      }
-    } else {
-      setCurrentStatus('Processing...');
-      initialProcessingShownRef.current = false;
+    // Bail out early if no new data
+    if (!streamData || !Array.isArray(streamData) || 
+        streamData.length === 0 || 
+        streamData.length === lastProcessedDataLengthRef.current) {
+      return;
     }
     
-    // Cleanup timeout on unmount
-    return () => {
+    // Update our reference to avoid processing the same data multiple times
+    lastProcessedDataLengthRef.current = streamData.length;
+    
+    const newStatus = getLatestStatus(streamData);
+    const currentTime = Date.now();
+    
+    // Only update if the status has changed to avoid unnecessary renders
+    if (newStatus !== currentStatus) {
+      // Clear any existing transition timeout
       if (transitionTimeoutRef.current) {
         clearTimeout(transitionTimeoutRef.current);
       }
-    };
+      
+      // Ensure minimum transition time of 600ms between status changes
+      const timeSinceLastUpdate = currentTime - lastUpdateTimeRef.current;
+      const transitionDelay = Math.max(0, 600 - timeSinceLastUpdate);
+      
+      transitionTimeoutRef.current = setTimeout(() => {
+        // First, add the current status to history (including the initial "Processing...")
+        setStatusHistory(prev => {
+          // Only add "Processing..." to history once when the first real status arrives
+          if (currentStatus === 'Processing...' && !initialProcessingShownRef.current) {
+            initialProcessingShownRef.current = true;
+            return [currentStatus, ...prev].slice(0, 3); // Keep last 3 statuses
+          }
+          return [currentStatus, ...prev].slice(0, 3); // Keep last 3 statuses
+        });
+        
+        // Then, update current status to the new status
+        setCurrentStatus(newStatus);
+        lastUpdateTimeRef.current = Date.now();
+      }, transitionDelay);
+    }
   }, [streamData, currentStatus]);
-
+  
   return (
     <div className="group rounded-lg backdrop-blur-sm border border-white/[0.05] overflow-hidden transform-gpu transition-all duration-300 ease-out hover:border-white/[0.1]">
       {/* Main status container styled like a tab */}
@@ -83,7 +98,7 @@ export function StreamStatus({ streamData }: StreamStatusProps) {
         <div className="bg-white/[0.015] px-3 py-1.5 space-y-1.5 border-t border-white/[0.025]">
           {statusHistory.map((status, index) => (
             <div 
-              key={index}
+              key={`status-${index}-${status}`}
               className="text-[10px] text-white/60 transition-all duration-500 flex items-center group-hover:text-white/70"
               style={{ 
                 opacity: Math.max(0.7 - index * 0.2, 0.3),
@@ -97,4 +112,24 @@ export function StreamStatus({ streamData }: StreamStatusProps) {
       )}
     </div>
   );
-} 
+}, (prevProps, nextProps) => {
+  // Only re-render if streamData has changed in a meaningful way
+  if (!prevProps.streamData && !nextProps.streamData) return true;
+  if (!prevProps.streamData || !nextProps.streamData) return false;
+  
+  const prevLength = prevProps.streamData.length;
+  const nextLength = nextProps.streamData.length;
+  
+  // If the lengths are the same, don't re-render
+  if (prevLength === nextLength) return true;
+  
+  // If we have a lot of updates, only re-render every 5 updates
+  // to avoid excessive re-renders during fast streaming
+  if (prevLength > 10 && nextLength > prevLength && (nextLength - prevLength) < 5) {
+    return true;
+  }
+  
+  return false;
+});
+
+StreamStatus.displayName = 'StreamStatus';

@@ -90,30 +90,7 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
           // No timeout to automatically remove it
         }
       }
-    }, [highlightedMessageId, messages]);
-
-    // Create a placeholder assistant message when streaming
-    const displayMessages = useMemo(() => {
-      if (!isLoading) return messages;
-      
-      // Check if the last message is from the user
-      const lastMessage = messages[messages.length - 1];
-      const isLastMessageFromUser = lastMessage && lastMessage.role === 'user';
-      
-      if (isLastMessageFromUser) {
-        // Add a placeholder assistant message for streaming
-        return [
-          ...messages,
-          {
-            id: 'streaming-message',
-            role: 'assistant',
-            content: '',
-          } as Message
-        ];
-      }
-      
-      return messages;
-    }, [messages, isLoading]);
+    }, [highlightedMessageId]);
 
     return (
       <div className="relative flex-1 flex flex-col h-full">
@@ -123,7 +100,7 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
         >
           <div className="max-w-[85%] w-full mx-auto">
             <div className="space-y-12">
-              {displayMessages.map((message, index) => (
+              {messages.map((message, index) => (
                 <div 
                   key={message.id} 
                   ref={(el) => {
@@ -147,13 +124,35 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
                     isLoading={isLoading}
                     streamData={streamData}
                   />
-                  {index < displayMessages.length - 1 && displayMessages[index].role !== displayMessages[index + 1].role && (
+                  {index < messages.length - 1 && messages[index].role !== messages[index + 1].role && (
                     <div className="w-full flex justify-center my-8">
                       <div className="w-1/3 h-px bg-white/[0.05]" />
                     </div>
                   )}
                 </div>
               ))}
+              
+              {/* Add placeholder assistant message when last message is from user and we're loading */}
+              {messages.length > 0 && 
+               messages[messages.length - 1].role === 'user' && 
+               isLoading && (
+                <div key="placeholder-assistant" className="space-y-2">
+                  {messages.length > 1 && messages[messages.length - 1].role !== messages[messages.length - 2].role && (
+                    <div className="w-full flex justify-center my-8">
+                      <div className="w-1/3 h-px bg-white/[0.05]" />
+                    </div>
+                  )}
+                  <ChatMessage 
+                    message={{
+                      id: 'placeholder-assistant',
+                      role: 'assistant',
+                      content: '',
+                    }}
+                    isLoading={true}
+                    streamData={[{ status: 'Processing...' }]}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>

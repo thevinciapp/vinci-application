@@ -572,7 +572,6 @@ export async function getMessages(conversationId: string): Promise<Message[] | n
         return null;
     }
 
-    // Cache the result
     if (data) {
         await redis.set(cacheKey, data, { ex: CACHE_TTL.MESSAGES });
     }

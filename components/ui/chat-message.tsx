@@ -1,5 +1,5 @@
 import { User, MessageSquareIcon } from 'lucide-react';
-import { FC, useState } from 'react';
+import { FC, useState, memo } from 'react';
 import { getModelName, type Provider } from '@/config/models';
 import { ProviderIcon } from './provider-icon';
 import { JSONValue, Message } from 'ai';
@@ -7,6 +7,7 @@ import { MarkdownRenderer } from './markdown-renderer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { StreamStatus } from './stream-status';
 import { useQuickActionsCommand } from '@/components/ui/quick-actions-command-provider';
+import { Markdown } from './markdown';
 
 interface ChatMessageProps {
     message: Message;
@@ -115,71 +116,85 @@ const ModelInfo = ({ provider, modelName, similarMessages }: {
   );
 };
 
-export const ChatMessage: FC<ChatMessageProps> = ({ message, userAvatarUrl, isLoading, streamData }) => {
-    const isUser = message.role === 'user';
+export const ChatMessage = memo<ChatMessageProps>(
+    ({ message, userAvatarUrl, isLoading, streamData }) => {
+        const isUser = message.role === 'user';
 
-    const annotations = message.annotations as Array<{
-        model_used?: string;
-        provider?: string;
-        similarMessages?: SimilarMessage[];
-    }> | undefined;
+        const annotations = message.annotations as Array<{
+            model_used?: string;
+            provider?: string;
+            similarMessages?: SimilarMessage[];
+        }> | undefined;
 
-    const modelAnnotation = annotations?.find(a => a.model_used);
-    const providerAnnotation = annotations?.find(a => a.provider);
-    const similarMessagesAnnotation = annotations?.find(a => a.similarMessages);
-    
-    const similarMessages = similarMessagesAnnotation?.similarMessages || [];
+        const modelAnnotation = annotations?.find(a => a.model_used);
+        const providerAnnotation = annotations?.find(a => a.provider);
+        const similarMessagesAnnotation = annotations?.find(a => a.similarMessages);
+        
+        const similarMessages = similarMessagesAnnotation?.similarMessages || [];
 
-    const modelName = modelAnnotation?.model_used
-        ? getModelName(modelAnnotation.provider as Provider, modelAnnotation.model_used)
-        : 'AI';
+        const modelName = modelAnnotation?.model_used
+            ? getModelName(modelAnnotation.provider as Provider, modelAnnotation.model_used)
+            : 'AI';
 
-    const providerName = providerAnnotation?.provider
-        ? providerAnnotation.provider.charAt(0).toUpperCase() + providerAnnotation.provider.slice(1)
-        : '';
+        const providerName = providerAnnotation?.provider
+            ? providerAnnotation.provider.charAt(0).toUpperCase() + providerAnnotation.provider.slice(1)
+            : '';
 
-    
-    const isStreamingAssistant = !isUser && isLoading && message.content.length <= 0
+        
+        const isStreamingAssistant = !isUser && (
+            // Handle regular streaming scenario
+            (isLoading && message.content.length <= 0) || 
+            // Handle placeholder message scenario
+            message.id === 'placeholder-assistant'
+        );
 
-    return (
-        <div className={`flex items-start gap-4 w-full mx-auto group transition-opacity ${isUser ? 'flex-row-reverse' : ''}`}>
-            {isUser ? <UserAvatar avatarUrl={userAvatarUrl} /> : <AIAvatar />}
+        return (
+            <div className={`flex items-start gap-4 w-full mx-auto group transition-opacity ${isUser ? 'flex-row-reverse' : ''}`}>
+                {isUser ? <UserAvatar avatarUrl={userAvatarUrl} /> : <AIAvatar />}
 
-            <div className="space-y-2 overflow-hidden max-w-[85%]">
-                <div className="prose prose-invert max-w-none w-full">
+                <div className="space-y-2 overflow-hidden max-w-[85%]">
+                    <div className="prose prose-invert max-w-none w-full">
                     {message.role === 'assistant' && annotations && !isStreamingAssistant && (
-                        <ModelInfo
-                            provider={providerAnnotation?.provider as Provider}
-                            modelName={modelName}
-                            similarMessages={similarMessages}
-                        />
-                    )}
+                            <ModelInfo
+                                provider={providerAnnotation?.provider as Provider}
+                                modelName={modelName}
+                                similarMessages={similarMessages}
+                            />
+                        )}
 
-                    {isUser ? (
-                        <div className="text-sm leading-relaxed whitespace-pre-wrap break-words text-white shadow-[0_0_15px_-5px_rgba(255,255,255,0.3)]">
-                            {message.content}
-                        </div>
-                    ) : isStreamingAssistant ? (
-                        <div className="transition-all duration-500 ease-in-out will-change-transform">
+                        {isUser ? (
+                            <div className="text-sm leading-relaxed whitespace-pre-wrap break-words text-white shadow-[0_0_15px_-5px_rgba(255,255,255,0.3)]">
+                                {message.content}
+                            </div>
+                        ) : isStreamingAssistant ? (
+                            <div className="transition-all duration-500 ease-in-out will-change-transform">
                             {annotations && (
                                 <ModelInfo
                                     provider={providerAnnotation?.provider as Provider}
                                     modelName={modelName}
                                 />
                             )}
-                            {/* Add a growing animation to the StreamStatus container */}
-                            <div 
-                                className="animate-appear transform-gpu transition-all duration-500 ease-out"
-                                style={{ animationFillMode: 'both' }}
-                            >
-                                <StreamStatus streamData={streamData} />
+                                {/* Add a growing animation to the StreamStatus container */}
+                                <div 
+                                    className="animate-appear transform-gpu transition-all duration-500 ease-out"
+                                    style={{ animationFillMode: 'both' }}
+                                >
+                                    <StreamStatus streamData={streamData} />
+                                </div>
                             </div>
-                        </div>
-                    ) : (
-                        <MarkdownRenderer content={message.content} />
-                    )}
+                        ) : (
+                            <div className="prose prose-invert prose-zinc max-w-none">
+                                <Markdown id={message.id}>
+                                    {message.content}
+                                </Markdown>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
-        </div>
-    );
-};
+        );
+    }
+);
+
+// Add a display name for easier debugging
+ChatMessage.displayName = 'ChatMessage';

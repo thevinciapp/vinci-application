@@ -27,7 +27,7 @@ export default async function ChatPage() {
       '',
       DEFAULT_MODEL,
       DEFAULT_PROVIDER,
-      true // Set as active immediately
+      true
     );
 
     if (!space) {
@@ -54,8 +54,6 @@ export default async function ChatPage() {
   if (spaceData?.space) {
     activeSpace = spaceData.space;
   }
-
-  console.log('spaceData', spaceData);
 
   const defaultConversations = spaceData?.conversations || [];
   const defaultMessages = defaultConversations.length > 0 

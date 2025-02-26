@@ -17,9 +17,122 @@
   }
 }
 
+.glass-effect {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.glass-effect:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.glass-effect .header {
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Style modifications for code with glass effect */
+.glass-effect pre, 
+.glass-effect code, 
+.glass-effect .shiki {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+/* Add a subtle blue glow to code blocks for emphasis */
+.code-block-glow {
+  box-shadow: 0 0 20px rgba(0, 150, 255, 0.05);
+}
+
+/* Create a better glass effect specifically for code blocks */
+.glass-code-content {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border-radius: 0 0 0.5rem 0.5rem;
+  background: transparent !important;
+}
+
+/* Forcefully remove all backgrounds from code elements */
+.glass-highlight,
+.glass-highlight *,
+.glass-highlight .shiki,
+.glass-highlight .shiki *,
+.glass-highlight pre,
+.glass-highlight code,
+.glass-highlight .line {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Additional styles to ensure code content shows up well on a transparent background */
+.glass-highlight .shiki {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Remove any box-shadow within code blocks that might give a gray appearance */
+.shiki, 
+.shiki span, 
+.shiki div {
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* Force all background colors in syntax highlighting to be transparent */
+[class*="mtk"], 
+[class*="token"] {
+  background: transparent !important;
+}
+
+/* Improve token visibility on glass background */
+.glass-effect .token.comment,
+.glass-effect .token.prolog,
+.glass-effect .token.doctype,
+.glass-effect .token.cdata {
+  color: rgba(128, 147, 166, 0.8) !important;
+}
+
+.glass-effect .token.punctuation {
+  color: rgba(192, 202, 212, 0.8) !important;
+}
+
+.glass-effect .token.property,
+.glass-effect .token.tag,
+.glass-effect .token.boolean,
+.glass-effect .token.number,
+.glass-effect .token.constant,
+.glass-effect .token.symbol {
+  color: rgba(121, 182, 242, 0.9) !important;
+}
+
+.glass-effect .token.selector,
+.glass-effect .token.attr-name,
+.glass-effect .token.string,
+.glass-effect .token.char,
+.glass-effect .token.builtin {
+  color: rgba(126, 231, 135, 0.9) !important;
+}
+
+.glass-effect .token.operator,
+.glass-effect .token.entity,
+.glass-effect .token.url,
+.glass-effect .language-css .token.string,
+.glass-effect .style .token.string {
+  color: rgba(255, 203, 139, 0.9) !important;
+}
+
+.glass-effect .token.keyword {
+  color: rgba(224, 108, 117, 0.9) !important;
+}
+
 .animate-command-item-click {
   animation: command-item-click 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
+
 @import '@/styles/prism.css';
 
 :root {
@@ -315,3 +428,89 @@ input:focus, textarea:focus {
     @apply bg-background text-foreground;
   }
 }
+
+/* Override code highlighter background */
+.shiki, 
+.shiki *, 
+pre[class*="language-"],
+code[class*="language-"],
+pre[class*="shiki"],
+code[class*="shiki"] {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Remove background from the root element */
+.glass-effect, 
+.code-block-glow,
+.glass-code-content,
+.glass-highlight {
+  --glass-bg: rgba(255, 255, 255, 0.02);
+  --glass-border: rgba(255, 255, 255, 0.05);
+  --glass-shadow: rgba(0, 0, 0, 0.1);
+  background: var(--glass-bg) !important;
+  border: 1px solid var(--glass-border) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+/* Ensure root elements of glass containers are transparent */
+.glass-effect > div, 
+.code-block-glow > div,
+.glass-code-content > div, 
+.glass-highlight > div {
+  background-color: transparent !important;
+}
+
+/* Ensure all child elements of glass containers are also transparent 
+   while preserving foreground colors for syntax highlighting */
+.glass-effect > *, 
+.code-block-glow > *,
+.glass-code-content > *, 
+.glass-highlight > * {
+  background-color: transparent !important;
+}
+
+/* Special rule to handle Shiki line backgrounds */
+.shiki .line {
+  background: transparent !important;
+}
+
+/* Make line numbers more subtle */
+.shiki .line-number {
+  color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Special styles for Shiki span tokens */
+.glass-effect .shiki span[style],
+.code-block-glow .shiki span[style],
+.glass-highlight .shiki span[style] {
+  background: transparent !important;
+}
+
+/* Add specific styling for Shiki tokens to enhance readability on glass backgrounds */
+.glass-effect .shiki span[style] {
+  color: inherit;
+}
+
+.glass-effect .shiki .line {
+  background: transparent !important;
+}
+
+.glass-effect .shiki .line:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.glass-effect .shiki {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Colors for different syntax tokens optimized for glass background */
+.glass-effect .shiki .mtk1 { color: rgba(230, 237, 243, 0.85) !important; }  /* Default text */
+.glass-effect .shiki .mtk2 { color: rgba(121, 184, 255, 0.85) !important; }  /* Keywords, variables */
+.glass-effect .shiki .mtk3 { color: rgba(126, 231, 135, 0.85) !important; }  /* Strings */
+.glass-effect .shiki .mtk4 { color: rgba(224, 108, 117, 0.85) !important; }  /* Numbers, boolean */
+.glass-effect .shiki .mtk5 { color: rgba(209, 154, 102, 0.85) !important; }  /* Function names */
+.glass-effect .shiki .mtk6 { color: rgba(180, 142, 173, 0.85) !important; }  /* Classes, types */
+.glass-effect .shiki .mtk7 { color: rgba(127, 127, 127, 0.85) !important; }  /* Comments */
+.glass-effect .shiki .mtk8 { color: rgba(255, 203, 139, 0.85) !important; }  /* Operators */

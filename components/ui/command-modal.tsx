@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useQuickActionsCommandStore } from '@/lib/stores/quick-actions-command-store';
 
 // Define the SimilarMessage type
 interface SimilarMessage {
@@ -67,6 +68,7 @@ export function CommandModal({
 
     const [isFocused, setIsFocused] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
+    const { commandSearchValue, setCommandSearchValue } = useQuickActionsCommandStore();
 
     useEffect(() => {
         if (isOpen && !hideSearch) {
@@ -78,7 +80,18 @@ export function CommandModal({
         }
     }, [isOpen, hideSearch]);
 
+    // Handle search value change
+    const handleSearchChange = (value: string) => {
+        setCommandSearchValue(value);
+        onSearchChange?.(value);
+    };
 
+    // Reset search value when modal closes
+    useEffect(() => {
+        if (!isOpen) {
+            setCommandSearchValue('');
+        }
+    }, [isOpen, setCommandSearchValue]);
 
     return (
         <AnimatePresence>
@@ -89,7 +102,8 @@ export function CommandModal({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="absolute inset-0 bg-black/90"
+                        transition={{ duration: 0.2 }}
+                        className="absolute inset-0 bg-black/90 backdrop-blur-sm"
                         onClick={onClose}
                     />
 
@@ -99,17 +113,17 @@ export function CommandModal({
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
                         transition={{ 
-                            duration: 0.2,
+                            duration: 0.25,
                             ease: [0.16, 1, 0.3, 1]
                         }}
                         className="relative w-full max-w-2xl"
                     >
                         <Command
-                            className="relative overflow-hidden w-full bg-black/80 border border-white/[0.1] shadow-[0_0_30px_rgba(62,207,255,0.1)] rounded-xl"
+                            className="relative overflow-hidden w-full bg-black/80 backdrop-blur-md border border-white/[0.1] shadow-[0_0_30px_rgba(62,207,255,0.1)] rounded-xl"
                             onKeyDown={(e) => {
                                 if (e.key === 'Escape') {
                                     onClose();
-                                } else if (e.key === 'Backspace' && !searchValue) {
+                                } else if (e.key === 'Backspace' && !commandSearchValue) {
                                     // Handle back navigation when search is empty
 
                                     if (showSpaceForm && setShowSpaceForm) {
@@ -132,10 +146,21 @@ export function CommandModal({
                                         setShowSimilarMessages(false);
                                         e.preventDefault();
                                     }
-                                    onSearchChange?.('');
+                                    handleSearchChange('');
                                 }
                             }}
-                            shouldFilter={true} // Enable filtering.
+                            shouldFilter={true} // Always enable filtering
+                            filter={(value, search) => {
+                                if (!search) return 1;
+                                // For similar messages, we need special handling
+                                if (showSimilarMessages && value.startsWith('similar-message-')) {
+                                    // The value contains id, role, conversation title, and content
+                                    // This should match against all those elements
+                                    return value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
+                                }
+                                // Default filtering for other items
+                                return value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
+                            }}
                             loop
                         >
                             <div
@@ -144,7 +169,8 @@ export function CommandModal({
                                     !hideSearch ? 'border-b border-white/[0.08]' : 'py-3'
                                 )}
                             >
-                                {leftElement && (
+                                {/* Don't show back button for similar messages */}
+                                {leftElement && !showSimilarMessages && (
                                     <div className="text-white/60 transition-colors duration-200 group-hover:text-white/80">
                                         {leftElement}
                                     </div>
@@ -154,8 +180,8 @@ export function CommandModal({
                                         <Search className="w-5 h-5 text-white/50 transition duration-150 hover:text-white/70" />
                                         <Command.Input
                                             ref={inputRef}
-                                            value={searchValue}
-                                            onValueChange={onSearchChange}
+                                            value={commandSearchValue}
+                                            onValueChange={handleSearchChange}
                                             placeholder={placeholder}
                                             onFocus={() => setIsFocused(true)}
                                             onBlur={() => setIsFocused(false)}
@@ -172,10 +198,15 @@ export function CommandModal({
 
                             <div className="flex flex-col h-[min(70vh,500px)]">
                                 <Command.List className="flex-1 overflow-y-auto overscroll-contain scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 p-4 space-y-2">
-                                    {!hideSearch && searchValue && (
-                                        <Command.Empty className="py-8 text-center">
-                                            <p className="text-sm text-white/40">No results found.</p>
-                                            <p className="text-xs text-white/30 mt-1">Try searching for actions, conversations, or spaces</p>
+                                    {!hideSearch && commandSearchValue && !showSimilarMessages && (
+                                        <Command.Empty className="py-12 text-center flex flex-col items-center justify-center">
+                                            <div className="w-16 h-16 rounded-full bg-gray-800/70 flex items-center justify-center mb-4">
+                                                <Search className="w-8 h-8 text-gray-500" />
+                                            </div>
+                                            <p className="text-lg text-white/60 font-medium">No results found</p>
+                                            <p className="text-sm text-white/40 mt-2 max-w-md mx-auto">
+                                                Try searching for actions, conversations, or spaces
+                                            </p>
                                         </Command.Empty>
                                     )}
 

@@ -21,6 +21,7 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { commandItemClass } from './command-item';
 import { useRouter } from 'next/navigation';
+import { useQuickActionsCommandStore } from '@/lib/stores/quick-actions-command-store';
 
 // Define the SimilarMessage type
 interface SimilarMessage {
@@ -40,6 +41,7 @@ const SimilarMessagesList = ({ messages }: { messages: SimilarMessage[] }) => {
   const { activeSpace } = useSpaceStore();
   const { conversations, setActiveConversation } = useConversationStore();
   const router = useRouter();
+  const { commandSearchValue } = useQuickActionsCommandStore();
   
   // Function to navigate to a specific message in its conversation
   const navigateToMessage = async (message: SimilarMessage) => {
@@ -90,17 +92,38 @@ const SimilarMessagesList = ({ messages }: { messages: SimilarMessage[] }) => {
   
   if (!messages || messages.length === 0) {
     return (
-      <div className="py-8 text-center">
-        <p className="text-sm text-white/40">No similar messages found.</p>
-        <p className="text-xs text-white/30 mt-1">Try searching for different content</p>
+      <div className="py-12 text-center flex flex-col items-center justify-center">
+        <div className="w-16 h-16 rounded-full bg-gray-800/70 flex items-center justify-center mb-4">
+          <Search className="w-8 h-8 text-gray-500" />
+        </div>
+        <p className="text-lg text-white/60 font-medium">No matching messages found</p>
+        <p className="text-sm text-white/40 mt-2 max-w-md mx-auto">
+          {commandSearchValue 
+            ? `We couldn't find any ${activeFilter !== 'all' ? activeFilter + ' ' : ''}messages containing "${commandSearchValue}"`
+            : `No ${activeFilter !== 'all' ? activeFilter + ' ' : ''}messages are available`}
+        </p>
+        {commandSearchValue && (
+          <p className="text-sm text-cyan-400/70 mt-4">
+            Try a different search term or filter
+          </p>
+        )}
       </div>
     );
   }
   
-  const filteredMessages = messages.filter(message => {
+  // First filter by role
+  const roleFilteredMessages = messages.filter(message => {
     if (activeFilter === 'all') return true;
     return message.role === activeFilter;
   });
+  
+  // Then apply search filter if search term exists
+  const filteredMessages = commandSearchValue 
+    ? roleFilteredMessages.filter(message => 
+        message.content.toLowerCase().includes(commandSearchValue.toLowerCase()) ||
+        (message.metadata?.conversationTitle || '').toLowerCase().includes(commandSearchValue.toLowerCase())
+      )
+    : roleFilteredMessages;
 
   // Helper function to format relative time
   const formatRelativeTime = (timestamp: number) => {
@@ -124,6 +147,18 @@ const SimilarMessagesList = ({ messages }: { messages: SimilarMessage[] }) => {
     
     const conversation = conversations?.find(c => c.id === conversationId && !c.is_deleted);
     return conversation?.title || 'Untitled Conversation';
+  };
+  
+  // Highlight the matching text in content
+  const highlightMatchingText = (text: string, searchTerm: string) => {
+    if (!searchTerm) return text;
+    
+    const parts = text.split(new RegExp(`(${searchTerm})`, 'gi'));
+    return parts.map((part, i) => 
+      part.toLowerCase() === searchTerm.toLowerCase() 
+        ? <span key={i} className="bg-cyan-500/30 text-cyan-200">{part}</span> 
+        : part
+    );
   };
 
   return (
@@ -161,55 +196,58 @@ const SimilarMessagesList = ({ messages }: { messages: SimilarMessage[] }) => {
       </div>
       
       {filteredMessages.length === 0 ? (
-        <div className="py-6 text-center">
-          <p className="text-sm text-white/40">No {activeFilter} messages found.</p>
-          <p className="text-xs text-white/30 mt-1">Try a different filter</p>
+        <div className="py-12 text-center flex flex-col items-center justify-center">
+          <div className="w-16 h-16 rounded-full bg-gray-800/70 flex items-center justify-center mb-4">
+            <Search className="w-8 h-8 text-gray-500" />
+          </div>
+          <p className="text-lg text-white/60 font-medium">No matching messages found</p>
+          <p className="text-sm text-white/40 mt-2 max-w-md mx-auto">
+            {commandSearchValue 
+              ? `We couldn't find any ${activeFilter !== 'all' ? activeFilter + ' ' : ''}messages containing "${commandSearchValue}"`
+              : `No ${activeFilter !== 'all' ? activeFilter + ' ' : ''}messages are available`}
+          </p>
+          {commandSearchValue && (
+            <p className="text-sm text-cyan-400/70 mt-4">
+              Try a different search term or filter
+            </p>
+          )}
         </div>
       ) : (
         <div className="space-y-3 px-2">
           {filteredMessages.map((message) => (
-            <Command.Item
+            <div
               key={message.id}
-              className={commandItemClass()}
-              value={`message-${message.id}`}
-              onSelect={() => navigateToMessage(message)}
+              className={`p-3 rounded-lg border border-white/[0.08] hover:border-white/20 hover:bg-white/[0.03] transition-all cursor-pointer group ${message.id === 'selected' ? 'bg-white/[0.05] border-white/20' : ''}`}
+              onClick={() => navigateToMessage(message)}
             >
               <div className="flex items-center gap-3 w-full">
-                <div className={`flex-shrink-0 w-8 h-8 rounded-md ${message.role === 'user' 
+                <div className={`flex-shrink-0 w-10 h-10 rounded-md ${message.role === 'user' 
                   ? 'bg-cyan-500/10 text-cyan-400' 
                   : 'bg-indigo-500/10 text-indigo-400'} flex items-center justify-center`}>
                   {message.role === 'user' 
-                    ? <MessageSquare className="w-4 h-4" /> 
-                    : <Sparkles className="w-4 h-4" />}
+                    ? <MessageSquare className="w-5 h-5" /> 
+                    : <Sparkles className="w-5 h-5" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-white/90 truncate">
+                  <div className="flex items-center gap-2">
+                    <div className="font-medium text-sm text-white/90">
                       {message.role === 'user' ? 'User' : 'Assistant'}
-                    </span>
-                    <div className="ml-2">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${message.role === 'user'
-                        ? 'bg-cyan-500/10 text-cyan-400/90' 
-                        : 'bg-indigo-500/10 text-indigo-400/90'}`}>
-                        {Math.round(message.score * 100)}% match
-                      </span>
+                    </div>
+                    <div className="text-white/40 text-xs">
+                      {getConversationTitle(message)} · {formatRelativeTime(message.createdAt)}
+                    </div>
+                    <div className="ml-auto flex-shrink-0 text-xs px-2 py-1 rounded-full bg-cyan-500/20 text-cyan-300 font-medium">
+                      {Math.round(message.score * 100)}% match
                     </div>
                   </div>
-                  
-                  <div className="text-xs text-white/50 flex items-center gap-1 mt-1">
-                    <span className="text-white/60 font-medium">
-                      {getConversationTitle(message)}
-                    </span>
-                    <span className="text-white/40">•</span>
-                    <span>{formatRelativeTime(message.createdAt)}</span>
+                  <div className="text-sm text-white/80 mt-2 line-clamp-2 break-words group-hover:line-clamp-none transition-all duration-300">
+                    {commandSearchValue 
+                      ? highlightMatchingText(message.content, commandSearchValue)
+                      : message.content}
                   </div>
-                  
-                  <p className="text-sm text-white/70 mt-1.5 line-clamp-3 hover:line-clamp-none transition-all duration-300">
-                    {message.content}
-                  </p>
                 </div>
               </div>
-            </Command.Item>
+            </div>
           ))}
         </div>
       )}
@@ -338,7 +376,7 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
       const conversation = await createConversation(newSpace.id, "Welcome to Your Space");
       if (conversation) {
         await createMessage({
-          content: `Welcome to your new space, ${spaceForm.name}! 🎉
+          content: `Welcome to your new space, ${spaceForm.name}! 
 
           This space is designed to be your personalized AI assistant environment. Here's what makes it special:
 
