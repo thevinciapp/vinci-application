@@ -22,6 +22,8 @@ import { cn } from '@/lib/utils';
 import { commandItemClass } from './command-item';
 import { useRouter } from 'next/navigation';
 import { useQuickActionsCommandStore } from '@/lib/stores/quick-actions-command-store';
+import { useModalNavigationStore } from '@/lib/stores/modal-navigation-store';
+import { MessagesSearchModal } from '@/components/ui/messages-search-modal';
 
 // Define the SimilarMessage type
 interface SimilarMessage {
@@ -255,6 +257,107 @@ const SimilarMessagesList = ({ messages }: { messages: SimilarMessage[] }) => {
   );
 };
 
+interface QuickActionsListProps {
+  onShowSpaces: () => void;
+  onShowModels: () => void;
+  onShowConversations: () => void;
+  onCreateConversation: () => void;
+  onShowMessagesSearch: () => void;
+}
+
+function QuickActionsList({
+  onShowSpaces,
+  onShowModels,
+  onShowConversations,
+  onCreateConversation,
+  onShowMessagesSearch
+}: QuickActionsListProps) {
+  return (
+    <div className="space-y-3">
+      <Command.Item
+        onSelect={onShowSpaces}
+        className="text-sm font-medium flex gap-2 items-center text-white/70 hover:bg-white/[0.06] data-[selected]:bg-white/[0.06] cursor-pointer transition-colors
+          px-3 py-3 rounded-md hover:text-white data-[selected]:text-white"
+      >
+        <div className="flex-shrink-0 w-10 h-10 rounded-md bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+          <Sparkles className="w-5 h-5" />
+        </div>
+        <div className="flex-1">
+          <div className="font-medium text-white">Spaces</div>
+          <p className="text-sm font-normal text-white/60">
+            View and manage your spaces
+          </p>
+        </div>
+        <kbd className="ml-4 bg-white/[0.05] py-1 px-2 rounded text-xs text-white/50 font-mono flex-shrink-0">⌘ S</kbd>
+      </Command.Item>
+      <Command.Item
+        onSelect={onShowModels}
+        className="text-sm font-medium flex gap-2 items-center text-white/70 hover:bg-white/[0.06] data-[selected]:bg-white/[0.06] cursor-pointer transition-colors
+          px-3 py-3 rounded-md hover:text-white data-[selected]:text-white"
+      >
+        <div className="flex-shrink-0 w-10 h-10 rounded-md bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+          <Sparkles className="w-5 h-5" />
+        </div>
+        <div className="flex-1">
+          <div className="font-medium text-white">Models</div>
+          <p className="text-sm font-normal text-white/60">
+            View and manage your models
+          </p>
+        </div>
+        <kbd className="ml-4 bg-white/[0.05] py-1 px-2 rounded text-xs text-white/50 font-mono flex-shrink-0">⌘ M</kbd>
+      </Command.Item>
+      <Command.Item
+        onSelect={onShowConversations}
+        className="text-sm font-medium flex gap-2 items-center text-white/70 hover:bg-white/[0.06] data-[selected]:bg-white/[0.06] cursor-pointer transition-colors
+          px-3 py-3 rounded-md hover:text-white data-[selected]:text-white"
+      >
+        <div className="flex-shrink-0 w-10 h-10 rounded-md bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+          <MessageSquare className="w-5 h-5" />
+        </div>
+        <div className="flex-1">
+          <div className="font-medium text-white">Conversations</div>
+          <p className="text-sm font-normal text-white/60">
+            View and manage your conversations
+          </p>
+        </div>
+        <kbd className="ml-4 bg-white/[0.05] py-1 px-2 rounded text-xs text-white/50 font-mono flex-shrink-0">⌘ C</kbd>
+      </Command.Item>
+      <Command.Item
+        onSelect={onCreateConversation}
+        className="text-sm font-medium flex gap-2 items-center text-white/70 hover:bg-white/[0.06] data-[selected]:bg-white/[0.06] cursor-pointer transition-colors
+          px-3 py-3 rounded-md hover:text-white data-[selected]:text-white"
+      >
+        <div className="flex-shrink-0 w-10 h-10 rounded-md bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+          <Plus className="w-5 h-5" />
+        </div>
+        <div className="flex-1">
+          <div className="font-medium text-white">New Conversation</div>
+          <p className="text-sm font-normal text-white/60">
+            Start a new conversation
+          </p>
+        </div>
+        <kbd className="ml-4 bg-white/[0.05] py-1 px-2 rounded text-xs text-white/50 font-mono flex-shrink-0">⌘ N</kbd>
+      </Command.Item>
+      <Command.Item
+        onSelect={onShowMessagesSearch}
+        className="text-sm font-medium flex gap-2 items-center text-white/70 hover:bg-white/[0.06] data-[selected]:bg-white/[0.06] cursor-pointer transition-colors
+          px-3 py-3 rounded-md hover:text-white data-[selected]:text-white"
+      >
+        <div className="flex-shrink-0 w-10 h-10 rounded-md bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+          <Search className="w-5 h-5" />
+        </div>
+        <div className="flex-1">
+          <div className="font-medium text-white">Search Messages</div>
+          <p className="text-sm font-normal text-white/60">
+            Find messages by keyword or semantic search
+          </p>
+        </div>
+        <kbd className="ml-4 bg-white/[0.05] py-1 px-2 rounded text-xs text-white/50 font-mono flex-shrink-0">⌘ F</kbd>
+      </Command.Item>
+    </div>
+  );
+};
+
 interface QuickActionsCommandProps {
   isOpen: boolean;
   onClose: () => void;
@@ -266,8 +369,11 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
     showModels, setShowModels, 
     showConversations, setShowConversations,
     showSimilarMessages, setShowSimilarMessages,
+    showMessagesSearch, setShowMessagesSearch,
     similarMessages
   } = useQuickActionsCommand();
+  const router = useRouter();
+  const { commandSearchValue, setCommandSearchValue } = useQuickActionsCommandStore();
   const { spaces, setSpaces, activeSpace, setActiveSpace } = useSpaceStore();
   const { activeConversation, setActiveConversation } = useConversationStore();
   const [searchValue, setSearchValue] = useState('');
@@ -275,6 +381,8 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
   const [showSpaceForm, setShowSpaceForm] = useState(false);
   const [isEditingSpace, setIsEditingSpace] = useState(false);
   const [spaceBeingEdited, setSpaceBeingEdited] = useState<Space | null>(null);
+  const [isCreatingSpace, setIsCreatingSpace] = useState(false);
+  const { isNavigatedFromMain, addToHistory, goBack, setDirectOpen } = useModalNavigationStore();
   const [spaceForm, setSpaceForm] = useState<{
     name: string;
     description: string;
@@ -288,6 +396,36 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
     model: AVAILABLE_MODELS['groq'][0]?.id || '',
     color: ''
   });
+  
+  // Navigation between modals
+  const navigateToModal = (modalType: 'spaces' | 'models' | 'conversations' | 'spaceForm') => {
+    // Add current modal to history first
+    if (showSpaces) {
+      addToHistory('spaces');
+    } else if (showModels) {
+      addToHistory('models');
+    } else if (showConversations) {
+      addToHistory('conversations');
+    } else if (showSimilarMessages) {
+      addToHistory('similarMessages');
+    } else if (showSpaceForm) {
+      addToHistory('spaceForm');
+    } else {
+      // We're in the main modal
+      addToHistory('main');
+    }
+    
+    // Now navigate to the new modal
+    setShowSpaces(modalType === 'spaces');
+    setShowModels(modalType === 'models');
+    setShowConversations(modalType === 'conversations');
+    setShowSpaceForm(modalType === 'spaceForm');
+    setShowSimilarMessages(false);
+    setShowMessagesSearch(false);
+    
+    // Reset search when changing modals
+    setSearchValue('');
+  };
 
   useEffect(() => {
     setSearchValue('');
@@ -356,8 +494,6 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
       await setActiveConversation(conversation)
     }
   };
-
-  const [isCreatingSpace, setIsCreatingSpace] = useState(false);
 
   const handleCreateSpace = async () => {
     if (!spaceForm.name) return;
@@ -519,23 +655,157 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
   };
 
   const handleGoBack = () => {
-    if (showSpaceForm) {
+    const previousModal = goBack();
+    
+    if (!previousModal) {
+      // If there's no history, just close the modal
+      onClose();
+      return;
+    }
+    
+    // Navigate based on previous modal
+    switch (previousModal) {
+      case 'main':
+        setShowSpaces(false);
+        setShowModels(false);
+        setShowConversations(false);
+        setShowSimilarMessages(false);
+        setShowSpaceForm(false);
+        setShowMessagesSearch(false);
+        break;
+      case 'spaces':
+        setShowSpaces(true);
+        setShowModels(false);
+        setShowConversations(false);
+        setShowSimilarMessages(false);
+        setShowSpaceForm(false);
+        setShowMessagesSearch(false);
+        break;
+      case 'models':
+        setShowSpaces(false);
+        setShowModels(true);
+        setShowConversations(false);
+        setShowSimilarMessages(false);
+        setShowSpaceForm(false);
+        setShowMessagesSearch(false);
+        break;
+      case 'conversations':
+        setShowSpaces(false);
+        setShowModels(false);
+        setShowConversations(true);
+        setShowSimilarMessages(false);
+        setShowSpaceForm(false);
+        setShowMessagesSearch(false);
+        break;
+      case 'similarMessages':
+        setShowSpaces(false);
+        setShowModels(false);
+        setShowConversations(false);
+        setShowSimilarMessages(true);
+        setShowSpaceForm(false);
+        setShowMessagesSearch(false);
+        break;
+      case 'spaceForm':
+        setShowSpaces(false);
+        setShowModels(false);
+        setShowConversations(false);
+        setShowSimilarMessages(false);
+        setShowSpaceForm(true);
+        setShowMessagesSearch(false);
+        break;
+      case 'messagesSearch':
+        setShowSpaces(false);
+        setShowModels(false);
+        setShowConversations(false);
+        setShowSimilarMessages(false);
+        setShowSpaceForm(false);
+        setShowMessagesSearch(true);
+        break;
+    }
+    
+    // Reset search when going back
+    setSearchValue('');
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      setShowSpaces(false);
+      setShowModels(false);
+      setShowConversations(false);
+      setShowSimilarMessages(false);
+      setShowMessagesSearch(false);
+      setSearchValue('');
+      setSelectedProvider(null);
       setShowSpaceForm(false);
       setIsEditingSpace(false);
       setSpaceBeingEdited(null);
-    } else if (showSpaces) {
-      setShowSpaces(false);
-    } else if (showModels) {
-      if (selectedProvider) {
-        setSelectedProvider(null);
-      } else {
-        setShowModels(false);
-      }
-    } else if (showConversations) {
-      setShowConversations(false);
-    } else if (showSimilarMessages) {
-      setShowSimilarMessages(false);
+      
+      // Clear any search value
+      setCommandSearchValue('');
     }
+  }, [isOpen, setCommandSearchValue]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    
+    // If we're showing a specific modal, add it to history if we're not already there
+    if (showSpaces && !showModels && !showConversations && !showSimilarMessages && !showSpaceForm && !showMessagesSearch) {
+      // Check if coming from main to spaces
+      if (!isNavigatedFromMain) {
+        setDirectOpen('spaces');
+      }
+    } else if (showModels && !showSpaces && !showConversations && !showSimilarMessages && !showSpaceForm && !showMessagesSearch) {
+      // Check if coming from main to models
+      if (!isNavigatedFromMain) {
+        setDirectOpen('models');
+      }
+    } else if (showConversations && !showSpaces && !showModels && !showSimilarMessages && !showSpaceForm && !showMessagesSearch) {
+      // Check if coming from main to conversations
+      if (!isNavigatedFromMain) {
+        setDirectOpen('conversations');
+      }
+    } else if (showSimilarMessages && !showSpaces && !showModels && !showConversations && !showSpaceForm && !showMessagesSearch) {
+      // Similar messages is handled in the provider
+    } else if (showSpaceForm && !showSpaces && !showModels && !showConversations && !showSimilarMessages && !showMessagesSearch) {
+      // Check if we navigated to space form
+      addToHistory('spaceForm');
+    } else if (showMessagesSearch && !showSpaces && !showModels && !showConversations && !showSimilarMessages && !showSpaceForm) {
+      // Check if we navigated to messages search
+      addToHistory('messagesSearch');
+    }
+  }, [isOpen, showSpaces, showModels, showConversations, showSimilarMessages, showSpaceForm, showMessagesSearch, isNavigatedFromMain, addToHistory, setDirectOpen]);
+
+  const handleGoToSpacesList = () => {
+    addToHistory('main');
+    setShowSpaces(true);
+    setSearchValue('');
+  };
+  
+  const handleGoToModelsList = () => {
+    addToHistory('main');
+    setShowModels(true);
+    setSearchValue('');
+  };
+  
+  const handleGoToConversationsList = () => {
+    addToHistory('main');
+    setShowConversations(true);
+    setSearchValue('');
+  };
+  
+  const handleGoToSpaceForm = () => {
+    addToHistory('main');
+    setShowSpaceForm(true);
+    setIsEditingSpace(false);
+    setSpaceBeingEdited(null);
+    setSearchValue('');
+  };
+
+  const handleGoToMessagesSearch = () => {
+    addToHistory('main');
+    setShowMessagesSearch(true);
     setSearchValue('');
   };
 
@@ -543,27 +813,20 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
     <CommandModal
       isOpen={isOpen}
       onClose={() => {
-        onClose()
-        setShowSpaces(false)
-        setShowModels(false)
-        setShowConversations(false)
-        setShowSimilarMessages(false)
-        setSearchValue('')
-        setSelectedProvider(null)
-        setShowSpaceForm(false)
-        setIsEditingSpace(false)
-        setSpaceBeingEdited(null)
+        // Make sure to reset navigation history when closing
+        onClose();
       }}
       placeholder={showSpaceForm ? isEditingSpace ? "Edit your space..." : "Configure your new space..." :
         showSpaces ? "Search spaces..." :
         showModels ? (selectedProvider ? `Search ${PROVIDER_NAMES[selectedProvider]} models...` : "Select a provider...") :
         showConversations ? "Search conversations..." : 
         showSimilarMessages ? "Search similar messages..." :
+        showMessagesSearch ? "Search messages..." :
         "Search quick actions..."}
       searchValue={showSpaceForm ? '' : searchValue}
       onSearchChange={showSpaceForm ? undefined : setSearchValue}
       hideSearch={showSpaceForm}
-      leftElement={(showSpaces || showModels || showConversations || showSpaceForm || showSimilarMessages) ? (
+      leftElement={(showSpaces || showModels || showConversations || showSpaceForm || showSimilarMessages || showMessagesSearch) ? (
         <button
           onClick={handleGoBack}
           className="flex items-center gap-2 text-white/70 hover:text-white transition-colors px-2 py-1 rounded-md
@@ -586,7 +849,10 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
       setShowConversations={setShowConversations}
       showSimilarMessages={showSimilarMessages}
       setShowSimilarMessages={setShowSimilarMessages}
+      showMessagesSearch={showMessagesSearch}
+      setShowMessagesSearch={setShowMessagesSearch}
       similarMessages={similarMessages}
+      isNavigatedFromMain={isNavigatedFromMain}
     >
       <Command.List>
         {showSpaceForm ? (
@@ -597,36 +863,16 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
             isCreating={isCreatingSpace}
             isEditing={isEditingSpace}
           />
-        ) : !showSpaces && !showModels && !showConversations && !showSimilarMessages ? (
+        ) : !showSpaces && !showModels && !showConversations && !showSimilarMessages && !showMessagesSearch ? (
           <QuickActionsList
-            onShowSpaces={() => {
-              setShowSpaces(true)
-              setSearchValue('')
-            }}
-            onShowModels={() => {
-              setShowModels(true)
-              setSearchValue('')
-            }}
-            onShowConversations={() => {
-              setShowConversations(true)
-              setSearchValue('')
-            }}
-            onCreateSpace={() => {
-              setShowSpaceForm(true)
-              setIsEditingSpace(false)
-              setSpaceBeingEdited(null)
-              setSpaceForm({
-                name: '',
-                description: '',
-                provider: 'groq',
-                model: AVAILABLE_MODELS['groq'][0]?.id || '',
-                color: ''
-              })
-              setSearchValue('')
-            }}
+            onShowSpaces={handleGoToSpacesList}
+            onShowModels={handleGoToModelsList}
+            onShowConversations={handleGoToConversationsList}
+            onCreateSpace={handleGoToSpaceForm}
             onCreateConversation={() => {
               handleCreateConversation()
             }}
+            onShowMessagesSearch={handleGoToMessagesSearch}
           />
         ) : showSpaces ? (
           <SpacesList
@@ -665,6 +911,13 @@ export const QuickActionsCommand = ({ isOpen, onClose }: QuickActionsCommandProp
           />
         ) : showSimilarMessages ? (
           <SimilarMessagesList messages={similarMessages} />
+        ) : showMessagesSearch ? (
+          <MessagesSearchModal
+            isOpen={isOpen}
+            onClose={onClose}
+            searchValue={searchValue}
+            onSearchChange={setSearchValue}
+          />
         ) : null}
       </Command.List>
     </CommandModal>

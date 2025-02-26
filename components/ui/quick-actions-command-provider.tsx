@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { QuickActionsCommand } from '@/components/ui/quick-actions-command';
 import { useCommandWindow } from '@/lib/hooks/use-command-window';
+import { useModalNavigationStore } from '@/lib/stores/modal-navigation-store';
 
 // Define the SimilarMessage type
 interface SimilarMessage {
@@ -22,6 +23,7 @@ interface QuickActionsCommandContextType {
     withModels?: boolean; 
     withConversations?: boolean;
     withSimilarMessages?: boolean;
+    withMessagesSearch?: boolean;
     similarMessages?: SimilarMessage[];
   }) => void;
   closeQuickActionsCommand: () => void;
@@ -30,6 +32,7 @@ interface QuickActionsCommandContextType {
     withModels?: boolean; 
     withConversations?: boolean;
     withSimilarMessages?: boolean;
+    withMessagesSearch?: boolean;
     similarMessages?: SimilarMessage[];
   }) => void;
   showSpaces: boolean;
@@ -40,6 +43,8 @@ interface QuickActionsCommandContextType {
   setShowConversations: (show: boolean) => void;
   showSimilarMessages: boolean;
   setShowSimilarMessages: (show: boolean) => void;
+  showMessagesSearch: boolean;
+  setShowMessagesSearch: (show: boolean) => void;
   similarMessages: SimilarMessage[];
   setSimilarMessages: (messages: SimilarMessage[]) => void;
 }
@@ -61,7 +66,9 @@ export function QuickActionsCommandProvider({ children }: { children: React.Reac
   } = useCommandWindow();
 
   const [showSimilarMessages, setShowSimilarMessages] = useState(false);
+  const [showMessagesSearch, setShowMessagesSearch] = useState(false);
   const [similarMessages, setSimilarMessages] = useState<SimilarMessage[]>([]);
+  const { setDirectOpen, addToHistory, resetHistory } = useModalNavigationStore();
 
   // Wrap the openCommandWindow function to handle similarMessages
   const openQuickActionsCommand = (options?: { 
@@ -69,6 +76,7 @@ export function QuickActionsCommandProvider({ children }: { children: React.Reac
     withModels?: boolean; 
     withConversations?: boolean;
     withSimilarMessages?: boolean;
+    withMessagesSearch?: boolean;
     similarMessages?: SimilarMessage[];
   }) => {
     if (options?.withSimilarMessages) {
@@ -76,6 +84,11 @@ export function QuickActionsCommandProvider({ children }: { children: React.Reac
       if (options.similarMessages) {
         setSimilarMessages(options.similarMessages);
       }
+      // Record direct open via API
+      setDirectOpen('similarMessages');
+    }
+    if (options?.withMessagesSearch) {
+      setShowMessagesSearch(true);
     }
     openQuickActionsCommandBase(options);
   };
@@ -86,6 +99,7 @@ export function QuickActionsCommandProvider({ children }: { children: React.Reac
     withModels?: boolean; 
     withConversations?: boolean;
     withSimilarMessages?: boolean;
+    withMessagesSearch?: boolean;
     similarMessages?: SimilarMessage[];
   }) => {
     if (options?.withSimilarMessages) {
@@ -93,8 +107,27 @@ export function QuickActionsCommandProvider({ children }: { children: React.Reac
       if (options.similarMessages) {
         setSimilarMessages(options.similarMessages);
       }
+      // Record direct open via hotkey
+      setDirectOpen('similarMessages');
+    }
+    if (options?.withMessagesSearch) {
+      setShowMessagesSearch(true);
     }
     toggleQuickActionsCommandBase(options);
+  };
+
+  // Wrap the existing closeCommandWindow function
+  const closeQuickActionsCommandUpdated = () => {
+    // Reset all state when closing
+    setShowSimilarMessages(false);
+    setShowMessagesSearch(false);
+    setSimilarMessages([]);
+    
+    // Reset navigation history
+    resetHistory();
+    
+    // Close the command window
+    closeQuickActionsCommand();
   };
 
   useHotkeys('meta+k, ctrl+k', (e) => {
@@ -112,9 +145,17 @@ export function QuickActionsCommandProvider({ children }: { children: React.Reac
     toggleQuickActionsCommand({ withModels: true });
   }, { enableOnFormTags: true });
 
-  useHotkeys('meta+d, ctrl+d', (e) => {
+  useHotkeys('meta+c, ctrl+c', (e) => {
     e.preventDefault();
-    openQuickActionsCommand({ withConversations: true });
+    toggleQuickActionsCommand({ withConversations: true });
+  }, { enableOnFormTags: true });
+
+  useHotkeys('meta+f, ctrl+f', (e) => {
+    e.preventDefault();
+    toggleQuickActionsCommand({ withMessagesSearch: true });
+    
+    // Record direct open
+    setDirectOpen('messagesSearch');
   }, { enableOnFormTags: true });
 
   return (
@@ -122,7 +163,7 @@ export function QuickActionsCommandProvider({ children }: { children: React.Reac
       value={{
         isOpen,
         openQuickActionsCommand,
-        closeQuickActionsCommand,
+        closeQuickActionsCommand: closeQuickActionsCommandUpdated,
         toggleQuickActionsCommand,
         showSpaces,
         setShowSpaces,
@@ -132,12 +173,14 @@ export function QuickActionsCommandProvider({ children }: { children: React.Reac
         setShowConversations,
         showSimilarMessages,
         setShowSimilarMessages,
+        showMessagesSearch,
+        setShowMessagesSearch,
         similarMessages,
         setSimilarMessages
       }}
     >
       {children}
-      <QuickActionsCommand isOpen={isOpen} onClose={closeQuickActionsCommand} />
+      <QuickActionsCommand isOpen={isOpen} onClose={closeQuickActionsCommandUpdated} />
     </QuickActionsCommandContext.Provider>
   );
 }

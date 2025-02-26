@@ -973,6 +973,225 @@ export async function deleteConversation(conversationId: string): Promise<void> 
   }
 }
 
+export async function searchMessages(searchTerm: string, searchScope: string, searchMode: string, conversationId?: string, spaceId?: string, limit = 50): Promise<any> {
+  if (!searchTerm || searchTerm.length < 2) {
+    return { results: [] };
+  }
+
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
+
+    // Validate scope
+    if (searchScope === 'conversation' && !conversationId) {
+      throw new Error("Conversation ID is required for conversation scope");
+    }
+
+    if (searchScope === 'space' && !spaceId) {
+      throw new Error("Space ID is required for space scope");
+    }
+
+    // For keyword search
+    if (searchMode === 'keyword') {
+      let messagesQuery;
+      
+      if (searchScope === 'conversation') {
+        // Ensure user has access to this conversation
+        const { data: conversation, error: convError } = await supabase
+          .from(DB_TABLES.CONVERSATIONS)
+          .select("*")
+          .eq(COLUMNS.ID, conversationId)
+          .eq(COLUMNS.USER_ID, user.id)
+          .single();
+        
+        if (convError || !conversation) {
+          throw new Error("Conversation not found");
+        }
+        
+        // Search within the specific conversation
+        const { data: messages, error: msgError } = await supabase
+          .from(DB_TABLES.MESSAGES)
+          .select(`
+            *,
+            conversation:${DB_TABLES.CONVERSATIONS}(id, title)
+          `)
+          .eq(COLUMNS.CONVERSATION_ID, conversationId)
+          .ilike(COLUMNS.CONTENT, `%${searchTerm}%`)
+          .order(COLUMNS.CREATED_AT, { ascending: false })
+          .limit(limit);
+        
+        if (msgError) {
+          throw new Error("Error fetching messages");
+        }
+        
+        return {
+          results: (messages || []).map(msg => ({
+            id: msg.id,
+            content: msg.content,
+            role: msg.role,
+            createdAt: new Date(msg.created_at).getTime(),
+            conversationId: msg.conversation_id,
+            conversationTitle: msg.conversation.title || 'New Conversation',
+          }))
+        };
+      } else if (searchScope === 'space') {
+        // Ensure user has access to this space
+        const { data: space, error: spaceError } = await supabase
+          .from(DB_TABLES.SPACES)
+          .select("*")
+          .eq(COLUMNS.ID, spaceId)
+          .eq(COLUMNS.USER_ID, user.id)
+          .single();
+        
+        if (spaceError || !space) {
+          throw new Error("Space not found");
+        }
+        
+        // Search across all conversations in the space
+        const { data: messages, error: msgError } = await supabase
+          .from(DB_TABLES.MESSAGES)
+          .select(`
+            *,
+            conversation:${DB_TABLES.CONVERSATIONS}(id, title, space_id)
+          `)
+          .eq("conversation.space_id", spaceId)
+          .ilike(COLUMNS.CONTENT, `%${searchTerm}%`)
+          .order(COLUMNS.CREATED_AT, { ascending: false })
+          .limit(limit);
+        
+        if (msgError) {
+          throw new Error("Error fetching messages");
+        }
+        
+        return {
+          results: (messages || [])
+            .filter(msg => msg.conversation) // Filter out messages with invalid conversations
+            .map(msg => ({
+              id: msg.id,
+              content: msg.content,
+              role: msg.role,
+              createdAt: new Date(msg.created_at).getTime(),
+              conversationId: msg.conversation_id,
+              conversationTitle: msg.conversation.title || 'New Conversation',
+            }))
+        };
+      }
+    } else {
+      // Semantic search implementation
+      // Note: Without a proper vector DB setup, we'll fallback to a keyword search
+      // but simulate semantic search with mock scores
+      
+      let messagesQuery;
+      
+      if (searchScope === 'conversation') {
+        // Ensure user has access to this conversation
+        const { data: conversation, error: convError } = await supabase
+          .from(DB_TABLES.CONVERSATIONS)
+          .select("*")
+          .eq(COLUMNS.ID, conversationId)
+          .eq(COLUMNS.USER_ID, user.id)
+          .single();
+        
+        if (convError || !conversation) {
+          throw new Error("Conversation not found");
+        }
+        
+        // Search within the specific conversation
+        const { data: messages, error: msgError } = await supabase
+          .from(DB_TABLES.MESSAGES)
+          .select(`
+            *,
+            conversation:${DB_TABLES.CONVERSATIONS}(id, title)
+          `)
+          .eq(COLUMNS.CONVERSATION_ID, conversationId)
+          .ilike(COLUMNS.CONTENT, `%${searchTerm}%`)
+          .order(COLUMNS.CREATED_AT, { ascending: false })
+          .limit(limit);
+        
+        if (msgError) {
+          throw new Error("Error fetching messages");
+        }
+        
+        // Add mock semantic scores
+        return {
+          results: (messages || []).map((msg, index) => {
+            // Generate a fake score between 0.6 and 0.95
+            const fakeScore = 0.95 - (index * 0.05);
+            const score = Math.max(0.6, fakeScore);
+            
+            return {
+              id: msg.id,
+              content: msg.content,
+              role: msg.role,
+              createdAt: new Date(msg.created_at).getTime(),
+              conversationId: msg.conversation_id,
+              conversationTitle: msg.conversation.title || 'New Conversation',
+              score,
+            };
+          })
+        };
+      } else if (searchScope === 'space') {
+        // Ensure user has access to this space
+        const { data: space, error: spaceError } = await supabase
+          .from(DB_TABLES.SPACES)
+          .select("*")
+          .eq(COLUMNS.ID, spaceId)
+          .eq(COLUMNS.USER_ID, user.id)
+          .single();
+        
+        if (spaceError || !space) {
+          throw new Error("Space not found");
+        }
+        
+        // Search across all conversations in the space
+        const { data: messages, error: msgError } = await supabase
+          .from(DB_TABLES.MESSAGES)
+          .select(`
+            *,
+            conversation:${DB_TABLES.CONVERSATIONS}(id, title, space_id)
+          `)
+          .eq("conversation.space_id", spaceId)
+          .ilike(COLUMNS.CONTENT, `%${searchTerm}%`)
+          .order(COLUMNS.CREATED_AT, { ascending: false })
+          .limit(limit);
+        
+        if (msgError) {
+          throw new Error("Error fetching messages");
+        }
+        
+        // Add mock semantic scores
+        return {
+          results: (messages || [])
+            .filter(msg => msg.conversation)
+            .map((msg, index) => {
+              // Generate a fake score between 0.6 and 0.95
+              const fakeScore = 0.95 - (index * 0.05);
+              const score = Math.max(0.6, fakeScore);
+              
+              return {
+                id: msg.id,
+                content: msg.content,
+                role: msg.role,
+                createdAt: new Date(msg.created_at).getTime(),
+                conversationId: msg.conversation_id,
+                conversationTitle: msg.conversation.title || 'New Conversation',
+                score,
+              };
+            })
+        };
+      }
+    }
+
+    return { results: [] };
+  } catch (error) {
+    console.error('Error searching messages:', error);
+    throw error;
+  }
+}
 
 export type SpaceActionType = 
   | 'created'

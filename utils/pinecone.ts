@@ -1,6 +1,7 @@
 import { Pinecone } from '@pinecone-database/pinecone';
 import { OpenAIEmbeddings } from '@langchain/openai';
 import { RecordMetadata } from '@pinecone-database/pinecone';
+import { createClient } from './supabase/server';
 
 if (!process.env.PINECONE_API_KEY) {
   throw new Error('Missing PINECONE_API_KEY environment variable');
@@ -124,8 +125,7 @@ export async function searchSimilarMessages(query: string, limit = 5, tags: stri
   try {
     const queryEmbedding = await embeddings.embedQuery(query);
 
-    // Get any deleted conversations and spaces from database to filter them out
-    const supabase = await import('@/utils/supabase/server').then(m => m.createClient());
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
