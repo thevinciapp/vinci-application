@@ -1,9 +1,9 @@
 import { hasEnvVars } from "@/utils/supabase/check-env-vars";
 import Link from "next/link";
-import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
+import { Badge } from "./badge";
+import { Button } from "./button";
 import { createClient } from "@/utils/supabase/server";
-import { UserProfileDropdown } from "./ui/user-profile-dropdown";
+import { UserProfileDropdown } from "./user-profile-dropdown";
 
 export default async function AuthButton() {
   const supabase = await createClient();

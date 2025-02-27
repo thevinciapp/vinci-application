@@ -13,7 +13,7 @@ import { BaseTab } from "@/components/ui/base-tab";
 import { useConversationStore } from '@/lib/stores/conversation-store';
 import { useSpaceStore } from "@/lib/stores/space-store";
 import { User } from "@supabase/supabase-js";
-import { getMessages, getConversations, setActiveConversation as setActiveConversationDB, getActiveConversation } from "../actions";
+import { getMessages, getConversations, setActiveConversation as setActiveConversationDB, getActiveConversation } from "../../app/actions";
 import { UnifiedInput } from "@/components/ui/unified-input";
 import { ChatMessages } from '@/components/ui/chat-messages';
 import { UserProfileDropdown } from "@/components/ui/user-profile-dropdown";

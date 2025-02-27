@@ -1,7 +1,7 @@
 import { Space } from "@/types";
-import { ModelTab } from "./ui/model-tab";
-import { SpaceTab } from "./ui/space-tab";
-import QuickActionsTab from "./ui/quick-actions-tab";
+import { ModelTab } from "./model-tab";
+import { SpaceTab } from "./space-tab";
+import QuickActionsTab from "./quick-actions-tab";
 
 export const Tabs = () => {
     return (

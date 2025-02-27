@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
-import ClientChatContent from "@/app/protected/ClientChatContent";
+import ClientChatContent from "@/components/ui/chat-content-client";
 import { createClient } from "@/utils/supabase/server";
 import { createSpace, getActiveSpace, getConversations, getSpaces, setActiveSpace, createConversation, createMessage, getMessages, getSpaceData } from "../actions";
-import { Providers } from "@/components/providers";
+import { Providers } from "@/components/ui/providers";
 import { COLUMNS, DEFAULTS } from "@/lib/constants";
 import { AVAILABLE_MODELS, type Provider } from "@/config/models";
-import { Tabs } from "@/components/tabs";
+import { Tabs } from "@/components/ui/tabs";
 
 const DEFAULT_PROVIDER: Provider = 'anthropic'
 const DEFAULT_MODEL = AVAILABLE_MODELS[DEFAULT_PROVIDER][0].id
