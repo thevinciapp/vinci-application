@@ -5,12 +5,12 @@ import {
   COLUMNS,
   DB_TABLES,
   DEFAULTS,
-} from "@/lib/constants";
+} from "@/constants";
 import { Conversation, Space } from "@/types";
 import { Message } from "ai";
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { encodedRedirect } from "@/utils/utils";
+import { encodedRedirect } from "@/utils";
 import { Redis } from "@upstash/redis";
 
 const redis = Redis.fromEnv();

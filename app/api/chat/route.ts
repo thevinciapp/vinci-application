@@ -9,7 +9,7 @@ import { xai } from '@ai-sdk/xai';
 import { togetherai } from '@ai-sdk/togetherai';
 import { perplexity } from '@ai-sdk/perplexity';
 import { createClient } from '@/utils/supabase/server';
-import { COLUMNS, DB_TABLES, ERROR_MESSAGES } from '@/lib/constants';
+import { COLUMNS, DB_TABLES, ERROR_MESSAGES } from '@/constants';
 import { type Provider } from '@/config/models';
 import { NextResponse } from 'next/server';
 import { createMessage, getMessages, updateConversationTitle } from '@/app/actions';

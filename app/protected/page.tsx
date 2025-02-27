@@ -1,11 +1,9 @@
 import { redirect } from "next/navigation";
-import ClientChatContent from "@/components/ui/chat-content-client";
+import ClientChatContent from "@/components/ui/chat/chat-content-client";
 import { createClient } from "@/utils/supabase/server";
-import { createSpace, getActiveSpace, getConversations, getSpaces, setActiveSpace, createConversation, createMessage, getMessages, getSpaceData } from "../actions";
-import { Providers } from "@/components/ui/providers";
-import { COLUMNS, DEFAULTS } from "@/lib/constants";
+import { createSpace, getActiveSpace, getSpaces, setActiveSpace, createConversation, getMessages, getSpaceData } from "../actions";
+import { DEFAULTS } from "@/constants";
 import { AVAILABLE_MODELS, type Provider } from "@/config/models";
-import { Tabs } from "@/components/ui/tabs";
 
 const DEFAULT_PROVIDER: Provider = 'anthropic'
 const DEFAULT_MODEL = AVAILABLE_MODELS[DEFAULT_PROVIDER][0].id
@@ -61,7 +59,6 @@ export default async function ChatPage() {
     : null;
 
   return (
-    <Providers>
       <div className="flex flex-col h-screen bg-black text-white">
         <ClientChatContent
           user={user}
@@ -71,6 +68,5 @@ export default async function ChatPage() {
           spaces={spaces}
         />
       </div>
-    </Providers>
   );
 }
