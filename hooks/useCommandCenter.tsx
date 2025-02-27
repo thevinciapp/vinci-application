@@ -1,0 +1,268 @@
+'use client'
+import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState, useRef } from 'react';
+import { useHotkeys } from 'react-hotkeys-hook';
+
+// Command types
+export type CommandType = 'application' | 'spaces' | 'conversations' | 'models' | 'actions';
+
+export interface CommandOption {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: ReactNode;
+  shortcut?: string[];
+  type: CommandType;
+  keywords?: string[];
+  action: () => void;
+}
+
+interface CommandContextType {
+  isOpen: boolean;
+  openCommandCenter: () => void;
+  closeCommandCenter: () => void;
+  toggleCommandCenter: () => void;
+  openCommandType: (type: CommandType) => void;
+  closeCommandType: (type: CommandType) => void;
+  registerCommand: (command: CommandOption) => void;
+  unregisterCommand: (commandId: string) => void;
+  commands: CommandOption[];
+  filteredCommands: CommandOption[];
+  setSearchQuery: (query: string) => void;
+  searchQuery: string;
+  activeCommandType: CommandType | null;
+  setActiveCommandType: (type: CommandType | null) => void;
+}
+
+const CommandContext = createContext<CommandContextType | undefined>(undefined);
+
+export function CommandProvider({ children }: { children: ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [commands, setCommands] = useState<CommandOption[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCommandType, setActiveCommandType] = useState<CommandType | null>(null);
+  
+  // Use a ref to track mounted state to avoid state updates after unmount
+  const isMounted = useRef(true);
+  
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // Command center controls
+  const openCommandCenter = useCallback(() => setIsOpen(true), []);
+  const closeCommandCenter = useCallback(() => {
+    setIsOpen(false);
+    setSearchQuery('');
+    setActiveCommandType(null);
+  }, []);
+  
+  const toggleCommandCenter = useCallback(() => {
+    console.log('toggleCommandCenter called');
+    console.log('Current state:', { isOpen, activeCommandType });
+    
+    if (isOpen) {
+      if (activeCommandType !== null) {
+        console.log('Switching from specific command type to main command center');
+        setActiveCommandType(null);
+      } else {
+        console.log('Closing main command center');
+        setIsOpen(false);
+        setSearchQuery('');
+        setActiveCommandType(null);
+      }
+    } else {
+      console.log('Opening main command center');
+      setIsOpen(true);
+      setActiveCommandType(null);
+    }
+  }, [isOpen, activeCommandType]);
+  
+  // Function to close a specific command type
+  const closeCommandType = useCallback((type: CommandType) => {
+    console.log('closeCommandType called with:', type);
+    if (isOpen && activeCommandType === type) {
+      setIsOpen(false);
+      setSearchQuery('');
+    }
+  }, [isOpen, activeCommandType]);
+  
+  // New function to open command center with a specific type
+  const openCommandType = useCallback((type: CommandType) => {
+    console.log('openCommandType called with:', type);
+    if (isOpen && activeCommandType === type) {
+      console.log('Closing the currently open type');
+      closeCommandType(type);
+    } else {
+      console.log('Switching to command type:', type);
+      setActiveCommandType(type);
+      if (!isOpen) {
+        setIsOpen(true);
+      }
+    }
+  }, [isOpen, activeCommandType, closeCommandType]);
+
+  // Register keyboard shortcuts
+  // meta+k is now handled in CommandShortcuts component
+  useHotkeys('esc', () => {
+    if (isOpen) {
+      closeCommandCenter();
+    }
+  });
+
+  // Command registration - properly memoized to prevent infinite loops
+  const registerCommand = useCallback((command: CommandOption) => {
+    if (!isMounted.current) return;
+    
+    setCommands(prev => {
+      // Check if this exact command already exists to avoid unnecessary updates
+      const exists = prev.some(cmd => cmd.id === command.id);
+      if (exists) {
+        // Only update if there are actual changes
+        const isEqual = prev.some(cmd => 
+          cmd.id === command.id && 
+          cmd.name === command.name && 
+          cmd.description === command.description
+        );
+        if (isEqual) return prev; // No change needed
+        
+        // Replace the existing command
+        return prev.map(cmd => cmd.id === command.id ? command : cmd);
+      }
+      // Add new command
+      return [...prev, command];
+    });
+  }, []);
+
+  const unregisterCommand = useCallback((commandId: string) => {
+    if (!isMounted.current) return;
+    
+    setCommands(prev => {
+      // Only update if the command exists
+      const commandExists = prev.some(cmd => cmd.id === commandId);
+      if (!commandExists) return prev;
+      return prev.filter(cmd => cmd.id !== commandId);
+    });
+  }, []);
+
+  // Filter commands based on search query and active type - memoize to avoid recalculation
+  const filteredCommands = useMemo(() => {
+    return commands.filter(command => {
+      // Filter by type if active type is set
+      if (activeCommandType && command.type !== activeCommandType) {
+        return false;
+      }
+
+      // If no search query, return all commands of the active type (or all commands if no active type)
+      if (!searchQuery) return true;
+
+      const query = searchQuery.toLowerCase();
+      
+      // Search in name, description, and keywords
+      return (
+        command.name.toLowerCase().includes(query) ||
+        (command.description?.toLowerCase().includes(query)) ||
+        command.keywords?.some(keyword => keyword.toLowerCase().includes(query))
+      );
+    });
+  }, [commands, searchQuery, activeCommandType]);
+
+  // Context value - memoize to prevent unnecessary re-renders
+  const value = useMemo(() => ({
+    isOpen,
+    openCommandCenter,
+    closeCommandCenter,
+    toggleCommandCenter,
+    openCommandType,
+    closeCommandType,
+    registerCommand,
+    unregisterCommand,
+    commands,
+    filteredCommands,
+    searchQuery,
+    setSearchQuery,
+    activeCommandType,
+    setActiveCommandType,
+  }), [
+    isOpen, 
+    openCommandCenter, 
+    closeCommandCenter, 
+    toggleCommandCenter, 
+    openCommandType,
+    closeCommandType,
+    registerCommand, 
+    unregisterCommand, 
+    commands, 
+    filteredCommands, 
+    searchQuery, 
+    activeCommandType
+  ]);
+
+  return (
+    <CommandContext.Provider value={value}>
+      {children}
+    </CommandContext.Provider>
+  );
+}
+
+export function useCommandCenter() {
+  const context = useContext(CommandContext);
+  if (context === undefined) {
+    throw new Error('useCommandCenter must be used within a CommandProvider');
+  }
+  return context;
+}
+
+export function useCommandRegistration(commands: CommandOption[]) {
+  const { registerCommand, unregisterCommand } = useCommandCenter();
+  
+  // Use a ref to store the previous commands for comparison
+  const commandsRef = useRef<CommandOption[]>([]);
+  
+  useEffect(() => {
+    // Compare current commands with previous commands
+    const newCommands = commands.filter(
+      cmd => !commandsRef.current.some(prevCmd => prevCmd.id === cmd.id)
+    );
+    
+    const removedCommands = commandsRef.current.filter(
+      prevCmd => !commands.some(cmd => cmd.id === prevCmd.id)
+    );
+    
+    // Only register new commands
+    newCommands.forEach(command => {
+      registerCommand(command);
+    });
+    
+    // Only unregister removed commands
+    removedCommands.forEach(command => {
+      unregisterCommand(command.id);
+    });
+    
+    // Update the ref with current commands
+    commandsRef.current = [...commands];
+    
+    // Cleanup function only needs to unregister commands that still exist in the latest render
+    return () => {
+      commandsRef.current.forEach(command => {
+        unregisterCommand(command.id);
+      });
+    };
+  }, [registerCommand, unregisterCommand]);
+}
+
+// New hook for creating modal-specific hotkeys
+export function useModalHotkey(type: CommandType, hotkey: string) {
+  const { openCommandType } = useCommandCenter();
+  
+  // Using options to ensure hotkeys work even when focus is inside the modal
+  useHotkeys(hotkey, (event) => {
+    event.preventDefault();
+    console.log('Hotkey pressed:', hotkey);
+    openCommandType(type);
+  }, { 
+    enableOnFormTags: true,
+    enableOnContentEditable: true
+  });
+} 

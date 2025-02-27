@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/common/toaster";
-import Script from "next/script";
+import { CommandProvider } from "@/hooks/useCommandCenter";
+import CommandRoot from "@/components/CommandRoot";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,24 +28,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link 
-          rel="stylesheet" 
-          href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
-        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <CommandProvider>
           {children}
-          <Toaster />
-          <Script 
-            src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" 
-            strategy="lazyOnload"
-          />
-          <Script 
-            src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/xml.min.js"
-            strategy="lazyOnload"
-          />
+          <CommandRoot />
+        </CommandProvider>
+        <Toaster />
       </body>
     </html>
   );

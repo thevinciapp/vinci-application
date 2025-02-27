@@ -213,41 +213,6 @@ input:focus, textarea:focus {
   transform: translateY(-10px);
 }
 
-/* ... (your existing styles) ... */
-
-/* cmdk Styles (Adapted for our modern aesthetic) */
-[cmdk-root] {
-  @apply max-w-2xl w-full bg-black/80 rounded-xl p-0 font-sans border border-white/[0.1] shadow-[0_0_30px_rgba(62,207,255,0.1)];
-}
-
-[cmdk-input] {
-  @apply font-sans w-full text-sm p-4 outline-none bg-transparent text-white/90 placeholder:text-white/40 transition-colors duration-200;
-}
-
-[cmdk-item] {
-  @apply relative flex items-center gap-3 mx-2 my-1 px-4 py-3 text-sm outline-none transition-all duration-200 rounded-lg text-white/75 hover:text-white/90;
-}
-
-[cmdk-item][data-selected="true"] {
-  @apply bg-white/[0.03] text-white border border-white/[0.05];
-}
-
-[cmdk-item][data-disabled="true"] {
-  @apply text-white/30 cursor-not-allowed;
-}
-
-[cmdk-group-heading] {
-  @apply select-none text-xs text-white/50 px-4 flex items-center py-2 font-medium;
-}
-
-[cmdk-empty] {
-  @apply text-sm flex items-center justify-center h-16 text-white/40 bg-white/[0.02] rounded-lg mx-2 border border-white/[0.05];
-}
-
-[cmdk-separator] {
-  @apply h-px w-full bg-gradient-to-r from-transparent via-white/[0.08] to-transparent my-1;
-}
-
 /* Updated shine effect for modern look */
 .dark {
   [cmdk-root]:after {
@@ -512,3 +477,21 @@ code[class*="shiki"] {
 .glass-effect .shiki .mtk6 { color: rgba(180, 142, 173, 0.85) !important; }  /* Classes, types */
 .glass-effect .shiki .mtk7 { color: rgba(127, 127, 127, 0.85) !important; }  /* Comments */
 .glass-effect .shiki .mtk8 { color: rgba(255, 203, 139, 0.85) !important; }  /* Operators */
+
+/* Enhanced command item styles to ensure hover effects work */
+[cmdk-item] {
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  position: relative !important;
+}
+
+[cmdk-item]:hover {
+  background-color: rgba(62, 207, 255, 0.2) !important;
+  transform: scale(1.01) !important;
+  box-shadow: 0 0 12px rgba(62, 207, 255, 0.2) !important;
+}
+
+[cmdk-item]:active {
+  background-color: rgba(62, 207, 255, 0.25) !important;
+  transform: scale(0.99) !important;
+}

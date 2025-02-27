@@ -2,7 +2,7 @@
   "private": true,
   "main": "build/main.js",
   "scripts": {
-    "next:dev": "next dev",
+    "next:dev": "next dev --turbopack",
     "next:build": "next build",
     "electron:build": "tsup",
     "electron:build_watch": "tsup --watch",
@@ -70,7 +70,7 @@
     "marked-gfm-heading-id": "^4.1.1",
     "marked-highlight": "^2.2.1",
     "marked-mangle": "^1.1.10",
-    "next": "latest",
+    "next": "15.2.0",
     "next-themes": "^0.4.3",
     "prettier": "^3.3.3",
     "prismjs": "^1.29.0",
@@ -96,8 +96,8 @@
     "@swc/helpers": "^0.5.15",
     "@types/lodash": "^4.17.15",
     "@types/node": "22.10.2",
-    "@types/react": "^19.0.2",
-    "@types/react-dom": "19.0.2",
+    "@types/react": "19.0.10",
+    "@types/react-dom": "19.0.4",
     "@types/react-syntax-highlighter": "^15.5.13",
     "cross-env": "^7.0.3",
     "electron": "^34.0.2",
@@ -110,5 +110,9 @@
     "tailwindcss-animate": "^1.0.7",
     "tsup": "^8.3.6",
     "typescript": "5.7.2"
+  },
+  "overrides": {
+    "@types/react": "19.0.10",
+    "@types/react-dom": "19.0.4"
   }
 }
