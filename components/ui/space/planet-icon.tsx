@@ -1,219 +1,140 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 
-interface PlanetIconProps {
+interface DotSphereProps {
   size?: number;
-  seed?: string; // Ensures the same seed produces the same planet
+  seed?: string; // Ensures the same seed produces the same sphere
+  dotCount?: number; // Number of dots to display
+  dotSize?: number; // Base size of each dot
+  className?: string;
+  expandFactor?: number; // How much the sphere expands on hover
+  transitionSpeed?: number; // Speed of the expansion/contraction in ms
 }
 
-const PlanetIcon = ({ size = 32, seed }: PlanetIconProps) => {
-  // Compute a stable number from the seed for use in filters
-  const filterSeed = useMemo(() => {
-    return Math.floor(
-      seed
-        ? Array.from(seed).reduce((acc, char) => acc + char.charCodeAt(0), 0)
-        : Math.random() * 1000
-    );
+const DotSphere: React.FC<DotSphereProps> = ({
+  size = 120,
+  seed,
+  dotCount = 150,
+  dotSize = 2.5,
+  className = '',
+  expandFactor = 1.3,
+  transitionSpeed = 800,
+}) => {
+  const [isHovering, setIsHovering] = useState(false);
+
+  // Compute a stable number from the seed for consistent randomization
+  const seedNum = useMemo(() => {
+    return seed
+      ? Array.from(seed).reduce((acc, char) => acc + char.charCodeAt(0), 0)
+      : Math.floor(Math.random() * 10000);
   }, [seed]);
 
   // Seeded random number generator for reproducibility
   const random = useMemo(() => {
-    const seedNum = seed
-      ? Array.from(seed).reduce((acc, char) => acc + char.charCodeAt(0), 0)
-      : Math.random() * 1000;
     let callCount = 0;
     return () => {
       callCount += 1;
       const x = Math.sin(seedNum + callCount) * 10000;
       return x - Math.floor(x);
     };
-  }, [seed]);
+  }, [seedNum]);
 
-  // Generate planet properties
-  const {
-    hasWater,
-    baseHue,
-    saturation,
-    landHue,
-    landColor,
-    mountainColor,
-    hasRings,
-    ringColor,
-    hasTrees,
-    hasAtmosphere,
-  } = useMemo(() => {
-    const hasWater = random() < 0.7; // 70% chance of water
-    const baseHue = hasWater ? 180 + random() * 60 : random() * 360; // Favor blues when water exists
-    const saturation = 60 + random() * 30; // 60%–90%
-    const landHue = hasWater ? random() * 120 : (baseHue + random() * 60) % 360; // Green/brown or varied
-    const landColor = `hsl(${landHue}, 70%, 50%)`;
-    const mountainColor = `hsl(${landHue}, 50%, 30%)`;
-    const hasRings = random() < 0.3; // 30% chance
-    const ringColor = hasRings ? `hsl(${(baseHue + 180) % 360}, ${saturation}%, 60%)` : null;
-    const hasTrees = random() < 0.5; // 50% chance
-    const hasAtmosphere = random() < 0.6; // 60% chance of visible atmosphere
+  // Generate dots distributed on a sphere (Fibonacci spiral algorithm)
+  const dots = useMemo(() => {
+    // Use a slightly smaller radius to create a tighter formation
+    const sphereRadius = (size / 2 - dotSize) * 0.8; 
+    const points = [];
+    const goldenRatio = (1 + Math.sqrt(5)) / 2;
 
-    return {
-      hasWater,
-      baseHue,
-      saturation,
-      landHue,
-      landColor,
-      mountainColor,
-      hasRings,
-      ringColor,
-      hasTrees,
-      hasAtmosphere,
-    };
-  }, [random]);
+    for (let i = 0; i < dotCount; i++) {
+      // Generate point on sphere using Fibonacci spiral distribution
+      const y = 1 - (i / (dotCount - 1)) * 2; // Range from 1 to -1
+      const radius = Math.sqrt(1 - y * y);
+      
+      const theta = 2 * Math.PI * i / goldenRatio;
+      
+      const x = Math.cos(theta) * radius;
+      const z = Math.sin(theta) * radius;
 
-  // Unique gradient IDs
-  const baseGradientId = useMemo(() => `base_${Math.random().toString(36).substr(2, 9)}`, []);
-  const shadowGradientId = useMemo(() => `shadow_${Math.random().toString(36).substr(2, 9)}`, []);
-  const atmosphereGradientId = useMemo(
-    () => `atmosphere_${Math.random().toString(36).substr(2, 9)}`,
-    []
-  );
+      // Generate color based on seed and position with increased saturation and brightness
+      const hue = (seedNum % 360) + (i * 137.5) % 360; // Golden angle in degrees for good distribution
+      const saturation = 70 + random() * 30; // Increased saturation (was 60-100, now 70-100)
+      const lightness = 45 + random() * 30; // Slightly brighter (was 40-70, now 45-75)
+      const color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 
-  // Enhanced land mass generator for more organic coastlines
-  const generateLandMassPath = () => {
-    const startX = 10 + random() * 20;
-    const startY = 10 + random() * 20;
-    // Using cubic Bézier curves for a more natural contour
-    return `
-      M ${startX} ${startY}
-      C ${startX + 5} ${startY - 5}, ${startX + 15} ${startY - 5}, ${startX + 20} ${startY}
-      C ${startX + 15} ${startY + 10}, ${startX + 5} ${startY + 10}, ${startX} ${startY}
-      Z
-    `;
-  };
+      // Add some variation to dot size but keep them larger for visibility
+      const sizeVariation = 0.8 + random() * 0.6; // Slightly larger minimum (was 0.7, now 0.8)
+      const finalDotSize = dotSize * sizeVariation;
 
-  // Enhanced mountain path with natural quadratic curves
-  const generateMountainPath = (baseX: number, baseY: number) => {
-    const controlX = baseX + 4 + random() * 2;
-    const controlY = baseY - 4 - random() * 2;
-    const endX = baseX + 8 + random() * 2;
-    const endY = baseY;
-    return `M ${baseX} ${baseY} Q ${controlX} ${controlY} ${endX} ${endY} Z`;
-  };
+      // Calculate 3D position
+      const posX = x * sphereRadius + size/2;
+      const posY = y * sphereRadius + size/2;
+      const posZ = z * sphereRadius;
+
+      // Adjust for z-index based on z position (dots in the back should appear behind)
+      const zIndex = Math.floor(posZ);
+      // Increase minimum opacity for better visibility
+      const opacity = 0.6 + (posZ / sphereRadius) * 0.4; // Higher minimum opacity (was 0.4, now 0.6)
+      
+      points.push({
+        x: posX,
+        y: posY, 
+        z: posZ,
+        color,
+        size: finalDotSize,
+        opacity,
+        zIndex,
+      });
+    }
+
+    // Sort by z-index to handle depth properly
+    return points.sort((a, b) => a.zIndex - b.zIndex);
+  }, [dotCount, dotSize, random, seedNum, size]);
 
   return (
-    <svg width={size} height={size} viewBox="0 0 50 50" className="flex-shrink-0">
-      <defs>
-        {/* Realistic base gradient with an extra stop for more depth */}
-        <radialGradient id={baseGradientId} cx="0.4" cy="0.4" r="0.6">
-          <stop offset="0%" stopColor={`hsl(${baseHue}, ${saturation}%, 85%)`} />
-          <stop offset="50%" stopColor={`hsl(${baseHue}, ${saturation}%, 60%)`} />
-          <stop offset="100%" stopColor={`hsl(${baseHue}, ${saturation}%, 35%)`} />
-        </radialGradient>
-
-        {/* Shadow gradient for 3D effect */}
-        <radialGradient id={shadowGradientId} cx="0.75" cy="0.25" r="0.75">
-          <stop offset="0%" stopColor="rgba(0,0,0,0)" />
-          <stop offset="100%" stopColor="rgba(0,0,0,0.5)" />
-        </radialGradient>
-
-        {/* Atmosphere gradient for a subtle halo */}
-        {hasAtmosphere && (
-          <radialGradient id={atmosphereGradientId} cx="0.5" cy="0.5" r="0.8">
-            <stop offset="0%" stopColor={`hsl(${baseHue}, ${saturation}%, 85%)`} stopOpacity="0.15" />
-            <stop offset="100%" stopColor="transparent" />
-          </radialGradient>
-        )}
-
-        {/* Bump filter: adds fractal noise and displacement for a realistic textured surface */}
-        <filter id="bumpFilter" filterUnits="objectBoundingBox" x="-0.3" y="-0.3" width="1.6" height="1.6">
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency="0.02"
-            numOctaves="4"
-            seed={filterSeed}
-            result="noise"
-          />
-          <feDisplacementMap
-            in="SourceGraphic"
-            in2="noise"
-            scale="3"
-            xChannelSelector="R"
-            yChannelSelector="G"
-          />
-        </filter>
-
-        {/* Specular highlights filter: adds a subtle shiny reflection */}
-        <filter id="specularHighlights" filterUnits="objectBoundingBox" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur in="SourceAlpha" stdDeviation="1" result="blur" />
-          <feSpecularLighting
-            in="blur"
-            surfaceScale="1"
-            specularConstant="1"
-            specularExponent="20"
-            lightingColor="#ffffff"
-            result="specOut"
-          >
-            <fePointLight x="-50" y="-50" z="100" />
-          </feSpecularLighting>
-          <feComposite in="specOut" in2="SourceAlpha" operator="in" result="specOut" />
-          <feMerge>
-            <feMergeNode in="specOut" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
-
-      {/* Rings */}
-      {hasRings && ringColor && (
-        <ellipse
-          cx="25"
-          cy="25"
-          rx="24"
-          ry="6"
-          fill="none"
-          stroke={ringColor}
-          strokeWidth="2"
-          opacity="0.7"
-          transform="rotate(-20 25 25)"
-        />
-      )}
-
-      {/* Planet base with filters */}
-      <g filter="url(#bumpFilter)">
-        <g filter="url(#specularHighlights)">
-          <circle cx="25" cy="25" r="20" fill={`url(#${baseGradientId})`} />
-        </g>
-      </g>
-
-      {/* Land masses */}
-      <path d={generateLandMassPath()} fill={landColor} opacity="0.9" />
-      {random() < 0.6 && <path d={generateLandMassPath()} fill={landColor} opacity="0.9" />}
-
-      {/* Mountains */}
-      <path d={generateMountainPath(20, 30)} fill={mountainColor} opacity="0.85" />
-      {random() < 0.5 && <path d={generateMountainPath(15, 25)} fill={mountainColor} opacity="0.85" />}
-
-      {/* Trees */}
-      {hasTrees && (
-        <g>
-          {Array.from({ length: 3 + Math.floor(random() * 3) }).map((_, i) => (
-            <circle
-              key={i}
-              cx={15 + random() * 20}
-              cy={20 + random() * 10}
-              r="1"
-              fill="hsl(120, 50%, 40%)"
-              opacity="0.9"
+    <div
+      className={`relative ${className}`}
+      style={{
+        width: size,
+        height: size,
+        perspective: size * 3, // 3D perspective
+      }}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+    >
+      <div
+        className="relative w-full h-full"
+        style={{ transformStyle: 'preserve-3d' }}
+      >
+        {dots.map((dot, index) => {
+          // Calculate expanded position when hovering
+          const expandedX = dot.x + (dot.x - size/2) * (expandFactor - 1);
+          const expandedY = dot.y + (dot.y - size/2) * (expandFactor - 1);
+          const expandedZ = dot.z * expandFactor;
+          
+          // Use original or expanded position based on hover state
+          const currentX = isHovering ? expandedX : dot.x;
+          const currentY = isHovering ? expandedY : dot.y;
+          const currentZ = isHovering ? expandedZ : dot.z;
+          
+          return (
+            <div
+              key={index}
+              className="absolute rounded-full"
+              style={{
+                backgroundColor: dot.color,
+                width: dot.size,
+                height: dot.size,
+                opacity: dot.opacity,
+                transform: `translate3d(${currentX}px, ${currentY}px, ${currentZ}px)`,
+                transition: `transform ${transitionSpeed}ms cubic-bezier(0.34, 1.56, 0.64, 1)`,
+                zIndex: dot.zIndex,
+              }}
             />
-          ))}
-        </g>
-      )}
-
-      {/* Atmospheric glow */}
-      {hasAtmosphere && (
-        <circle cx="25" cy="25" r="22" fill={`url(#${atmosphereGradientId})`} opacity="0.3" />
-      )}
-
-      {/* 3D shadow for depth */}
-      <circle cx="25" cy="25" r="20" fill={`url(#${shadowGradientId})`} />
-    </svg>
+          );
+        })}
+      </div>
+    </div>
   );
 };
 
-export default PlanetIcon;
+export default DotSphere;

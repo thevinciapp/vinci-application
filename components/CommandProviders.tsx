@@ -4,7 +4,10 @@ import React, { ReactNode, useEffect, useState, useRef, useCallback } from "reac
 import { CommandOption, useCommandRegistration, CommandType } from "@/hooks/useCommandCenter";
 import { Settings, Search, Plus, MessageSquare, Brain, Command } from "lucide-react";
 import { AVAILABLE_MODELS, PROVIDER_NAMES, Provider } from "@/config/models";
-import PlanetIcon from "@/components/ui/space/planet-icon";
+import { Command as CdkCommand } from "cmdk";
+import { toast } from 'sonner'
+import Link from "next/link";
+import DotSphere from "@/components/ui/space/planet-icon";
 import { useConversationActions } from "@/hooks/useConversationActions";
 import { useSpaceActions } from "@/hooks/useSpaceActions";
 import {
@@ -247,7 +250,14 @@ export function SpacesCommandProvider({ children, spaces = [], activeSpace = nul
           description: space.description || "Switch to this workspace",
           icon: (
             <div className="flex items-center gap-2">
-              <PlanetIcon size={16} seed={space.id} />
+              <DotSphere 
+                size={22} 
+                seed={space.id} 
+                dotCount={90} 
+                dotSize={0.7} 
+                expandFactor={1.15} 
+                transitionSpeed={400}
+              />
               {activeSpace?.id === space.id && (
                 <span className="text-[10px] font-medium bg-cyan-500/20 text-cyan-500 rounded-full px-2 py-0.5">
                   Active

@@ -2,7 +2,7 @@
 
 import { BaseTab } from '@/components/ui/common/base-tab'
 import { useCommandCenter } from '@/hooks/useCommandCenter'
-import PlanetIcon from './planet-icon'
+import DotSphere from './planet-icon'
 import { useSpaceActions } from '@/hooks/useSpaceActions'
 
 // Original implementation that's used throughout the app
@@ -16,7 +16,14 @@ export function SpaceTab() {
     <div className="relative flex items-center">
       {activeSpace && (
         <div className="mr-2">
-          <PlanetIcon size={20} seed={activeSpace.id} />
+          <DotSphere 
+            size={24} 
+            seed={activeSpace.id} 
+            dotCount={100} 
+            dotSize={0.8} 
+            expandFactor={1.15} 
+            transitionSpeed={400}
+          />
         </div>
       )}
       <BaseTab
@@ -46,7 +53,14 @@ export function ServerDrivenSpaceTab({
     <div className="relative flex items-center">
       {activeSpace && (
         <div className="mr-2">
-          <PlanetIcon size={20} seed={activeSpace.id} />
+          <DotSphere 
+            size={24} 
+            seed={activeSpace.id} 
+            dotCount={100} 
+            dotSize={0.8} 
+            expandFactor={1.15} 
+            transitionSpeed={400}
+          />
         </div>
       )}
       <BaseTab
