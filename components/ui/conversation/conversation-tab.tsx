@@ -10,6 +10,7 @@ import { useSpaceActions } from '@/hooks/useSpaceActions'
 import { cn } from '@/lib/utils'
 import { useCommandCenter } from '@/hooks/useCommandCenter'
 import { useConversationActions } from '@/hooks/useConversationActions'
+import { useState } from 'react'
 
 export function ConversationTab() {
   const { activeSpace } = useSpaceActions()
@@ -17,63 +18,122 @@ export function ConversationTab() {
   const { 
     conversations,
     activeConversation,
-    setActiveConversation,
     createConversation, 
-    isCreating, 
-    isSuccess 
-  } = useConversationActions({
-    showToasts: true
-  })
+    isCreating,
+  } = useConversationActions()
+
+  const hasActiveConversation = !!activeConversation
+  const hasMultipleConversations = conversations && conversations.length > 1
 
   const handleNewConversation = async () => {
     if (!activeSpace) return
-    await createConversation('New Conversation')
+    await createConversation("New Conversation")
   }
 
   return (
-    <div className="flex h-full overflow-hidden">
-      {activeSpace ? (
-        <div className="flex-1 overflow-hidden">
-          <BaseTab
-            icon={<MessageSquare className="w-3 h-3" />}
-            label={activeConversation?.title || 'Conversations'}
-            shortcut="D"
-            minWidth="space"
-            className="overflow-hidden text-ellipsis"
-            commandType="conversations"
-            onClick={() => openCommandType("conversations")}
-          />
-        </div>
-      ) : null}
+    <div className="flex items-center space-x-1">
+      <BaseTab 
+        icon={<MessageSquare className="w-3 h-3" />}
+        label={activeConversation?.title || "No Conversation Selected"}
+        shortcut="C"
+        commandType="conversations"
+        onClick={() => openCommandType("conversations")}
+      />
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
             <button
-              onClick={() => handleNewConversation()}
+              onClick={handleNewConversation}
+              disabled={isCreating || !activeSpace}
               className={cn(
-                'h-full p-2 flex items-center rounded-md border-white/[0.08]',
-                'hover:bg-white/[0.08] bg-white/[0.03] active:bg-white/[0.02]',
-                'transition-colors duration-200',
-                'focus:outline-none',
-                'disabled:opacity-50 disabled:cursor-not-allowed'
+                "inline-flex items-center justify-center rounded-full w-4 h-4",
+                "text-white/80 bg-white/5 hover:bg-white/10",
+                "border border-white/10 transition-colors",
+                "focus:outline-none focus:ring-2 focus:ring-white/20",
+                (isCreating || !activeSpace) && "opacity-50 cursor-not-allowed"
               )}
-              disabled={!activeSpace || isCreating}
             >
-              {isSuccess ? (
-                <Check className="w-3 h-3 text-emerald-400 animate-in fade-in-0 zoom-in-95" />
+              {isCreating ? (
+                <Check className="w-2 h-2" />
               ) : (
-                <Plus className={cn(
-                  'w-3 h-3',
-                  isCreating ? 'text-white/30 animate-pulse' : 'text-white/60'
-                )} />
+                <Plus className="w-2 h-2" />
               )}
             </button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Create New Conversation</p>
+            <p>New Conversation</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
     </div>
   )
+}
+
+export function ServerDrivenConversationTab({
+  conversations,
+  activeConversation,
+  onSwitchConversation,
+  onCreateConversation,
+  onDeleteConversation,
+}: {
+  conversations: any[];
+  activeConversation: any;
+  onSwitchConversation: (conversationId: string) => Promise<void>;
+  onCreateConversation: (title: string) => Promise<void>;
+  onDeleteConversation: (conversationId: string) => Promise<void>;
+}) {
+  const { openCommandType } = useCommandCenter();
+  const [isCreating, setIsCreating] = useState(false);
+
+  const hasActiveConversation = !!activeConversation;
+  const hasMultipleConversations = conversations && conversations.length > 1;
+
+  const handleNewConversation = async () => {
+    if (!activeConversation?.space_id) return;
+    
+    try {
+      setIsCreating(true);
+      await onCreateConversation("New Conversation");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center space-x-1">
+      <BaseTab 
+        icon={<MessageSquare className="w-3 h-3" />}
+        label={activeConversation?.title || "No Conversation Selected"}
+        shortcut="C"
+        commandType="conversations"
+        onClick={() => openCommandType("conversations")}
+      />
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={handleNewConversation}
+              disabled={isCreating || !activeConversation?.space_id}
+              className={cn(
+                "inline-flex items-center justify-center rounded-full w-4 h-4",
+                "text-white/80 bg-white/5 hover:bg-white/10",
+                "border border-white/10 transition-colors",
+                "focus:outline-none focus:ring-2 focus:ring-white/20",
+                (isCreating || !activeConversation?.space_id) && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {isCreating ? (
+                <Check className="w-2 h-2" />
+              ) : (
+                <Plus className="w-2 h-2" />
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>New Conversation</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  );
 }

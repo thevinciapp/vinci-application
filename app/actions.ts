@@ -645,6 +645,77 @@ export async function createMessage(messageData: Partial<Message>, conversationI
     return messageResult.data;
 }
 
+export async function sendMessage({ 
+  content, 
+  spaceId, 
+  conversationId, 
+  searchMode 
+}: { 
+  content: string, 
+  spaceId: string, 
+  conversationId: string, 
+  searchMode: string 
+}): Promise<any> {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+    
+    // Create the user message
+    await createMessage({
+      role: 'user',
+      content,
+    }, conversationId);
+    
+    // Here you would typically process the message with AI and create an assistant response
+    // For now, we'll just create a placeholder response
+    await createMessage({
+      role: 'assistant',
+      content: `You said: ${content}. This is a placeholder response. In a real implementation, this would be a response from the AI model.`,
+    }, conversationId);
+    
+    // Invalidate the messages cache
+    await redis.del(CACHE_KEYS.MESSAGES(conversationId));
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error sending message:', error);
+    return { success: false, error };
+  }
+}
+
+export async function switchConversation(conversationId: string): Promise<void> {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+    
+    // Get the conversation
+    const conversation = await getConversation(conversationId);
+    
+    if (!conversation) {
+      throw new Error("Conversation not found");
+    }
+    
+    // Set the conversation's space as active
+    await setActiveSpace(conversation.space_id);
+    
+    // Note: In a real implementation, you might want to track the active conversation as well
+    // For now, we'll rely on URL parameters for that
+    
+    return;
+  } catch (error) {
+    console.error('Error switching conversation:', error);
+    throw error;
+  }
+}
+
 export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
   const password = formData.get("password")?.toString();

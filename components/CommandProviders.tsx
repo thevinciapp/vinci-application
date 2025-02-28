@@ -205,9 +205,9 @@ export function ApplicationCommandProvider({ children }: { children: ReactNode }
 /**
  * Provider for space-related commands
  */
-export function SpacesCommandProvider({ children }: { children: ReactNode }) {
+export function SpacesCommandProvider({ children, spaces = [], activeSpace = null }: { children: ReactNode, spaces?: any[], activeSpace?: any }) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const { spaces, selectSpace, activeSpace } = useSpaceActions({ showToasts: true });
+  const { selectSpace } = useSpaceActions({ showToasts: true });
   const { openCommandCenter, closeCommandCenter } = useCommandCenter();
 
   const baseCommands = useCallback(
@@ -281,12 +281,11 @@ export function SpacesCommandProvider({ children }: { children: ReactNode }) {
 /**
  * Provider for conversation-related commands
  */
-export function ConversationsCommandProvider({ children }: { children: ReactNode }) {
+export function ConversationsCommandProvider({ children, conversations = [], activeConversation = null, activeSpace = null }: { children: ReactNode, conversations?: any[], activeConversation?: any, activeSpace?: any }) {
   const { closeCommandCenter } = useCommandCenter();
-  const { conversations, createConversation, selectConversation } = useConversationActions({
+  const { createConversation, selectConversation } = useConversationActions({
     showToasts: true,
   });
-  const { activeSpace } = useSpaceActions({ showToasts: true });
 
   type Conversation = {
     id: string;
@@ -355,7 +354,7 @@ export function ConversationsCommandProvider({ children }: { children: ReactNode
 /**
  * Provider for model-related commands
  */
-export function ModelsCommandProvider({ children }: { children: ReactNode }) {
+export function ModelsCommandProvider({ children, activeSpace = null }: { children: ReactNode, activeSpace?: any }) {
   const baseModelCommands = useCallback(
     (): CommandOption[] => [
       {
@@ -444,12 +443,32 @@ export function ActionsCommandProvider({ children }: { children: ReactNode }) {
 /**
  * Combined provider for all command types
  */
-export function AllCommandProviders({ children }: { children: ReactNode }) {
+export function AllCommandProviders({ 
+  children,
+  spaces = [],
+  activeSpace = null,
+  conversations = [],
+  activeConversation = null,
+  user = null,
+  messages = [],
+}: { 
+  children: ReactNode;
+  spaces?: any[];
+  activeSpace?: any;
+  conversations?: any[];
+  activeConversation?: any;
+  user?: any;
+  messages?: any[];
+}) {
   return (
     <ApplicationCommandProvider>
-      <SpacesCommandProvider>
-        <ConversationsCommandProvider>
-          <ModelsCommandProvider>
+      <SpacesCommandProvider spaces={spaces} activeSpace={activeSpace}>
+        <ConversationsCommandProvider 
+          conversations={conversations} 
+          activeConversation={activeConversation}
+          activeSpace={activeSpace}
+        >
+          <ModelsCommandProvider activeSpace={activeSpace}>
             <ActionsCommandProvider>{children}</ActionsCommandProvider>
           </ModelsCommandProvider>
         </ConversationsCommandProvider>

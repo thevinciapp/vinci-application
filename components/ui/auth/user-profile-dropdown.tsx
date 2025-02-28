@@ -21,56 +21,18 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
+import { cn } from '@/lib/utils'
 
 interface UserProfileDropdownProps {
-  user: User
+  user: User;
+  initialNotifications?: any[];
 }
 
-export function UserProfileDropdown({ user }: UserProfileDropdownProps) {
-  const { notifications, unreadCount, setNotifications, addNotification } = useNotificationStore();
-  const [isOpen, setIsOpen] = useState(false);
+export function UserProfileDropdown({ user, initialNotifications = [] }: UserProfileDropdownProps) {
   const [showNotifications, setShowNotifications] = useState(false);
-
-  // Load initial notifications
-  useEffect(() => {
-    const loadNotifications = async () => {
-      const notifications = await getNotifications();
-      setNotifications(notifications);
-    };
-    loadNotifications();
-  }, []);
-
-  // Set up realtime subscription
-  useEffect(() => {
-    const supabase = createClient();
-    
-    // Subscribe to realtime notifications
-    const channel = supabase
-      .channel('notifications')
-      .on('postgres_changes', 
-        { 
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
-        }, 
-        (payload) => {
-          const newNotification = payload.new;
-          if (newNotification) {
-            console.log('New notification received:', newNotification);
-            addNotification(newNotification);
-          }
-        }
-      )
-      .subscribe();
-
-    console.log('Subscribed to notifications channel');
-
-    return () => {
-      console.log('Unsubscribing from notifications channel');
-      channel.unsubscribe();
-    };
-  }, [user.id, addNotification]);
+  const [notifications, setNotifications] = useState<any[]>(initialNotifications);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isOpen, setIsOpen] = useState(false);
 
   const handleMarkAsRead = async (notificationId: string) => {
     await markNotificationAsRead(notificationId);
@@ -83,6 +45,7 @@ export function UserProfileDropdown({ user }: UserProfileDropdownProps) {
     const notifications = await getNotifications();
     setNotifications(notifications);
   };
+  
   const router = useRouter()
   const userInitials = user.email
     ? user.email.substring(0, 2).toUpperCase()

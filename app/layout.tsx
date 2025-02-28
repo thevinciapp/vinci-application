@@ -31,11 +31,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <CommandProvider>
-          {children}
-          <CommandRoot />
-          <Toaster />
-        </CommandProvider>
+        {children}
       </body>
     </html>
   );
