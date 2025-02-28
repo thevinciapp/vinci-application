@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Message, useChat } from "@ai-sdk/react";
-import { ChatMessagesSkeleton } from "@/components/ui/chat/chat-messages-skeleton";
+import { useChat } from "@ai-sdk/react";
 import { SpaceTab } from "@/components/ui/space/space-tab";
 import { ConversationTab } from "@/components/ui/conversation/conversation-tab";
 import QuickActionsTab from "@/components/ui/quick-actions-tab";
@@ -11,13 +10,13 @@ import { ChatModeTab } from "@/components/ui/chat/chat-mode-tab";
 import { ArrowDown, Search, Sparkles } from "lucide-react";
 import { BaseTab } from "@/components/ui/common/base-tab";
 import { User } from "@supabase/supabase-js";
-import { getMessages, setActiveConversation as setActiveConversationDB } from "../../../app/actions";
 import { UnifiedInput } from "@/components/ui/chat/unified-input";
 import { ChatMessages } from "@/components/ui/chat/chat-messages";
 import { UserProfileDropdown } from "@/components/ui/auth/user-profile-dropdown";
 import { useCommandCenter } from "@/hooks/useCommandCenter";
 import { useSpaceActions } from "@/hooks/useSpaceActions";
 import { useConversationActions } from "@/hooks/useConversationActions";
+import { getMessages, getSpaceData } from "@/app/actions";
 
 interface ClientChatContentProps {
   user: User;
@@ -48,59 +47,11 @@ export default function ClientChatContent({
   } = useConversationActions();
 
   const { openCommandType } = useCommandCenter();
-  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const [isStickToBottom, setIsStickToBottom] = useState(true);
   const [searchMode, setSearchMode] = useState<"chat" | "search" | "semantic" | "hybrid">("chat");
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [isLoadingSpaceData, setIsLoadingSpaceData] = useState(false);
 
-  useEffect(() => {
-    if (initialData.spaces) setSpaces(initialData.spaces);
-    if (initialData.activeSpace) setActiveSpace(initialData.activeSpace);
-    if (initialData.conversations) setConversations(initialData.conversations);
-    if (initialData.activeConversation) setActiveConversation(initialData.activeConversation);
-  }, [
-    initialData.spaces,
-    initialData.activeSpace,
-    initialData.conversations,
-    initialData.activeConversation,
-    setSpaces,
-    setActiveSpace,
-    setConversations,
-    setActiveConversation,
-  ]);
-
-  const handleConversationSelect = useCallback(
-    async (conversationId: string) => {
-      if (!conversationId) return;
-
-      setIsMessagesLoading(true);
-      try {
-        const selectedConversation = conversations?.find(
-          (conv) => conv.id === conversationId && !conv.is_deleted
-        );
-
-        if (!selectedConversation) {
-          console.error(`Conversation ${conversationId} not found or has been deleted`);
-          setIsMessagesLoading(false);
-          return;
-        }
-
-        await setActiveConversationDB(conversationId);
-        setActiveConversation(selectedConversation);
-
-        const messageData = await getMessages(conversationId);
-        setMessages(messageData || []);
-      } catch (error) {
-        console.error("Error selecting conversation:", error);
-        setMessages([]);
-      } finally {
-        setIsMessagesLoading(false);
-      }
-    },
-    [conversations, setActiveConversation]
-  );
-
-  // Chat hook setup
   const {
     messages,
     setMessages,
@@ -122,8 +73,60 @@ export default function ClientChatContent({
     onFinish() {
       setData([]);
     },
-    initialMessages: initialData.messages || [],
   });
+
+  useEffect(() => {
+    if (initialData.spaces) setSpaces(initialData.spaces);
+    if (initialData.activeSpace) setActiveSpace(initialData.activeSpace);
+    if (initialData.conversations) setConversations(initialData.conversations);
+    if (initialData.activeConversation) setActiveConversation(initialData.activeConversation);
+    if (initialData.messages) setMessages(initialData.messages);
+  }, [
+    initialData.spaces,
+    initialData.activeSpace,
+    initialData.conversations,
+    initialData.activeConversation,
+    setSpaces,
+    setActiveSpace,
+    setConversations,
+    setMessages,
+    setActiveConversation,
+  ]);
+
+  useEffect(() => {
+    const fetchSpaceData = async () => {
+      if (!activeSpace?.id) return;
+      
+      setIsLoadingSpaceData(true);
+
+      try {
+        const spaceData = await getSpaceData(activeSpace.id);
+        if (!spaceData) return;
+
+        if (spaceData.conversations) {
+          setConversations(spaceData.conversations);
+          setActiveConversation(spaceData.activeConversation);
+        }
+      } catch (error) {
+        console.error('Error fetching space data:', error);
+      } finally {
+        setIsLoadingSpaceData(false);
+      }
+    };
+
+    fetchSpaceData();
+  }, [activeSpace?.id]);
+
+  useEffect(() => {
+    if (activeConversation?.id) {
+      const fetchMessages = async () => {
+        const messages = await getMessages(activeConversation.id);
+        setMessages(messages || []);
+      };
+
+      fetchMessages();
+    }
+  }, [activeConversation?.id]);
 
   const handleScrollToBottom = useCallback(() => {
     const messagesContainer = messagesContainerRef.current;
@@ -133,7 +136,7 @@ export default function ClientChatContent({
         behavior: "smooth",
       });
     }
-  });
+  }, []);
 
   const isLoadingAny =
     isSpacesCreating ||
@@ -141,8 +144,8 @@ export default function ClientChatContent({
     isConversationsCreating ||
     isConversationsUpdating ||
     isConversationsDeleting ||
-    isMessagesLoading ||
-    isChatLoading;
+    isChatLoading ||
+    isLoadingSpaceData;
 
   return (
     <div className="flex flex-col h-full bg-black text-white relative chat-container">
@@ -187,9 +190,6 @@ export default function ClientChatContent({
           <div className="absolute top-[20%] right-[20%] w-[400px] h-[400px] bg-[#D4966A]/[0.015] blur-[100px] rounded-full" />
           <div className="absolute bottom-[10%] left-[30%] w-[600px] h-[600px] bg-[#3ecfff]/[0.01] blur-[130px] rounded-full" />
         </div>
-        {isMessagesLoading ? (
-          <ChatMessagesSkeleton />
-        ) : (
           <ChatMessages
             messages={messages}
             onStickToBottomChange={setIsStickToBottom}
@@ -197,7 +197,6 @@ export default function ClientChatContent({
             isLoading={isChatLoading}
             streamData={data}
           />
-        )}
         <div className="fixed left-1/2 bottom-8 -translate-x-1/2 w-[800px] z-50">
           <div className="relative w-full">
             <UnifiedInput
@@ -230,8 +229,6 @@ export default function ClientChatContent({
                 </div>
                 <div className="flex-shrink min-w-0 flex-1 flex items-center px-1 first:pl-2 last:pr-2 py-1">
                   <ConversationTab
-                    activeConversation={activeConversation}
-                    onConversationSelect={handleConversationSelect}
                   />
                 </div>
               </div>

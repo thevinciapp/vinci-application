@@ -95,7 +95,7 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
     return (
       <div className="relative flex-1 flex flex-col h-full">
         <div
-          ref={containerRef}
+          ref={ref}
           className="messages-container absolute inset-0 overflow-y-auto py-12 px-4 pb-52"
         >
           <div className="max-w-[85%] w-full mx-auto">

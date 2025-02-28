@@ -21,7 +21,6 @@ const CACHE_KEYS = {
   SPACES: (userId: string) => `spaces:${userId}`,
   SPACE: (spaceId: string) => `space:${spaceId}`,
   ACTIVE_SPACE: (userId: string) => `active_space:${userId}`,
-  ACTIVE_CONVERSATION: (userId: string) => `active_conversation:${userId}`,
   CONVERSATIONS: (spaceId: string) => `conversations:${spaceId}`,
   MESSAGES: (conversationId: string) => `messages:${conversationId}`,
   SPACE_DATA: (spaceId: string) => `space_data:${spaceId}`,
@@ -33,7 +32,6 @@ const CACHE_TTL = {
   SPACES: 60 * 5, // 5 minutes
   SPACE: 60 * 5, // 5 minutes
   ACTIVE_SPACE: 60 * 60, // 1 hour
-  ACTIVE_CONVERSATION: 60 * 60, // 1 hour
   CONVERSATIONS: 60 * 5, // 5 minutes
   MESSAGES: 60 * 5, // 5 minutes
   SPACE_DATA: 60 * 5, // 5 minutes
@@ -134,7 +132,7 @@ export async function createSpace(
         return null;
     }
 
-    const { data, error } = await supabase
+    const { data: space, error } = await supabase
         .from(DB_TABLES.SPACES)
         .insert([
             {
@@ -154,16 +152,41 @@ export async function createSpace(
         return null;
     }
 
-    if (data) {
+    if (space) {
         // Invalidate spaces cache
         await redis.del(CACHE_KEYS.SPACES(user.id));
         
         if (setActive) {
-            await setActiveSpace(data.id);
+            await setActiveSpace(space.id);
         }
+
+        // Create a default conversation for the new space
+        const timestamp = new Date().toISOString();
+        const { data: conversation, error: convError } = await supabase
+            .from(DB_TABLES.CONVERSATIONS)
+            .insert([{
+                space_id: space.id,
+                title: "Welcome",
+                created_at: timestamp,
+                updated_at: timestamp,
+                is_deleted: false
+            }])
+            .select()
+            .single();
+
+        if (convError) {
+            console.error("Error creating default conversation:", convError);
+            // Don't return null here as the space was created successfully
+        }
+
+        // Invalidate relevant caches
+        await Promise.all([
+            redis.del(CACHE_KEYS.SPACE_DATA(space.id)),
+            redis.del(CACHE_KEYS.CONVERSATIONS(space.id))
+        ]);
     }
 
-    return data;
+    return space;
 }
 
 export async function updateSpace(id: string, updates: Partial<Space>): Promise<Space | null> {
@@ -291,6 +314,7 @@ export interface SpaceData {
     space: Space | null;
     conversations: Conversation[] | null;
     messages: Message[] | null;
+    activeConversation: Conversation | null;
 }
 
 export async function getSpaceData(spaceId: string): Promise<SpaceData | null> {
@@ -305,7 +329,7 @@ export async function getSpaceData(spaceId: string): Promise<SpaceData | null> {
     }
 
     if (!spaceId) {
-        return { space: null, conversations: [], messages: null };
+        return { space: null, conversations: [], messages: null, activeConversation: null };
     }
 
     const cacheKey = CACHE_KEYS.SPACE_DATA(spaceId);
@@ -343,23 +367,26 @@ export async function getSpaceData(spaceId: string): Promise<SpaceData | null> {
             })
     ]);
 
+    // Get the most recently updated conversation as the active one
+    const activeConversation = conversations && conversations.length > 0 ? conversations[0] : null;
+
     let messages = null;
-    if (conversations.length > 0) {
-        const { data, error } = await supabase
+    if (activeConversation) {
+        const { data: messageData, error: messagesError } = await supabase
             .from(DB_TABLES.MESSAGES)
             .select("*")
-            .eq('conversation_id', conversations[0].id)
+            .eq('conversation_id', activeConversation.id)
             .eq(COLUMNS.IS_DELETED, false)
             .order(COLUMNS.CREATED_AT, { ascending: true });
 
-        if (error) {
-            console.error("Error fetching messages:", error);
+        if (messagesError) {
+            console.error("Error fetching messages:", messagesError);
         } else {
-            messages = data;
+            messages = messageData;
         }
     }
 
-    const spaceData = { space, conversations, messages };
+    const spaceData = { space, conversations, messages, activeConversation };
     await redis.set(cacheKey, spaceData, { ex: CACHE_TTL.SPACE_DATA });
     return spaceData;
 }
@@ -433,96 +460,8 @@ export async function createConversation(spaceId: string, title?: string): Promi
 
     await redis.del(CACHE_KEYS.SPACE_DATA(spaceId));
     await redis.del(CACHE_KEYS.CONVERSATIONS(spaceId));
-    await redis.del(CACHE_KEYS.ACTIVE_CONVERSATION(user.id));
 
     return data;
-}
-
-export async function setActiveConversation(conversationId: string): Promise<void> {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-        console.error("User not found");
-        return;
-    }
-
-    const { error: deleteError } = await supabase
-        .from(DB_TABLES.ACTIVE_CONVERSATIONS)
-        .delete()
-        .eq(COLUMNS.USER_ID, user.id);
-
-    if (deleteError) {
-        console.error("Error removing existing active conversation:", deleteError);
-    }
-
-    const { error: insertError } = await supabase
-        .from(DB_TABLES.ACTIVE_CONVERSATIONS)
-        .insert({
-            [COLUMNS.USER_ID]: user.id,
-            conversation_id: conversationId
-        });
-
-    if (insertError) {
-        console.error("Error setting active conversation:", insertError);
-    } else {
-        // Update cache
-        const conversation = await getConversation(conversationId);
-        if (conversation) {
-            await redis.set(CACHE_KEYS.ACTIVE_CONVERSATION(user.id), conversation, { ex: CACHE_TTL.ACTIVE_CONVERSATION });
-        }
-    }
-}
-
-export async function getActiveConversation(): Promise<Conversation | null> {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-        console.error("User not found");
-        return null;
-    }
-
-    // Try to get from cache first
-    const cacheKey = CACHE_KEYS.ACTIVE_CONVERSATION(user.id);
-    const cachedConversation = await redis.get<Conversation>(cacheKey);
-    if (cachedConversation) {
-        // If the cached conversation is marked as deleted, clear the cache and fetch from DB
-        if (cachedConversation.is_deleted) {
-            await redis.del(cacheKey);
-        } else {
-            return cachedConversation;
-        }
-    }
-
-    const { data: activeConversationData, error: activeConversationError } = await supabase
-        .from(DB_TABLES.ACTIVE_CONVERSATIONS)
-        .select('conversation_id')
-        .eq(COLUMNS.USER_ID, user.id)
-        .single();
-
-    if (activeConversationError || !activeConversationData) {
-        return null;
-    }
-
-    const { data: conversation, error: conversationError } = await supabase
-        .from(DB_TABLES.CONVERSATIONS)
-        .select("*")
-        .eq(COLUMNS.ID, activeConversationData.conversation_id)
-        .eq(COLUMNS.IS_DELETED, false) // Don't return deleted conversations
-        .single();
-
-    if (conversationError) {
-        console.error("Error fetching active conversation:", conversationError);
-        return null;
-    }
-
-    // Cache the result
-    if (conversation) {
-        await redis.set(cacheKey, conversation, { ex: CACHE_TTL.CONVERSATIONS });
-    }
-
-    return conversation;
 }
 
 export async function getConversation(id: string): Promise<Conversation | null> {
@@ -623,13 +562,6 @@ export async function updateConversationTitle(conversationId: string, title: str
                 conv.id === conversationId ? { ...conv, title } : conv
             );
             await redis.set(conversationsCacheKey, updatedConversations, { ex: CACHE_TTL.CONVERSATIONS });
-        }
-
-        // Update active conversation cache if this is the active one
-        const activeCacheKey = CACHE_KEYS.ACTIVE_CONVERSATION(user.id);
-        const cachedActive = await redis.get<Conversation>(activeCacheKey);
-        if (cachedActive && cachedActive.id === conversationId) {
-            await redis.set(activeCacheKey, { ...cachedActive, title }, { ex: CACHE_TTL.ACTIVE_CONVERSATION });
         }
 
         // Update space data cache
@@ -964,7 +896,6 @@ export async function deleteConversation(conversationId: string): Promise<void> 
   const cacheKeys = [
     CACHE_KEYS.CONVERSATIONS(spaceId),        
     CACHE_KEYS.SPACE_DATA(spaceId),            
-    CACHE_KEYS.ACTIVE_CONVERSATION(user.id),  
   ];
 
   try {

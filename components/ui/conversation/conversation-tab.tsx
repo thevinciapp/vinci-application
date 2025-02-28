@@ -6,33 +6,22 @@ import {
   TooltipTrigger,
 } from "@/components/ui/common/tooltip"
 import { BaseTab } from '@/components/ui/common/base-tab'
-import { Conversation } from '@/types'
 import { useSpaceActions } from '@/hooks/useSpaceActions'
 import { cn } from '@/lib/utils'
 import { useCommandCenter } from '@/hooks/useCommandCenter'
 import { useConversationActions } from '@/hooks/useConversationActions'
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
 
-interface ConversationTabProps {
-  activeConversation: Conversation | null
-  onConversationSelect?: (conversationId: string) => Promise<void>
-}
-
-export function ConversationTab({ activeConversation, onConversationSelect }: ConversationTabProps) {
-  const router = useRouter()
-  const { activeSpace, spaces } = useSpaceActions()
+export function ConversationTab() {
+  const { activeSpace } = useSpaceActions()
   const { openCommandType } = useCommandCenter()
   const { 
+    conversations,
+    activeConversation,
+    setActiveConversation,
     createConversation, 
     isCreating, 
     isSuccess 
   } = useConversationActions({
-    onCreateSuccess: async (conversation) => {
-      if (onConversationSelect) {
-        await onConversationSelect(conversation.id)
-      }
-    },
     showToasts: true
   })
 

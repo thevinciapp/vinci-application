@@ -3,7 +3,6 @@ import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 import { 
   createConversation as createConversationAction, 
-  setActiveConversation as setActiveConversationDB,
   updateConversationTitle,
   deleteConversation as deleteConversationAction
 } from '@/app/actions'
@@ -98,7 +97,6 @@ export function useConversationActions(options: UseConversationActionsOptions = 
       
       if (!newConversation) return null
 
-      await setActiveConversationDB(newConversation.id)
       setActiveConversation(newConversation)
       setConversations(conversations ? [newConversation, ...conversations] : [newConversation])
       
@@ -134,7 +132,6 @@ export function useConversationActions(options: UseConversationActionsOptions = 
         return false
       }
       
-      await setActiveConversationDB(conversationId)
       setActiveConversation(conversation)
       await options.onSelectSuccess?.(conversation)
       return true
@@ -233,8 +230,8 @@ export function useConversationActions(options: UseConversationActionsOptions = 
   ])
 
   return {
-    conversations,          // Direct state access
-    activeConversation,     // Direct state access
+    conversations,
+    activeConversation,
     isCreating: operationState.isCreating,
     isUpdating: operationState.isUpdating,
     isDeleting: operationState.isDeleting,

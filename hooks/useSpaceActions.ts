@@ -1,10 +1,10 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 import { 
   createSpace as createSpaceAction,
   setActiveSpace as setActiveSpaceAction,
-  updateSpace as updateSpaceAction
+  updateSpace as updateSpaceAction,
 } from '@/app/actions'
 import { useToast } from '@/hooks/use-toast'
 import { Space } from '@/types'
@@ -30,7 +30,6 @@ interface OperationState {
   isSuccess: boolean
 }
 
-// Store
 const useSpaceStore = create<SpaceStore>()(
   subscribeWithSelector((set) => ({
     spaces: null,
@@ -40,7 +39,6 @@ const useSpaceStore = create<SpaceStore>()(
   }))
 )
 
-// Single Hook with All State and Actions
 export function useSpaceActions(options: UseSpaceActionsOptions = {}) {
   const { toast } = useToast()
   const { spaces, activeSpace, setSpaces, setActiveSpace } = useSpaceStore()
