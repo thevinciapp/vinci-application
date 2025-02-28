@@ -10,7 +10,7 @@ import { Conversation, Space } from "@/types";
 import { Message } from "ai";
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { encodedRedirect } from "@/utils";
+import { encodedRedirect } from "@/lib/utils";
 import { Redis } from "@upstash/redis";
 
 const redis = Redis.fromEnv();
@@ -432,6 +432,8 @@ export async function createConversation(spaceId: string, title?: string): Promi
     }
 
     await redis.del(CACHE_KEYS.SPACE_DATA(spaceId));
+    await redis.del(CACHE_KEYS.CONVERSATIONS(spaceId));
+    await redis.del(CACHE_KEYS.ACTIVE_CONVERSATION(user.id));
 
     return data;
 }

@@ -17,7 +17,7 @@ export function CommandShortcuts() {
   }); 
 
   useModalHotkey("spaces", "meta+s");
-  useModalHotkey("conversations", "meta+t");
+  useModalHotkey("conversations", "meta+b");
   useModalHotkey("models", "meta+m");
   useModalHotkey("actions", "meta+a");
 

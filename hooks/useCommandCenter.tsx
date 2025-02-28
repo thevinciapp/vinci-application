@@ -53,6 +53,7 @@ export function CommandProvider({ children }: { children: ReactNode }) {
   // Command center controls
   const openCommandCenter = useCallback(() => setIsOpen(true), []);
   const closeCommandCenter = useCallback(() => {
+    console.log('closeCommandCenter called');
     setIsOpen(false);
     setSearchQuery('');
     setActiveCommandType(null);
@@ -99,6 +100,7 @@ export function CommandProvider({ children }: { children: ReactNode }) {
       setActiveCommandType(type);
       if (!isOpen) {
         setIsOpen(true);
+        console.log('Opening command center');
       }
     }
   }, [isOpen, activeCommandType, closeCommandType]);
@@ -113,6 +115,8 @@ export function CommandProvider({ children }: { children: ReactNode }) {
 
   // Command registration - properly memoized to prevent infinite loops
   const registerCommand = useCallback((command: CommandOption) => {
+    console.log('registerCommand called with:', command);
+
     if (!isMounted.current) return;
     
     setCommands(prev => {
@@ -136,6 +140,8 @@ export function CommandProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const unregisterCommand = useCallback((commandId: string) => {
+    console.log('unregisterCommand called with:', commandId);
+
     if (!isMounted.current) return;
     
     setCommands(prev => {
@@ -217,46 +223,61 @@ export function useCommandCenter() {
 export function useCommandRegistration(commands: CommandOption[]) {
   const { registerCommand, unregisterCommand } = useCommandCenter();
   
-  // Use a ref to store the previous commands for comparison
   const commandsRef = useRef<CommandOption[]>([]);
   
   useEffect(() => {
-    // Compare current commands with previous commands
-    const newCommands = commands.filter(
-      cmd => !commandsRef.current.some(prevCmd => prevCmd.id === cmd.id)
-    );
+    console.log(`useCommandRegistration - commands changed, count: ${commands.length}`);
     
+    // Make a deep copy of incoming commands to prevent reference issues
+    const currentCommands = [...commands];
+    
+    // Find commands that were previously registered but are no longer in the current list
     const removedCommands = commandsRef.current.filter(
-      prevCmd => !commands.some(cmd => cmd.id === prevCmd.id)
+      prevCmd => !currentCommands.some(cmd => cmd.id === prevCmd.id)
     );
     
-    // Only register new commands
-    newCommands.forEach(command => {
-      registerCommand(command);
-    });
-    
-    // Only unregister removed commands
+    // Unregister removed commands
     removedCommands.forEach(command => {
+      console.log(`Unregistering command: ${command.id}`);
       unregisterCommand(command.id);
     });
     
-    // Update the ref with current commands
-    commandsRef.current = [...commands];
+    // Find new commands that weren't previously registered
+    const newCommands = currentCommands.filter(
+      cmd => !commandsRef.current.some(prevCmd => prevCmd.id === cmd.id)
+    );
     
-    // Cleanup function only needs to unregister commands that still exist in the latest render
-    return () => {
-      commandsRef.current.forEach(command => {
-        unregisterCommand(command.id);
-      });
-    };
-  }, [registerCommand, unregisterCommand]);
+    // Register new commands
+    newCommands.forEach(command => {
+      console.log(`Registering new command: ${command.id}`);
+      registerCommand(command);
+    });
+    
+    // Also update any commands that might have changed but kept the same ID
+    const updatedCommands = currentCommands.filter(
+      cmd => commandsRef.current.some(prevCmd => 
+        prevCmd.id === cmd.id && 
+        (prevCmd.name !== cmd.name || 
+         prevCmd.description !== cmd.description ||
+         JSON.stringify(prevCmd.keywords) !== JSON.stringify(cmd.keywords))
+      )
+    );
+    
+    // Re-register updated commands
+    updatedCommands.forEach(command => {
+      console.log(`Updating command: ${command.id}`);
+      registerCommand(command);
+    });
+    
+    // Update our ref to the current commands array
+    commandsRef.current = currentCommands;
+    
+  }, [commands, registerCommand, unregisterCommand]);
 }
 
-// New hook for creating modal-specific hotkeys
 export function useModalHotkey(type: CommandType, hotkey: string) {
   const { openCommandType } = useCommandCenter();
   
-  // Using options to ensure hotkeys work even when focus is inside the modal
   useHotkeys(hotkey, (event) => {
     event.preventDefault();
     console.log('Hotkey pressed:', hotkey);

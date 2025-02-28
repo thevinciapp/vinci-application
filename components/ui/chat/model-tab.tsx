@@ -1,12 +1,19 @@
 import { getModelName, type Provider } from '@/config/models'
 import { ProviderIcon } from './provider-icon'
 import React from 'react'
-import { useSpaceStore } from '@/stores/space-store'
 import { BaseTab } from '@/components/ui/common/base-tab'
+import { useCommandCenter } from '@/hooks/useCommandCenter'
+import { useSpaceActions } from '@/hooks/useSpaceActions'
 
-export const ModelTab = () => {
-  const activeSpace = useSpaceStore((state) => state.activeSpace)
+export function ModelTab() {
+  const { activeSpace } = useSpaceActions()
+  const { openCommandType } = useCommandCenter()
   const hasModel = !!(activeSpace?.provider && activeSpace?.model)
+  
+  // Get model name safely, handling undefined values
+  const modelName = hasModel && activeSpace?.model 
+    ? getModelName(activeSpace.provider as Provider, activeSpace.model) 
+    : 'No Model Selected';
 
   return (
     <BaseTab
@@ -19,10 +26,12 @@ export const ModelTab = () => {
       ) : (
         <div className='w-3.5 h-3.5 rounded-full bg-gray-500/50 shrink-0' />
       )}
-      label={hasModel ? getModelName(activeSpace.provider as Provider, activeSpace.model) : 'No Model Selected'}
+      label={modelName}
       shortcut="M"
       isActive={hasModel}
       minWidth="model"
+      commandType="models"
+      onClick={() => openCommandType("models")}
     />
   )
 }

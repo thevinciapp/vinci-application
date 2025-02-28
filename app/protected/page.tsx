@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { createSpace, getActiveSpace, getSpaces, setActiveSpace, createConversation, getMessages, getSpaceData } from "../actions";
 import { DEFAULTS } from "@/constants";
 import { AVAILABLE_MODELS, type Provider } from "@/config/models";
+import { Providers } from "@/components/providers/Providers";
 
 const DEFAULT_PROVIDER: Provider = 'anthropic'
 const DEFAULT_MODEL = AVAILABLE_MODELS[DEFAULT_PROVIDER][0].id
@@ -53,20 +54,26 @@ export default async function ChatPage() {
     activeSpace = spaceData.space;
   }
 
-  const defaultConversations = spaceData?.conversations || [];
-  const defaultMessages = defaultConversations.length > 0 
-    ? await getMessages(defaultConversations[0].id)
+  const conversations = spaceData?.conversations || [];
+  const activeConversation = conversations.length > 0 ? conversations[0] : null;
+  const messages = conversations.length > 0 
+    ? await getMessages(conversations[0].id)
     : null;
 
+  const initialData = {
+    spaces,
+    activeSpace,
+    conversations,
+    activeConversation,
+    messages
+  };
+
   return (
-      <div className="flex flex-col h-screen bg-black text-white">
+    <div className="flex flex-col h-screen bg-black text-white">
         <ClientChatContent
           user={user}
-          defaultSpace={activeSpace}
-          defaultConversations={defaultConversations}
-          defaultMessages={defaultMessages}
-          spaces={spaces}
+          initialData={initialData}
         />
-      </div>
+    </div>
   );
 }

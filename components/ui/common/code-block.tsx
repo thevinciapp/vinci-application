@@ -1,6 +1,6 @@
 "use client"
 
-import { cn } from "@/utils"
+import { cn } from "@/lib/utils"
 import React, { useEffect, useState } from "react"
 import { codeToHtml } from "shiki"
 import { LanguageIcon } from "../chat/language-icon"

@@ -1,5 +1,4 @@
 import { MessageSquare, Plus, Check } from 'lucide-react'
-import { useState } from 'react'
 import {
   Tooltip,
   TooltipContent,
@@ -8,11 +7,12 @@ import {
 } from "@/components/ui/common/tooltip"
 import { BaseTab } from '@/components/ui/common/base-tab'
 import { Conversation } from '@/types'
-import { useSpaceStore } from '@/stores/space-store'
-import { useConversationStore } from '@/stores/conversation-store'
-import { createConversation, setActiveConversation as setActiveConversationDB } from '@/app/actions'
-import { cn } from '@/utils'
-import { useToast } from '@/hooks/use-toast'
+import { useSpaceActions } from '@/hooks/useSpaceActions'
+import { cn } from '@/lib/utils'
+import { useCommandCenter } from '@/hooks/useCommandCenter'
+import { useConversationActions } from '@/hooks/useConversationActions'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 
 interface ConversationTabProps {
   activeConversation: Conversation | null
@@ -20,46 +20,25 @@ interface ConversationTabProps {
 }
 
 export function ConversationTab({ activeConversation, onConversationSelect }: ConversationTabProps) {
-  const { activeSpace } = useSpaceStore()
-  const { setActiveConversation, conversations, setConversations } = useConversationStore()
-  const { toast } = useToast()
-  const [isCreating, setIsCreating] = useState(false)
-  const [showSuccess, setShowSuccess] = useState(false)
+  const router = useRouter()
+  const { activeSpace, spaces } = useSpaceActions()
+  const { openCommandType } = useCommandCenter()
+  const { 
+    createConversation, 
+    isCreating, 
+    isSuccess 
+  } = useConversationActions({
+    onCreateSuccess: async (conversation) => {
+      if (onConversationSelect) {
+        await onConversationSelect(conversation.id)
+      }
+    },
+    showToasts: true
+  })
 
   const handleNewConversation = async () => {
-    if (!activeSpace || isCreating) return
-    
-    try {
-      setIsCreating(true)
-      const newConversation = await createConversation(activeSpace.id, 'New Conversation')
-      
-      if (newConversation) {
-        await setActiveConversationDB(newConversation.id)
-        setActiveConversation(newConversation)
-        
-        if (conversations) {
-          setConversations([newConversation, ...conversations])
-        } else {
-          setConversations([newConversation])
-        }
-        
-        if (onConversationSelect) {
-          await onConversationSelect(newConversation.id)
-        }
-
-        setShowSuccess(true)
-        setTimeout(() => setShowSuccess(false), 1500)
-        
-        toast({
-          title: 'New Conversation Created',
-          description: 'You can start chatting right away.',
-          variant: "success",
-          duration: 2000,
-        });
-      }
-    } finally {
-      setIsCreating(false)
-    }
+    if (!activeSpace) return
+    await createConversation('New Conversation')
   }
 
   return (
@@ -72,6 +51,8 @@ export function ConversationTab({ activeConversation, onConversationSelect }: Co
             shortcut="D"
             minWidth="space"
             className="overflow-hidden text-ellipsis"
+            commandType="conversations"
+            onClick={() => openCommandType("conversations")}
           />
         </div>
       ) : null}
@@ -79,7 +60,7 @@ export function ConversationTab({ activeConversation, onConversationSelect }: Co
         <Tooltip>
           <TooltipTrigger asChild>
             <button
-              onClick={handleNewConversation}
+              onClick={() => handleNewConversation()}
               className={cn(
                 'h-full p-2 flex items-center rounded-md border-white/[0.08]',
                 'hover:bg-white/[0.08] bg-white/[0.03] active:bg-white/[0.02]',
@@ -89,7 +70,7 @@ export function ConversationTab({ activeConversation, onConversationSelect }: Co
               )}
               disabled={!activeSpace || isCreating}
             >
-              {showSuccess ? (
+              {isSuccess ? (
                 <Check className="w-3 h-3 text-emerald-400 animate-in fade-in-0 zoom-in-95" />
               ) : (
                 <Plus className={cn(

@@ -3,7 +3,7 @@ import { memo, useId, useMemo } from "react"
 import ReactMarkdown, { Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { CodeBlock } from "../common/code-block"
-import { cn } from "@/utils"
+import { cn } from "@/lib/utils"
 
 export type MarkdownProps = {
   children: string

@@ -19,7 +19,6 @@ export const metadata: Metadata = {
   title: "Vinci",
   description: "Vinci App",
 };
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -35,8 +34,8 @@ export default function RootLayout({
         <CommandProvider>
           {children}
           <CommandRoot />
+          <Toaster />
         </CommandProvider>
-        <Toaster />
       </body>
     </html>
   );

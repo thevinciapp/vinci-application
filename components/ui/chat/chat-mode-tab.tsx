@@ -28,8 +28,21 @@ const getModeLabel = (mode: string) => {
 }
 
 export const ChatModeTab: React.FC<ChatModeTabProps> = ({ mode, onModeChange }) => {
-
+  // Cycle through modes when tab is clicked
   const handleClick = () => {
+    // Define the order of modes to cycle through
+    const modes: Array<'chat' | 'search' | 'semantic' | 'hybrid'> = [
+      'chat', 'search', 'semantic', 'hybrid'
+    ];
+    
+    // Find current mode index
+    const currentIndex = modes.indexOf(mode);
+    
+    // Get next mode (cycling back to beginning if at the end)
+    const nextIndex = (currentIndex + 1) % modes.length;
+    
+    // Call the onModeChange callback with the next mode
+    onModeChange(modes[nextIndex]);
   }
 
   return (
@@ -38,7 +51,7 @@ export const ChatModeTab: React.FC<ChatModeTabProps> = ({ mode, onModeChange }) 
       label={getModeLabel(mode)}
       shortcut="C"
       isActive={true}
-      minWidth="mode"
+      minWidth="model"
       onClick={handleClick}
     />
   )

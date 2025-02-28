@@ -1,4 +1,5 @@
 import { ReactNode, CSSProperties } from 'react'
+import { CommandType } from '@/hooks/useCommandCenter'
 
 interface BaseTabProps {
   icon?: ReactNode
@@ -13,6 +14,7 @@ interface BaseTabProps {
   className?: string
   color?: string
   rightElement?: ReactNode
+  commandType?: CommandType
 }
 
 export function BaseTab({
@@ -25,7 +27,8 @@ export function BaseTab({
   style,
   wrapperStyle,
   className = '',
-  rightElement
+  rightElement,
+  commandType
 }: BaseTabProps) {
   const minWidthClass = {
     space: 'min-w-[100px]',
