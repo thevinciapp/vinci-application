@@ -1,4 +1,4 @@
-import { forgotPasswordAction } from "@/app/actions";
+import { forgotPasswordAction } from "@/app/actions/auth";
 import { FormMessage, Message } from "@/components/ui/auth/form-message";
 import { SubmitButton } from "@/components/ui/auth/submit-button";
 import { Input } from "@/components/ui/common/input";

@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import ClientChatContent from "@/components/ui/chat/chat-content-client";
 import { createClient } from "@/utils/supabase/server";
-import { getSpaceData, setActiveSpace, getMessages, getSpaces, getNotifications } from "@/app/actions";   
+import { getSpaceData, setActiveSpace, getSpaces } from "@/app/actions/spaces";
+import { getMessages } from "@/app/actions/conversations";
+import { getNotifications } from "@/app/actions/notifications";
 import { Toaster } from "@/components/ui/common/toaster";
 import { CommandProvider } from "@/hooks/useCommandCenter";
 import { AllCommandProviders } from "@/components/CommandProviders";
@@ -25,14 +27,14 @@ export default async function ConversationPage({
   await setActiveSpace(spaceId);
   
   // Get comprehensive space data
-  const spaceData = await getSpaceData(spaceId);
+  const spaceDataResponse = await getSpaceData(spaceId);
   
-  if (!spaceData || !spaceData.space) {
+  if (!spaceDataResponse.data || !spaceDataResponse.data.space) {
     // Space not found, redirect to spaces page
     redirect("/protected/spaces");
   }
   
-  const { space, conversations: spaceConversations } = spaceData;
+  const { space, conversations: spaceConversations } = spaceDataResponse.data;
   const conversations = spaceConversations || [];
   
   // Find the active conversation
@@ -45,23 +47,23 @@ export default async function ConversationPage({
     redirect(`/protected/spaces/${spaceId}/conversations`);
   }
   
-  const messages = await getMessages(conversationId);
+  const messagesResponse = await getMessages(conversationId);
   
-  const spaces = await getSpaces();
+  const spacesResponse = await getSpaces();
   
-  const notifications = await getNotifications();
+  const notificationsResponse = await getNotifications();
   
   const allMessages: Record<string, any[]> = {};
-  allMessages[conversationId] = messages || [];
+  allMessages[conversationId] = messagesResponse.data || [];
   
   const initialData = {
-    spaces: spaces || [],
+    spaces: spacesResponse.data || [],
     activeSpace: space,
     conversations,
     activeConversation,
-    messages: messages || [],
+    messages: messagesResponse.data || [],
     allMessages,
-    notifications,
+    notifications: notificationsResponse.data || [],
   };
 
   return (

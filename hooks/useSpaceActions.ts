@@ -1,54 +1,31 @@
-import { useState, useCallback, useEffect } from 'react'
-import { create } from 'zustand'
-import { subscribeWithSelector } from 'zustand/middleware'
+import { useCallback, useState } from 'react'
 import { 
   createSpace as createSpaceAction,
   setActiveSpace as setActiveSpaceAction,
   updateSpace as updateSpaceAction,
+  getSpaceData,
 } from '@/app/actions'
 import { useToast } from '@/hooks/use-toast'
 import { Space } from '@/types'
+import { useRouter } from 'next/navigation'
 
 // Types
 interface UseSpaceActionsOptions {
-  onCreateSuccess?: (space: Space) => Promise<void> | void
-  onSelectSuccess?: (space: Space) => Promise<void> | void
-  onUpdateSuccess?: (space: Space) => Promise<void> | void
   showToasts?: boolean
 }
 
-interface SpaceStore {
-  spaces: Space[] | null
-  activeSpace: Space | null
-  setSpaces: (spaces: Space[] | null) => void
-  setActiveSpace: (space: Space | null) => void
-}
-
-interface OperationState {
-  isCreating: boolean
-  isUpdating: boolean
-  isSuccess: boolean
-}
-
-const useSpaceStore = create<SpaceStore>()(
-  subscribeWithSelector((set) => ({
-    spaces: null,
-    activeSpace: null,
-    setSpaces: (spaces) => set({ spaces }),
-    setActiveSpace: (activeSpace) => set({ activeSpace })
-  }))
-)
-
+/**
+ * Hook for space-related actions
+ * This hook doesn't manage any state - it simply provides methods to call server actions,
+ * handle routing, and display toast notifications
+ */
 export function useSpaceActions(options: UseSpaceActionsOptions = {}) {
   const { toast } = useToast()
-  const { spaces, activeSpace, setSpaces, setActiveSpace } = useSpaceStore()
+  const router = useRouter()
+  // Add loading state - this is the only state this hook maintains
+  const [loadingSpaceId, setLoadingSpaceId] = useState<string | null>(null)
   
-  const [operationState, setOperationState] = useState<OperationState>({
-    isCreating: false,
-    isUpdating: false,
-    isSuccess: false
-  })
-
+  // Helper for showing toast notifications
   const showToast = useCallback((
     title: string,
     description: string,
@@ -59,15 +36,9 @@ export function useSpaceActions(options: UseSpaceActionsOptions = {}) {
     }
   }, [toast, options.showToasts])
 
-  const setSuccessBriefly = useCallback(() => {
-    setOperationState(prev => ({ ...prev, isSuccess: true }))
-    const timeout = setTimeout(() => 
-      setOperationState(prev => ({ ...prev, isSuccess: false })), 
-      1500
-    )
-    return () => clearTimeout(timeout)
-  }, [])
-
+  /**
+   * Create a new space
+   */
   const createSpace = useCallback(async (
     name: string,
     description = '',
@@ -75,96 +46,121 @@ export function useSpaceActions(options: UseSpaceActionsOptions = {}) {
     provider: string,
     color?: string
   ): Promise<Space | null> => {
-    if (operationState.isCreating) {
-      console.warn('Space creation already in progress')
-      return null
-    }
-
     try {
-      setOperationState(prev => ({ ...prev, isCreating: true }))
+      // Set loading state
+      setLoadingSpaceId('creating')
+      
+      // Create the space using server action
       const newSpace = await createSpaceAction(name, description, model, provider, true, color)
       
-      if (!newSpace) return null
+      if (!newSpace) {
+        setLoadingSpaceId(null)
+        return null
+      }
 
-      setActiveSpace(newSpace)
-      setSpaces(spaces ? [newSpace, ...spaces] : [newSpace])
+      // Get space data to find the default conversation
+      const spaceData = await getSpaceData(newSpace.id)
       
-      await options.onCreateSuccess?.(newSpace)
-      setSuccessBriefly()
+      // Route to the conversation
+      if (spaceData && spaceData.conversations && spaceData.conversations.length > 0) {
+        // Route to the first conversation
+        router.push(`/protected/spaces/${newSpace.id}/conversations/${spaceData.conversations[0].id}`)
+      } else {
+        // If no conversations found, just route to the space
+        router.push(`/protected/spaces/${newSpace.id}/conversations`)
+      }
+      
+      // Show success toast
       showToast('Space Created', 'Your new workspace is ready', 'success')
+      
+      // Reset loading state
+      setLoadingSpaceId(null)
       return newSpace
     } catch (error) {
       console.error('Failed to create space:', error)
       showToast('Creation Failed', 'Could not create space', 'destructive')
+      setLoadingSpaceId(null)
       return null
-    } finally {
-      setOperationState(prev => ({ ...prev, isCreating: false }))
     }
-  }, [spaces, setSpaces, setActiveSpace, options.onCreateSuccess, showToast, setSuccessBriefly])
+  }, [router, showToast])
 
+  /**
+   * Select a space - sets it as the active space
+   */
   const selectSpace = useCallback(async (spaceId: string): Promise<boolean> => {
     try {
-      const space = spaces?.find(s => s.id === spaceId)
-      if (!space) {
-        console.warn('Space not found:', spaceId)
-        return false
-      }
-
+      // Set loading state
+      setLoadingSpaceId(spaceId)
+      
+      // Set active space on server
       await setActiveSpaceAction(spaceId)
-      setActiveSpace(space)
-      await options.onSelectSuccess?.(space)
+      
+      // Simply navigate to the conversations page for this space
+      router.push(`/protected/spaces/${spaceId}/conversations`)
+      
+      // Note: We don't clear the loading state here
+      // It will be cleared by the parent component when navigation completes
+      
       return true
     } catch (error) {
       console.error('Failed to select space:', error)
       showToast('Selection Failed', 'Could not select space', 'destructive')
+      // Reset loading state on error
+      setLoadingSpaceId(null)
       return false
     }
-  }, [spaces, setActiveSpace, options.onSelectSuccess, showToast])
+  }, [router, showToast, setLoadingSpaceId])
 
+  /**
+   * Update an existing space
+   */
   const updateSpace = useCallback(async (
     spaceId: string,
     updates: Partial<Space>
   ): Promise<boolean> => {
-    if (operationState.isUpdating) {
-      console.warn('Space update already in progress')
-      return false
-    }
-
     try {
-      setOperationState(prev => ({ ...prev, isUpdating: true }))
+      // Set loading state
+      setLoadingSpaceId(spaceId)
+      
+      // Update space on server
       const updatedSpace = await updateSpaceAction(spaceId, updates)
       
-      if (!updatedSpace) return false
-
-      if (spaces) {
-        setSpaces(spaces.map(s => s.id === spaceId ? updatedSpace : s))
-      }
-      if (activeSpace?.id === spaceId) {
-        setActiveSpace(updatedSpace)
+      if (!updatedSpace) {
+        setLoadingSpaceId(null)
+        return false
       }
       
-      await options.onUpdateSuccess?.(updatedSpace)
       showToast('Space Updated', 'Changes saved successfully', 'success')
+      
+      // Reset loading state
+      setLoadingSpaceId(null)
       return true
     } catch (error) {
       console.error('Failed to update space:', error)
       showToast('Update Failed', 'Could not update space', 'destructive')
+      // Reset loading state
+      setLoadingSpaceId(null)
       return false
-    } finally {
-      setOperationState(prev => ({ ...prev, isUpdating: false }))
     }
-  }, [spaces, activeSpace, setSpaces, setActiveSpace, options.onUpdateSuccess, showToast])
+  }, [showToast])
+
+  /**
+   * Check if a space is currently loading
+   */
+  const isLoadingSpace = useCallback((spaceId?: string) => {
+    if (!spaceId) {
+      // Return true if any space is loading
+      return loadingSpaceId !== null
+    }
+    // Return true if this specific space is loading
+    return loadingSpaceId === spaceId
+  }, [loadingSpaceId])
 
   return {
-    spaces,              // Direct state access
-    activeSpace,         // Direct state access
-    isCreating: operationState.isCreating,
-    isUpdating: operationState.isUpdating,
-    isSuccess: operationState.isSuccess,
-    setSpaces,
-    setActiveSpace,
     createSpace,
     selectSpace,
-    updateSpace
+    updateSpace,
+    isLoadingSpace,
+    loadingSpaceId
   }
 }

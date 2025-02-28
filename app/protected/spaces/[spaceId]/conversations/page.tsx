@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
-import { getSpaceData, setActiveSpace, createConversation } from "@/app/actions";
+import { getSpaceData, setActiveSpace } from "@/app/actions/spaces";
+import { createConversation } from "@/app/actions/conversations";
 
 export default async function SpaceConversationsPage({
   params
@@ -20,14 +21,14 @@ export default async function SpaceConversationsPage({
   await setActiveSpace(spaceId);
   
   // Get comprehensive space data
-  const spaceData = await getSpaceData(spaceId);
+  const spaceDataResponse = await getSpaceData(spaceId);
   
-  if (!spaceData || !spaceData.space) {
+  if (!spaceDataResponse.data || !spaceDataResponse.data.space) {
     // Space not found, redirect to spaces page
     redirect("/protected/spaces");
   }
   
-  const { space, conversations } = spaceData;
+  const { space, conversations } = spaceDataResponse.data;
   
   // If there are conversations, redirect to the first one
   if (conversations && conversations.length > 0) {
@@ -35,11 +36,11 @@ export default async function SpaceConversationsPage({
   }
   
   // No conversations exist, create a default one
-  const conversation = await createConversation(spaceId, "Welcome");
-  if (!conversation) {
+  const conversationResponse = await createConversation(spaceId, "Welcome");
+  if (!conversationResponse.data) {
     throw new Error("Failed to create conversation for space");
   }
   
   // Redirect to the new conversation
-  redirect(`/protected/spaces/${spaceId}/conversations/${conversation.id}`);
+  redirect(`/protected/spaces/${spaceId}/conversations/${conversationResponse.data.id}`);
 } 

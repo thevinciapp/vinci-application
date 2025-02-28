@@ -35,7 +35,7 @@ export function ServerDrivenModelTab({
   onUpdateSpace 
 }: { 
   activeSpace: any,
-  onUpdateSpace: (spaceId: string, updates: any) => Promise<void>
+  onUpdateSpace: (spaceId: string, updates: any) => Promise<any>
 }) {
   const { openCommandType } = useCommandCenter()
   const hasModel = !!(activeSpace?.provider && activeSpace?.model)

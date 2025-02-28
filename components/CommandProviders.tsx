@@ -1,6 +1,6 @@
 "use client";
 
-import React, { ReactNode, useEffect, useState, useRef, useCallback } from "react";
+import React, { ReactNode, useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { CommandOption, useCommandRegistration, CommandType } from "@/hooks/useCommandCenter";
 import { Settings, Search, Plus, MessageSquare, Brain, Command } from "lucide-react";
 import { AVAILABLE_MODELS, PROVIDER_NAMES, Provider } from "@/config/models";
@@ -46,12 +46,8 @@ export function CreateSpaceDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const initialRenderRef = useRef(true);
 
-  const { createSpace, isCreating } = useSpaceActions({
-    showToasts: true,
-    onCreateSuccess: () => {
-      onSuccess?.();
-      onOpenChange(false);
-    },
+  const { createSpace } = useSpaceActions({
+    showToasts: true
   });
 
   // Reset form when dialog opens and handle reopen logic
@@ -65,7 +61,7 @@ export function CreateSpaceDialog({
     } else if (!open && !isSubmitting && reopenCommandCenter && !initialRenderRef.current) {
       reopenCommandCenter();
     }
-  }, [open, reopenCommandCenter]);
+  }, [open, reopenCommandCenter, isSubmitting]);
 
   // Set default model when provider changes
   useEffect(() => {
@@ -77,16 +73,20 @@ export function CreateSpaceDialog({
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      if (isSubmitting || isCreating) return;
+      if (isSubmitting) return;
 
       setIsSubmitting(true);
       try {
-        await createSpace(name, description, model, provider);
+        const result = await createSpace(name, description, model, provider);
+        if (result) {
+          onSuccess?.();
+          onOpenChange(false);
+        }
       } finally {
         setIsSubmitting(false);
       }
     },
-    [isSubmitting, isCreating, name, description, model, provider, createSpace]
+    [isSubmitting, name, description, model, provider, createSpace, onSuccess, onOpenChange]
   );
 
   return (
@@ -156,8 +156,8 @@ export function CreateSpaceDialog({
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={isSubmitting || isCreating || !name || !model || !provider}>
-              {isSubmitting || isCreating ? "Creating..." : "Create Space"}
+            <Button type="submit" disabled={isSubmitting || !name || !model || !provider}>
+              {isSubmitting ? "Creating..." : "Create Space"}
             </Button>
           </DialogFooter>
         </form>
@@ -210,8 +210,18 @@ export function ApplicationCommandProvider({ children }: { children: ReactNode }
  */
 export function SpacesCommandProvider({ children, spaces = [], activeSpace = null }: { children: ReactNode, spaces?: any[], activeSpace?: any }) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [loadingSpaceId, setLoadingSpaceId] = useState<string | null>(null);
   const { selectSpace } = useSpaceActions({ showToasts: true });
   const { openCommandCenter, closeCommandCenter } = useCommandCenter();
+
+  // Reset loading state when spaces change (this means the routing completed)
+  useEffect(() => {
+    if (loadingSpaceId) {
+      // Close the command center if it was kept open during loading
+      closeCommandCenter();
+      setLoadingSpaceId(null);
+    }
+  }, [spaces, activeSpace, closeCommandCenter, loadingSpaceId]);
 
   const baseCommands = useCallback(
     (): CommandOption[] => [
@@ -240,44 +250,101 @@ export function SpacesCommandProvider({ children, spaces = [], activeSpace = nul
     active_conversation_id?: string;
   };
 
+  // Get the loading space name for display
+  const loadingSpaceName = useMemo(() => {
+    if (!loadingSpaceId) return null;
+    const space = spaces?.find(s => s.id === loadingSpaceId);
+    return space?.name || "space";
+  }, [loadingSpaceId, spaces]);
+
+  // Callback wrapper for selectSpace to handle navigation wait
+  const handleSelectSpace = useCallback(async (spaceId: string) => {
+    // Don't allow selection if already loading
+    if (loadingSpaceId !== null) return;
+    
+    // Set loading state for this space
+    setLoadingSpaceId(spaceId);
+    
+    try {
+      // This triggers navigation through router.push
+      await selectSpace(spaceId);
+      
+      // Note: The command center will be closed by the useEffect when spaces/activeSpace changes
+      // as a result of the navigation completing
+    } catch (error) {
+      // Reset loading state if there's an error
+      setLoadingSpaceId(null);
+      closeCommandCenter(); // Close immediately on error
+    }
+  }, [loadingSpaceId, selectSpace, closeCommandCenter]);
+
   const spaceCommands = useCallback((): CommandOption[] => {
     return (
       spaces
         ?.sort((a: Space, b: Space) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
         .map((space) => ({
           id: `space-${space.id}`,
-          name: space.name,
-          description: space.description || "Switch to this workspace",
+          name: loadingSpaceId === space.id ? `Loading ${space.name}...` : space.name,
+          description: loadingSpaceId === space.id 
+            ? "Switching workspace..." 
+            : (space.description || "Switch to this workspace"),
           icon: (
             <div className="flex items-center gap-2">
-              <DotSphere 
-                size={22} 
-                seed={space.id} 
-                dotCount={90} 
-                dotSize={0.7} 
-                expandFactor={1.15} 
-                transitionSpeed={400}
-              />
-              {activeSpace?.id === space.id && (
+              {loadingSpaceId === space.id ? (
+                <div className="h-5 w-5 animate-pulse rounded-full bg-cyan-500/30 flex items-center justify-center">
+                  <div className="h-3 w-3 rounded-full bg-cyan-500/50 animate-pulse"></div>
+                </div>
+              ) : (
+                <DotSphere 
+                  size={22} 
+                  seed={space.id} 
+                  dotCount={90} 
+                  dotSize={0.7} 
+                  expandFactor={1.15} 
+                  transitionSpeed={400}
+                />
+              )}
+              {activeSpace?.id === space.id && !loadingSpaceId && (
                 <span className="text-[10px] font-medium bg-cyan-500/20 text-cyan-500 rounded-full px-2 py-0.5">
                   Active
+                </span>
+              )}
+              {loadingSpaceId === space.id && (
+                <span className="text-[10px] font-medium bg-cyan-500/20 text-cyan-500 rounded-full px-2 py-0.5 animate-pulse">
+                  Loading<span className="loading-dots"></span>
                 </span>
               )}
             </div>
           ),
           type: "spaces" as CommandType,
           keywords: ["space", "workspace", "switch", space.name],
-          action: async () => {
-            await selectSpace(space.id);
+          disabled: loadingSpaceId !== null, // Disable all space selection while one is loading
+          action: () => {
+            handleSelectSpace(space.id);
           },
         })) ?? []
     );
-  }, [spaces, selectSpace, activeSpace]);
+  }, [spaces, activeSpace, loadingSpaceId, handleSelectSpace]);
 
   useCommandRegistration([...baseCommands(), ...spaceCommands()]);
 
   return (
     <>
+      {/* Global loading indicator when selecting a space */}
+      {loadingSpaceId && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+          <div className="bg-black/80 border border-cyan-500/20 p-4 rounded-lg shadow-lg flex flex-col items-center gap-3 max-w-xs">
+            <div className="relative w-12 h-12">
+              <div className="absolute inset-0 rounded-full border-2 border-cyan-500/20 border-t-cyan-500 animate-spin"></div>
+              <div className="absolute inset-2 rounded-full border-2 border-cyan-500/10 border-b-cyan-400 animate-spin" style={{ animationDuration: '1.5s' }}></div>
+            </div>
+            <p className="text-white/80 text-sm font-medium">
+              Switching to {loadingSpaceName}<span className="loading-dots"></span>
+            </p>
+            <p className="text-white/50 text-xs">This will only take a moment</p>
+          </div>
+        </div>
+      )}
       <CreateSpaceDialog
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}

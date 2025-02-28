@@ -11,8 +11,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/common/dropdown-menu'
 import { User } from '@supabase/supabase-js'
-import { signOutAction } from '@/app/actions'
-import { getNotifications, markAllNotificationsAsRead, markNotificationAsRead } from '@/app/actions'
+import { signOutAction } from '@/app/actions/auth'
+import { getNotifications, markAllNotificationsAsRead, markNotificationAsRead } from '@/app/actions/notifications'
 import { useNotificationStore } from '@/stores/notification-store'
 import { Bell } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/common/avatar'
@@ -36,14 +36,18 @@ export function UserProfileDropdown({ user, initialNotifications = [] }: UserPro
 
   const handleMarkAsRead = async (notificationId: string) => {
     await markNotificationAsRead(notificationId);
-    const notifications = await getNotifications();
-    setNotifications(notifications);
+    const notificationsResponse = await getNotifications();
+    if (notificationsResponse.status === 200) {
+      setNotifications(notificationsResponse.data || []);
+    }
   };
 
   const handleMarkAllAsRead = async () => {
     await markAllNotificationsAsRead();
-    const notifications = await getNotifications();
-    setNotifications(notifications);
+    const notificationsResponse = await getNotifications();
+    if (notificationsResponse.status === 200) {
+      setNotifications(notificationsResponse.data || []);
+    }
   };
   
   const router = useRouter()

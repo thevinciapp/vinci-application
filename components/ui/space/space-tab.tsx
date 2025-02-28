@@ -4,13 +4,27 @@ import { BaseTab } from '@/components/ui/common/base-tab'
 import { useCommandCenter } from '@/hooks/useCommandCenter'
 import DotSphere from './planet-icon'
 import { useSpaceActions } from '@/hooks/useSpaceActions'
+import { useEffect, useState } from 'react'
+import { getActiveSpace } from '@/app/actions'
 
 // Original implementation that's used throughout the app
 export function SpaceTab() {
-  const { activeSpace } = useSpaceActions()
+  const { loadingSpaceId, isLoadingSpace } = useSpaceActions()
   const { openCommandType } = useCommandCenter()
+  const [activeSpace, setActiveSpace] = useState<any>(null)
+  
+  // Fetch the active space on component mount and when loading state changes
+  useEffect(() => {
+    const fetchActiveSpace = async () => {
+      const space = await getActiveSpace()
+      setActiveSpace(space)
+    }
+    
+    fetchActiveSpace()
+  }, [loadingSpaceId]) // Refetch when loadingSpaceId changes (space selection completes)
 
   const spaceColor = activeSpace?.color || '#3ecfff'
+  const isLoading = isLoadingSpace(activeSpace?.id)
 
   return (
     <div className="relative flex items-center">
@@ -23,15 +37,17 @@ export function SpaceTab() {
             dotSize={0.8} 
             expandFactor={1.15} 
             transitionSpeed={400}
+            className={isLoading ? "animate-pulse" : ""}
           />
         </div>
       )}
       <BaseTab
         icon={<span style={{ color: spaceColor }}>●</span>}
-        label={activeSpace?.name || "No Space Selected"}
+        label={isLoading ? `Loading${activeSpace?.name ? ' ' + activeSpace.name : ''}...` : (activeSpace?.name || "No Space Selected")}
         shortcut="E"
         commandType="spaces"
         onClick={() => openCommandType("spaces")}
+        rightElement={isLoading ? <span className="loading-dots text-[10px] text-cyan-400"></span> : undefined}
       />
     </div>
   )
@@ -40,10 +56,12 @@ export function SpaceTab() {
 // New implementation that accepts props directly
 export function ServerDrivenSpaceTab({ 
   spaces,
-  activeSpace 
+  activeSpace,
+  isLoading = false
 }: { 
   spaces: any[],
-  activeSpace: any 
+  activeSpace: any,
+  isLoading?: boolean
 }) {
   const { openCommandType } = useCommandCenter()
 
@@ -60,15 +78,17 @@ export function ServerDrivenSpaceTab({
             dotSize={0.8} 
             expandFactor={1.15} 
             transitionSpeed={400}
+            className={isLoading ? "animate-pulse" : ""}
           />
         </div>
       )}
       <BaseTab
         icon={<span style={{ color: spaceColor }}>●</span>}
-        label={activeSpace?.name || "No Space Selected"}
+        label={isLoading ? `Loading${activeSpace?.name ? ' ' + activeSpace.name : ''}...` : (activeSpace?.name || "No Space Selected")}
         shortcut="E"
         commandType="spaces"
         onClick={() => openCommandType("spaces")}
+        rightElement={isLoading ? <span className="loading-dots text-[10px] text-cyan-400"></span> : undefined}
       />
     </div>
   )

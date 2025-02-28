@@ -13,7 +13,9 @@ import { ChatMessages } from "@/components/ui/chat/chat-messages";
 import { UserProfileDropdown } from "@/components/ui/auth/user-profile-dropdown";
 import { useCommandCenter } from "@/hooks/useCommandCenter";
 import { useRouter } from "next/navigation";
-import { sendMessage, updateSpace, createConversation, switchConversation, deleteConversation, getMessages } from "@/app/actions";
+import { sendMessage, getMessages, createConversation, switchConversation, deleteConversation } from "@/app/actions/conversations";
+import { updateSpace } from "@/app/actions/spaces";
+import { ActionResponse } from "@/app/actions/responses";
 import { useCallback, useRef, useState } from "react";
 
 interface ClientChatContentProps {
@@ -106,9 +108,9 @@ export default function ClientChatContent({
     
     try {
       setIsLoadingSpaceData(true);
-      const result = await createConversation(activeSpace.id, title);
-      if (result && result.id) {
-        router.push(`/protected/spaces/${activeSpace.id}/conversations/${result.id}`);
+      const response = await createConversation(activeSpace.id, title);
+      if (response.status === 200 && response.data) {
+        router.push(`/protected/spaces/${activeSpace.id}/conversations/${response.data.id}`);
       }
     } catch (error) {
       console.error("Error creating conversation:", error);
@@ -119,8 +121,10 @@ export default function ClientChatContent({
   
   const handleSwitchConversation = async (conversationId: string) => {
     try {
-      await switchConversation(conversationId);
-      router.push(`/protected/spaces/${activeSpace.id}/conversations/${conversationId}`);
+      const response = await switchConversation(conversationId);
+      if (response.status === 200) {
+        router.push(`/protected/spaces/${activeSpace.id}/conversations/${conversationId}`);
+      }
     } catch (error) {
       console.error("Error switching conversation:", error);
     }
@@ -129,15 +133,17 @@ export default function ClientChatContent({
   const handleDeleteConversation = async (conversationId: string) => {
     try {
       setIsLoadingSpaceData(true);
-      await deleteConversation(conversationId);
+      const response = await deleteConversation(conversationId);
       
-      // Find next conversation to navigate to
-      if (conversations && conversations.length > 0) {
-        const nextConversation = conversations.find(c => c.id !== conversationId && !c.is_deleted);
-        if (nextConversation) {
-          router.push(`/protected/spaces/${activeSpace.id}/conversations/${nextConversation.id}`);
-        } else {
-          router.push(`/protected/spaces/${activeSpace.id}/conversations`);
+      if (response.status === 200) {
+        // Find next conversation to navigate to
+        if (conversations && conversations.length > 0) {
+          const nextConversation = conversations.find(c => c.id !== conversationId && !c.is_deleted);
+          if (nextConversation) {
+            router.push(`/protected/spaces/${activeSpace.id}/conversations/${nextConversation.id}`);
+          } else {
+            router.push(`/protected/spaces/${activeSpace.id}/conversations`);
+          }
         }
       }
     } catch (error) {
@@ -185,8 +191,10 @@ export default function ClientChatContent({
               <ServerDrivenModelTab 
                 activeSpace={activeSpace}
                 onUpdateSpace={async (spaceId: string, updates: any) => {
-                  await updateSpace(spaceId, updates);
-                  router.refresh();
+                  const response = await updateSpace(spaceId, updates);
+                  if (response.status === 200) {
+                    router.refresh();
+                  }
                 }}
               />
             </div>

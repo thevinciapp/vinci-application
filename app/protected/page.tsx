@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
-import { getSpaces } from "@/app/actions";
+import { getSpaces } from "@/app/actions/spaces";
 
 export default async function ProtectedPage() {
   const supabase = await createClient();
@@ -10,9 +10,9 @@ export default async function ProtectedPage() {
     redirect("/sign-in");
   }
 
-  let spaces = await getSpaces();
+  const spacesResponse = await getSpaces();
   
-  if (spaces && spaces.length > 0) {
+  if (spacesResponse.status === 200 && spacesResponse.data && spacesResponse.data.length > 0) {
     redirect("/protected/spaces");
   }
 }
