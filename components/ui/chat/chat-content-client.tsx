@@ -16,7 +16,8 @@ import { useRouter } from "next/navigation";
 import { sendMessage, createConversation, switchConversation, deleteConversation } from "@/app/actions/conversations";
 import { updateSpace } from "@/app/actions/spaces";
 import { useCallback, useRef, useState, useEffect } from "react";
-import { ScrollButton } from "@/components/ui/scroll-button";
+import { useSpaceStore } from "@/stores/space-store";
+import { useShallow } from "zustand/react/shallow";
 
 interface ClientChatContentProps {
   user: User;
@@ -40,16 +41,28 @@ export default function ClientChatContent({
   
   const [isStickToBottom, setIsStickToBottom] = useState(true);
   const [searchMode, setSearchMode] = useState<"chat" | "search" | "semantic" | "hybrid">("chat");
-  const [isLoadingSpaceData, setIsLoadingSpaceData] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   
-  const { 
-    spaces, 
-    activeSpace, 
-    conversations, 
-    activeConversation, 
-    notifications = [],
-  } = initialData;
+  const {
+    activeSpace: storeActiveSpace,
+    conversations: storeConversations,
+    activeConversation: storeActiveConversation,
+    messages: storeMessages,
+  } = useSpaceStore(
+    useShallow((state) => state.uiState)
+  );
+  
+  const activeSpace = storeActiveSpace || initialData.activeSpace;
+  const conversations = storeConversations || initialData.conversations;
+  const activeConversation = storeActiveConversation || initialData.activeConversation;
+  const initialMessages = storeMessages || initialData.messages;
+
+  useEffect(() => {
+    if (storeActiveConversation && storeActiveConversation !== activeConversation) {
+      setMessages(storeMessages || []);
+      setData([]);
+    }
+  }, [storeActiveConversation?.id]);
   
   const {
     messages,
@@ -64,7 +77,7 @@ export default function ClientChatContent({
   } = useChat({
     id: activeConversation?.id || 'default',
     api: "/api/chat",
-    initialMessages: initialData.messages,
+    initialMessages: initialMessages,
     body: {
       spaceId: activeSpace?.id || "",
       conversationId: activeConversation?.id || null,
@@ -92,86 +105,43 @@ export default function ClientChatContent({
     scrollToBottomHandler.current = callback;
   }, []);
 
-  // Custom submit handler that uses both the AI SDK and server actions
   const handleSubmit = async () => {
     if (!input.trim() || !activeSpace || !activeConversation) return;
     
     try {
       // First submit through the AI SDK for streaming
-      await aiSubmit();
+      aiSubmit();
       
-      // Optionally: you can also call your server action to ensure persistence
-      // This is already handled by the API route that the AI SDK calls
-    } catch (error) {
-      console.error("Error sending message:", error);
-      
-      // Fallback to server action if AI SDK fails
+      // Also send to server action to persist in database
       await sendMessage({
         content: input,
         spaceId: activeSpace.id,
         conversationId: activeConversation.id,
-        searchMode
+        searchMode,
       });
       
-      setInput("");
-      router.refresh();
+    } catch (error) {
+      console.error('Failed to send message:', error);
     }
   };
   
-  const handleCreateConversation = async (title: string) => {
+  const handleCreateConversation = async () => {
     if (!activeSpace) return;
     
     try {
-      setIsLoadingSpaceData(true);
-      const response = await createConversation(activeSpace.id, title);
-      if (response.status === 'success' && response.data) {
-        router.push(`/protected/spaces/${activeSpace.id}/conversations/${response.data.id}`);
+      const result = await createConversation(activeSpace.id);
+      if (result.status === 'success' && result.data) {
+        router.push(`/protected/spaces/${activeSpace.id}/conversations/${result.data.id}`);
       }
     } catch (error) {
-      console.error("Error creating conversation:", error);
-    } finally {
-      setIsLoadingSpaceData(false);
+      console.error('Failed to create conversation:', error);
     }
   };
   
-  const handleSwitchConversation = async (conversationId: string) => {
-    try {
-      const response = await switchConversation(conversationId);
-      if (response.status === 'success') {
-        router.push(`/protected/spaces/${activeSpace.id}/conversations/${conversationId}`);
-      }
-    } catch (error) {
-      console.error("Error switching conversation:", error);
-    }
-  };
-  
-  const handleDeleteConversation = async (conversationId: string) => {
-    try {
-      setIsLoadingSpaceData(true);
-      const response = await deleteConversation(conversationId);
-      
-      if (response.status === 'success') {
-        // Find next conversation to navigate to
-        if (conversations && conversations.length > 0) {
-          const nextConversation = conversations.find(c => c.id !== conversationId && !c.is_deleted);
-          if (nextConversation) {
-            router.push(`/protected/spaces/${activeSpace.id}/conversations/${nextConversation.id}`);
-          } else {
-            router.push(`/protected/spaces/${activeSpace.id}/conversations`);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error deleting conversation:", error);
-    } finally {
-      setIsLoadingSpaceData(false);
-    }
-  };
-
   return (
     <div className="flex flex-col h-full bg-black text-white relative chat-container">
       <div className="fixed top-4 right-4 z-50">
-        {user && <UserProfileDropdown user={user} initialNotifications={notifications} />}
+        {user && <UserProfileDropdown user={user} initialNotifications={initialData.notifications} />}
       </div>
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
         <div
@@ -187,7 +157,7 @@ export default function ClientChatContent({
             <div className="px-1 first:pl-1 last:pr-1">
               {/* @ts-ignore */}
               <ServerDrivenSpaceTab 
-                spaces={spaces}
+                spaces={initialData.spaces}
                 activeSpace={activeSpace}
               />
             </div>
@@ -234,7 +204,7 @@ export default function ClientChatContent({
           onStickToBottomChange={handleStickToBottomChange}
           onScrollToBottom={handleScrollToBottom}
           ref={messagesContainerRef}
-          isLoading={isChatLoading || isLoadingSpaceData}
+          isLoading={isChatLoading}
           streamData={data}
         />
         <div className="fixed left-1/2 bottom-8 -translate-x-1/2 w-[800px] z-50">
@@ -243,7 +213,7 @@ export default function ClientChatContent({
               value={input}
               onChange={handleInputChange}
               onSubmit={handleSubmit}
-              disabled={!activeSpace || isChatLoading || isLoadingSpaceData}
+              disabled={!activeSpace || isChatLoading}
             >
               <div className="flex items-center divide-x divide-white/[0.05] bg-white/[0.03] border-t border-l border-r border-white/[0.05] rounded-t-2xl overflow-hidden backdrop-blur-xl w-full shadow-[0_-4px_20px_rgba(62,207,255,0.03)]">
                 <div className="px-1 first:pl-2 last:pr-2 py-1 flex-1">

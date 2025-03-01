@@ -62,13 +62,13 @@ export default async function ConversationPage({
   return (
     <CommandProvider>
         <AllCommandProviders
-        spaces={initialData.spaces}
-        activeSpace={initialData.activeSpace}
-        conversations={initialData.conversations}
-        activeConversation={initialData.activeConversation}
-        user={user}
-        messages={initialData.messages}
-        >
+          spaces={initialData.spaces}
+          activeSpace={initialData.activeSpace}
+          conversations={initialData.conversations}
+          activeConversation={initialData.activeConversation}
+          user={user}
+          messages={initialData.messages}
+          >
             <div className="flex flex-col h-screen bg-black text-white">
             <ClientChatContent
                 user={user}
