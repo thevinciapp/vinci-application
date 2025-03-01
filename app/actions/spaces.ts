@@ -116,32 +116,28 @@ export async function createSpace(
 ): Promise<ActionResponse<Space>> {
     try {
         const supabase = await createClient();
-        const {
-            data: { user },
-        } = await supabase.auth.getUser();
+        const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
-            return errorResponse('User not authenticated');
+            return await errorResponse('User not authenticated');
         }
 
         const { data: space, error } = await supabase
             .from(DB_TABLES.SPACES)
-            .insert([
-                {
-                    [COLUMNS.NAME]: name || DEFAULTS.SPACE_NAME,
-                    [COLUMNS.DESCRIPTION]: description || '',
-                    [COLUMNS.USER_ID]: user.id,
-                    [COLUMNS.MODEL]: model,
-                    [COLUMNS.PROVIDER]: provider,
-                    [COLUMNS.COLOR]: color || '#3ecfff',
-                },
-            ])
+            .insert([{
+                [COLUMNS.NAME]: name || DEFAULTS.SPACE_NAME,
+                [COLUMNS.DESCRIPTION]: description || '',
+                [COLUMNS.USER_ID]: user.id,
+                [COLUMNS.MODEL]: model,
+                [COLUMNS.PROVIDER]: provider,
+                [COLUMNS.COLOR]: color || '#3ecfff',
+            }])
             .select()
             .single();
 
         if (error) {
             console.error("Error creating space:", error);
-            return errorResponse(`Error creating space: ${error.message}`);
+            return await errorResponse(`Error creating space: ${error.message}`);
         }
 
         if (space) {
@@ -173,11 +169,23 @@ export async function createSpace(
 
             // Invalidate relevant caches
             await invalidateSpaceCache(space.id);
+            
+            // Return success with redirect to the new conversation if one was created
+            let redirectTo = `/protected/spaces/${space.id}/conversations`;
+            if (conversation) {
+                redirectTo = `${redirectTo}/${conversation.id}`;
+            }
+            
+            return await successResponse(space, {
+                title: 'Space Created',
+                description: 'Your new workspace is ready',
+                variant: 'success'
+            }, redirectTo);
         }
 
-        return successResponse(space);
+        return await successResponse(space);
     } catch (error) {
-        return handleActionError(error);
+        return await handleActionError(error);
     }
 }
 
@@ -411,7 +419,7 @@ export async function deleteSpace(spaceId: string): Promise<ActionResponse<void>
         } = await supabase.auth.getUser();
 
         if (!user) {
-            return errorResponse('User not authenticated');
+            return await errorResponse('User not authenticated');
         }
 
         // Mark space as deleted
@@ -423,7 +431,7 @@ export async function deleteSpace(spaceId: string): Promise<ActionResponse<void>
 
         if (error) {
             console.error("Error deleting space:", error);
-            return errorResponse(`Error deleting space: ${error.message}`);
+            return await errorResponse(`Error deleting space: ${error.message}`);
         }
 
         // Mark all conversations in the space as deleted
@@ -440,8 +448,8 @@ export async function deleteSpace(spaceId: string): Promise<ActionResponse<void>
         // Invalidate caches
         await invalidateSpaceCache(spaceId, user.id);
 
-        return successResponse(undefined);
+        return await successResponse(undefined);
     } catch (error) {
-        return handleActionError(error);
+        return await handleActionError(error);
     }
 } 

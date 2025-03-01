@@ -33,11 +33,12 @@ export function SpaceTab() {
           <DotSphere 
             size={24} 
             seed={activeSpace.id} 
-            dotCount={100} 
+            dotCount={80} 
             dotSize={0.8} 
             expandFactor={1.15} 
             transitionSpeed={400}
             className={isLoading ? "animate-pulse" : ""}
+            highPerformance={true}
           />
         </div>
       )}
@@ -74,11 +75,12 @@ export function ServerDrivenSpaceTab({
           <DotSphere 
             size={24} 
             seed={activeSpace.id} 
-            dotCount={100} 
+            dotCount={80} 
             dotSize={0.8} 
             expandFactor={1.15} 
             transitionSpeed={400}
             className={isLoading ? "animate-pulse" : ""}
+            highPerformance={true}
           />
         </div>
       )}

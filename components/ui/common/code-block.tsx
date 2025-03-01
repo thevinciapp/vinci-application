@@ -49,6 +49,11 @@ export type CodeBlockProps = {
 } & React.HTMLProps<HTMLDivElement>
 
 function CodeBlock({ children, className, code, language, ...props }: CodeBlockProps) {
+  // Generate a unique key based on code content or props if available
+  const uniqueKey = React.useMemo(() => {
+    return code ? `${language}-${code.slice(0, 20)}-${Math.random().toString(36).slice(2, 7)}` : `codeblock-${Math.random().toString(36).slice(2)}`
+  }, [code, language])
+
   if (code && language) {
     return (
       <div
@@ -63,6 +68,7 @@ function CodeBlock({ children, className, code, language, ...props }: CodeBlockP
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
           border: '1px solid rgba(255, 255, 255, 0.05)'
         }}
+        key={uniqueKey} // Add unique key at the top level
         {...props}
       >
         <div className="flex items-center justify-between w-full px-4 py-2 header" style={{background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid rgba(255, 255, 255, 0.05)'}}>
@@ -77,12 +83,14 @@ function CodeBlock({ children, className, code, language, ...props }: CodeBlockP
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {language && (
-              <div className="flex items-center gap-1.5 text-xs rounded-md p-1.5 bg-white/[0.03] border border-white/[0.05] text-zinc-400">
-                <LanguageIcon language={language} size={14} />
-                <span>{language}</span>
-              </div>
-            )}
+          {language && (
+                    <div 
+                      className="flex items-center gap-1.5 text-xs rounded-md p-1.5 bg-white/[0.03] border border-white/[0.05] text-zinc-400"
+                      key={`language-badge-${uniqueKey}`}
+                    >
+                      <span>{language}</span>
+                    </div>
+                  )}
             <CopyButton code={code} />
           </div>
         </div>
@@ -104,6 +112,7 @@ function CodeBlock({ children, className, code, language, ...props }: CodeBlockP
         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
         border: '1px solid rgba(255, 255, 255, 0.05)'
       }}
+      key={uniqueKey} // Add unique key here too
       {...props}
     >
       {children}
@@ -130,7 +139,6 @@ function CodeBlockCode({
   const codeLength = code?.length || 0
 
   useEffect(() => {
-    // For large code blocks (>10000 chars), set a flag to enable progressive rendering
     if (codeLength > 10000) {
       setIsLargeCode(true)
     } else {
@@ -139,15 +147,13 @@ function CodeBlockCode({
 
     let isMounted = true
     
-    // For extremely large code blocks, delay highlighting to avoid blocking the UI
     const timer = setTimeout(async () => {
       try {
-        // Custom theme setup for transparent glass effect while maintaining syntax highlighting
         const customTheme = {
           name: 'glass-dark',
           type: 'dark',
           fg: '#EEEEEE',
-          bg: '#00000000', // Fully transparent
+          bg: '#00000000',
           settings: [
             {
               settings: {
@@ -194,14 +200,11 @@ function CodeBlockCode({
           ]
         };
 
-        // Using the custom theme with glass effect compatibility
         const html = await codeToHtml(code, { 
           lang: language, 
-          theme: "github-dark", // Use github-dark as it has better support
-          // Apply glass compatibility to Shiki themes
+          theme: "github-dark",
           transformers: [{
             root(node) {
-              // Force transparent background at the root level
               const nodeAsAny = node as any;
               if (!nodeAsAny.properties) nodeAsAny.properties = {};
               const style = nodeAsAny.properties.style || '';
@@ -209,7 +212,6 @@ function CodeBlockCode({
               return node;
             },
             pre(node) {
-              // Remove background from pre tag
               const nodeAsAny = node as any;
               if (!nodeAsAny.properties) nodeAsAny.properties = {};
               const style = nodeAsAny.properties.style || '';
@@ -217,7 +219,6 @@ function CodeBlockCode({
               return node;
             },
             code(node) {
-              // Remove background from code tag
               const nodeAsAny = node as any;
               if (!nodeAsAny.properties) nodeAsAny.properties = {};
               const style = nodeAsAny.properties.style || '';
@@ -225,7 +226,6 @@ function CodeBlockCode({
               return node;
             },
             line(node) {
-              // Make line transparent but preserve other styles
               const nodeAsAny = node as any;
               if (!nodeAsAny.properties) nodeAsAny.properties = {};
               const style = nodeAsAny.properties.style || '';
@@ -235,14 +235,14 @@ function CodeBlockCode({
               return node;
             },
             tokens(node) {
-              // Process each token to preserve foreground color but remove background
-              return node.map((token: any) => {
+              return node.map((token: any, index: number) => {
                 const tokenAsAny = token as any;
                 if (!tokenAsAny.properties) tokenAsAny.properties = {};
                 const style = tokenAsAny.properties.style || '';
                 if (style.includes('background')) {
                   tokenAsAny.properties.style = style.replace(/background[^:]*:[^;]*;/g, '');
                 }
+                tokenAsAny.properties.key = `token-${index}`;
                 return token;
               });
             }
@@ -250,7 +250,6 @@ function CodeBlockCode({
         });
 
         if (isMounted) {
-          // Process the HTML to ensure highlighting works while maintaining transparency
           const processedHtml = html
             .replace(/background-color: #24292e;/g, 'background-color: transparent !important;')
             .replace(/background-color: #1f2428;/g, 'background-color: transparent !important;')
@@ -262,7 +261,7 @@ function CodeBlockCode({
       } catch (error) {
         console.error('Error highlighting code:', error)
       }
-    }, isLargeCode ? 100 : 0) // Small delay for large code blocks
+    }, isLargeCode ? 100 : 0)
 
     return () => {
       isMounted = false
@@ -272,15 +271,13 @@ function CodeBlockCode({
 
   const classNames = cn(
     "w-full overflow-x-auto text-[13px] relative",
-    // Ensure there's no background colors in pre and code tags that would block the glass effect
     "bg-transparent [&>pre]:bg-transparent [&>pre]:px-4 [&>pre]:py-4 [&>pre]:rounded-b-lg",
     "[&>pre>code]:bg-transparent [&>pre>code]:font-mono [&>pre>code]:text-zinc-200 [&>.shiki]:bg-transparent [&>.shiki]:px-4 [&>.shiki]:py-4 [&>.shiki]:rounded-b-lg",
-    "backdrop-blur-[2px]", // Add subtle blur to enhance text readability over the glass
-    "glass-highlight", // New class for true glass effect
+    "backdrop-blur-[2px]",
+    "glass-highlight",
     className
   )
 
-  // Use a simplified renderer for very large code blocks before highlighting is complete
   if (isLargeCode && !highlightedHtml) {
     return (
       <div className={cn(classNames, "glass-code-content")} style={{background: 'transparent'}} {...props}>
@@ -295,7 +292,6 @@ function CodeBlockCode({
     )
   }
 
-  // Standard rendering once highlighting is complete or for smaller code blocks
   return highlightedHtml ? (
     <div
       className={cn(classNames, "glass-code-content")}

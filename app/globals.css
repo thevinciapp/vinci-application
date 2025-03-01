@@ -495,3 +495,14 @@ code[class*="shiki"] {
   background-color: rgba(62, 207, 255, 0.25) !important;
   transform: scale(0.99) !important;
 }
+
+
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}

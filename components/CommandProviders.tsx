@@ -298,10 +298,11 @@ export function SpacesCommandProvider({ children, spaces = [], activeSpace = nul
                 <DotSphere 
                   size={22} 
                   seed={space.id} 
-                  dotCount={90} 
+                  dotCount={60} 
                   dotSize={0.7} 
                   expandFactor={1.15} 
                   transitionSpeed={400}
+                  highPerformance={true}
                 />
               )}
               {activeSpace?.id === space.id && !loadingSpaceId && (
@@ -415,8 +416,8 @@ export function ConversationsCommandProvider({ children, conversations = [], act
         ),
         type: "conversations" as CommandType,
         keywords: ["conversation", "chat", "open", conversation.title || ""],
-        action: () => {
-          selectConversation(conversation.id);
+        action: async () => {
+          await selectConversation(conversation.id);
           closeCommandCenter();
         },
       })) ?? []),

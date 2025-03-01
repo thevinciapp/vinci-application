@@ -1,7 +1,7 @@
 'use client';
 
-import { useStickToBottom } from '@/hooks/use-stick-to-bottom';
-import { useEffect, forwardRef, useMemo, useRef, useState, useCallback } from 'react';
+import { ChatContainer, useAutoScroll } from '@/components/ui/chat-container';
+import { useEffect, forwardRef, useRef, useState, useCallback } from 'react';
 import { ChatMessage } from './chat-message';
 import { JSONValue, Message } from 'ai';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -9,94 +9,46 @@ import { useSearchParams, useRouter } from 'next/navigation';
 interface ChatMessagesProps {
   messages: Message[];
   onStickToBottomChange?: (isStickToBottom: boolean) => void;
-  onScrollToBottom?: () => void;
+  onScrollToBottom?: (callback: () => void) => void;
   isLoading?: boolean;
   streamData?: JSONValue[] | undefined;
 }
 
 export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
   ({ messages, onStickToBottomChange, onScrollToBottom, isLoading, streamData }, ref) => {
-    const { containerRef, isStickToBottom } = useStickToBottom();
-    const searchParams = useSearchParams();
-    const router = useRouter();
-    const highlightedMessageId = searchParams.get('highlight');
     const [highlightedElement, setHighlightedElement] = useState<HTMLDivElement | null>(null);
     const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
     const [hasUserInteracted, setHasUserInteracted] = useState(false);
-
+    const containerRef = useRef<HTMLDivElement>(null);
+    const actualRef = (ref as React.RefObject<HTMLDivElement>) || containerRef;
+    
+    const { 
+      autoScrollEnabled, 
+      scrollToBottom 
+    } = useAutoScroll(actualRef, true);
+    
     useEffect(() => {
-      onStickToBottomChange?.(isStickToBottom);
-    }, [isStickToBottom, onStickToBottomChange]);
-
+      if (onStickToBottomChange) {
+        onStickToBottomChange(autoScrollEnabled);
+      }
+    }, [autoScrollEnabled, onStickToBottomChange]);
+    
+    // Expose scrollToBottom to parent
     useEffect(() => {
-      if (containerRef.current && onScrollToBottom) {
-        onScrollToBottom();
+      if (onScrollToBottom && scrollToBottom) {
+        // Create a function that parent can call
+        const handleScrollToBottom = () => scrollToBottom("smooth");
+        // Provide the callback to the parent
+        onScrollToBottom(handleScrollToBottom);
       }
-    }, [onScrollToBottom]);
-
-    // Reset interaction state when a new message is highlighted
-    useEffect(() => {
-      if (highlightedMessageId) {
-        setHasUserInteracted(false);
-      }
-    }, [highlightedMessageId]);
-
-    // Handle user interaction to dismiss highlight
-    const handleUserInteraction = useCallback(() => {
-      if (highlightedMessageId && !hasUserInteracted) {
-        setHasUserInteracted(true);
-        
-        // Create a new URLSearchParams without the highlight parameter
-        const params = new URLSearchParams(searchParams);
-        params.delete('highlight');
-        
-        // Update the URL without the highlight parameter (to make it cleaner)
-        // Using replace to avoid adding to browser history
-        router.replace(`?${params.toString()}`);
-      }
-    }, [highlightedMessageId, hasUserInteracted, searchParams, router]);
-
-    // Attach event listeners for user interaction
-    useEffect(() => {
-      if (highlightedMessageId && containerRef.current) {
-        const container = containerRef.current;
-        
-        // Only add these listeners if we have a highlighted message
-        container.addEventListener('click', handleUserInteraction);
-        container.addEventListener('scroll', handleUserInteraction);
-        
-        return () => {
-          container.removeEventListener('click', handleUserInteraction);
-          container.removeEventListener('scroll', handleUserInteraction);
-        };
-      }
-    }, [highlightedMessageId, handleUserInteraction]);
-
-    // Handle scrolling to highlighted message when navigating from similar messages
-    useEffect(() => {
-      if (highlightedMessageId && messageRefs.current.has(highlightedMessageId)) {
-        const messageElement = messageRefs.current.get(highlightedMessageId);
-        if (messageElement && containerRef.current) {
-          // Scroll to the message with offset from the top
-          containerRef.current.scrollTo({
-            top: messageElement.offsetTop - 100, // 100px offset from top
-            behavior: 'smooth'
-          });
-          
-          // Highlight the message
-          setHighlightedElement(messageElement);
-          
-          // The highlight remains until user interaction
-          // No timeout to automatically remove it
-        }
-      }
-    }, [highlightedMessageId]);
+    }, [onScrollToBottom, scrollToBottom]);
 
     return (
       <div className="relative flex-1 flex flex-col h-full">
-        <div
-          ref={ref}
-          className="messages-container absolute inset-0 overflow-y-auto py-12 px-4 pb-52"
+        <ChatContainer
+          ref={actualRef}
+          className="absolute inset-0 py-12 px-4 pb-52"
+          autoScroll={true}
         >
           <div className="max-w-[85%] w-full mx-auto">
             <div className="space-y-12">
@@ -155,7 +107,7 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
               )}
             </div>
           </div>
-        </div>
+        </ChatContainer>
       </div>
     );
   }

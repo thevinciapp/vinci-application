@@ -76,11 +76,11 @@ export async function createConversation(spaceId: string, title?: string): Promi
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
-            return errorResponse('User not authenticated');
+            return await errorResponse('User not authenticated');
         }
 
         if (!spaceId) {
-            return errorResponse('Space ID is required');
+            return await errorResponse('Space ID is required');
         }
 
         const timestamp = new Date().toISOString();
@@ -98,15 +98,20 @@ export async function createConversation(spaceId: string, title?: string): Promi
 
         if (error) {
             console.error("Error creating conversation:", error);
-            return errorResponse(`Error creating conversation: ${error.message}`);
+            return await errorResponse(`Error creating conversation: ${error.message}`);
         }
 
+        // Invalidate relevant caches
         await redis.del(CACHE_KEYS.SPACE_DATA(spaceId));
         await redis.del(CACHE_KEYS.CONVERSATIONS(spaceId));
 
-        return successResponse(data);
+        return await successResponse(data, {
+            title: 'Conversation Created',
+            description: 'Start chatting now!',
+            variant: 'success'
+        }, `/protected/spaces/${spaceId}/conversations/${data.id}`);
     } catch (error) {
-        return handleActionError(error);
+        return await handleActionError(error);
     }
 }
 

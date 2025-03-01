@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 
-interface DotSphereProps {
+interface DotChatBubbleProps {
   size?: number;
   seed?: string;
   dotCount?: number;
@@ -8,11 +8,10 @@ interface DotSphereProps {
   className?: string;
   expandFactor?: number;
   transitionSpeed?: number;
-  highPerformance?: boolean; // New prop for performance mode
+  highPerformance?: boolean;
 }
 
-// Add static properties to the component type
-interface DotSphereComponent extends React.FC<DotSphereProps> {
+interface DotChatBubbleComponent extends React.FC<DotChatBubbleProps> {
   seedCache: Map<string, number>;
   callCount: number;
 }
@@ -22,7 +21,6 @@ const round = (num: number, precision: number = 6): number => {
   return Math.round(num * factor) / factor;
 };
 
-// Create a separate component for individual dots to optimize rendering
 const Dot = React.memo(({ 
   dot, 
   isHovering, 
@@ -44,7 +42,6 @@ const Dot = React.memo(({
   expandFactor: number;
   transitionSpeed: number;
 }) => {
-  // Calculate expanded position when hovering - memoized within the component
   const expandedX = useMemo(() => 
     round(dot.x + (dot.x - size / 2) * (expandFactor - 1), 6),
     [dot.x, size, expandFactor]
@@ -60,7 +57,6 @@ const Dot = React.memo(({
     [dot.z, expandFactor]
   );
 
-  // Use original or expanded position based on hover state
   const currentX = isHovering ? expandedX : dot.x;
   const currentY = isHovering ? expandedY : dot.y;
   const currentZ = isHovering ? expandedZ : dot.z;
@@ -79,16 +75,15 @@ const Dot = React.memo(({
         transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
         transitionDelay: '0s',
         zIndex: dot.zIndex,
-        willChange: 'transform' // Hint to browser for hardware acceleration
+        willChange: 'transform'
       }}
     />
   );
 });
 
-Dot.displayName = 'Dot'; // For debugging in React DevTools
+Dot.displayName = 'Dot';
 
-// Create the component as a properly typed FC
-const DotSphere: DotSphereComponent = ({
+const DotChatBubble: DotChatBubbleComponent = ({
   size = 120,
   seed,
   dotCount = 150,
@@ -96,49 +91,71 @@ const DotSphere: DotSphereComponent = ({
   className = '',
   expandFactor = 1.3,
   transitionSpeed = 800,
-  highPerformance = false, // Default to false for backward compatibility
+  highPerformance = false,
 }) => {
   const [isHovering, setIsHovering] = useState(false);
-
-  // Adjust dot count for performance mode
   const actualDotCount = highPerformance ? Math.min(dotCount, 60) : dotCount;
 
-  // Compute a stable number from the seed for consistent randomization
   const seedNum = useMemo(() => {
     if (!seed) return Math.floor(Math.random() * 10000);
-    
-    // Cache seed hash computation in a Map for improved performance
-    if (!DotSphere.seedCache.has(seed)) {
+    if (!DotChatBubble.seedCache.has(seed)) {
       const hash = Array.from(seed).reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      DotSphere.seedCache.set(seed, hash);
+      DotChatBubble.seedCache.set(seed, hash);
     }
-    
-    return DotSphere.seedCache.get(seed)!;
+    return DotChatBubble.seedCache.get(seed)!;
   }, [seed]);
 
-  // Seeded random number generator for reproducibility
   const random = useCallback(() => {
-    let x = Math.sin(seedNum + DotSphere.callCount++) * 10000;
+    let x = Math.sin(seedNum + DotChatBubble.callCount++) * 10000;
     return x - Math.floor(x);
   }, [seedNum]);
 
-  // Generate dots distributed on a sphere (Fibonacci spiral algorithm)
   const dots = useMemo(() => {
-    const sphereRadius = round((size / 2 - dotSize) * 0.8, 6);
     const points = [];
-    const goldenRatio = (1 + Math.sqrt(5)) / 2;
-    
-    // Reset call count before generating dots to ensure consistent random sequence
-    DotSphere.callCount = 1;
+    const bubbleWidth = size * 0.8; // Main body width
+    const bubbleHeight = size * 0.6; // Main body height
+    const tailHeight = size * 0.2; // Tail height
+    const tailWidth = size * 0.2; // Tail base width
+    const cornerRadius = size * 0.1; // Rounded corner radius
+    const maxZ = size * 0.2; // Depth for 3D effect
+
+    DotChatBubble.callCount = 1;
 
     for (let i = 0; i < actualDotCount; i++) {
-      const y = round(1 - (i / (actualDotCount - 1)) * 2, 6);
-      const radius = round(Math.sqrt(1 - y * y), 6);
-      const theta = round(2 * Math.PI * i / goldenRatio, 6);
-      const x = round(Math.cos(theta) * radius, 6);
-      const z = round(Math.sin(theta) * radius, 6);
+      let x: number, y: number;
 
-      // Generate color with rounded values
+      // Keep generating points until they fall within the chat bubble shape
+      while (true) {
+        x = (random() - 0.5) * bubbleWidth;
+        y = (random() - 0.5) * (bubbleHeight + tailHeight);
+
+        // Check if the point falls within the main body (with rounded corners)
+        const isInMainBody = () => {
+          const absX = Math.abs(x);
+          const absY = Math.abs(y - tailHeight / 2);
+          if (absX <= bubbleWidth / 2 - cornerRadius && absY <= bubbleHeight / 2) return true;
+          if (absX > bubbleWidth / 2 || absY > bubbleHeight / 2) return false;
+          const dx = absX - (bubbleWidth / 2 - cornerRadius);
+          const dy = absY - (bubbleHeight / 2 - cornerRadius);
+          return dx * dx + dy * dy <= cornerRadius * cornerRadius;
+        };
+
+        // Check if the point falls within the triangular tail
+        const isInTail = () => {
+          if (y > 0 || y < -bubbleHeight / 2 - tailHeight) return false;
+          const tailProgress = (y + bubbleHeight / 2 + tailHeight) / tailHeight; // 0 at top, 1 at bottom
+          const currentTailWidth = tailWidth * (1 - tailProgress); // Linearly taper the tail
+          return Math.abs(x - bubbleWidth / 4) <= currentTailWidth / 2; // Tail is offset to the right
+        };
+
+        if (isInMainBody() || isInTail()) break;
+      }
+
+      // Adjust coordinates to center the shape
+      const posX = round(x + size / 2, 6);
+      const posY = round(y + size / 2, 6);
+      const posZ = round((random() - 0.5) * maxZ, 6); // Small depth for 3D effect
+
       const hue = round((seedNum % 360) + (i * 137.5) % 360, 2);
       const saturation = round(70 + random() * 30, 2);
       const lightness = round(45 + random() * 30, 2);
@@ -147,12 +164,8 @@ const DotSphere: DotSphereComponent = ({
       const sizeVariation = round(0.8 + random() * 0.6, 6);
       const finalDotSize = round(dotSize * sizeVariation, 6);
 
-      const posX = round(x * sphereRadius + size / 2, 6);
-      const posY = round(y * sphereRadius + size / 2, 6);
-      const posZ = round(z * sphereRadius, 6);
-
       const zIndex = Math.floor(posZ);
-      const opacity = round(0.6 + (posZ / sphereRadius) * 0.4, 6);
+      const opacity = round(0.6 + (posZ / maxZ) * 0.4, 6);
 
       points.push({
         x: posX,
@@ -168,7 +181,6 @@ const DotSphere: DotSphereComponent = ({
     return points.sort((a, b) => a.zIndex - b.zIndex);
   }, [actualDotCount, dotSize, random, seedNum, size]);
 
-  // Event handlers for hover
   const handleMouseEnter = useCallback(() => setIsHovering(true), []);
   const handleMouseLeave = useCallback(() => setIsHovering(false), []);
 
@@ -178,7 +190,7 @@ const DotSphere: DotSphereComponent = ({
       style={{
         width: size,
         height: size,
-        perspective: size * 3, // 3D perspective
+        perspective: size * 3,
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -202,8 +214,7 @@ const DotSphere: DotSphereComponent = ({
   );
 };
 
-// Initialize static properties
-DotSphere.seedCache = new Map<string, number>();
-DotSphere.callCount = 1;
+DotChatBubble.seedCache = new Map<string, number>();
+DotChatBubble.callCount = 1;
 
-export default DotSphere;
+export default DotChatBubble;

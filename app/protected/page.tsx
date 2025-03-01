@@ -12,7 +12,7 @@ export default async function ProtectedPage() {
 
   const spacesResponse = await getSpaces();
   
-  if (spacesResponse.status === 200 && spacesResponse.data && spacesResponse.data.length > 0) {
+  if (spacesResponse.status === 'success' && spacesResponse.data && spacesResponse.data.length > 0) {
     redirect("/protected/spaces");
   }
 }

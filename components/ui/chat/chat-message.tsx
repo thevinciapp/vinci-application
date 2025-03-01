@@ -6,6 +6,8 @@ import { JSONValue, Message } from 'ai';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/common/avatar';
 import { StreamStatus } from './stream-status';
 import { Markdown } from './markdown';
+import DotSphere from '@/components/ui/space/planet-icon';
+import { useSpaceStore } from '@/stores/space-store';
 
 interface ChatMessageProps {
     message: Message;
@@ -25,58 +27,45 @@ interface SimilarMessage {
 }
 
 const UserAvatar = ({ avatarUrl }: { avatarUrl?: string }) => (
-    <Avatar className="h-8 w-8 border bg-white/[0.03] border-white/[0.1]">
+    <Avatar className="h-10 w-10 border bg-white/[0.03] border-white/[0.1]">
         <AvatarImage src={avatarUrl || ""} />
         <AvatarFallback className="bg-white/[0.03]">
-            <User className="h-4 w-4 text-white/80" />
+            <User className="h-5 w-5 text-white/80" />
         </AvatarFallback>
     </Avatar>
 );
 
-const AIAvatar = () => (
-    <div className="relative group">
-        {/* Refined outer glow */}
-        <div className="absolute -inset-1.5 bg-gradient-to-r from-cyan-500/10 via-indigo-400/10 to-purple-500/10 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-        
-        {/* Elegant halo effect */}
-        <div className="absolute -inset-3 opacity-0 group-hover:opacity-70 transition-opacity duration-500">
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-500/8 to-indigo-500/8 animate-pulse-slow" />
-        </div>
-        
-        {/* Main avatar container with polished styling */}
-        <div className="relative h-8 w-8 flex items-center justify-center">
-            <Avatar className="relative h-8 w-8 rounded-full backdrop-blur-sm border border-white/10 
-                               shadow-[0_0_15px_rgba(56,189,248,0.15)] overflow-hidden
-                               bg-gradient-to-b from-slate-800 to-slate-900">
-                <AvatarImage src="" />
-                <AvatarFallback className="bg-transparent">
-                    <div className="relative w-full h-full flex items-center justify-center">
-                        {/* Glass effect background */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-sm" />
-                        
-                        {/* Glossy highlight */}
-                        <div className="absolute top-0 left-0 right-0 h-1/3 bg-gradient-to-b from-white/10 to-transparent rounded-t-full" />
-                        
-                        {/* Center circle with refined gradient */}
-                        <div className="relative w-4 h-4 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-[0_0_10px_rgba(56,189,248,0.5)]">
-                            {/* Inner glow effect */}
-                            <div className="absolute inset-[0.5px] rounded-full bg-gradient-to-b from-cyan-200/50 to-cyan-400/30" />
-                            
-                            {/* Reflective shine */}
-                            <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/60 to-transparent rounded-t-full" />
-                            
-                            {/* Subtle pulse effect */}
-                            <div className="absolute inset-0 rounded-full animate-pulse-slow" />
-                        </div>
-                    </div>
-                </AvatarFallback>
-            </Avatar>
+const AIAvatar = () => {
+    // Use the active space ID from the store as the seed
+    // This ensures the AIAvatar looks identical to the active space's DotSphere
+    const activeSpace = useSpaceStore(state => state.activeSpace);
+    const seed = activeSpace?.id || "default-space"; // Fallback if no active space
+    
+    return (
+        <div className="relative group">
+            {/* Refined outer glow */}
+            <div className="absolute -inset-2 bg-gradient-to-r from-cyan-500/10 via-indigo-400/10 to-purple-500/10 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             
-            {/* Subtle orbital accent */}
-            <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-gradient-to-br from-cyan-300 to-cyan-400 shadow-[0_0_5px_rgba(6,182,212,0.7)] animate-float" />
+            {/* Elegant halo effect */}
+            <div className="absolute -inset-4 opacity-0 group-hover:opacity-70 transition-opacity duration-500">
+                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-500/8 to-indigo-500/8 animate-pulse-slow" />
+            </div>
+            
+            {/* DotSphere component as the avatar - using exact same props as space-tab.tsx except for size */}
+            <div className="relative h-12 w-12 flex items-center justify-center">
+                <DotSphere 
+                    size={40} 
+                    seed={seed} 
+                    dotCount={80} 
+                    dotSize={0.9} 
+                    expandFactor={1.15} 
+                    transitionSpeed={400}
+                    highPerformance={true}
+                />
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 const ModelInfo = ({ provider, modelName, similarMessages }: { 
   provider?: Provider; 
@@ -141,8 +130,10 @@ export const ChatMessage = memo<ChatMessageProps>(
         );
 
         return (
-            <div className={`flex items-start gap-4 w-full mx-auto group transition-opacity ${isUser ? 'flex-row-reverse' : ''}`}>
-                {isUser ? <UserAvatar avatarUrl={userAvatarUrl} /> : <AIAvatar />}
+            <div className={`flex items-start gap-5 w-full mx-auto group transition-opacity ${isUser ? 'flex-row-reverse' : ''}`}>
+                <div className={`flex-shrink-0 ${isUser ? '' : 'mt-1'}`}>
+                    {isUser ? <UserAvatar avatarUrl={userAvatarUrl} /> : <AIAvatar />}
+                </div>
 
                 <div className="space-y-2 overflow-hidden max-w-[85%]">
                     <div className="prose prose-invert max-w-none w-full">

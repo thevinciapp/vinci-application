@@ -13,10 +13,10 @@ import { ChatMessages } from "@/components/ui/chat/chat-messages";
 import { UserProfileDropdown } from "@/components/ui/auth/user-profile-dropdown";
 import { useCommandCenter } from "@/hooks/useCommandCenter";
 import { useRouter } from "next/navigation";
-import { sendMessage, getMessages, createConversation, switchConversation, deleteConversation } from "@/app/actions/conversations";
+import { sendMessage, createConversation, switchConversation, deleteConversation } from "@/app/actions/conversations";
 import { updateSpace } from "@/app/actions/spaces";
-import { ActionResponse } from "@/app/actions/responses";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
+import { ScrollButton } from "@/components/ui/scroll-button";
 
 interface ClientChatContentProps {
   user: User;
@@ -77,6 +77,21 @@ export default function ClientChatContent({
     },
   });
 
+  const handleStickToBottomChange = useCallback((isAtBottom: boolean) => {
+    setIsStickToBottom(isAtBottom);
+  }, []);
+  
+  const scrollToBottomHandler = useRef<() => void>(() => {
+    messagesContainerRef.current?.scrollTo({
+      top: messagesContainerRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  });
+
+  const handleScrollToBottom = useCallback((callback: () => void) => {
+    scrollToBottomHandler.current = callback;
+  }, []);
+
   // Custom submit handler that uses both the AI SDK and server actions
   const handleSubmit = async () => {
     if (!input.trim() || !activeSpace || !activeConversation) return;
@@ -109,7 +124,7 @@ export default function ClientChatContent({
     try {
       setIsLoadingSpaceData(true);
       const response = await createConversation(activeSpace.id, title);
-      if (response.status === 200 && response.data) {
+      if (response.status === 'success' && response.data) {
         router.push(`/protected/spaces/${activeSpace.id}/conversations/${response.data.id}`);
       }
     } catch (error) {
@@ -122,7 +137,7 @@ export default function ClientChatContent({
   const handleSwitchConversation = async (conversationId: string) => {
     try {
       const response = await switchConversation(conversationId);
-      if (response.status === 200) {
+      if (response.status === 'success') {
         router.push(`/protected/spaces/${activeSpace.id}/conversations/${conversationId}`);
       }
     } catch (error) {
@@ -135,7 +150,7 @@ export default function ClientChatContent({
       setIsLoadingSpaceData(true);
       const response = await deleteConversation(conversationId);
       
-      if (response.status === 200) {
+      if (response.status === 'success') {
         // Find next conversation to navigate to
         if (conversations && conversations.length > 0) {
           const nextConversation = conversations.find(c => c.id !== conversationId && !c.is_deleted);
@@ -152,16 +167,6 @@ export default function ClientChatContent({
       setIsLoadingSpaceData(false);
     }
   };
-
-  const handleScrollToBottom = useCallback(() => {
-    const messagesContainer = messagesContainerRef.current;
-    if (messagesContainer) {
-      messagesContainer.scrollTo({
-        top: messagesContainer.scrollHeight,
-        behavior: "smooth",
-      });
-    }
-  }, []);
 
   return (
     <div className="flex flex-col h-full bg-black text-white relative chat-container">
@@ -191,8 +196,8 @@ export default function ClientChatContent({
               <ServerDrivenModelTab 
                 activeSpace={activeSpace}
                 onUpdateSpace={async (spaceId: string, updates: any) => {
-                  const response = await updateSpace(spaceId, updates);
-                  if (response.status === 200) {
+                  const success = await updateSpace(spaceId, updates);
+                  if (success) {
                     router.refresh();
                   }
                 }}
@@ -209,7 +214,9 @@ export default function ClientChatContent({
                 <BaseTab
                   icon={<ArrowDown className="w-3 h-3" />}
                   label="Scroll to Bottom"
-                  onClick={handleScrollToBottom}
+                  onClick={() => {
+                    scrollToBottomHandler.current();
+                  }}
                 />
               </div>
             )}
@@ -224,7 +231,8 @@ export default function ClientChatContent({
         </div>
         <ChatMessages
           messages={messages}
-          onStickToBottomChange={setIsStickToBottom}
+          onStickToBottomChange={handleStickToBottomChange}
+          onScrollToBottom={handleScrollToBottom}
           ref={messagesContainerRef}
           isLoading={isChatLoading || isLoadingSpaceData}
           streamData={data}
@@ -267,9 +275,7 @@ export default function ClientChatContent({
                   <ServerDrivenConversationTab
                     conversations={conversations}
                     activeConversation={activeConversation}
-                    onSwitchConversation={handleSwitchConversation}
                     onCreateConversation={handleCreateConversation}
-                    onDeleteConversation={handleDeleteConversation}
                   />
                 </div>
               </div>

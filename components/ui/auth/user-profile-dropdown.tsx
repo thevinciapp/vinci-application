@@ -37,7 +37,7 @@ export function UserProfileDropdown({ user, initialNotifications = [] }: UserPro
   const handleMarkAsRead = async (notificationId: string) => {
     await markNotificationAsRead(notificationId);
     const notificationsResponse = await getNotifications();
-    if (notificationsResponse.status === 200) {
+    if (notificationsResponse.status === 'success') { 
       setNotifications(notificationsResponse.data || []);
     }
   };
@@ -45,7 +45,7 @@ export function UserProfileDropdown({ user, initialNotifications = [] }: UserPro
   const handleMarkAllAsRead = async () => {
     await markAllNotificationsAsRead();
     const notificationsResponse = await getNotifications();
-    if (notificationsResponse.status === 200) {
+    if (notificationsResponse.status === 'success') {
       setNotifications(notificationsResponse.data || []);
     }
   };

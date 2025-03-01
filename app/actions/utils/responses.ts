@@ -3,31 +3,42 @@
 /**
  * Standardized response types for consistent error handling
  */
-export type ActionResponse<T> = {
-  data: T | null;
-  error: string | null;
-  status: number;
-};
+export interface ActionResponse<T> {
+  status: 'success' | 'error';
+  data?: T;
+  error?: string;
+  redirectTo?: string; // Add optional redirect URL
+  toast?: {
+    title: string;
+    description: string;
+    variant: 'default' | 'success' | 'destructive';
+  };
+}
 
 /**
  * Create a successful response
  */
-export async function successResponse<T>(data: T): Promise<ActionResponse<T>> {
+export async function successResponse<T>(data: T, toast?: ActionResponse<T>['toast'], redirectTo?: string): Promise<ActionResponse<T>> {
   return {
+    status: 'success',
     data,
-    error: null,
-    status: 200,
+    toast,
+    redirectTo
   };
 }
 
 /**
  * Create an error response
  */
-export async function errorResponse<T>(message: string, status = 400): Promise<ActionResponse<T>> {
+export async function errorResponse<T>(error: string, toast?: ActionResponse<T>['toast']): Promise<ActionResponse<T>> {
   return {
-    data: null,
-    error: message,
-    status,
+    status: 'error',
+    error,
+    toast: toast || {
+      title: 'Error',
+      description: error,
+      variant: 'destructive'
+    }
   };
 }
 
@@ -46,16 +57,22 @@ export async function unauthorizedResponse<T>(): Promise<ActionResponse<T>> {
 }
 
 /**
- * Handle errors in a consistent way
+ * Handle errors consistently across server actions
  */
 export async function handleActionError<T>(error: any): Promise<ActionResponse<T>> {
-  console.error('Action error:', error);
+  console.error('Server action error:', error);
   
-  // Check if it's an Error object
+  let errorMessage = 'An unexpected error occurred';
+  
   if (error instanceof Error) {
-    return await errorResponse<T>(error.message);
+    errorMessage = error.message;
+  } else if (typeof error === 'string') {
+    errorMessage = error;
   }
   
-  // Handle other error types
-  return await errorResponse<T>('An unexpected error occurred');
+  return errorResponse(errorMessage, {
+    title: 'Action Failed',
+    description: errorMessage,
+    variant: 'destructive'
+  });
 } 
