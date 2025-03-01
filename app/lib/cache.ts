@@ -13,6 +13,7 @@ export const CACHE_KEYS = {
   CONVERSATIONS: (spaceId: string) => `conversations:${spaceId}`,
   MESSAGES: (conversationId: string) => `messages:${conversationId}`,
   SPACE_DATA: (spaceId: string) => `space_data:${spaceId}`,
+  MOST_RECENT_CONVERSATION: (spaceId: string) => `most_recent_conversation:${spaceId}`,
 };
 
 // Cache TTL for different resources (in seconds)

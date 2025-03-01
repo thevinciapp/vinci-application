@@ -22,6 +22,60 @@ export interface Message {
 }
 
 /**
+ * Get the most recently updated conversation for a space
+ * @param spaceId - The ID of the space to search within
+ * @returns The most recently updated conversation, or an error response
+ */
+export async function getMostRecentConversation(spaceId: string): Promise<ActionResponse<Conversation>> {
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            return errorResponse('User not authenticated');
+        }
+
+        if (!spaceId) {
+            return errorResponse('Space ID is required');
+        }
+
+        const cacheKey = CACHE_KEYS.MOST_RECENT_CONVERSATION(spaceId);
+        const cachedConversation = await redis.get<Conversation>(cacheKey);
+        if (cachedConversation) {
+            return successResponse(cachedConversation);
+        }
+
+        const { data, error } = await supabase
+            .from(DB_TABLES.CONVERSATIONS)
+            .select("*")
+            .eq(COLUMNS.SPACE_ID, spaceId)
+            .eq(COLUMNS.IS_DELETED, false)
+            .order(COLUMNS.UPDATED_AT, { ascending: false })
+            .limit(1)
+            .single();
+
+        if (error) {
+            console.error("Error fetching most recent conversation:", error);
+            if (error.code === 'PGRST116') { // No rows returned
+                return notFoundResponse('Conversation');
+            }
+            return errorResponse(`Error fetching most recent conversation: ${error.message}`);
+        }
+
+        if (!data) {
+            return notFoundResponse('Conversation');
+        }
+
+        // Cache the result
+        await redis.set(cacheKey, data, { ex: CACHE_TTL.CONVERSATIONS });
+
+        return successResponse(data);
+    } catch (error) {
+        return handleActionError(error);
+    }
+}
+
+/**
  * Get all conversations for a space
  */
 export async function getConversations(spaceId: string): Promise<ActionResponse<Conversation[]>> {

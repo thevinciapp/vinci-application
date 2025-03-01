@@ -3,15 +3,24 @@ import {
   createSpace as createSpaceAction,
   setActiveSpace as setActiveSpaceAction,
   updateSpace as updateSpaceAction,
-  getSpaceData,
 } from '@/app/actions'
+import { getSpaceData } from '@/app/actions/spaces'
+import { ActionResponse } from '@/app/actions/utils/responses'
 import { useToast } from '@/hooks/use-toast'
-import { Space } from '@/types'
+import { Space, Conversation } from '@/types'
 import { useRouter } from 'next/navigation'
 
 // Types
 interface UseSpaceActionsOptions {
   showToasts?: boolean
+}
+
+// Type for SpaceData from the server action
+interface SpaceData {
+  space: Space | null;
+  conversations: Conversation[] | null;
+  messages: any[] | null;
+  activeConversation: Conversation | null;
 }
 
 /**
@@ -85,33 +94,6 @@ export function useSpaceActions(options: UseSpaceActionsOptions = {}) {
   }, [router, showToast])
 
   /**
-   * Select a space - sets it as the active space
-   */
-  const selectSpace = useCallback(async (spaceId: string): Promise<boolean> => {
-    try {
-      // Set loading state
-      setLoadingSpaceId(spaceId)
-      
-      // Set active space on server
-      await setActiveSpaceAction(spaceId)
-      
-      // Simply navigate to the conversations page for this space
-      router.push(`/protected/spaces/${spaceId}/conversations`)
-      
-      // Note: We don't clear the loading state here
-      // It will be cleared by the parent component when navigation completes
-      
-      return true
-    } catch (error) {
-      console.error('Failed to select space:', error)
-      showToast('Selection Failed', 'Could not select space', 'destructive')
-      // Reset loading state on error
-      setLoadingSpaceId(null)
-      return false
-    }
-  }, [router, showToast, setLoadingSpaceId])
-
-  /**
    * Update an existing space
    */
   const updateSpace = useCallback(async (
@@ -158,7 +140,6 @@ export function useSpaceActions(options: UseSpaceActionsOptions = {}) {
 
   return {
     createSpace,
-    selectSpace,
     updateSpace,
     isLoadingSpace,
     loadingSpaceId

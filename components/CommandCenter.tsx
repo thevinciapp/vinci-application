@@ -64,19 +64,19 @@ export function CommandCenter() {
               key={command.id}
               onSelect={() => handleSelect(command)}
               value={command.id}
-              className="group cursor-pointer"
+              className="group cursor-pointer relative overflow-hidden"
               role="button"
               onClick={() => handleSelect(command)}
             >
               {command.icon && (
-                <span className="mr-3 text-white group-aria-selected:text-[#3ecfff] group-hover:text-[#3ecfff]">
+                <span className="mr-3 text-white/70 group-hover:text-white/90 transition-colors duration-200 relative z-10">
                   {command.icon}
                 </span>
               )}
-              <div className="flex flex-col justify-center flex-1 overflow-hidden">
-                <span className="truncate text-white font-medium group-hover:text-[#3ecfff]/90">{command.name}</span>
+              <div className="flex flex-col justify-center flex-1 overflow-hidden relative z-10">
+                <span className="truncate text-white/90 font-medium group-hover:text-white transition-colors duration-200">{command.name}</span>
                 {command.description && (
-                  <span className="text-xs text-white/90 truncate mt-0.5 group-aria-selected:text-white group-hover:text-white">
+                  <span className="text-xs text-white/60 truncate mt-0.5 group-hover:text-white/80 transition-colors duration-200">
                     {command.description}
                   </span>
                 )}
@@ -86,7 +86,7 @@ export function CommandCenter() {
                   {command.shortcut.map((key, i) => (
                     <React.Fragment key={i}>
                       {i > 0 && <span className="mx-0.5">+</span>}
-                      <kbd className="px-1.5 py-0.5 text-[10px] bg-black/50 border border-[#3ecfff]/30 rounded group-aria-selected:border-[#3ecfff]/60 group-aria-selected:bg-[#3ecfff]/10 group-hover:border-[#3ecfff]/60 group-hover:bg-[#3ecfff]/10">
+                      <kbd className="px-1.5 py-0.5 text-[10px] bg-white/[0.02] border border-white/[0.05] rounded group-hover:border-white/[0.1] transition-all duration-200">
                         {key}
                       </kbd>
                     </React.Fragment>
@@ -112,19 +112,19 @@ export function CommandCenter() {
                 key={command.id}
                 onSelect={() => handleSelect(command)}
                 value={command.id}
-                className="group cursor-pointer"
+                className="group cursor-pointer relative overflow-hidden"
                 role="button"
                 onClick={() => handleSelect(command)}
               >
                 {command.icon && (
-                  <span className="mr-3 text-white group-aria-selected:text-[#3ecfff] group-hover:text-[#3ecfff]">
+                  <span className="mr-3 text-white/70 group-hover:text-white/90 transition-colors duration-200 relative z-10">
                     {command.icon}
                   </span>
                 )}
-                <div className="flex flex-col justify-center flex-1 overflow-hidden">
-                  <span className="truncate text-white font-medium group-hover:text-[#3ecfff]/90">{command.name}</span>
+                <div className="flex flex-col justify-center flex-1 overflow-hidden relative z-10">
+                  <span className="truncate text-white/90 font-medium group-hover:text-white transition-colors duration-200">{command.name}</span>
                   {command.description && (
-                    <span className="text-xs text-white/90 truncate mt-0.5 group-aria-selected:text-white group-hover:text-white">
+                    <span className="text-xs text-white/60 truncate mt-0.5 group-hover:text-white/80 transition-colors duration-200">
                       {command.description}
                     </span>
                   )}
@@ -134,7 +134,7 @@ export function CommandCenter() {
                     {command.shortcut.map((key, i) => (
                       <React.Fragment key={i}>
                         {i > 0 && <span className="mx-0.5">+</span>}
-                        <kbd className="px-1.5 py-0.5 text-[10px] bg-black/50 border border-[#3ecfff]/30 rounded group-aria-selected:border-[#3ecfff]/60 group-aria-selected:bg-[#3ecfff]/10 group-hover:border-[#3ecfff]/60 group-hover:bg-[#3ecfff]/10">
+                        <kbd className="px-1.5 py-0.5 text-[10px] bg-white/[0.02] border border-white/[0.05] rounded group-hover:border-white/[0.1] transition-all duration-200">
                           {key}
                         </kbd>
                       </React.Fragment>
@@ -156,8 +156,13 @@ export function CommandCenter() {
         placeholder="Type a command or search..."
         onValueChange={setSearchQuery}
       />
-      <CommandList>
-        <CommandEmpty>No commands found.</CommandEmpty>
+      <CommandList className="scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+        <CommandEmpty className="py-6 text-center text-sm">
+          <div className="flex flex-col items-center justify-center space-y-1">
+            <div className="text-white/60">No commands found.</div>
+            <div className="text-xs text-white/40">Try a different search term</div>
+          </div>
+        </CommandEmpty>
         {renderCommandGroups()}
       </CommandList>
     </CommandDialog>

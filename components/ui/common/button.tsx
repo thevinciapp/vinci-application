@@ -3,20 +3,21 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background",
+  "inline-flex items-center justify-center text-sm font-medium transition-all duration-200 focus-visible:outline-none disabled:opacity-50 disabled:pointer-events-none",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        ghost: "hover:bg-zinc-700/50 text-zinc-400",
-        toggle: "hover:bg-zinc-700/50 text-zinc-300 border-t border-zinc-700/50 rounded-t-md rounded-b-none",
+        default: "bg-primary text-white hover:bg-primary/90",
+        outline: "border border-white/[0.05] bg-white/[0.02] text-white/90 hover:bg-white/[0.05] hover:text-white backdrop-blur-sm",
+        ghost: "text-white/70 hover:bg-white/[0.04] hover:text-white",
+        toggle: "text-white/70 hover:bg-white/[0.04] hover:text-white border-t border-white/[0.05] rounded-t-md rounded-b-none",
         cyan: "bg-[#3ecfff]/10 text-[#3ecfff] border border-[#3ecfff]/20 shadow-[0_0_12px_rgba(62,207,255,0.1)] hover:bg-[#3ecfff]/20 rounded-xl",
         destructive: "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20",
       },
       size: {
-        default: "h-10 py-2 px-4",
+        default: "h-10 py-2 px-4 rounded-md",
         sm: "h-8 px-3 rounded-md",
-        icon: "h-8 w-8",
+        icon: "h-8 w-8 rounded-md",
       },
     },
     defaultVariants: {
@@ -36,7 +37,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, active, ...props }, ref) => {
     return (
       <button
-        className={cn(buttonVariants({ variant, size, className }), active && "bg-zinc-700/50")}
+        className={cn(buttonVariants({ variant, size, className }), active && "bg-white/[0.05] text-white")}
         ref={ref}
         {...props}
       />
