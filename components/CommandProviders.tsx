@@ -2,7 +2,17 @@
 
 import React, { ReactNode, useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { CommandOption, useCommandRegistration, CommandType } from "@/hooks/useCommandCenter";
-import { Settings, Search, Plus, MessageSquare, Brain, Command } from "lucide-react";
+import { 
+  Settings, 
+  Search, 
+  Plus, 
+  MessageSquare, 
+  Brain, 
+  Command, 
+  Trash, 
+  PencilLine,
+  Pencil
+} from "lucide-react";
 import { AVAILABLE_MODELS, PROVIDER_NAMES, Provider } from "@/config/models";
 import { Command as CdkCommand } from "cmdk";
 import { toast } from 'sonner'
@@ -26,51 +36,62 @@ import { Textarea } from "@/components/ui/common/textarea";
 import { useCommandCenter } from "@/hooks/useCommandCenter";
 import { useRouter } from "next/navigation";
 import { getMostRecentConversation } from "@/app/actions/conversations";
+import { cn } from "@/lib/utils";
 
 /**
- * Dialog for creating a new space
+ * Dialog for creating or editing a space
  */
 export function CreateSpaceDialog({
   open,
   onOpenChange,
   onSuccess,
   reopenCommandCenter,
+  editSpace = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
   reopenCommandCenter?: () => void;
+  editSpace?: any; // The space to edit, null when creating a new space
 }) {
-  const [name, setName] = useState("New Space");
-  const [description, setDescription] = useState("");
-  const [provider, setProvider] = useState<Provider>("anthropic");
-  const [model, setModel] = useState("");
+  const [name, setName] = useState(editSpace?.name || "New Space");
+  const [description, setDescription] = useState(editSpace?.description || "");
+  const [provider, setProvider] = useState<Provider>(editSpace?.provider || "anthropic");
+  const [model, setModel] = useState(editSpace?.model || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const initialRenderRef = useRef(true);
 
-  const { createSpace } = useSpaceActions({
+  const { createSpace, updateSpace } = useSpaceActions({
     showToasts: true
   });
 
   // Reset form when dialog opens and handle reopen logic
   useEffect(() => {
     if (open) {
-      setName("New Space");
-      setDescription("");
-      setProvider("anthropic");
-      setModel(AVAILABLE_MODELS["anthropic"][0].id);
+      if (editSpace) {
+        // If editing, populate with existing data
+        setName(editSpace.name || "Untitled Space");
+        setDescription(editSpace.description || "");
+        setProvider(editSpace.provider || "anthropic");
+        setModel(editSpace.model || AVAILABLE_MODELS["anthropic"][0].id);
+      } else {
+        // If creating new space, set defaults
+        setName("New Space");
+        setDescription("");
+        setProvider("anthropic");
+        setModel(AVAILABLE_MODELS["anthropic"][0].id);
+      }
       initialRenderRef.current = false;
-    } else if (!open && !isSubmitting && reopenCommandCenter && !initialRenderRef.current) {
-      reopenCommandCenter();
     }
-  }, [open, reopenCommandCenter, isSubmitting]);
+    // We remove the auto-reopening here since it's now handled by onOpenChange
+  }, [open, editSpace]);
 
-  // Set default model when provider changes
+  // Set default model when provider changes (only if not editing)
   useEffect(() => {
-    if (provider && AVAILABLE_MODELS[provider]?.length > 0) {
+    if (!editSpace && provider && AVAILABLE_MODELS[provider]?.length > 0) {
       setModel(AVAILABLE_MODELS[provider][0].id);
     }
-  }, [provider]);
+  }, [provider, editSpace]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -79,16 +100,31 @@ export function CreateSpaceDialog({
 
       setIsSubmitting(true);
       try {
-        const result = await createSpace(name, description, model, provider);
-        if (result) {
+        let success = false;
+        
+        if (editSpace) {
+          // Update existing space
+          success = await updateSpace(editSpace.id, {
+            name,
+            description,
+            model,
+            provider
+          });
+        } else {
+          // Create new space
+          const result = await createSpace(name, description, model, provider);
+          success = !!result;
+        }
+        
+        if (success) {
           onSuccess?.();
-          onOpenChange(false);
+          onOpenChange(false); // This will trigger our custom handler that reopens the spaces command
         }
       } finally {
         setIsSubmitting(false);
       }
     },
-    [isSubmitting, name, description, model, provider, createSpace, onSuccess, onOpenChange]
+    [isSubmitting, name, description, model, provider, createSpace, updateSpace, onSuccess, onOpenChange, editSpace]
   );
 
   return (
@@ -96,8 +132,12 @@ export function CreateSpaceDialog({
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Create New Space</DialogTitle>
-            <DialogDescription>Create a new workspace for your conversations.</DialogDescription>
+            <DialogTitle>{editSpace ? "Edit Space" : "Create New Space"}</DialogTitle>
+            <DialogDescription>
+              {editSpace 
+                ? "Update the settings for this workspace." 
+                : "Create a new workspace for your conversations."}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
@@ -159,10 +199,80 @@ export function CreateSpaceDialog({
 
           <DialogFooter>
             <Button type="submit" disabled={isSubmitting || !name || !model || !provider}>
-              {isSubmitting ? "Creating..." : "Create Space"}
+              {isSubmitting 
+                ? (editSpace ? "Updating..." : "Creating...") 
+                : (editSpace ? "Update Space" : "Create Space")}
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Dialog for confirming space deletion
+ */
+export function DeleteSpaceDialog({
+  open,
+  onOpenChange,
+  space,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  space: any | null;
+  onConfirm: () => void;
+}) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleDelete = useCallback(async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
+    try {
+      await onConfirm();
+      // Successfully deleted space, close dialog
+      // onOpenChange(false) will be called which in turn will reopen the spaces command
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error deleting space:", error);
+      // In case of error, we still want to close the dialog
+      onOpenChange(false);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [isSubmitting, onConfirm, onOpenChange]);
+
+  if (!space) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Delete Space</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete "{space.name}"? This action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+
+        <DialogFooter className="mt-4 flex justify-between">
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            className="border-white/10 bg-white/5 hover:bg-white/10 text-white backdrop-blur-sm"
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="destructive" 
+            onClick={handleDelete} 
+            disabled={isSubmitting}
+            className="bg-red-500/20 hover:bg-red-500/30 border border-red-500/20 text-red-400 backdrop-blur-sm"
+          >
+            {isSubmitting ? "Deleting..." : "Delete Space"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -212,8 +322,17 @@ export function ApplicationCommandProvider({ children }: { children: ReactNode }
  */
 export function SpacesCommandProvider({ children, spaces = [], activeSpace = null, conversations = [] }: { children: ReactNode, spaces?: any[], activeSpace?: any, conversations?: any[] }) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [spaceToEdit, setSpaceToEdit] = useState<any>(null);
+  const [spaceToDelete, setSpaceToDelete] = useState<any>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const router = useRouter();
-  const { openCommandCenter, closeCommandCenter } = useCommandCenter();
+  const { openCommandCenter, closeCommandCenter, openCommandType } = useCommandCenter();
+  const { deleteSpace } = useSpaceActions({ showToasts: true });
+
+  // Function to reopen command center with Spaces type active
+  const reopenSpacesCommandCenter = useCallback(() => {
+    openCommandType('spaces');
+  }, [openCommandType]);
 
   const baseCommands = useCallback(
     (): CommandOption[] => [
@@ -222,11 +341,11 @@ export function SpacesCommandProvider({ children, spaces = [], activeSpace = nul
         name: "Create New Space",
         description: "Create a new workspace",
         icon: <Plus className="h-4 w-4" />,
-        shortcut: ["⌘", "N"],
         type: "spaces",
         keywords: ["create", "new", "space", "workspace", "add"],
         action: () => {
           closeCommandCenter();
+          setSpaceToEdit(null); // Ensure we're not in edit mode
           setShowCreateDialog(true);
         },
       },
@@ -249,7 +368,54 @@ export function SpacesCommandProvider({ children, spaces = [], activeSpace = nul
     } else {
       router.push(`/protected/spaces/${spaceId}/conversations/${conversation.id}`);
     }
-  }, []);
+  }, [router]);
+
+  const handleEditSpace = useCallback((space: any) => {
+    closeCommandCenter();
+    setSpaceToEdit(space);
+    setShowCreateDialog(true);
+  }, [closeCommandCenter]);
+
+  const handleDeleteSpace = useCallback((space: any) => {
+    closeCommandCenter();
+    setSpaceToDelete(space);
+    setShowDeleteDialog(true);
+  }, [closeCommandCenter]);
+
+  const confirmDeleteSpace = useCallback(async () => {
+    if (spaceToDelete) {
+      try {
+        await deleteSpace(spaceToDelete.id);
+        return true; // Successfully deleted
+      } catch (error) {
+        console.error("Error deleting space:", error);
+        return false; // Failed to delete
+      }
+    }
+    return false;
+  }, [spaceToDelete, deleteSpace]);
+
+  // Handle dialog close for delete dialog
+  const handleDeleteDialogClose = useCallback((open: boolean) => {
+    setShowDeleteDialog(open);
+    if (!open) {
+      // When dialog is closed, reopen the spaces command center
+      setTimeout(() => {
+        reopenSpacesCommandCenter();
+      }, 100); // Small delay to ensure dialog is fully closed
+    }
+  }, [reopenSpacesCommandCenter]);
+
+  // Handle dialog close for create/edit dialog
+  const handleCreateDialogClose = useCallback((open: boolean) => {
+    setShowCreateDialog(open);
+    if (!open) {
+      // When dialog is closed, reopen the spaces command center
+      setTimeout(() => {
+        reopenSpacesCommandCenter();
+      }, 100); // Small delay to ensure dialog is fully closed
+    }
+  }, [reopenSpacesCommandCenter]);
 
   const spaceCommands = useCallback((): CommandOption[] => {
     const commands = [] as CommandOption[];
@@ -278,10 +444,47 @@ export function SpacesCommandProvider({ children, spaces = [], activeSpace = nul
         action: () => {
           handleSelectSpace(space.id);
         },
+        rightElement: (
+          <div className="flex items-center">
+            <div
+              onClick={(e) => { 
+                e.stopPropagation();
+                e.preventDefault();
+                handleEditSpace(space);
+              }}
+              className={cn(
+                "flex items-center h-7 w-7 justify-center rounded-md p-1.5 mr-1",
+                "transition-all duration-200 ease-in-out",
+                "bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.05]",
+                "text-zinc-400 hover:text-zinc-200"
+              )}
+              title="Edit Space"
+            >
+             
+              <Pencil size={11} strokeWidth={1.5} />
+            </div>
+            <div
+              onClick={(e) => { 
+                e.stopPropagation();
+                e.preventDefault();
+                handleDeleteSpace(space);
+              }}
+              className={cn(
+                "flex items-center h-7 w-7 justify-center rounded-md p-1.5",
+                "transition-all duration-200 ease-in-out",
+                "bg-white/[0.03] hover:bg-red-400/20 border border-white/[0.05]",
+                "text-red-400 hover:text-red-200"
+              )}
+              title="Delete Space"
+            >
+              <Trash className="text-red-400" size={11} strokeWidth={1.5} />
+            </div>
+          </div>
+        )
       })) ?? [];
-      
+    
     return [...commands, ...spaceOptions];
-  }, [spaces, activeSpace, handleSelectSpace, closeCommandCenter]);
+  }, [spaces, handleSelectSpace, handleEditSpace, handleDeleteSpace]);
 
   useCommandRegistration([...baseCommands(), ...spaceCommands()]);
 
@@ -289,8 +492,15 @@ export function SpacesCommandProvider({ children, spaces = [], activeSpace = nul
     <>
       <CreateSpaceDialog
         open={showCreateDialog}
-        onOpenChange={setShowCreateDialog}
-        reopenCommandCenter={openCommandCenter}
+        onOpenChange={handleCreateDialogClose}
+        reopenCommandCenter={reopenSpacesCommandCenter}
+        editSpace={spaceToEdit}
+      />
+      <DeleteSpaceDialog 
+        open={showDeleteDialog}
+        onOpenChange={handleDeleteDialogClose}
+        space={spaceToDelete}
+        onConfirm={confirmDeleteSpace}
       />
       {children}
     </>

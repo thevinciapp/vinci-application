@@ -3,6 +3,7 @@ import {
   createSpace as createSpaceAction,
   setActiveSpace as setActiveSpaceAction,
   updateSpace as updateSpaceAction,
+  deleteSpace as deleteSpaceAction,
 } from '@/app/actions'
 import { getSpaceData } from '@/app/actions/spaces'
 import { ActionResponse } from '@/app/actions/utils/responses'
@@ -71,9 +72,9 @@ export function useSpaceActions(options: UseSpaceActionsOptions = {}) {
       const spaceData = await getSpaceData(newSpace.id)
       
       // Route to the conversation
-      if (spaceData && spaceData.conversations && spaceData.conversations.length > 0) {
+      if (spaceData?.data?.conversations && spaceData.data.conversations.length > 0) {
         // Route to the first conversation
-        router.push(`/protected/spaces/${newSpace.id}/conversations/${spaceData.conversations[0].id}`)
+        router.push(`/protected/spaces/${newSpace.id}/conversations/${spaceData.data.conversations[0].id}`)
       } else {
         // If no conversations found, just route to the space
         router.push(`/protected/spaces/${newSpace.id}/conversations`)
@@ -127,6 +128,38 @@ export function useSpaceActions(options: UseSpaceActionsOptions = {}) {
   }, [showToast])
 
   /**
+   * Delete a space
+   */
+  const deleteSpace = useCallback(async (
+    spaceId: string
+  ): Promise<boolean> => {
+    try {
+      // Set loading state
+      setLoadingSpaceId(spaceId)
+      
+      // Delete space on server
+      await deleteSpaceAction(spaceId)
+      
+      // If no error was thrown, consider it successful
+      showToast('Space Deleted', 'Space has been removed', 'success')
+      
+      // Reset loading state
+      setLoadingSpaceId(null)
+      
+      // Redirect to home/spaces page
+      router.push('/protected')
+      
+      return true
+    } catch (error) {
+      console.error('Failed to delete space:', error)
+      showToast('Deletion Failed', 'Could not delete space', 'destructive')
+      // Reset loading state
+      setLoadingSpaceId(null)
+      return false
+    }
+  }, [router, showToast])
+
+  /**
    * Check if a space is currently loading
    */
   const isLoadingSpace = useCallback((spaceId?: string) => {
@@ -141,6 +174,7 @@ export function useSpaceActions(options: UseSpaceActionsOptions = {}) {
   return {
     createSpace,
     updateSpace,
+    deleteSpace,
     isLoadingSpace,
     loadingSpaceId
   }

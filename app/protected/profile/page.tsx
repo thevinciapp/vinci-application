@@ -91,12 +91,12 @@ export default async function ProfilePage() {
       </div>
       
       <div className="container max-w-2xl py-8 space-y-6 relative z-10">
-        <Card className="bg-black/40 border border-white/[0.05] backdrop-blur-xl shadow-[0_4px_20px_rgba(62,207,255,0.03)]">
+        <Card className="border border-white/[0.05] bg-white/[0.03] backdrop-blur-xl shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
           <CardHeader>
             <div className="flex items-center space-x-4">
-              <Avatar className="h-20 w-20 border-2 border-white/[0.08]">
+              <Avatar className="h-20 w-20">
                 <AvatarImage src={initialProfile.avatar_url} />
-                <AvatarFallback className="bg-transparent text-white/60">
+                <AvatarFallback className="text-white/60">
                   {initialProfile.full_name?.substring(0, 2).toUpperCase() || user?.email?.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
@@ -104,7 +104,7 @@ export default async function ProfilePage() {
                 <CardTitle className="text-2xl font-medium text-white/90">
                   {initialProfile.full_name || 'Your Profile'}
                 </CardTitle>
-                <CardDescription className="text-white/40">
+                <CardDescription className="text-white/50">
                   {user?.email}
                 </CardDescription>
               </div>
@@ -113,7 +113,7 @@ export default async function ProfilePage() {
           <CardContent className="space-y-6">
             <form action="/api/update-profile" method="POST" className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="full_name" className="text-white/60">
+                <Label htmlFor="full_name">
                   Full Name
                 </Label>
                 <Input
@@ -121,12 +121,12 @@ export default async function ProfilePage() {
                   name="full_name"
                   type="text"
                   defaultValue={initialProfile.full_name}
-                  className="bg-black/40 border-white/[0.05] text-white/90 focus:border-[#3ecfff]/40 focus:ring-[#3ecfff]/20 placeholder-white/20"
+                  className="bg-white/[0.03] border-white/[0.05] text-white/90 focus:border-[#3ecfff]/40 focus:ring-[#3ecfff]/20 placeholder-white/20"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="avatar_url" className="text-white/60">
+                <Label htmlFor="avatar_url">
                   Avatar URL
                 </Label>
                 <Input
@@ -134,12 +134,12 @@ export default async function ProfilePage() {
                   name="avatar_url"
                   type="url"
                   defaultValue={initialProfile.avatar_url}
-                  className="bg-black/40 border-white/[0.05] text-white/90 focus:border-[#3ecfff]/40 focus:ring-[#3ecfff]/20 placeholder-white/20"
+                  className="bg-white/[0.03] border-white/[0.05] text-white/90 focus:border-[#3ecfff]/40 focus:ring-[#3ecfff]/20 placeholder-white/20"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="website" className="text-white/60">
+                <Label htmlFor="website">
                   Website
                 </Label>
                 <Input
@@ -147,12 +147,12 @@ export default async function ProfilePage() {
                   name="website"
                   type="url"
                   defaultValue={initialProfile.website}
-                  className="bg-black/40 border-white/[0.05] text-white/90 focus:border-[#3ecfff]/40 focus:ring-[#3ecfff]/20 placeholder-white/20"
+                  className="bg-white/[0.03] border-white/[0.05] text-white/90 focus:border-[#3ecfff]/40 focus:ring-[#3ecfff]/20 placeholder-white/20"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="bio" className="text-white/60">
+                <Label htmlFor="bio">
                   Bio
                 </Label>
                 <Input
@@ -160,7 +160,7 @@ export default async function ProfilePage() {
                   name="bio"
                   type="text"
                   defaultValue={initialProfile.bio}
-                  className="bg-black/40 border-white/[0.05] text-white/90 focus:border-[#3ecfff]/40 focus:ring-[#3ecfff]/20 placeholder-white/20"
+                  className="bg-white/[0.03] border-white/[0.05] text-white/90 focus:border-[#3ecfff]/40 focus:ring-[#3ecfff]/20 placeholder-white/20"
                 />
               </div>
 
@@ -176,12 +176,12 @@ export default async function ProfilePage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-black/40 border border-white/[0.05] backdrop-blur-xl shadow-[0_4px_20px_rgba(62,207,255,0.03)]">
+        <Card className="border border-white/[0.05] bg-white/[0.03] backdrop-blur-xl shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
           <CardHeader>
             <CardTitle className="text-lg font-medium text-white/90">
               Account Settings
             </CardTitle>
-            <CardDescription className="text-white/40">
+            <CardDescription className="text-white/50">
               Manage your account settings and preferences
             </CardDescription>
           </CardHeader>
@@ -189,7 +189,7 @@ export default async function ProfilePage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-medium text-white/90">Email Notifications</h3>
-                <p className="text-sm text-white/40">Receive email notifications about your account</p>
+                <p className="text-sm text-white/50">Receive email notifications about your account</p>
               </div>
               <Button variant="cyan">
                 Configure
@@ -198,7 +198,7 @@ export default async function ProfilePage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-medium text-white/90">Password</h3>
-                <p className="text-sm text-white/40">Change your password</p>
+                <p className="text-sm text-white/50">Change your password</p>
               </div>
               <Button variant="cyan">
                 Change

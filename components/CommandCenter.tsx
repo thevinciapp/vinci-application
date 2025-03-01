@@ -41,9 +41,12 @@ export function CommandCenter() {
       .map(([type]) => type as CommandType);
   }, [groupedCommands]);
 
-  const handleSelect = (command: CommandOption) => {
-    closeCommandCenter();
-    command.action();
+  const handleSelect = (commandId: string) => {
+    const command = filteredCommands.find(cmd => cmd.id === commandId);
+    if (command) {
+      closeCommandCenter();
+      command.action();
+    }
   };
 
   const renderCommandGroups = () => {
@@ -62,37 +65,42 @@ export function CommandCenter() {
           {commands.map((command) => (
             <CommandItem
               key={command.id}
-              onSelect={() => handleSelect(command)}
+              onSelect={() => handleSelect(command.id)}
               value={command.id}
               className="group cursor-pointer relative overflow-hidden"
-              role="button"
-              onClick={() => handleSelect(command)}
             >
-              {command.icon && (
-                <span className="mr-3 text-white/70 group-hover:text-white/90 transition-colors duration-200 relative z-10">
-                  {command.icon}
-                </span>
-              )}
-              <div className="flex flex-col justify-center flex-1 overflow-hidden relative z-10">
-                <span className="truncate text-white/90 font-medium group-hover:text-white transition-colors duration-200">{command.name}</span>
-                {command.description && (
-                  <span className="text-xs text-white/60 truncate mt-0.5 group-hover:text-white/80 transition-colors duration-200">
-                    {command.description}
+              <div className="flex items-center w-full pointer-events-auto">
+                {command.icon && (
+                  <span className="mr-3 text-white/70 group-hover:text-white/90 transition-colors duration-200">
+                    {command.icon}
                   </span>
                 )}
+                <div className="flex flex-col justify-center flex-1 overflow-hidden">
+                  <span className="truncate text-white/90 font-medium group-hover:text-white transition-colors duration-200">{command.name}</span>
+                  {command.description && (
+                    <span className="text-xs text-white/60 truncate mt-0.5 group-hover:text-white/80 transition-colors duration-200">
+                      {command.description}
+                    </span>
+                  )}
+                </div>
+                {command.shortcut && !command.rightElement && (
+                  <CommandShortcut>
+                    {command.shortcut.map((key, i) => (
+                      <React.Fragment key={i}>
+                        {i > 0 && <span className="mx-0.5">+</span>}
+                        <kbd className="px-1.5 py-0.5 text-[10px] bg-white/[0.02] border border-white/[0.05] rounded group-hover:border-white/[0.1] transition-all duration-200">
+                          {key}
+                        </kbd>
+                      </React.Fragment>
+                    ))}
+                  </CommandShortcut>
+                )}
+                {command.rightElement && (
+                  <div className="flex items-center ml-auto pointer-events-auto">
+                    {command.rightElement}
+                  </div>
+                )}
               </div>
-              {command.shortcut && (
-                <CommandShortcut>
-                  {command.shortcut.map((key, i) => (
-                    <React.Fragment key={i}>
-                      {i > 0 && <span className="mx-0.5">+</span>}
-                      <kbd className="px-1.5 py-0.5 text-[10px] bg-white/[0.02] border border-white/[0.05] rounded group-hover:border-white/[0.1] transition-all duration-200">
-                        {key}
-                      </kbd>
-                    </React.Fragment>
-                  ))}
-                </CommandShortcut>
-              )}
             </CommandItem>
           ))}
         </CommandGroup>
@@ -110,37 +118,42 @@ export function CommandCenter() {
             {commands.map((command) => (
               <CommandItem
                 key={command.id}
-                onSelect={() => handleSelect(command)}
+                onSelect={() => handleSelect(command.id)}
                 value={command.id}
                 className="group cursor-pointer relative overflow-hidden"
-                role="button"
-                onClick={() => handleSelect(command)}
               >
-                {command.icon && (
-                  <span className="mr-3 text-white/70 group-hover:text-white/90 transition-colors duration-200 relative z-10">
-                    {command.icon}
-                  </span>
-                )}
-                <div className="flex flex-col justify-center flex-1 overflow-hidden relative z-10">
-                  <span className="truncate text-white/90 font-medium group-hover:text-white transition-colors duration-200">{command.name}</span>
-                  {command.description && (
-                    <span className="text-xs text-white/60 truncate mt-0.5 group-hover:text-white/80 transition-colors duration-200">
-                      {command.description}
+                <div className="flex items-center w-full pointer-events-auto">
+                  {command.icon && (
+                    <span className="mr-3 text-white/70 group-hover:text-white/90 transition-colors duration-200">
+                      {command.icon}
                     </span>
                   )}
+                  <div className="flex flex-col justify-center flex-1 overflow-hidden">
+                    <span className="truncate text-white/90 font-medium group-hover:text-white transition-colors duration-200">{command.name}</span>
+                    {command.description && (
+                      <span className="text-xs text-white/60 truncate mt-0.5 group-hover:text-white/80 transition-colors duration-200">
+                        {command.description}
+                      </span>
+                    )}
+                  </div>
+                  {command.shortcut && !command.rightElement && (
+                    <CommandShortcut>
+                      {command.shortcut.map((key, i) => (
+                        <React.Fragment key={i}>
+                          {i > 0 && <span className="mx-0.5">+</span>}
+                          <kbd className="px-1.5 py-0.5 text-[10px] bg-white/[0.02] border border-white/[0.05] rounded group-hover:border-white/[0.1] transition-all duration-200">
+                            {key}
+                          </kbd>
+                        </React.Fragment>
+                      ))}
+                    </CommandShortcut>
+                  )}
+                  {command.rightElement && (
+                    <div className="flex items-center ml-auto pointer-events-auto">
+                      {command.rightElement}
+                    </div>
+                  )}
                 </div>
-                {command.shortcut && (
-                  <CommandShortcut>
-                    {command.shortcut.map((key, i) => (
-                      <React.Fragment key={i}>
-                        {i > 0 && <span className="mx-0.5">+</span>}
-                        <kbd className="px-1.5 py-0.5 text-[10px] bg-white/[0.02] border border-white/[0.05] rounded group-hover:border-white/[0.1] transition-all duration-200">
-                          {key}
-                        </kbd>
-                      </React.Fragment>
-                    ))}
-                  </CommandShortcut>
-                )}
               </CommandItem>
             ))}
           </CommandGroup>

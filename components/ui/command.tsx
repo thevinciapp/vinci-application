@@ -26,7 +26,7 @@ const CommandDialog = ({ children, ...props }: CommandDialogProps) => {
   return (
     <Dialog {...props}>
       <DialogContent 
-        className="overflow-hidden p-0 max-w-2xl w-full mx-auto rounded-xl border border-white/[0.05] bg-white/[0.03] shadow-none backdrop-blur-xl"
+        className="overflow-hidden p-0 max-w-2xl w-full mx-auto rounded-xl border border-white/[0.05] bg-white/[0.03] shadow-none backdrop-blur-xl pointer-events-auto"
       >
         <DialogTitle className="sr-only">Command Menu</DialogTitle>
         <DialogDescription className="sr-only">
@@ -140,7 +140,7 @@ const CommandItem = React.forwardRef<
       "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       "hover:bg-white/[0.05] hover:backdrop-blur-sm active:bg-white/[0.06]",
       "border border-transparent hover:border-white/[0.06]",
-      "group",
+      "group pointer-events-auto",
       className
     )}
     {...props}

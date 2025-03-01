@@ -10,6 +10,7 @@ export interface CommandOption {
   name: string;
   description?: string;
   icon?: ReactNode;
+  rightElement?: ReactNode;
   shortcut?: string[];
   type: CommandType;
   keywords?: string[];
