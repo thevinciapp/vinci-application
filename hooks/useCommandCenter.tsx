@@ -53,8 +53,10 @@ export function CommandProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Command center controls
-  const openCommandCenter = useCallback(() => setIsOpen(true), []);
+  const openCommandCenter = useCallback(() => {
+    console.log('openCommandCenter called');
+    setIsOpen(true);
+  }, []);
   const closeCommandCenter = useCallback(() => {
     console.log('closeCommandCenter called');
     setIsOpen(false);
@@ -64,69 +66,55 @@ export function CommandProvider({ children }: { children: ReactNode }) {
   
   const toggleCommandCenter = useCallback(() => {
     console.log('toggleCommandCenter called');
-    console.log('Current state:', { isOpen, activeCommandType });
-    
     if (isOpen) {
       if (activeCommandType !== null) {
         console.log('Switching from specific command type to main command center');
         setActiveCommandType(null);
       } else {
-        console.log('Closing main command center');
         setIsOpen(false);
         setSearchQuery('');
         setActiveCommandType(null);
       }
     } else {
-      console.log('Opening main command center');
       setIsOpen(true);
       setActiveCommandType(null);
     }
   }, [isOpen, activeCommandType]);
   
-  // Function to close a specific command type
   const closeCommandType = useCallback((type: CommandType) => {
     console.log('closeCommandType called with:', type);
     if (isOpen && activeCommandType === type) {
       setIsOpen(false);
+      setActiveCommandType(null);
       setSearchQuery('');
     }
   }, [isOpen, activeCommandType]);
   
-  // New function to open command center with a specific type
   const openCommandType = useCallback((type: CommandType) => {
     console.log('openCommandType called with:', type);
     if (isOpen && activeCommandType === type) {
-      console.log('Closing the currently open type');
       closeCommandType(type);
     } else {
-      console.log('Switching to command type:', type);
       setActiveCommandType(type);
       if (!isOpen) {
         setIsOpen(true);
-        console.log('Opening command center');
       }
     }
   }, [isOpen, activeCommandType, closeCommandType]);
 
-  // Register keyboard shortcuts
-  // meta+k is now handled in CommandShortcuts component
   useHotkeys('esc', () => {
+    console.log('esc key pressed');
     if (isOpen) {
       closeCommandCenter();
     }
   });
 
-  // Command registration - properly memoized to prevent infinite loops
   const registerCommand = useCallback((command: CommandOption) => {
-    console.log('registerCommand called with:', command);
-
     if (!isMounted.current) return;
     
     setCommands(prev => {
-      // Check if this exact command already exists to avoid unnecessary updates
       const exists = prev.some(cmd => cmd.id === command.id);
       if (exists) {
-        // Only update if there are actual changes
         const isEqual = prev.some(cmd => 
           cmd.id === command.id && 
           cmd.name === command.name && 
@@ -134,21 +122,16 @@ export function CommandProvider({ children }: { children: ReactNode }) {
         );
         if (isEqual) return prev; // No change needed
         
-        // Replace the existing command
         return prev.map(cmd => cmd.id === command.id ? command : cmd);
       }
-      // Add new command
       return [...prev, command];
     });
   }, []);
 
   const unregisterCommand = useCallback((commandId: string) => {
-    console.log('unregisterCommand called with:', commandId);
-
     if (!isMounted.current) return;
     
     setCommands(prev => {
-      // Only update if the command exists
       const commandExists = prev.some(cmd => cmd.id === commandId);
       if (!commandExists) return prev;
       return prev.filter(cmd => cmd.id !== commandId);
@@ -236,30 +219,21 @@ export function useCommandRegistration(commands: CommandOption[]) {
   const commandsRef = useRef<CommandOption[]>([]);
   
   useEffect(() => {
-    console.log(`useCommandRegistration - commands changed, count: ${commands.length}`);
-    
-    // Make a deep copy of incoming commands to prevent reference issues
     const currentCommands = [...commands];
     
-    // Find commands that were previously registered but are no longer in the current list
     const removedCommands = commandsRef.current.filter(
       prevCmd => !currentCommands.some(cmd => cmd.id === prevCmd.id)
     );
     
-    // Unregister removed commands
     removedCommands.forEach(command => {
-      console.log(`Unregistering command: ${command.id}`);
       unregisterCommand(command.id);
     });
     
-    // Find new commands that weren't previously registered
     const newCommands = currentCommands.filter(
       cmd => !commandsRef.current.some(prevCmd => prevCmd.id === cmd.id)
     );
     
-    // Register new commands
     newCommands.forEach(command => {
-      console.log(`Registering new command: ${command.id}`);
       registerCommand(command);
     });
     
@@ -273,9 +247,7 @@ export function useCommandRegistration(commands: CommandOption[]) {
       )
     );
     
-    // Re-register updated commands
     updatedCommands.forEach(command => {
-      console.log(`Updating command: ${command.id}`);
       registerCommand(command);
     });
     
@@ -290,7 +262,6 @@ export function useModalHotkey(type: CommandType, hotkey: string) {
   
   useHotkeys(hotkey, (event) => {
     event.preventDefault();
-    console.log('Hotkey pressed:', hotkey);
     openCommandType(type);
   }, { 
     enableOnFormTags: true,

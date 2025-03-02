@@ -865,7 +865,6 @@ export async function deleteSpace(spaceId: string): Promise<void> {
     // Import deleteMessagesBySpaceId from the Pinecone utils
     const { deleteMessagesBySpaceId } = await import('@/utils/pinecone');
     await deleteMessagesBySpaceId(spaceId);
-    console.log(`Successfully deleted messages from Pinecone for space: ${spaceId}`);
   } catch (pineconeError) {
     console.error('Error deleting messages from Pinecone:', pineconeError);
     // We don't want to fail the whole operation if Pinecone deletion fails
@@ -893,7 +892,6 @@ export async function deleteConversation(conversationId: string): Promise<void> 
     throw new Error('Unauthorized');
   }
 
-  console.log(`Attempting to delete conversation with ID: ${conversationId} for user: ${user.id}`);
 
   // Step 1: Fetch conversation to verify it exists and get space_id
   const { data: conversation, error: fetchError } = await supabase

@@ -497,19 +497,7 @@ export function SpacesCommandProvider({
           name: space.name,
           value: space.name,
           description: space.description || "Switch to this workspace",
-          icon: (
-            <div className="flex items-center gap-2">
-              <DotSphere 
-                size={22} 
-                seed={space.id} 
-                dotCount={60} 
-                dotSize={0.7} 
-                expandFactor={1.15} 
-                transitionSpeed={400}
-                highPerformance={true}
-              />
-            </div>
-          ),
+ 
           type: "spaces" as CommandType,
           keywords: [
             "space", 

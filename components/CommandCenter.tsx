@@ -26,14 +26,9 @@ export function CommandCenter() {
       actions: [],
     };
 
-    console.log('groupedCommands:', filteredCommands);
-
-
     filteredCommands.forEach((command) => {
       grouped[command.type].push(command);
     });
-
-    console.log('groupedCommands:', grouped);
 
     return grouped;
   }, [filteredCommands]);
@@ -64,7 +59,6 @@ export function CommandCenter() {
       return (
         <CommandGroup heading={activeCommandType.charAt(0).toUpperCase() + activeCommandType.slice(1)}>
           {commands.map((command) => (
-            console.log('command:', command),
             <CommandItem
               key={command.id}
               onSelect={() => handleSelect(command.id)}
@@ -165,9 +159,11 @@ export function CommandCenter() {
   };
 
   return (
-    <CommandDialog open={isOpen} onOpenChange={closeCommandCenter}>
-      <Command shouldFilter={false} loop>
-        <CommandInput
+    <>
+      {isOpen && (
+        <CommandDialog open={isOpen} onOpenChange={closeCommandCenter}>
+          <Command shouldFilter={false} loop>
+            <CommandInput
           placeholder="Type a command or search..."
           onValueChange={setSearchQuery}
         />
@@ -175,8 +171,9 @@ export function CommandCenter() {
             {renderCommandGroups()}
         </CommandList>
       </Command>
-    </CommandDialog>
-    
+      </CommandDialog> 
+      )}
+    </>
   );
 }
 
