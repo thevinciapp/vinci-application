@@ -47,10 +47,14 @@ export default function ClientChatContent({
     activeSpace: storeActiveSpace,
     conversations: storeConversations,
     activeConversation: storeActiveConversation,
-    messages: storeMessages,
+    messages: storeMessages
   } = useSpaceStore(
     useShallow((state) => state.uiState)
   );
+
+  const { 
+    createConversation, 
+  } = useSpaceStore();
   
   const activeSpace = storeActiveSpace || initialData.activeSpace;
   const conversations = storeConversations || initialData.conversations;
@@ -126,19 +130,17 @@ export default function ClientChatContent({
       console.error('Failed to send message:', error);
     }
   };
-  
+
   const handleCreateConversation = async () => {
     if (!activeSpace) return;
     
     try {
-      const result = await createConversation(activeSpace.id);
-      if (result.status === 'success' && result.data) {
-        router.push(`/protected/spaces/${activeSpace.id}/conversations/${result.data.id}`);
-      }
+      await createConversation();
     } catch (error) {
       console.error('Failed to create conversation:', error);
     }
   };
+  
   
   return (
     <div className="flex flex-col h-full bg-black text-white relative chat-container">
@@ -221,7 +223,7 @@ export default function ClientChatContent({
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/4">
                   {/* @ts-ignore */}
                   <ServerDrivenQuickActionsTab 
-                    onCreateConversation={handleCreateConversation}
+                    onCreateConversation={(handleCreateConversation)}
                   />
                 </div>
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/4">
@@ -243,9 +245,7 @@ export default function ClientChatContent({
                   />
                 </div>
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/4">
-                  {/* @ts-ignore */}
                   <ServerDrivenConversationTab
-                    conversations={conversations}
                     activeConversation={activeConversation}
                     onCreateConversation={handleCreateConversation}
                   />

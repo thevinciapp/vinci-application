@@ -883,7 +883,6 @@ export function ConversationsCommandProvider({
           "open",
           ...(conversation.title ? conversation.title.split(/\s+/) : []),
           conversation.title || "untitled",
-          // Add date-related keywords if updated_at exists
           ...(conversation.updated_at ? [
             new Date(conversation.updated_at).toLocaleDateString(),
             new Date(conversation.updated_at).toLocaleString()
@@ -962,11 +961,6 @@ export function ConversationsCommandProvider({
 
   useCommandRegistration(conversationCommands());
 
-  // Debug log for monitoring state changes
-  useEffect(() => {
-    console.log('ConversationsCommandProvider - Conversation commands updated');
-  }, [conversationCommands]);
-
   return (
     <>
       <ConversationDialogForm
@@ -990,23 +984,24 @@ export function ConversationsCommandProvider({
  * Provider for model-related commands
  */
 export function ModelsCommandProvider({ children, activeSpace = null }: { children: ReactNode, activeSpace?: any }) {
-  const baseModelCommands = useCallback(
-    (): CommandOption[] => [
-      {
-        id: "select-model",
-        name: "Select AI Model",
-        value: "Select AI Model",
-        description: "Choose a different AI model",
-        icon: <Brain className="h-4 w-4" />,
-        type: "models",
-        keywords: ["model", "ai", "select", "change", "choose"],
-        action: () => {
-          console.log("Opening model selection");
-        },
-      },
-    ],
-    []
+  const { closeCommandCenter } = useCommandCenter();
+
+  const {
+    activeSpace: storeActiveSpace,
+  } = useSpaceStore(
+    useShallow((state) => state.uiState)
   );
+  const { 
+    updateSpace
+  } = useSpaceStore();  
+  
+  const handleModelSelect = useCallback(async (modelId: string, provider: Provider) => {
+    console.log('Updating space:', storeActiveSpace);
+      await updateSpace(storeActiveSpace.id, {
+        model: modelId,
+        provider: provider
+      });
+  }, [storeActiveSpace]);
 
   const modelCommands = useCallback((): CommandOption[] => {
     const commands: CommandOption[] = [];
@@ -1020,7 +1015,6 @@ export function ModelsCommandProvider({ children, activeSpace = null }: { childr
       const providerName = PROVIDER_NAMES[provider];
       const providerDescription = PROVIDER_DESCRIPTIONS?.[provider] || `Models from ${providerName}`;
       
-      // Create group header
       const groupId = `provider-group-${provider}`;
       commands.push({
         id: groupId,
@@ -1035,8 +1029,11 @@ export function ModelsCommandProvider({ children, activeSpace = null }: { childr
         },
       });
 
-      // Add all models for this provider
       models.forEach((model) => {
+        const isCurrentModel = storeActiveSpace && 
+                              storeActiveSpace.provider === provider && 
+                              storeActiveSpace.model === model.id;
+        
         commands.push({
           id: `model-${provider}-${model.id}`,
           name: model.name,
@@ -1045,6 +1042,11 @@ export function ModelsCommandProvider({ children, activeSpace = null }: { childr
           icon: (
             <div className="flex items-center opacity-60 pl-3">
               <ProviderIcon provider={provider} size={14} className="opacity-80" />
+              {isCurrentModel && (
+                <span className="ml-2 text-[10px] font-medium bg-cyan-500/20 text-cyan-500 rounded-full px-2 py-0.5">
+                  Active
+                </span>
+              )}
             </div>
           ),
           type: "models",
@@ -1054,8 +1056,8 @@ export function ModelsCommandProvider({ children, activeSpace = null }: { childr
             providerName.toLowerCase(),
             ...(model.description ? model.description.split(' ') : [])
           ],
-          action: () => {
-            console.log(`Selecting model: ${model.name} from ${providerName}`);
+          action: async () => {
+            await handleModelSelect(model.id, provider);
           },
         });
       });
@@ -1070,15 +1072,14 @@ export function ModelsCommandProvider({ children, activeSpace = null }: { childr
       });
     });
 
-    // Remove the last separator
     if (commands.length > 0) {
       commands.pop();
     }
 
     return commands;
-  }, []);
+  }, [storeActiveSpace, handleModelSelect]);
 
-  useCommandRegistration([...baseModelCommands(), ...modelCommands()]);
+  useCommandRegistration([...modelCommands()]);
 
   return <>{children}</>;
 }

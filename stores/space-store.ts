@@ -444,28 +444,20 @@ export const useSpaceStore = create<SpaceStore>((set, get) => ({
     }
   },
   
-  updateSpace: async (id, updates) => {
-    set({ 
-      loadingSpaceId: id,
-      uiState: {
-        ...get().uiState,
-        isLoading: true,
-        loadingType: 'space'
-      }
-    });
-    
+  updateSpace: async (id, updates) => { 
     try {
-      // Update local state optimistically
+      console.log('Updating space:', id, updates);
+
       get().updateLocalSpace(id, updates);
+
+      console.log('Local space updated:', get().activeSpace);
       
-      // Call server action
-      const response: any = await updateSpaceAction(id, updates);
-      
-      if (response && response.status === 'success') {
-        // Update with server data to ensure consistency
-        if (response.data) {
-          get().updateLocalSpace(id, response.data);
-        }
+      const space: any = await updateSpaceAction(id, updates);
+
+      console.log('Space updated:', space);
+      if (space) {
+        get().updateLocalSpace(id, space);
+
         
         set((state) => ({
           uiState: {
@@ -474,14 +466,9 @@ export const useSpaceStore = create<SpaceStore>((set, get) => ({
             loadingType: null
           }
         }));
-        
-        toast.success('Space Updated', {
-          description: 'Changes saved successfully'
-        });
-        
+
         return true;
       } else {
-        // Fetch the original space to rollback on failure
         const originalSpace = await get().fetchSpace(id);
         if (originalSpace) {
           get().updateLocalSpace(id, originalSpace);
@@ -494,10 +481,7 @@ export const useSpaceStore = create<SpaceStore>((set, get) => ({
             loadingType: null
           }
         }));
-        
-        toast.error('Update Failed', {
-          description: response?.message || 'Could not update space'
-        });
+
         return false;
       }
     } catch (error) {
@@ -891,23 +875,13 @@ export const useSpaceStore = create<SpaceStore>((set, get) => ({
     set({ loadingConversationId: conversationId });
     
     try {
-      // Update locally first (optimistic)
       get().updateLocalConversation(conversationId, { title });
       
-      // Call server action
       await updateConversationTitleAction(conversationId, title);
-      
-      toast.success('Conversation Updated', {
-        description: 'Title updated successfully'
-      });
       
       return true;
     } catch (error) {
       console.error('Failed to update conversation:', error);
-      
-      toast.error('Update Failed', {
-        description: 'Could not update conversation'
-      });
       
       return false;
     } finally {

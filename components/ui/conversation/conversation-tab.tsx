@@ -11,19 +11,14 @@ import { useCommandCenter } from '@/hooks/useCommandCenter'
 import { useState } from 'react'
 
 export function ServerDrivenConversationTab({
-  conversations,
   activeConversation,
   onCreateConversation,
 }: {
-  conversations: any[];
   activeConversation: any;
   onCreateConversation: (title: string) => Promise<void>;
 }) {
   const { openCommandType } = useCommandCenter();
   const [isCreating, setIsCreating] = useState(false);
-
-  const hasActiveConversation = !!activeConversation;
-  const hasMultipleConversations = conversations && conversations.length > 1;
 
   const handleNewConversation = async () => {
     if (!activeConversation?.space_id) return;
