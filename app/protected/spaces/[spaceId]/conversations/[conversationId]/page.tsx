@@ -23,6 +23,8 @@ export default async function ConversationPage({
 
   const { spaceId, conversationId } = params;
   
+  console.log('[SERVER] Loading conversation page data:', { spaceId, conversationId });
+  
   const [spaceDataResponse, messagesResponse, spacesResponse, notificationsResponse] = 
     await Promise.all([
       getSpaceData(spaceId),          // Get space data with conversations
@@ -32,6 +34,7 @@ export default async function ConversationPage({
     ]);
   
   if (!spaceDataResponse.data || !spaceDataResponse.data.space) {
+    console.error('[SERVER] Space data not found, redirecting to spaces');
     redirect("/protected/spaces");
   }
   
@@ -43,11 +46,19 @@ export default async function ConversationPage({
   );
   
   if (!activeConversation) {
+    console.error('[SERVER] Active conversation not found, redirecting to space');
     redirect(`/protected/spaces/${spaceId}/conversations`);
   }
   
   const allMessages: Record<string, any[]> = {};  
   allMessages[conversationId] = messagesResponse.data || [];
+  
+  console.log('[SERVER] Conversation page data loaded:', {
+    spacesCount: spacesResponse.data?.length || 0,
+    conversationsCount: conversations.length,
+    messagesCount: messagesResponse.data?.length || 0,
+    notificationsCount: notificationsResponse.data?.length || 0
+  });
   
   const initialData = {
     spaces: spacesResponse.data || [],

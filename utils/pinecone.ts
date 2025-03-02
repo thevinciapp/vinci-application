@@ -60,8 +60,10 @@ export async function upsertChatMessage(message: ChatMessage) {
       throw new Error('Message ID is required for Pinecone upsert');
     }
 
+    console.log('[PINECONE] Upserting chat message:', { messageId: message.id, conversationId: message.conversationId });
     const vector = await embeddings.embedQuery(message.content);
 
+    // Extract metadata for Pinecone
     const metadata: PineconeMetadata = {
       content: message.content,
       role: message.role,
@@ -89,7 +91,18 @@ export async function upsertChatMessage(message: ChatMessage) {
         }
       });
     }
+    
+    // Add tags for filtering if not set from metadata
+    if (!metadata.tags) {
+      const tags = [
+        `conversation-${message.conversationId}`,
+        `space-${message.spaceId}`,
+        `role-${message.role}`,
+      ];
+      metadata.tags = tags;
+    }
 
+    // Use the correct format for the Pinecone SDK version
     await index.upsert([
       {
         id: message.id,
@@ -97,38 +110,49 @@ export async function upsertChatMessage(message: ChatMessage) {
         metadata,
       },
     ]);
-
+    
+    // Update parent message if this is an assistant message
     if (message.role === 'assistant' && message.parentId) {
-      const parentVector = await index.fetch([message.parentId]);
-      const parentRecord = parentVector.records[message.parentId];
-      if (parentRecord && parentRecord.metadata) {
-        const parentMetadata = parentRecord.metadata as PineconeMetadata;
-        await index.upsert([
-          {
-            id: message.parentId,
-            values: parentRecord.values,
-            metadata: {
-              ...parentMetadata,
-              childId: message.id,
+      try {
+        const parentVector = await index.fetch([message.parentId]);
+        const parentRecord = parentVector.records[message.parentId];
+        if (parentRecord && parentRecord.metadata) {
+          const parentMetadata = parentRecord.metadata as PineconeMetadata;
+          await index.upsert([
+            {
+              id: message.parentId,
+              values: parentRecord.values,
+              metadata: {
+                ...parentMetadata,
+                childId: message.id,
+              },
             },
-          },
-        ]);
+          ]);
+        }
+      } catch (innerError) {
+        console.error('[PINECONE] Error updating parent message:', innerError);
+        // Continue execution even if parent update fails
       }
     }
+    
+    console.log('[PINECONE] Successfully upserted message:', { messageId: message.id });
+    return true;
   } catch (error) {
-    console.error('Error upserting chat message to Pinecone:', error);
+    console.error('[PINECONE] Error upserting chat message to Pinecone:', error);
     throw error;
   }
 }
 
 export async function searchSimilarMessages(query: string, limit = 5, tags: string[] = []) {
   try {
+    console.log('[PINECONE] Searching similar messages:', { query, limit, tags });
     const queryEmbedding = await embeddings.embedQuery(query);
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
+      console.error('[PINECONE] Search failed: User not authenticated');
       throw new Error('Unauthorized');
     }
     
@@ -136,10 +160,12 @@ export async function searchSimilarMessages(query: string, limit = 5, tags: stri
     
     // Add tag filter if tags are provided
     if (tags.length > 0) {
+      console.log('[PINECONE] Adding tag filters:', tags);
       filter.tags = { $in: tags };
     }
     
     // Get deleted conversations and spaces to exclude them from results
+    console.log('[PINECONE] Getting deleted conversations and spaces');
     const [conversationsResult, spacesResult] = await Promise.all([
       supabase
         .from('conversations')
@@ -154,6 +180,11 @@ export async function searchSimilarMessages(query: string, limit = 5, tags: stri
     const deletedConversationIds = conversationsResult.data?.map(c => c.id) || [];
     const deletedSpaceIds = spacesResult.data?.map(s => s.id) || [];
     
+    console.log('[PINECONE] Exclusions:', { 
+      deletedConversations: deletedConversationIds.length, 
+      deletedSpaces: deletedSpaceIds.length 
+    });
+
     // Build filter for Pinecone query
     // Use $and only if we have multiple conditions
     if ((deletedConversationIds.length > 0 || deletedSpaceIds.length > 0) || tags.length > 0) {
@@ -193,12 +224,13 @@ export async function searchSimilarMessages(query: string, limit = 5, tags: stri
       ...(Object.keys(filter).length > 0 ? { filter } : {}),
     });
 
+    console.log('[PINECONE] Search complete, results:', results.matches.length);
     return results.matches.map((match) => ({
       score: match.score,
       message: reconstructChatMessage(match.metadata as PineconeMetadata, match.id),
     }));
   } catch (error) {
-    console.error('Error searching similar messages in Pinecone:', error);
+    console.error('[PINECONE] Error searching similar messages in Pinecone:', error);
     throw error;
   }
 }

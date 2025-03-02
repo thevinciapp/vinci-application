@@ -214,34 +214,46 @@ export async function getConversation(id: string): Promise<ActionResponse<Conver
  */
 export async function getMessages(conversationId: string): Promise<ActionResponse<Message[]>> {
     try {
-        if (!conversationId) {
-            return errorResponse('Conversation ID is required');
-        }
-
-        const cacheKey = CACHE_KEYS.MESSAGES(conversationId);
-        const cachedMessages = await redis.get<Message[]>(cacheKey);
-        if (cachedMessages) {
-            return successResponse(cachedMessages);
-        }
-
+        console.log('[SERVER] Getting messages for conversation:', conversationId);
         const supabase = await createClient();
+        
+        // First check if the user has access to this conversation
+        const { data: conversation, error: convError } = await supabase
+            .from(DB_TABLES.CONVERSATIONS)
+            .select('id, space_id')
+            .eq('id', conversationId)
+            .eq('is_deleted', false)
+            .single();
+        
+        if (convError || !conversation) {
+            console.error('[SERVER] Error fetching conversation:', convError?.message || 'Conversation not found');
+            return notFoundResponse('Conversation not found');
+        }
+        
+        // Get messages - include annotations field to get model and provider info
         const { data, error } = await supabase
             .from(DB_TABLES.MESSAGES)
-            .select("*")
+            .select(`
+                id, 
+                conversation_id, 
+                content, 
+                role, 
+                created_at, 
+                updated_at, 
+                is_deleted,
+                annotations
+            `)
             .eq('conversation_id', conversationId)
-            .eq(COLUMNS.IS_DELETED, false)
-            .order(COLUMNS.CREATED_AT, { ascending: true });
-
+            .eq('is_deleted', false)
+            .order('created_at', { ascending: true });
+        
         if (error) {
-            console.error("Error fetching messages:", error);
-            return errorResponse(`Error fetching messages: ${error.message}`);
+            console.error('[SERVER] Error fetching messages:', error.message);
+            return errorResponse(error.message);
         }
-
-        if (data) {
-            await redis.set(cacheKey, data, { ex: CACHE_TTL.MESSAGES });
-        }
-
-        return successResponse(data || []);
+        
+        console.log('[SERVER] Successfully fetched messages:', data.length);
+        return successResponse(data);
     } catch (error) {
         return handleActionError(error);
     }
@@ -330,70 +342,61 @@ export async function updateConversationTitle(conversationId: string, title: str
  */
 export async function createMessage(messageData: Partial<Message>, conversationId: string): Promise<ActionResponse<Message>> {
     try {
+        console.log('[SERVER] Creating message for conversation:', { conversationId, role: messageData.role });
         const supabase = await createClient();
+        
+        // Get the current user - needed for RLS
         const { data: { user } } = await supabase.auth.getUser();
-
+        
         if (!user) {
+            console.error('[SERVER] Error: User not authenticated');
             return errorResponse('User not authenticated');
         }
-
-        if (!messageData.content || !messageData.role || !conversationId) {
-            return errorResponse('Missing required data for message creation');
+        
+        // Make sure we have the required fields
+        if (!messageData.content || !messageData.role) {
+            console.error('[SERVER] Missing required fields for message creation');
+            return errorResponse('Missing required fields');
         }
-
-        const timestamp = new Date().toISOString();
-
-        const { data: conversation } = await supabase
+        
+        // First check if the user has access to this conversation
+        const { data: conversation, error: convError } = await supabase
             .from(DB_TABLES.CONVERSATIONS)
-            .select("space_id")
-            .eq(COLUMNS.ID, conversationId)
+            .select('id, space_id')
+            .eq('id', conversationId)
+            .eq('is_deleted', false)
             .single();
-
-        if (!conversation) {
-            return notFoundResponse('Conversation');
+        
+        if (convError || !conversation) {
+            console.error('[SERVER] Error accessing conversation:', convError?.message || 'Conversation not found');
+            return errorResponse('Conversation not found or access denied');
         }
-
-        const [messageResult, updateResult] = await Promise.all([
-            supabase
-                .from(DB_TABLES.MESSAGES)
-                .insert([{
-                    content: messageData.content,
-                    role: messageData.role,
-                    annotations: messageData.annotations,
-                    user_id: user.id,
-                    is_deleted: false,
-                    created_at: timestamp,
-                    updated_at: timestamp,
-                    conversation_id: conversationId
-                }])
-                .select()
-                .single(),
-            supabase
-                .from(DB_TABLES.CONVERSATIONS)
-                .update({ updated_at: timestamp })
-                .eq(COLUMNS.ID, conversationId)
-        ]);
-
-        if (messageResult.error) {
-            console.error("Error creating message:", messageResult.error);
-            return errorResponse(`Error creating message: ${messageResult.error.message}`);
+        
+        // Create the message - include user_id for RLS and all other important fields
+        const { data, error } = await supabase
+            .from(DB_TABLES.MESSAGES)
+            .insert({
+                conversation_id: conversationId,
+                content: messageData.content,
+                role: messageData.role,
+                user_id: user.id,
+                annotations: messageData.annotations || []
+            })
+            .select()
+            .single();
+        
+        if (error) {
+            console.error('[SERVER] Error creating message:', error.message);
+            return errorResponse(error.message);
         }
-
-        // Update messages cache
-        const messagesCacheKey = CACHE_KEYS.MESSAGES(conversationId);
-        const cachedMessages = await redis.get<Message[]>(messagesCacheKey) || [];
-        await redis.set(messagesCacheKey, [...cachedMessages, messageResult.data], { ex: CACHE_TTL.MESSAGES });
-
-        // Update space data cache
-        const spaceDataCacheKey = CACHE_KEYS.SPACE_DATA(conversation.space_id);
-        const cachedSpaceData = await redis.get<SpaceData>(spaceDataCacheKey);
-        if (cachedSpaceData?.messages) {
-            cachedSpaceData.messages = [...cachedSpaceData.messages, messageResult.data];
-            await redis.set(spaceDataCacheKey, cachedSpaceData, { ex: CACHE_TTL.SPACE_DATA });
-        }
-
-        return successResponse(messageResult.data);
+        
+        // Invalidate cache for conversations
+        await invalidateConversationCache(conversation.space_id, conversationId);
+        
+        console.log('[SERVER] Message successfully created:', { messageId: data.id });
+        return successResponse(data);
     } catch (error) {
+        console.error('[SERVER] Error in createMessage action:', error);
         return handleActionError(error);
     }
 }
@@ -424,7 +427,8 @@ export async function sendMessage({
             return errorResponse('Content and conversation ID are required');
         }
         
-        // Create the user message
+        // Create only the user message - don't create a placeholder assistant message
+        // The API chat route will handle creating the assistant message with AI
         const userMessageResponse = await createMessage({
             role: 'user',
             content,
@@ -434,22 +438,10 @@ export async function sendMessage({
             return errorResponse('Failed to create user message');
         }
         
-        // Here you would typically process the message with AI and create an assistant response
-        // For now, we'll just create a placeholder response
-        const assistantMessageResponse = await createMessage({
-            role: 'assistant',
-            content: `You said: ${content}. This is a placeholder response. In a real implementation, this would be a response from the AI model.`,
-        }, conversationId);
-        
-        if (!assistantMessageResponse.data) {
-            return errorResponse('Failed to create assistant message');
-        }
-        
-        // Invalidate the messages cache
-        await redis.del(CACHE_KEYS.MESSAGES(conversationId));
-        
+        // Return success - the API route will handle the AI response separately
         return successResponse({ success: true });
     } catch (error) {
+        console.error('Error sending message:', error);
         return handleActionError(error);
     }
 }

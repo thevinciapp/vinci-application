@@ -145,7 +145,13 @@ export const useSpaceStore = create<SpaceStore>((set, get) => ({
   
   // Single consolidated initialization function
   initializeState: (initialState) => {
-    console.log('Initializing space store state with:', initialState);
+    console.log('[STORE] Initializing space store state with:', {
+      hasSpaces: initialState.spaces?.length || 0,
+      activeSpaceId: initialState.activeSpace?.id,
+      conversationsCount: initialState.conversations?.length || 0,
+      activeConversationId: initialState.activeConversation?.id,
+      messagesCount: initialState.messages?.length || 0,
+    });
     
     set({
       // Set main state
@@ -165,16 +171,41 @@ export const useSpaceStore = create<SpaceStore>((set, get) => ({
         loadingType: initialState.loadingType || null
       }
     });
+    
+    console.log('[STORE] Store initialization complete, state is now:', {
+      spacesLoaded: get().spaces?.length || 0,
+      activeSpaceLoaded: get().activeSpace?.id,
+      conversationsLoaded: get().conversations?.length || 0,
+      activeConversationLoaded: get().activeConversation?.id,
+      messagesInUIState: get().uiState.messages?.length || 0
+    });
   },
   
   // Update UI state method
   updateUIState: (updates) => {
+    console.log('[STORE] Updating UI state with:', {
+      updatesKeys: Object.keys(updates),
+      hasMessages: 'messages' in updates,
+      messagesCount: updates.messages?.length || 0,
+      activeConversationChange: updates.activeConversation?.id !== get().uiState.activeConversation?.id,
+      newActiveConversationId: updates.activeConversation?.id,
+      currentActiveConversationId: get().uiState.activeConversation?.id
+    });
+    
     set((state) => ({
       uiState: {
         ...state.uiState,
         ...updates
       }
     }));
+    
+    // Log the state after update
+    setTimeout(() => {
+      console.log('[STORE] After UI state update, state is now:', {
+        activeConversationId: get().uiState.activeConversation?.id,
+        messagesInUIState: get().uiState.messages?.length || 0
+      });
+    }, 0);
   },
   
   // Fetch operations
@@ -693,13 +724,21 @@ export const useSpaceStore = create<SpaceStore>((set, get) => ({
     }
   }),
   
-  setActiveConversation: (conversation) => set({ 
-    activeConversation: conversation,
-    uiState: {
-      ...get().uiState,
-      activeConversation: conversation
-    }
-  }),
+  setActiveConversation: (conversation) => {
+    console.log('[STORE] Setting active conversation:', {
+      conversationId: conversation?.id,
+      title: conversation?.title,
+      messagesInUIState: get().uiState.messages?.length || 0
+    });
+    
+    set({ 
+      activeConversation: conversation,
+      uiState: {
+        ...get().uiState,
+        activeConversation: conversation
+      }
+    });
+  },
   
   updateLocalConversation: (id, updates) => set((state) => {
     const updatedConversations = state.conversations?.map(conversation => 
@@ -831,9 +870,16 @@ export const useSpaceStore = create<SpaceStore>((set, get) => ({
   },
   
   selectConversation: async (conversationId) => {
+    console.log('[STORE] Selecting conversation:', {
+      requestedId: conversationId,
+      currentActiveId: get().activeConversation?.id,
+      spaceId: get().activeSpace?.id
+    });
+    
     const activeSpace = get().activeSpace;
     
     if (!activeSpace?.id) {
+      console.error('[STORE] Cannot select conversation, no active space');
       toast.error('Cannot Select Conversation', {
         description: 'No active space selected'
       });
@@ -844,14 +890,29 @@ export const useSpaceStore = create<SpaceStore>((set, get) => ({
       const conversation = get().conversations?.find(c => c.id === conversationId);
       
       if (!conversation) {
-        console.warn('Conversation not found:', conversationId);
+        console.warn('[STORE] Conversation not found:', conversationId);
         return false;
       }
       
+      console.log('[STORE] Found conversation, setting as active:', {
+        id: conversation.id,
+        title: conversation.title
+      });
+      
       get().setActiveConversation(conversation);
+      
+      // Check if the uiState reflected the change
+      setTimeout(() => {
+        console.log('[STORE] After selection, state is now:', {
+          activeConversationId: get().activeConversation?.id,
+          uiStateActiveConversationId: get().uiState.activeConversation?.id,
+          messagesInUIState: get().uiState.messages?.length || 0
+        });
+      }, 0);
+      
       return true;
     } catch (error) {
-      console.error('Failed to select conversation:', error);
+      console.error('[STORE] Failed to select conversation:', error);
       toast.error('Selection Failed', {
         description: 'Could not select conversation'
       });

@@ -28,6 +28,14 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
     } = useAutoScroll(actualRef, true);
     
     useEffect(() => {
+      console.log('[CLIENT] Chat messages render:', { 
+        count: messages.length, 
+        messageIds: messages.map(m => m.id),
+        isLoading
+      });
+    }, [messages, isLoading]);
+    
+    useEffect(() => {
       if (onStickToBottomChange) {
         onStickToBottomChange(autoScrollEnabled);
       }

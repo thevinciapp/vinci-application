@@ -43,6 +43,14 @@ export default function ClientChatContent({
   const [searchMode, setSearchMode] = useState<"chat" | "search" | "semantic" | "hybrid">("chat");
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   
+  console.log('[CLIENT] ClientChatContent initializing with data:', {
+    initialSpaces: initialData.spaces?.length || 0,
+    initialActiveSpace: initialData.activeSpace?.id,
+    initialConversations: initialData.conversations?.length || 0,
+    initialActiveConversation: initialData.activeConversation?.id,
+    initialMessages: initialData.messages?.length || 0,
+  });
+  
   const {
     activeSpace: storeActiveSpace,
     conversations: storeConversations,
@@ -61,15 +69,28 @@ export default function ClientChatContent({
   const activeConversation = storeActiveConversation || initialData.activeConversation;
   const initialMessages = storeMessages || initialData.messages;
 
+  console.log('[CLIENT] Resolved state:', {
+    activeSpaceId: activeSpace?.id,
+    conversationsCount: conversations?.length || 0,
+    activeConversationId: activeConversation?.id,
+    messagesFromStore: storeMessages?.length || 0,
+    resolvedInitialMessages: initialMessages?.length || 0,
+  });
+
   useEffect(() => {
     if (storeActiveConversation && storeActiveConversation !== activeConversation) {
+      console.log('[CLIENT] Active conversation changed, updating messages', {
+        newConversationId: storeActiveConversation?.id,
+        oldConversationId: activeConversation?.id,
+        availableMessages: storeMessages?.length || 0
+      });
       setMessages(storeMessages || []);
       setData([]);
     }
 
     router.replace(`/protected/spaces/${activeSpace?.id}/conversations/${activeConversation?.id}`);
   }, [storeActiveConversation?.id]);
-  
+
   const {
     messages,
     setMessages,
@@ -77,7 +98,7 @@ export default function ClientChatContent({
     setInput,
     isLoading: isChatLoading,
     handleInputChange,
-    handleSubmit: aiSubmit,
+    handleSubmit,
     data,
     setData,
   } = useChat({
@@ -96,6 +117,15 @@ export default function ClientChatContent({
     },
   });
 
+  // Add this effect to track message changes
+  useEffect(() => {
+    console.log('[CLIENT] Messages state updated:', {
+      messagesCount: messages.length,
+      messageIds: messages.map(m => m.id).slice(0, 5), // Show first 5 IDs only to keep logs clean
+      fromInitialLoad: messages === initialMessages
+    });
+  }, [messages, initialMessages]);
+
   const handleStickToBottomChange = useCallback((isAtBottom: boolean) => {
     setIsStickToBottom(isAtBottom);
   }, []);
@@ -111,26 +141,6 @@ export default function ClientChatContent({
     scrollToBottomHandler.current = callback;
   }, []);
 
-  const handleSubmit = async () => {
-    if (!input.trim() || !activeSpace || !activeConversation) return;
-    
-    try {
-      // First submit through the AI SDK for streaming
-      aiSubmit();
-      
-      // Also send to server action to persist in database
-      await sendMessage({
-        content: input,
-        spaceId: activeSpace.id,
-        conversationId: activeConversation.id,
-        searchMode,
-      });
-      
-    } catch (error) {
-      console.error('Failed to send message:', error);
-    }
-  };
-
   const handleCreateConversation = async () => {
     if (!activeSpace) return;
     
@@ -140,6 +150,8 @@ export default function ClientChatContent({
       console.error('Failed to create conversation:', error);
     }
   };
+
+  console.log('[CLIENT] Messages:', messages);
   
   
   return (

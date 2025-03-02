@@ -158,15 +158,19 @@ async function saveMessage({
     role: string;
     createdAt: number;
     score: number;
+    conversationId?: string;
     metadata?: Record<string, any>;
   }>;
 }) {
+  console.log(`[API] saveMessage: Creating annotations for ${role} message with model ${model}, provider ${provider}`);
   const annotations: MessageAnnotation[] = [{ [COLUMNS.MODEL_USED]: model, [COLUMNS.PROVIDER]: provider }];
   
   if (similarMessages && similarMessages.length > 0) {
+    console.log(`[API] saveMessage: Adding ${similarMessages.length} similar messages to annotations`);
     annotations.push({ similarMessages });
   }
 
+  console.log(`[API] saveMessage: Creating message in database with ${annotations.length} annotations`);
   const dbMessage = await createMessage(
     {
       [COLUMNS.CONTENT]: content,
@@ -175,6 +179,8 @@ async function saveMessage({
     },
     conversationId
   );
+
+  console.log('dbMessage', dbMessage);
 
   await upsertChatMessage({
     id: dbMessage.id,
@@ -293,9 +299,11 @@ export async function POST(req: Request) {
         result.mergeIntoDataStream(dataStream);
         
         result.text.then(async (text) => {
+          console.log('[API] Processing response text and saving messages');
           const userTags = await generateTags(userMessage.content, conversationContext);
           const assistantTags = await generateTags(text, conversationContext);
           
+          console.log('[API] Saving user message with content:', userMessage.content.substring(0, 50) + '...');
           const dbUserMessage = await saveMessage({
             content: userMessage.content,
             role: 'user',
@@ -314,7 +322,9 @@ export async function POST(req: Request) {
               metadata: result.message.metadata || {}
             }))
           });
+          console.log('[API] User message saved with ID:', dbUserMessage.id);
 
+          console.log('[API] Saving assistant message with content:', text.substring(0, 50) + '...');
           await saveMessage({
             content: text,
             role: 'assistant',
@@ -330,7 +340,7 @@ export async function POST(req: Request) {
               role: result.message.role,
               createdAt: result.message.createdAt,
               score: result.score ?? 0,
-              conversationId: result.message.conversationId,
+              conversationId: result.message.conversationId, 
               metadata: result.message.metadata || {}
             })),
           });
