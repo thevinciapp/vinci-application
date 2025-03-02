@@ -87,7 +87,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
                 handleSubmit();
               }}
               disabled={disabled}
-              className="h-8"
+              className="h-8 mr-2 rounded-xl"
             >
               Send
             </Button>

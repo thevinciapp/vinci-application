@@ -34,6 +34,7 @@ import { useRouter } from "next/navigation";
 import { getMostRecentConversation } from "@/app/actions/conversations";
 import { cn } from "@/lib/utils";
 import { useSpaceStore, Space as SpaceType, Conversation as ConversationType } from '@/stores/space-store';
+import { useShallow } from "zustand/react/shallow";
 
 /**
  * Dialog for creating or editing a space
@@ -107,10 +108,18 @@ export function SpaceDialogForm({
         const result = await createSpace(name, description, model, provider);
         success = !!result;
         
-        onCreateSuccess();
+        if (success && result) {
+          const newSpaceId = result.id;
+          const conversation = await getMostRecentConversation(newSpaceId);
+
+          router.replace(`/protected/spaces/${newSpaceId}/conversations/${conversation.data?.id}`);
+          
+          onCreateSuccess();
+          return;
+        }
       }
     },
-    [name, description, model, provider, createSpace, updateSpace, onCreateSuccess, onEditSuccess, editSpace]
+    [name, description, model, provider, createSpace, updateSpace, onCreateSuccess, onEditSuccess, editSpace, router]
   );
 
   const isSubmitting = editSpace 
@@ -328,6 +337,7 @@ export function SpacesCommandProvider({
   const [spaceToEdit, setSpaceToEdit] = useState<any>(null);
   const [spaceToDelete, setSpaceToDelete] = useState<any>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { closeCommandCenter, openCommandType } = useCommandCenter();
   
@@ -336,6 +346,8 @@ export function SpacesCommandProvider({
   
   const { 
     deleteSpace,
+    activeConversation,
+    loadSpaceFullData
   } = useSpaceStore();
 
   const reopenSpacesCommandCenter = useCallback(() => {
@@ -363,13 +375,8 @@ export function SpacesCommandProvider({
   );
 
   const handleSelectSpace = useCallback(async (spaceId: string) => {
-    const { data: conversation } = await getMostRecentConversation(spaceId)
-    if (!conversation) {
-      router.push(`/protected/spaces/${spaceId}/conversations`);
-    } else {
-      router.push(`/protected/spaces/${spaceId}/conversations/${conversation.id}`);
-    }
-  }, [router]);
+    await loadSpaceFullData(spaceId);
+  }, [activeConversation]);
 
   const handleEditSpace = useCallback((space: any) => {
     closeCommandCenter();
@@ -476,10 +483,18 @@ export function SpacesCommandProvider({
           </div>
         ),
         type: "spaces" as CommandType,
-        keywords: ["space", "workspace", "switch", space.name],
-        action: () => {
-          handleSelectSpace(space.id);
+        keywords: [
+          "space", 
+          "workspace", 
+          "switch", 
+          space.name,
+          ...(space.name ? space.name.split(/\s+/) : []),
+          ...(space.description ? space.description.split(/\s+/).filter(word => word.length > 3) : [])
+        ],
+        action: async () => {
+          await handleSelectSpace(space.id);
         },
+        closeCommandOnSelect: false,
         rightElement: (
           <div className="flex items-center">
             <div
@@ -559,6 +574,174 @@ export function SpacesCommandProvider({
 }
 
 /**
+ * Dialog for creating or editing a conversation
+ */
+export function ConversationDialogForm({
+  open,
+  onOpenChange,
+  onEditSuccess,
+  editConversation = null,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onEditSuccess: () => void;
+  editConversation?: any; // The conversation to edit
+}) {
+  const [title, setTitle] = useState(editConversation?.title || "");
+  const initialRenderRef = useRef(true);
+  const router = useRouter();
+
+  const { 
+    updateConversation, 
+    isLoading, 
+    loadingConversationId 
+  } = useSpaceStore();
+
+  useEffect(() => {
+    if (open) {
+      if (editConversation) {
+        setTitle(editConversation.title || "");
+      } else {
+        setTitle("");
+      }
+      initialRenderRef.current = false;
+    }
+  }, [open, editConversation]);
+
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      if (editConversation) {
+        const success = await updateConversation(editConversation.id, title);
+
+        if (success) {
+          onEditSuccess();
+        }
+      }
+    },
+    [title, updateConversation, onEditSuccess, editConversation]
+  );
+
+  const isSubmitting = editConversation 
+    ? loadingConversationId === editConversation.id 
+    : isLoading;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>Edit Conversation</DialogTitle>
+            <DialogDescription>
+              Update the title for this conversation.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Conversation title"
+                required
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="submit" disabled={isSubmitting || !title}>
+              {isSubmitting ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin h-4 w-4 border-2 border-white/20 border-t-white/80 rounded-full" />
+                  <span>Updating...</span>
+                </div>
+              ) : (
+                "Update"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Dialog for confirming conversation deletion
+ */
+export function DeleteConversationDialog({
+  open,
+  onOpenChange,
+  conversation,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  conversation: any | null;
+  onConfirm: () => void;
+}) {
+  // Use the space store
+  const { loadingConversationId } = useSpaceStore();
+
+  const isSubmitting = conversation ? loadingConversationId === conversation.id : false;
+
+  const handleDelete = useCallback(async () => {
+    if (isSubmitting) return;
+    
+    try {
+      await onConfirm();
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+    } finally {
+      onOpenChange(false);
+    }
+  }, [isSubmitting, onConfirm, onOpenChange]);
+
+  if (!conversation) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Delete Conversation</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete "{conversation.title || 'Untitled Conversation'}"? This action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+
+        <DialogFooter className="mt-4 flex justify-between">
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            className="border-white/10 bg-white/5 hover:bg-white/10 text-white backdrop-blur-sm"
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="destructive" 
+            onClick={handleDelete} 
+            disabled={isSubmitting}
+            className="bg-red-500/20 hover:bg-red-500/30 border border-red-500/20 text-red-400 backdrop-blur-sm"
+          >
+            {isSubmitting ? (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin h-4 w-4 border-2 border-red-400/20 border-t-red-400/80 rounded-full" />
+                <span>Deleting...</span>
+              </div>
+            ) : (
+              "Delete Conversation"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
  * Provider for conversation-related commands
  */
 export function ConversationsCommandProvider({ 
@@ -566,13 +749,29 @@ export function ConversationsCommandProvider({
 }: { 
   children: ReactNode, 
 }) {
-  const { closeCommandCenter } = useCommandCenter();
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [conversationToEdit, setConversationToEdit] = useState<any>(null);
+  const [conversationToDelete, setConversationToDelete] = useState<any>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const { closeCommandCenter, openCommandType } = useCommandCenter();
   
-  const storeConversations = useSpaceStore(state => state.conversations);
-  const storeActiveConversation = useSpaceStore(state => state.activeConversation);
-  const storeActiveSpace = useSpaceStore(state => state.activeSpace);
+  const {
+    activeSpace: storeActiveSpace,
+    conversations: storeConversations,
+    activeConversation: storeActiveConversation,
+  } = useSpaceStore(
+    useShallow((state) => state.uiState)
+  );
   
-  const { createConversation, selectConversation } = useSpaceStore();
+  const { 
+    createConversation, 
+    selectConversation, 
+    deleteConversation 
+  } = useSpaceStore();
+
+  const reopenConversationsCommandCenter = useCallback(() => {
+    openCommandType('conversations');
+  }, [openCommandType]);
 
   type Conversation = {
     id: string;
@@ -582,14 +781,78 @@ export function ConversationsCommandProvider({
     [key: string]: any;
   };
 
-  // Use memoized conversation options
+  const handleEditConversation = useCallback((conversation: any) => {
+    closeCommandCenter();
+    setConversationToEdit(conversation);
+    setShowEditDialog(true);
+  }, [closeCommandCenter]);
+
+  const handleDeleteConversation = useCallback((conversation: any) => {
+    closeCommandCenter();
+    setConversationToDelete(conversation);
+    setShowDeleteDialog(true);
+  }, [closeCommandCenter]);
+
+  const confirmDeleteConversation = useCallback(async () => {
+    if (conversationToDelete) {
+      try {
+        const success = await deleteConversation(conversationToDelete.id);
+        
+        if (success) {
+          if (conversationToDelete.id === storeActiveConversation?.id) {
+            const remainingConversations = storeConversations?.filter(
+              conv => !conv.is_deleted && conv.id !== conversationToDelete.id
+            ) || [];
+            
+            if (remainingConversations.length > 0) {
+              await selectConversation(remainingConversations[0].id);
+            } else {
+              await createConversation();
+            }
+          }
+        } else {
+          toast.error('Deletion Failed', {
+            description: 'Could not delete the conversation. Please try again.'
+          });
+        }
+      } catch (error) {
+        console.error('Error in conversation deletion process:', error);
+        toast.error('Deletion Failed', {
+          description: 'An error occurred while deleting the conversation.'
+        });
+      }
+    }
+  }, [
+    conversationToDelete, 
+    storeActiveConversation?.id, 
+    storeConversations
+  ]);
+
+  const handleEditDialogClose = useCallback((open: boolean) => {
+    setShowEditDialog(open);
+    if (!open) {
+      setTimeout(() => {
+        reopenConversationsCommandCenter();
+      }, 150);
+    }
+  }, [reopenConversationsCommandCenter]);
+
+  const handleDeleteDialogClose = useCallback((open: boolean) => {
+    setShowDeleteDialog(open);
+    if (!open) {
+      setTimeout(() => {
+        reopenConversationsCommandCenter();
+      }, 150);
+    }
+  }, [reopenConversationsCommandCenter]);
+
+  const onEditSuccess = useCallback(() => {
+    handleEditDialogClose(false);
+    reopenConversationsCommandCenter();
+  }, [handleEditDialogClose, reopenConversationsCommandCenter]);
+
   const conversationOptionsList = useMemo(() => {
-    // Prefer store conversations over prop conversations if available
     const conversationsToUse = storeConversations;
-    // Prefer store active conversation over prop active conversation if available
-    const activeConversationToUse = storeActiveConversation;
-    
-    console.log('Building conversation options with conversations:', conversationsToUse?.length || 0);
     
     return conversationsToUse
       ?.filter((conv) => !conv.is_deleted)
@@ -615,18 +878,65 @@ export function ConversationsCommandProvider({
           </div>
         ),
         type: "conversations" as CommandType,
-        keywords: ["conversation", "chat", "open", conversation.title || ""],
+        keywords: [
+          "conversation", 
+          "chat", 
+          "open",
+          ...(conversation.title ? conversation.title.split(/\s+/) : []),
+          conversation.title || "untitled",
+          // Add date-related keywords if updated_at exists
+          ...(conversation.updated_at ? [
+            new Date(conversation.updated_at).toLocaleDateString(),
+            new Date(conversation.updated_at).toLocaleString()
+          ] : [])
+        ],
         action: async () => {
           await selectConversation(conversation.id);
           closeCommandCenter();
         },
+        closeCommandOnSelect: false,
+        rightElement: (
+          <div className="flex items-center">
+            <div
+              onClick={(e) => { 
+                e.stopPropagation();
+                e.preventDefault();
+                handleEditConversation(conversation);
+              }}
+              className={cn(
+                "flex items-center h-7 w-7 justify-center rounded-md p-1.5 mr-1",
+                "transition-all duration-200 ease-in-out",
+                "bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.05]",
+                "text-zinc-400 hover:text-zinc-200",
+                "cursor-pointer"
+              )}
+              title="Edit Conversation"
+            >
+              <Pencil size={11} strokeWidth={1.5} />
+            </div>
+            <div
+              onClick={(e) => { 
+                e.stopPropagation();
+                e.preventDefault();
+                handleDeleteConversation(conversation);
+              }}
+              className={cn(
+                "flex items-center h-7 w-7 justify-center rounded-md p-1.5",
+                "transition-all duration-200 ease-in-out",
+                "bg-white/[0.03] hover:bg-red-400/20 border border-white/[0.05]",
+                "text-red-400 hover:text-red-200",
+                "cursor-pointer"
+              )}
+              title="Delete Conversation"
+            >
+              <Trash className="text-red-400" size={11} strokeWidth={1.5} />
+            </div>
+          </div>
+        )
       })) ?? [];
   }, [
-    storeConversations, 
-    storeActiveConversation, 
-    storeActiveSpace, 
-    selectConversation, 
-    closeCommandCenter
+    storeConversations,
+    storeActiveConversation
   ]);
 
   const conversationCommands = useCallback((): CommandOption[] => {
@@ -648,7 +958,7 @@ export function ConversationsCommandProvider({
       },
       ...conversationOptionsList,
     ];
-  }, [storeActiveSpace, conversationOptionsList, createConversation, closeCommandCenter]);
+  }, [conversationOptionsList]);
 
   useCommandRegistration(conversationCommands());
 
@@ -657,7 +967,23 @@ export function ConversationsCommandProvider({
     console.log('ConversationsCommandProvider - Conversation commands updated');
   }, [conversationCommands]);
 
-  return <>{children}</>;
+  return (
+    <>
+      <ConversationDialogForm
+        open={showEditDialog}
+        onOpenChange={handleEditDialogClose}
+        onEditSuccess={onEditSuccess}
+        editConversation={conversationToEdit}
+      />
+      <DeleteConversationDialog 
+        open={showDeleteDialog}
+        onOpenChange={handleDeleteDialogClose}
+        conversation={conversationToDelete}
+        onConfirm={confirmDeleteConversation}
+      />
+      {children}
+    </>
+  );
 }
 
 /**

@@ -164,14 +164,34 @@ export function CommandProvider({ children }: { children: ReactNode }) {
       // If no search query, return all commands of the active type (or all commands if no active type)
       if (!searchQuery) return true;
 
-      const query = searchQuery.toLowerCase();
+      const query = searchQuery.toLowerCase().trim();
+      const queryParts = query.split(/\s+/);
       
-      // Search in name, description, and keywords
-      return (
-        command.name.toLowerCase().includes(query) ||
-        (command.description?.toLowerCase().includes(query)) ||
-        command.keywords?.some(keyword => keyword.toLowerCase().includes(query))
+      // For multi-word search, check if all parts match somewhere in the command
+      if (queryParts.length > 1) {
+        return queryParts.every(part => 
+          command.name.toLowerCase().includes(part) ||
+          (command.description?.toLowerCase().includes(part)) ||
+          command.keywords?.some(keyword => keyword.toLowerCase().includes(part))
+        );
+      }
+      
+      // For single word search, try to match at the beginning of words
+      const nameWords = command.name.toLowerCase().split(/\s+/);
+      const keywordMatches = command.keywords?.some(keyword => 
+        keyword.toLowerCase().startsWith(query) || 
+        keyword.toLowerCase().includes(` ${query}`) || 
+        keyword.toLowerCase() === query
       );
+      
+      const nameStartsWithQuery = command.name.toLowerCase().startsWith(query);
+      const nameContainsWordStartingWithQuery = nameWords.some(word => word.startsWith(query));
+      const descriptionContainsQuery = command.description?.toLowerCase().includes(query);
+      
+      return nameStartsWithQuery || 
+             nameContainsWordStartingWithQuery || 
+             keywordMatches || 
+             descriptionContainsQuery;
     });
   }, [commands, searchQuery, activeCommandType]);
 

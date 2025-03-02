@@ -86,7 +86,7 @@ export interface SpaceStore {
   fetchSpaces: () => Promise<Space[] | null>;
   fetchSpace: (id: string) => Promise<Space | null>;
   fetchSpaceData: (id: string) => Promise<SpaceData | null>;
-  loadSpaceFullData: (spaceId: string) => Promise<void>;
+  loadSpaceFullData: (spaceId: string) => Promise<SpaceData | null>;
   
   // Space local state operations
   setSpaces: (spaces: Space[] | null) => void;
@@ -315,6 +315,8 @@ export const useSpaceStore = create<SpaceStore>((set, get) => ({
         }));
         
         await setActiveSpaceAction(spaceId);
+
+        return spaceDataResponse;
       } else {
         set((state) => ({
           uiState: {
@@ -323,6 +325,8 @@ export const useSpaceStore = create<SpaceStore>((set, get) => ({
             loadingType: null
           }
         }));
+
+        return null;
       }
     } catch (error) {
       set((state) => ({
@@ -924,34 +928,22 @@ export const useSpaceStore = create<SpaceStore>((set, get) => ({
     set({ loadingConversationId: conversationId });
     
     try {
-      // Mark as deleted locally first (optimistic UI)
       get().updateLocalConversation(conversationId, { is_deleted: true });
       
       if (get().activeConversation?.id === conversationId) {
         get().setActiveConversation(null);
       }
       
-      // Call server action
       await deleteConversationAction(conversationId);
       
-      // Complete removal from local state
       get().removeLocalConversation(conversationId);
-      
-      toast.success('Conversation Deleted', {
-        description: 'Deletion successful'
-      });
       
       return true;
     } catch (error) {
       console.error('Failed to delete conversation:', error);
       
-      // Restore conversation on failure
       get().updateLocalConversation(conversationId, { is_deleted: false });
-      
-      toast.error('Deletion Failed', {
-        description: 'Could not delete conversation'
-      });
-      
+
       return false;
     } finally {
       set({ loadingConversationId: null });

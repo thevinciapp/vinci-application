@@ -41,11 +41,11 @@ export function CommandCenter() {
       .map(([type]) => type as CommandType);
   }, [groupedCommands]);
 
-  const handleSelect = (commandId: string) => {
+  const handleSelect = async (commandId: string) => {
     const command = filteredCommands.find(cmd => cmd.id === commandId);
     if (command) {
+      command?.action();
       closeCommandCenter();
-      command.action();
     }
   };
 

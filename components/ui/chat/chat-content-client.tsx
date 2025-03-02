@@ -62,6 +62,8 @@ export default function ClientChatContent({
       setMessages(storeMessages || []);
       setData([]);
     }
+
+    router.replace(`/protected/spaces/${activeSpace?.id}/conversations/${activeConversation?.id}`);
   }, [storeActiveConversation?.id]);
   
   const {
@@ -216,13 +218,13 @@ export default function ClientChatContent({
               disabled={!activeSpace || isChatLoading}
             >
               <div className="flex items-center divide-x divide-white/[0.05] bg-white/[0.03] border-t border-l border-r border-white/[0.05] rounded-t-2xl overflow-hidden backdrop-blur-xl w-full shadow-[0_-4px_20px_rgba(62,207,255,0.03)]">
-                <div className="px-1 first:pl-2 last:pr-2 py-1 flex-1">
+                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/4">
                   {/* @ts-ignore */}
                   <ServerDrivenQuickActionsTab 
                     onCreateConversation={handleCreateConversation}
                   />
                 </div>
-                <div className="px-1 first:pl-2 last:pr-2 py-1 flex-1">
+                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/4">
                   <BaseTab
                     icon={<Search className="w-3 h-3" />}
                     label="Messages"
@@ -231,7 +233,7 @@ export default function ClientChatContent({
                     onClick={() => openCommandType("conversations")}
                   />
                 </div>
-                <div className="px-1 first:pl-2 last:pr-2 py-1 flex-1">
+                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/4">
                   <BaseTab
                     icon={<Sparkles className="w-3 h-3" />}
                     label="Prompts"
@@ -240,7 +242,7 @@ export default function ClientChatContent({
                     onClick={() => openCommandType("actions")}
                   />
                 </div>
-                <div className="flex-shrink min-w-0 flex-1 flex items-center px-1 first:pl-2 last:pr-2 py-1">
+                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/4">
                   {/* @ts-ignore */}
                   <ServerDrivenConversationTab
                     conversations={conversations}
