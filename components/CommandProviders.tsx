@@ -13,7 +13,7 @@ import {
   PencilLine,
   Pencil
 } from "lucide-react";
-import { AVAILABLE_MODELS, PROVIDER_NAMES, Provider } from "@/config/models";
+import { AVAILABLE_MODELS, PROVIDER_NAMES, PROVIDER_DESCRIPTIONS, Provider } from "@/config/models";
 import { toast } from 'sonner'
 import DotSphere from "@/components/ui/space/planet-icon";
 import {
@@ -295,6 +295,7 @@ export function ApplicationCommandProvider({ children }: { children: ReactNode }
       {
         id: "settings",
         name: "Open Settings",
+        value: "Open Settings",
         description: "Open application settings",
         icon: <Settings className="h-4 w-4" />,
         shortcut: ["⌘", ","],
@@ -307,6 +308,7 @@ export function ApplicationCommandProvider({ children }: { children: ReactNode }
       {
         id: "search",
         name: "Search Everything",
+        value: "Search Everything",
         description: "Search across all content",
         icon: <Search className="h-4 w-4" />,
         shortcut: ["⌘", "F"],
@@ -339,7 +341,7 @@ export function SpacesCommandProvider({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { closeCommandCenter, openCommandType } = useCommandCenter();
+  const { closeCommandCenter, openCommandType, filteredCommands } = useCommandCenter();
   
   const storeSpaces = useSpaceStore(state => state.spaces);
   const storeActiveSpace = useSpaceStore(state => state.activeSpace);
@@ -359,6 +361,7 @@ export function SpacesCommandProvider({
       {
         id: "create-space",
         name: "Create New Space",
+        value: "Create New Space",
         description: "Create a new workspace",
         icon: <Plus className="h-4 w-4" />,
         shortcut: ["⌘", "N"],
@@ -459,15 +462,14 @@ export function SpacesCommandProvider({
     }
   }, [reopenSpacesCommandCenter]);
 
-  const spaceOptionsList = useMemo(() => {
-    console.log('SpacesCommandProvider - storeSpaces:', storeSpaces);
-
-    return storeSpaces
+  const spaceCommands = useCallback((): CommandOption[] => {
+    const filteredSpaceCommands =  storeSpaces
       ?.filter(space => !space.is_deleted)
       ?.sort((a: SpaceType, b: SpaceType) => new Date(b.updated_at || '').getTime() - new Date(a.updated_at || '').getTime())
       .map((space) => ({
         id: `space-${space.id}`,
         name: space.name,
+        value: space.name,
         description: space.description || "Switch to this workspace",
         icon: (
           <div className="flex items-center gap-2">
@@ -487,7 +489,6 @@ export function SpacesCommandProvider({
           "space", 
           "workspace", 
           "switch", 
-          space.name,
           ...(space.name ? space.name.split(/\s+/) : []),
           ...(space.description ? space.description.split(/\s+/).filter(word => word.length > 3) : [])
         ],
@@ -534,12 +535,9 @@ export function SpacesCommandProvider({
           </div>
         )
       })) ?? [];
-  }, [storeSpaces]);
 
-  const spaceCommands = useCallback((): CommandOption[] => {
-    const commands = [] as CommandOption[];
-    return [...commands, ...spaceOptionsList];
-  }, [spaceOptionsList]);
+    return filteredSpaceCommands;
+  }, [storeSpaces]);
 
   useCommandRegistration([...baseCommands(), ...spaceCommands()]);
 
@@ -864,6 +862,7 @@ export function ConversationsCommandProvider({
       .map((conversation: Conversation) => ({
         id: `conversation-${conversation.id}`,
         name: conversation.title || "Untitled Conversation",
+        value: conversation.title || "Untitled Conversation",
         description: storeActiveSpace
           ? `Open conversation in ${storeActiveSpace.name}: ${conversation.title || "Untitled"}`
           : `Open conversation: ${conversation.title || "Untitled"}`,
@@ -944,6 +943,7 @@ export function ConversationsCommandProvider({
       {
         id: "new-conversation",
         name: "Start New Conversation",
+        value: "Start New Conversation",
         description: storeActiveSpace
           ? `Begin a new chat in ${storeActiveSpace.name}`
           : "Begin a new chat conversation",
@@ -995,6 +995,7 @@ export function ModelsCommandProvider({ children, activeSpace = null }: { childr
       {
         id: "select-model",
         name: "Select AI Model",
+        value: "Select AI Model",
         description: "Choose a different AI model",
         icon: <Brain className="h-4 w-4" />,
         type: "models",
@@ -1009,37 +1010,70 @@ export function ModelsCommandProvider({ children, activeSpace = null }: { childr
 
   const modelCommands = useCallback((): CommandOption[] => {
     const commands: CommandOption[] = [];
+    const providerGroups: Record<string, CommandOption[]> = {};
+    
+    // Import the ProviderIcon component
+    const { ProviderIcon } = require('@/components/ui/chat/provider-icon');
 
     Object.entries(AVAILABLE_MODELS).forEach(([providerKey, models]) => {
       const provider = providerKey as Provider;
       const providerName = PROVIDER_NAMES[provider];
-
+      const providerDescription = PROVIDER_DESCRIPTIONS?.[provider] || `Models from ${providerName}`;
+      
+      // Create group header
+      const groupId = `provider-group-${provider}`;
       commands.push({
-        id: `provider-${provider}`,
+        id: groupId,
         name: providerName,
-        description: `Select a model from ${providerName}`,
-        icon: <Brain className="h-4 w-4" />,
+        value: providerName,
+        description: providerDescription,
+        icon: <ProviderIcon provider={provider} size={18} />,
         type: "models",
         keywords: ["provider", providerName.toLowerCase(), "model"],
         action: () => {
-          console.log(`Selecting provider: ${providerName}`);
+          console.log(`Provider group: ${providerName}`);
         },
       });
 
+      // Add all models for this provider
       models.forEach((model) => {
         commands.push({
           id: `model-${provider}-${model.id}`,
           name: model.name,
+          value: model.name,
           description: model.description || `${providerName} model`,
-          icon: <Brain className="h-4 w-4" />,
+          icon: (
+            <div className="flex items-center opacity-60 pl-3">
+              <ProviderIcon provider={provider} size={14} className="opacity-80" />
+            </div>
+          ),
           type: "models",
-          keywords: ["model", model.name.toLowerCase(), providerName.toLowerCase()],
+          keywords: [
+            "model", 
+            model.name.toLowerCase(), 
+            providerName.toLowerCase(),
+            ...(model.description ? model.description.split(' ') : [])
+          ],
           action: () => {
             console.log(`Selecting model: ${model.name} from ${providerName}`);
           },
         });
       });
+      
+      commands.push({
+        id: `separator-${provider}`,
+        name: "",
+        value: "",
+        type: "models",
+        icon: <></>,
+        action: () => {},
+      });
     });
+
+    // Remove the last separator
+    if (commands.length > 0) {
+      commands.pop();
+    }
 
     return commands;
   }, []);
@@ -1058,6 +1092,7 @@ export function ActionsCommandProvider({ children }: { children: ReactNode }) {
       {
         id: "keyboard-shortcuts",
         name: "View Keyboard Shortcuts",
+        value: "View Keyboard Shortcuts",
         description: "Show all available keyboard shortcuts",
         icon: <Command className="h-4 w-4" />,
         type: "actions",

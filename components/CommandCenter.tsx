@@ -17,7 +17,6 @@ export function CommandCenter() {
     activeCommandType,
   } = useCommandCenter();
 
-  // Group commands by type for organized display
   const groupedCommands = React.useMemo(() => {
     const grouped: Record<CommandType, CommandOption[]> = {
       application: [],
@@ -27,14 +26,18 @@ export function CommandCenter() {
       actions: [],
     };
 
+    console.log('groupedCommands:', filteredCommands);
+
+
     filteredCommands.forEach((command) => {
       grouped[command.type].push(command);
     });
 
+    console.log('groupedCommands:', grouped);
+
     return grouped;
   }, [filteredCommands]);
 
-  // Get all available command types that have commands
   const availableTypes = React.useMemo(() => {
     return Object.entries(groupedCommands)
       .filter(([_, commands]) => commands.length > 0)
@@ -51,10 +54,8 @@ export function CommandCenter() {
 
   const renderCommandGroups = () => {
     if (activeCommandType) {
-      // Render only the active type
       const commands = groupedCommands[activeCommandType];
       if (commands.length === 0) {
-        // Add a message when no commands are found for the active type
         return (
           <CommandEmpty>No {activeCommandType} found.</CommandEmpty>
         );
@@ -63,6 +64,7 @@ export function CommandCenter() {
       return (
         <CommandGroup heading={activeCommandType.charAt(0).toUpperCase() + activeCommandType.slice(1)}>
           {commands.map((command) => (
+            console.log('command:', command),
             <CommandItem
               key={command.id}
               onSelect={() => handleSelect(command.id)}
@@ -107,7 +109,6 @@ export function CommandCenter() {
       );
     }
 
-    // Render all groups
     return availableTypes.map((type, index) => {
       const commands = groupedCommands[type];
       if (commands.length === 0) return null;
@@ -170,13 +171,9 @@ export function CommandCenter() {
         onValueChange={setSearchQuery}
       />
       <CommandList className="scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-        <CommandEmpty className="py-6 text-center text-sm">
-          <div className="flex flex-col items-center justify-center space-y-1">
-            <div className="text-white/60">No commands found.</div>
-            <div className="text-xs text-white/40">Try a different search term</div>
-          </div>
-        </CommandEmpty>
-        {renderCommandGroups()}
+        <Command shouldFilter={false}>
+          {renderCommandGroups()}
+        </Command>
       </CommandList>
     </CommandDialog>
   );

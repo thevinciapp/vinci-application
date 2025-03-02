@@ -8,6 +8,7 @@ export type CommandType = 'application' | 'spaces' | 'conversations' | 'models' 
 export interface CommandOption {
   id: string;
   name: string;
+  value?: string;
   description?: string;
   icon?: ReactNode;
   rightElement?: ReactNode;
@@ -15,6 +16,7 @@ export interface CommandOption {
   type: CommandType;
   keywords?: string[];
   action: () => void;
+  closeCommandOnSelect?: boolean;
 }
 
 interface CommandContextType {
@@ -153,30 +155,16 @@ export function CommandProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // Filter commands based on search query and active type - memoize to avoid recalculation
   const filteredCommands = useMemo(() => {
-    return commands.filter(command => {
-      // Filter by type if active type is set
+    const filteredCommands = commands.filter(command => {
       if (activeCommandType && command.type !== activeCommandType) {
         return false;
       }
 
-      // If no search query, return all commands of the active type (or all commands if no active type)
       if (!searchQuery) return true;
 
       const query = searchQuery.toLowerCase().trim();
-      const queryParts = query.split(/\s+/);
       
-      // For multi-word search, check if all parts match somewhere in the command
-      if (queryParts.length > 1) {
-        return queryParts.every(part => 
-          command.name.toLowerCase().includes(part) ||
-          (command.description?.toLowerCase().includes(part)) ||
-          command.keywords?.some(keyword => keyword.toLowerCase().includes(part))
-        );
-      }
-      
-      // For single word search, try to match at the beginning of words
       const nameWords = command.name.toLowerCase().split(/\s+/);
       const keywordMatches = command.keywords?.some(keyword => 
         keyword.toLowerCase().startsWith(query) || 
@@ -187,15 +175,16 @@ export function CommandProvider({ children }: { children: ReactNode }) {
       const nameStartsWithQuery = command.name.toLowerCase().startsWith(query);
       const nameContainsWordStartingWithQuery = nameWords.some(word => word.startsWith(query));
       const descriptionContainsQuery = command.description?.toLowerCase().includes(query);
-      
+
       return nameStartsWithQuery || 
              nameContainsWordStartingWithQuery || 
              keywordMatches || 
              descriptionContainsQuery;
     });
+
+    return filteredCommands;
   }, [commands, searchQuery, activeCommandType]);
 
-  // Context value - memoize to prevent unnecessary re-renders
   const value = useMemo(() => ({
     isOpen,
     openCommandCenter,
