@@ -60,7 +60,7 @@ export function SpaceDialogForm({
   const [model, setModel] = useState(editSpace?.model || "");
   const initialRenderRef = useRef(true);
   const router = useRouter();
-
+  
   const { 
     createSpace, 
     updateSpace, 
@@ -86,15 +86,15 @@ export function SpaceDialogForm({
   }, [open, editSpace]);
 
   useEffect(() => {
-    if (!editSpace && provider && AVAILABLE_MODELS[provider]?.length > 0) {
+    if (provider && AVAILABLE_MODELS[provider]?.length > 0) {
       setModel(AVAILABLE_MODELS[provider][0].id);
     }
-  }, [provider, editSpace]);
-
+  }, [provider]);
+  
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      
+
       let success = false;
       
       if (editSpace) {
@@ -105,7 +105,9 @@ export function SpaceDialogForm({
           provider
         });
 
-        onEditSuccess();
+        if (success) {
+          onEditSuccess();
+        }
       } else {
         const result = await createSpace(name, description, model, provider);
         success = !!result;
@@ -123,10 +125,8 @@ export function SpaceDialogForm({
     },
     [name, description, model, provider, createSpace, updateSpace, onCreateSuccess, onEditSuccess, editSpace, router]
   );
-
-  const isSubmitting = editSpace 
-    ? loadingSpaceId === editSpace.id 
-    : isLoading;
+    
+  const isFormValid = name && provider && model;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -143,7 +143,9 @@ export function SpaceDialogForm({
 
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">
+                Name
+              </Label>
               <Input
                 id="name"
                 value={name}
@@ -165,15 +167,25 @@ export function SpaceDialogForm({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="provider">Provider</Label>
-              <Select value={provider} onValueChange={(value) => setProvider(value as Provider)}>
-                <SelectTrigger id="provider">
+              <Label htmlFor="provider">
+                Provider
+              </Label>
+              <Select 
+                value={provider} 
+                onValueChange={(value) => setProvider(value as Provider)}
+              >
+                <SelectTrigger 
+                  id="provider"
+                >
                   <SelectValue placeholder="Select provider" />
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(PROVIDER_NAMES).map(([key, name]) => (
                     <SelectItem key={key} value={key}>
-                      {name}
+                      <div className="flex items-center gap-2">
+                        <ProviderIcon type="color" provider={key} size={14} className="flex-shrink-0" />
+                        <span>{name}</span>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -181,9 +193,16 @@ export function SpaceDialogForm({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="model">Model</Label>
-              <Select value={model} onValueChange={setModel}>
-                <SelectTrigger id="model">
+              <Label htmlFor="model">
+                Model
+              </Label>
+              <Select 
+                value={model} 
+                onValueChange={setModel}
+              >
+                <SelectTrigger 
+                  id="model"
+                >
                   <SelectValue placeholder="Select model" />
                 </SelectTrigger>
                 <SelectContent>
@@ -199,10 +218,14 @@ export function SpaceDialogForm({
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={isSubmitting || !name || !model || !provider}>
-              {isSubmitting ? (
+            <Button 
+              type="submit" 
+              disabled={isLoading || !isFormValid}
+              className="bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/20 text-cyan-300 backdrop-blur-sm"
+            >
+              {isLoading ? (
                 <div className="flex items-center gap-2">
-                  <div className="animate-spin h-4 w-4 border-2 border-white/20 border-t-white/80 rounded-full" />
+                  <div className="animate-spin h-4 w-4 border-2 border-cyan-400/20 border-t-cyan-400/80 rounded-full" />
                   <span>{editSpace ? "Updating..." : "Creating..."}</span>
                 </div>
               ) : (
@@ -686,10 +709,14 @@ export function ConversationDialogForm({
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={isSubmitting || !title}>
+            <Button 
+              type="submit" 
+              disabled={isSubmitting || !title}
+              className="bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/20 text-cyan-300 backdrop-blur-sm"
+            >
               {isSubmitting ? (
                 <div className="flex items-center gap-2">
-                  <div className="animate-spin h-4 w-4 border-2 border-white/20 border-t-white/80 rounded-full" />
+                  <div className="animate-spin h-4 w-4 border-2 border-cyan-400/20 border-t-cyan-400/80 rounded-full" />
                   <span>Updating...</span>
                 </div>
               ) : (

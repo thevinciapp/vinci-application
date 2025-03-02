@@ -446,15 +446,19 @@ export const useSpaceStore = create<SpaceStore>((set, get) => ({
   
   updateSpace: async (id, updates) => { 
     try {
-      console.log('Updating space:', id, updates);
+      set({ 
+        isLoading: true,
+        uiState: {
+          ...get().uiState,
+          isLoading: true,
+          loadingType: 'space'
+        }
+      });
 
       get().updateLocalSpace(id, updates);
 
-      console.log('Local space updated:', get().activeSpace);
-      
       const space: any = await updateSpaceAction(id, updates);
 
-      console.log('Space updated:', space);
       if (space) {
         get().updateLocalSpace(id, space);
 
@@ -485,9 +489,6 @@ export const useSpaceStore = create<SpaceStore>((set, get) => ({
         return false;
       }
     } catch (error) {
-      console.error('Error updating space:', error);
-      
-      // Try to fetch the original space to rollback
       const originalSpace = await get().fetchSpace(id);
       if (originalSpace) {
         get().updateLocalSpace(id, originalSpace);
@@ -500,13 +501,9 @@ export const useSpaceStore = create<SpaceStore>((set, get) => ({
           loadingType: null
         }
       }));
-      
-      toast.error('Update Failed', {
-        description: 'Could not update space'
-      });
       return false;
     } finally {
-      set({ loadingSpaceId: null });
+      set({ isLoading: false });
     }
   },
   
