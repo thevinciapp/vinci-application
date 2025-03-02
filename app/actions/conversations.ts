@@ -21,6 +21,16 @@ export interface Message {
   annotations?: any[];
 }
 
+// Define an interface for the search results from the RPC functions
+interface SearchResult {
+    id: string;
+    conversation_id: string;
+    content: string;
+    role: 'user' | 'assistant' | 'system';
+    created_at: string;
+    ts_rank: number;
+}
+
 /**
  * Get the most recently updated conversation for a space
  * @param spaceId - The ID of the space to search within
@@ -601,68 +611,93 @@ export async function searchMessages(
             return errorResponse("Space ID is required for space scope");
         }
 
-        // Build the base query
-        let query = supabase
-            .from(DB_TABLES.MESSAGES)
-            .select(`
-                *,
-                ${DB_TABLES.CONVERSATIONS}(${COLUMNS.ID}, ${COLUMNS.TITLE}, ${COLUMNS.SPACE_ID})
-            `)
-            .eq(COLUMNS.IS_DELETED, false);
+        let searchResults: SearchResult[] = [];
 
-        // Add search scope filters
-        if (searchScope === 'conversation') {
-            query = query.eq(COLUMNS.CONVERSATION_ID, conversationId);
-        } else if (searchScope === 'space') {
-            // For space scope, we need to first get conversations in the space
-            const { data: conversationsInSpace } = await supabase
-                .from(DB_TABLES.CONVERSATIONS)
-                .select(COLUMNS.ID)
-                .eq(COLUMNS.SPACE_ID, spaceId)
-                .eq(COLUMNS.IS_DELETED, false);
+        // Use the appropriate full-text search function based on search scope
+        if (searchScope === 'conversation' && conversationId) {
+            // Search within a specific conversation
+            const { data, error } = await supabase
+                .rpc('search_conversation_messages', { 
+                    conversation_uuid: conversationId,
+                    search_query: sanitizedSearchTerm,
+                    result_limit: limit
+                });
             
-            if (conversationsInSpace && conversationsInSpace.length > 0) {
-                const conversationIds = conversationsInSpace.map(c => c.id);
-                query = query.in(COLUMNS.CONVERSATION_ID, conversationIds);
-            } else {
-                // No conversations in this space
-                return successResponse({ results: [] });
+            if (error) {
+                console.error('Error searching conversation messages:', error);
+                return errorResponse(`Error searching messages: ${error.message}`);
             }
-        }
-
-        // Add content search filter with proper wildcards to find matches anywhere in content
-        if (searchMode === 'exact') {
-            // Make sure we're searching for the term anywhere in the content
-            query = query.ilike(COLUMNS.CONTENT, `%${sanitizedSearchTerm}%`);
-        } else {
-            // For future: implement fuzzy search if needed
-            // For now, use the same approach as exact search
-            query = query.ilike(COLUMNS.CONTENT, `%${sanitizedSearchTerm}%`);
-        }
-
-        // Add limit and order
-        query = query.order(COLUMNS.CREATED_AT, { ascending: false }).limit(limit);
-
-        // Execute the query
-        const { data, error } = await query;
-
-        if (error) {
-            console.error('Error searching messages:', error);
-            return errorResponse(`Error searching messages: ${error.message}`);
-        }
-
-        // Process the results to add highlighted content and other useful information
-        const processedResults = data?.map(result => {
-            // Extract conversation title from the nested relationship
-            const conversationTitle = result[DB_TABLES.CONVERSATIONS]?.title || 'Untitled Conversation';
             
-            // Format the result for easier consumption by the UI
+            searchResults = data as SearchResult[] || [];
+        } 
+        else if (searchScope === 'space' && spaceId) {
+            // Search within a specific space
+            const { data, error } = await supabase
+                .rpc('search_space_messages', { 
+                    space_uuid: spaceId,
+                    search_query: sanitizedSearchTerm,
+                    result_limit: limit
+                });
+            
+            if (error) {
+                console.error('Error searching space messages:', error);
+                return errorResponse(`Error searching messages: ${error.message}`);
+            }
+            
+            searchResults = data as SearchResult[] || [];
+        } 
+        else {
+            // Search across all user spaces
+            const { data, error } = await supabase
+                .rpc('search_all_user_messages', { 
+                    search_query: sanitizedSearchTerm,
+                    result_limit: limit
+                });
+            
+            if (error) {
+                console.error('Error searching all messages:', error);
+                return errorResponse(`Error searching messages: ${error.message}`);
+            }
+            
+            searchResults = data as SearchResult[] || [];
+        }
+
+        // If we got this far but have no results, return empty array
+        if (!searchResults || searchResults.length === 0) {
+            return successResponse({ results: [] });
+        }
+
+        // Get conversation info for titles
+        const conversationIds = Array.from(new Set(searchResults.map(result => result.conversation_id)));
+        
+        const { data: conversations, error: convError } = await supabase
+            .from(DB_TABLES.CONVERSATIONS)
+            .select(`${COLUMNS.ID}, ${COLUMNS.TITLE}`)
+            .in(COLUMNS.ID, conversationIds);
+            
+        if (convError) {
+            console.error('Error fetching conversations:', convError);
+            return errorResponse(`Error fetching conversation details: ${convError.message}`);
+        }
+        
+        // Create a mapping of conversation ID to title
+        const conversationTitleMap = new Map<string, string>();
+        conversations?.forEach(conv => {
+            conversationTitleMap.set(conv.id, conv.title || 'Untitled Conversation');
+        });
+
+        // Process the results to add conversation titles and format for UI consumption
+        const processedResults = searchResults.map((result: SearchResult) => {
             return {
-                ...result,
-                conversationTitle,
-                // Add other useful fields here as needed
+                id: result.id,
+                content: result.content,
+                role: result.role,
+                conversation_id: result.conversation_id,
+                created_at: result.created_at,
+                conversationTitle: conversationTitleMap.get(result.conversation_id) || 'Untitled Conversation',
+                searchRank: result.ts_rank
             };
-        }) || [];
+        });
 
         return successResponse({ results: processedResults });
     } catch (error) {
