@@ -20,6 +20,7 @@ export function CommandShortcuts() {
   useModalHotkey("conversations", "meta+b");
   useModalHotkey("models", "meta+m");
   useModalHotkey("actions", "meta+a");
+  useModalHotkey("messages", "meta+e");
 
   return null;
 }

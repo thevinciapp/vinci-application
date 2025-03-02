@@ -583,6 +583,9 @@ export async function searchMessages(
             return successResponse({ results: [] });
         }
 
+        // Trim and sanitize search term
+        const sanitizedSearchTerm = searchTerm.trim();
+        
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
 
@@ -590,7 +593,6 @@ export async function searchMessages(
             return errorResponse('User not authenticated');
         }
 
-        // Validate scope
         if (searchScope === 'conversation' && !conversationId) {
             return errorResponse("Conversation ID is required for conversation scope");
         }
@@ -599,43 +601,70 @@ export async function searchMessages(
             return errorResponse("Space ID is required for space scope");
         }
 
+        // Build the base query
         let query = supabase
             .from(DB_TABLES.MESSAGES)
             .select(`
                 *,
-                conversations:${DB_TABLES.CONVERSATIONS}(
-                    ${COLUMNS.ID},
-                    ${COLUMNS.TITLE},
-                    ${COLUMNS.SPACE_ID}
-                )
+                ${DB_TABLES.CONVERSATIONS}(${COLUMNS.ID}, ${COLUMNS.TITLE}, ${COLUMNS.SPACE_ID})
             `)
-            .eq(`${DB_TABLES.MESSAGES}.${COLUMNS.IS_DELETED}`, false)
-            .eq(`${DB_TABLES.CONVERSATIONS}.${COLUMNS.IS_DELETED}`, false)
-            .limit(limit);
+            .eq(COLUMNS.IS_DELETED, false);
 
+        // Add search scope filters
         if (searchScope === 'conversation') {
-            query = query.eq(`${DB_TABLES.MESSAGES}.${COLUMNS.CONVERSATION_ID}`, conversationId);
+            query = query.eq(COLUMNS.CONVERSATION_ID, conversationId);
         } else if (searchScope === 'space') {
-            query = query.eq(`${DB_TABLES.CONVERSATIONS}.${COLUMNS.SPACE_ID}`, spaceId);
+            // For space scope, we need to first get conversations in the space
+            const { data: conversationsInSpace } = await supabase
+                .from(DB_TABLES.CONVERSATIONS)
+                .select(COLUMNS.ID)
+                .eq(COLUMNS.SPACE_ID, spaceId)
+                .eq(COLUMNS.IS_DELETED, false);
+            
+            if (conversationsInSpace && conversationsInSpace.length > 0) {
+                const conversationIds = conversationsInSpace.map(c => c.id);
+                query = query.in(COLUMNS.CONVERSATION_ID, conversationIds);
+            } else {
+                // No conversations in this space
+                return successResponse({ results: [] });
+            }
         }
 
-        // Text search
+        // Add content search filter with proper wildcards to find matches anywhere in content
         if (searchMode === 'exact') {
-            query = query.ilike(`${DB_TABLES.MESSAGES}.${COLUMNS.CONTENT}`, `%${searchTerm}%`);
+            // Make sure we're searching for the term anywhere in the content
+            query = query.ilike(COLUMNS.CONTENT, `%${sanitizedSearchTerm}%`);
         } else {
-            // For "semantic" search, we would typically use a vector search like Pinecone
-            // But for now, we'll just use text search as a fallback
-            query = query.ilike(`${DB_TABLES.MESSAGES}.${COLUMNS.CONTENT}`, `%${searchTerm}%`);
+            // For future: implement fuzzy search if needed
+            // For now, use the same approach as exact search
+            query = query.ilike(COLUMNS.CONTENT, `%${sanitizedSearchTerm}%`);
         }
 
-        const { data, error } = await query.order(`${DB_TABLES.MESSAGES}.${COLUMNS.CREATED_AT}`, { ascending: false });
+        // Add limit and order
+        query = query.order(COLUMNS.CREATED_AT, { ascending: false }).limit(limit);
+
+        // Execute the query
+        const { data, error } = await query;
 
         if (error) {
             console.error('Error searching messages:', error);
             return errorResponse(`Error searching messages: ${error.message}`);
         }
 
-        return successResponse({ results: data || [] });
+        // Process the results to add highlighted content and other useful information
+        const processedResults = data?.map(result => {
+            // Extract conversation title from the nested relationship
+            const conversationTitle = result[DB_TABLES.CONVERSATIONS]?.title || 'Untitled Conversation';
+            
+            // Format the result for easier consumption by the UI
+            return {
+                ...result,
+                conversationTitle,
+                // Add other useful fields here as needed
+            };
+        }) || [];
+
+        return successResponse({ results: processedResults });
     } catch (error) {
         return handleActionError(error);
     }

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { ReactNode, useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { CommandOption, useCommandRegistration, CommandType } from "@/hooks/useCommandCenter";
+import { CommandOption, useCommandRegistration, CommandType, useCommandHeaderRegistration } from "@/hooks/useCommandCenter";
 import { 
   Settings, 
   Search, 
@@ -11,7 +11,10 @@ import {
   Command, 
   Trash, 
   PencilLine,
-  Pencil
+  Pencil,
+  SwitchCamera,
+  MessageCircle,
+  Ban
 } from "lucide-react";
 import { AVAILABLE_MODELS, PROVIDER_NAMES, PROVIDER_DESCRIPTIONS, Provider } from "@/config/models";
 import { toast } from 'sonner'
@@ -37,6 +40,9 @@ import { useSpaceStore, Space as SpaceType, Conversation as ConversationType } f
 import { useShallow } from "zustand/react/shallow";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/common/tooltip";
 import { ProviderIcon } from "@lobehub/icons";
+import { createSpace as createSpaceAction, deleteSpace as deleteSpaceAction, updateSpace as updateSpaceAction } from "@/app/actions/spaces";
+import { createConversation as createConversationAction, deleteConversation as deleteConversationAction, updateConversationTitle, searchMessages } from "@/app/actions/conversations";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /**
  * Dialog for creating or editing a space
@@ -1178,6 +1184,335 @@ export function ActionsCommandProvider({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+// Create a context for search scope management
+const SearchScopeContext = React.createContext<{
+  scope: "conversation" | "space" | "all";
+  setScope: (scope: "conversation" | "space" | "all") => void;
+}>({
+  scope: "conversation",
+  setScope: () => {},
+});
+
+/**
+ * The SearchHeader component that consumes the scope context
+ */
+const SearchHeader = () => {
+  const { scope, setScope } = React.useContext(SearchScopeContext);
+  
+  return (
+    <div className="px-2 py-2">
+      <Tabs 
+        value={scope} 
+        onValueChange={(value) => setScope(value as "conversation" | "space" | "all")}
+        className="w-full"
+      >
+        <TabsList className="w-full grid grid-cols-3 bg-zinc-900/40 border border-white/5 rounded-md">
+          <TabsTrigger 
+            value="conversation" 
+            className="text-xs py-1 data-[state=active]:bg-zinc-800 data-[state=active]:text-white"
+          >
+            Conversation
+          </TabsTrigger>
+          <TabsTrigger 
+            value="space" 
+            className="text-xs py-1 data-[state=active]:bg-zinc-800 data-[state=active]:text-white"
+          >
+            Space
+          </TabsTrigger>
+          <TabsTrigger 
+            value="all" 
+            className="text-xs py-1 data-[state=active]:bg-zinc-800 data-[state=active]:text-white"
+          >
+            All Spaces
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+    </div>
+  );
+};
+
+// Updated formatDate function with proper error handling
+const formatDate = (dateString?: string): string => {
+  if (!dateString) return "Unknown date";
+  
+  try {
+    // First try parsing as ISO string
+    const date = new Date(dateString);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return "Unknown date";
+    }
+    
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric'
+    }).format(date);
+  } catch (error) {
+    console.error("Error formatting date:", error);
+    return "Unknown date";
+  }
+}
+
+export function MessageSearchProvider({ children }: { children: ReactNode }) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<any[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchScope, setSearchScope] = useState<"conversation" | "space" | "all">("conversation");
+  
+  const { 
+    closeCommandCenter, 
+    openCommandType, 
+    setIsLoading, 
+    setLoadingCommandType,
+    registerSearchableCommand,
+    unregisterSearchableCommand
+  } = useCommandCenter();
+  
+  const {
+    activeSpace,
+    activeConversation,
+  } = useSpaceStore(
+    useShallow((state) => state.uiState)
+  );
+  
+  const { selectConversation } = useSpaceStore();
+  
+  // Register this as a searchable command type
+  useEffect(() => {
+    const MIN_SEARCH_LENGTH = 3;
+    
+    // Register messages as a searchable command type
+    registerSearchableCommand('messages', {
+      minSearchLength: MIN_SEARCH_LENGTH,
+      placeholderText: `Type at least ${MIN_SEARCH_LENGTH} characters to search messages...`
+    });
+    
+    // Cleanup on unmount
+    return () => {
+      unregisterSearchableCommand('messages');
+    };
+  }, [registerSearchableCommand, unregisterSearchableCommand]);
+  
+  const handleSearch = useCallback(async () => {
+    const MIN_SEARCH_LENGTH = 3;
+    
+    // Clear results and loading state if search term is too short
+    if (!searchTerm || searchTerm.length < MIN_SEARCH_LENGTH) {
+      setSearchResults([]);
+      setIsLoading(false);
+      setLoadingCommandType(null);
+      return;
+    }
+    
+    // Set local and global loading states immediately
+    setIsSearching(true);
+    setIsLoading(true);
+    setLoadingCommandType('messages');
+    
+    try {
+      const conversationId = searchScope === "conversation" ? activeConversation?.id : undefined;
+      const spaceId = (searchScope === "space" || searchScope === "conversation") ? activeSpace?.id : undefined;
+      
+      const response = await searchMessages(
+        searchTerm,
+        searchScope,
+        "exact",
+        conversationId,
+        spaceId
+      );
+
+      console.log("response", response);
+      
+      if (response && response.status === 'success' && response.data && response.data.results) {
+        setSearchResults(response.data.results);
+      } else {
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error("Error searching messages:", error);
+      toast.error("Search Failed", {
+        description: "Could not search messages. Please try again."
+      });
+      setSearchResults([]);
+    } finally {
+      // Clear both loading states
+      setIsSearching(false);
+      setIsLoading(false);
+      setLoadingCommandType(null);
+    }
+  }, [searchTerm, searchScope, activeConversation, activeSpace, setIsLoading, setLoadingCommandType]);
+  
+  const toggleSearchScope = useCallback(() => {
+    setSearchScope(current => {
+      if (current === "conversation") return "space";
+      if (current === "space") return "all";
+      return "conversation";
+    });
+    
+    setSearchResults(null);
+  }, []);
+  
+  const getScopeName = useCallback(() => {
+    switch (searchScope) {
+      case "conversation":
+        return activeConversation?.title || "Current Conversation";
+      case "space":
+        return activeSpace?.name || "Current Space";
+      case "all":
+        return "All Spaces";
+      default:
+        return "Messages";
+    }
+  }, [searchScope, activeConversation, activeSpace]);
+  
+  const searchCommands = useCallback((): CommandOption[] => {
+    if (!searchTerm || searchTerm.length < 3) return []
+
+    const commands: CommandOption[] = []
+    
+    // Check if we're in a special search mode that should bypass filtering
+    const shouldBypassFilter = searchTerm.length >= 3 && !!searchResults && searchResults.length > 0;
+
+    if (searchResults && searchResults.length > 0) {
+      searchResults.forEach((result) => {
+        const messageContent = result.content || ""
+        const lowerContent = messageContent.toLowerCase()
+        const lowerSearchTerm = searchTerm.toLowerCase()
+        const matchIndex = lowerContent.indexOf(lowerSearchTerm)
+
+        if (matchIndex === -1) return
+
+        // Create a display content that includes context around the match
+        let displayContent = messageContent
+        const snippetLength = 60 // Characters to show around the match
+        
+        if (messageContent.length > (snippetLength * 2) + searchTerm.length) {
+          // If the content is long, truncate it to show context around the match
+          const startIndex = Math.max(0, matchIndex - snippetLength)
+          const endIndex = Math.min(messageContent.length, matchIndex + searchTerm.length + snippetLength)
+          
+          displayContent = (startIndex > 0 ? '...' : '') + 
+                          messageContent.substring(startIndex, endIndex) + 
+                          (endIndex < messageContent.length ? '...' : '')
+        }
+
+        const isAssistant = result.role === "assistant"
+        const conversationId = result.conversation_id
+
+        commands.push({
+          id: conversationId + result.id,
+          name: displayContent,
+          value: result.content,
+          shortcut: [formatDate(result.created_at)],
+          type: "messages",
+          icon: (
+            <div className="flex items-center justify-center rounded-full bg-white/5 w-8 h-8">
+              <MessageCircle className="h-5 w-5 text-white/70" />
+            </div>
+          ),
+          description: isAssistant ? "AI Message" : "Your Message",
+          rightElement: (
+            <div className={`
+              px-1.5 py-0.5 text-xs font-medium rounded 
+              ${isAssistant 
+                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
+                : 'bg-green-500/20 text-green-400 border border-green-500/30'}
+            `}>
+              {isAssistant ? "AI" : "You"}
+            </div>
+          ),
+          action: async () => {
+            // Navigate to the conversation
+            if (conversationId) {
+              await selectConversation(conversationId);
+              closeCommandCenter();
+            }
+          },
+          bypassFilter: shouldBypassFilter,
+        })
+      })
+    }
+
+    return commands
+  }, [searchResults, searchTerm, selectConversation, closeCommandCenter]);
+  
+  // Handle scope changes from the header
+  const handleScopeChange = useCallback((scope: "conversation" | "space" | "all") => {
+    setSearchScope(scope);
+    setSearchResults(null); // Clear results when changing scope
+  }, []);
+  
+  // Create the context value with the current scope
+  const scopeContextValue = useMemo(() => ({
+    scope: searchScope,
+    setScope: handleScopeChange
+  }), [searchScope, handleScopeChange]);
+  
+  // Create the header component with context - this will update when scopeContextValue changes
+  const headerWithContext = useMemo(() => (
+    <SearchScopeContext.Provider value={scopeContextValue}>
+      <SearchHeader />
+    </SearchScopeContext.Provider>
+  ), [scopeContextValue]);
+  
+  // Register the header at the top level - this follows React hooks rules
+  useCommandHeaderRegistration(headerWithContext, "messages");
+  
+  // Register search commands at the top level
+  useCommandRegistration(searchCommands());
+  
+  // Effect to trigger search when search term or scope changes
+  useEffect(() => {
+    const MIN_SEARCH_LENGTH = 3; // Keep this in sync with the registered config
+    
+    // Clear any existing search timer
+    const timer = setTimeout(() => {
+      // If search is long enough, trigger search
+      if (searchTerm && searchTerm.length >= MIN_SEARCH_LENGTH) {
+        handleSearch();
+      } 
+      // If search is less than minimum but not empty, set appropriate loading state
+      else if (searchTerm.length > 0 && searchTerm.length < MIN_SEARCH_LENGTH) {
+        setSearchResults([]);
+        setIsLoading(false);
+        setLoadingCommandType(null);
+      } 
+      // If search is empty, clear all states
+      else if (searchTerm.length === 0) {
+        setSearchResults([]);
+        setIsLoading(false);
+        setLoadingCommandType(null);
+      }
+    }, 300); // Debounce search input
+    
+    // For immediate feedback while typing
+    if (searchTerm && searchTerm.length >= MIN_SEARCH_LENGTH) {
+      // Immediately set loading state for better UX
+      setIsLoading(true);
+      setLoadingCommandType('messages');
+    }
+    
+    return () => clearTimeout(timer);
+  }, [searchTerm, searchScope, handleSearch, setIsLoading, setLoadingCommandType]);
+  
+  // Set up a listener for the command center search query
+  const { searchQuery } = useCommandCenter();
+  
+  useEffect(() => {
+    if (searchQuery) {
+      setSearchTerm(searchQuery);
+    } else {
+      setSearchTerm("");
+      setSearchResults(null);
+    }
+  }, [searchQuery]);
+  
+  return <>{children}</>;
+}
+
 /**
  * Combined provider for all command types
  */
@@ -1217,7 +1552,9 @@ export function AllCommandProviders({
       <SpacesCommandProvider>
         <ConversationsCommandProvider>
           <ModelsCommandProvider>
-            <ActionsCommandProvider>{children}</ActionsCommandProvider>
+            <MessageSearchProvider>
+              <ActionsCommandProvider>{children}</ActionsCommandProvider>
+            </MessageSearchProvider>
           </ModelsCommandProvider>
         </ConversationsCommandProvider>
       </SpacesCommandProvider>
