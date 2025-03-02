@@ -843,29 +843,6 @@ code[class*="shiki"] {
   }
 }
 
-/* Dialog input styling */
-.glass-dialog input,
-.glass-dialog textarea,
-.glass-dialog select {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.9);
-  transition: all 0.2s ease;
-}
-
-.glass-dialog input:focus,
-.glass-dialog textarea:focus,
-.glass-dialog select:focus {
-  background: rgba(255, 255, 255, 0.03);
-  border-color: rgba(255, 255, 255, 0.1);
-  outline: none;
-}
-
-.glass-dialog input::placeholder,
-.glass-dialog textarea::placeholder {
-  color: rgba(255, 255, 255, 0.4);
-}
-
 .glass-dialog button {
   transition: all 0.2s ease;
 }

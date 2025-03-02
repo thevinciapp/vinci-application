@@ -166,16 +166,17 @@ export function CommandCenter() {
 
   return (
     <CommandDialog open={isOpen} onOpenChange={closeCommandCenter}>
-      <CommandInput
-        placeholder="Type a command or search..."
-        onValueChange={setSearchQuery}
-      />
-      <CommandList className="scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-        <Command shouldFilter={false}>
-          {renderCommandGroups()}
-        </Command>
-      </CommandList>
+      <Command shouldFilter={false} loop>
+        <CommandInput
+          placeholder="Type a command or search..."
+          onValueChange={setSearchQuery}
+        />
+        <CommandList className="scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+            {renderCommandGroups()}
+        </CommandList>
+      </Command>
     </CommandDialog>
+    
   );
 }
 

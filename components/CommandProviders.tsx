@@ -35,6 +35,8 @@ import { getMostRecentConversation } from "@/app/actions/conversations";
 import { cn } from "@/lib/utils";
 import { useSpaceStore, Space as SpaceType, Conversation as ConversationType } from '@/stores/space-store';
 import { useShallow } from "zustand/react/shallow";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/common/tooltip";
+import { ProviderIcon } from "@lobehub/icons";
 
 /**
  * Dialog for creating or editing a space
@@ -466,13 +468,14 @@ export function SpacesCommandProvider({
     const filteredSpaceCommands =  storeSpaces
       ?.filter(space => !space.is_deleted)
       ?.sort((a: SpaceType, b: SpaceType) => new Date(b.updated_at || '').getTime() - new Date(a.updated_at || '').getTime())
-      .map((space) => ({
-        id: `space-${space.id}`,
-        name: space.name,
-        value: space.name,
-        description: space.description || "Switch to this workspace",
-        icon: (
-          <div className="flex items-center gap-2">
+      .map((space) => {
+        return {
+          id: `space-${space.id}`,
+          name: space.name,
+          value: space.name,
+          description: space.description || "Switch to this workspace",
+          icon: (
+            <div className="flex items-center gap-2">
               <DotSphere 
                 size={22} 
                 seed={space.id} 
@@ -482,59 +485,92 @@ export function SpacesCommandProvider({
                 transitionSpeed={400}
                 highPerformance={true}
               />
-          </div>
-        ),
-        type: "spaces" as CommandType,
-        keywords: [
-          "space", 
-          "workspace", 
-          "switch", 
-          ...(space.name ? space.name.split(/\s+/) : []),
-          ...(space.description ? space.description.split(/\s+/).filter(word => word.length > 3) : [])
-        ],
-        action: async () => {
-          await handleSelectSpace(space.id);
-        },
-        closeCommandOnSelect: false,
-        rightElement: (
-          <div className="flex items-center">
-            <div
-              onClick={(e) => { 
-                e.stopPropagation();
-                e.preventDefault();
-                handleEditSpace(space);
-              }}
-              className={cn(
-                "flex items-center h-7 w-7 justify-center rounded-md p-1.5 mr-1",
-                "transition-all duration-200 ease-in-out",
-                "bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.05]",
-                "text-zinc-400 hover:text-zinc-200",
-                "cursor-pointer"
-              )}
-              title="Edit Space"
-            >
-              <Pencil size={11} strokeWidth={1.5} />
             </div>
-            <div
-              onClick={(e) => { 
-                e.stopPropagation();
-                e.preventDefault();
-                handleDeleteSpace(space);
-              }}
-              className={cn(
-                "flex items-center h-7 w-7 justify-center rounded-md p-1.5",
-                "transition-all duration-200 ease-in-out",
-                "bg-white/[0.03] hover:bg-red-400/20 border border-white/[0.05]",
-                "text-red-400 hover:text-red-200",
-                "cursor-pointer"
+          ),
+          type: "spaces" as CommandType,
+          keywords: [
+            "space", 
+            "workspace", 
+            "switch", 
+            ...(space.name ? space.name.split(/\s+/) : []),
+            ...(space.description ? space.description.split(/\s+/).filter(word => word.length > 3) : [])
+          ],
+          action: async () => {
+            await handleSelectSpace(space.id);
+          },
+          closeCommandOnSelect: false,
+          rightElement: (
+            <div className="flex items-center gap-1.5">
+              <Tooltip>
+              <TooltipTrigger asChild>
+              {space.provider && (
+                  <div
+                  className={cn(
+                    "flex items-center justify-center h-7 w-7 rounded-md",
+                    "transition-all duration-200 ease-in-out",
+                    "bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.05]",
+                    "text-zinc-400 hover:text-zinc-200",
+                    "cursor-default"
+                  )}
+                >
+                  <ProviderIcon type="color" provider={space.provider} size={14} className="flex-shrink-0" />
+                </div>
               )}
-              title="Delete Space"
-            >
-              <Trash className="text-red-400" size={11} strokeWidth={1.5} />
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <span className="capitalize">{space.provider}</span>
+              </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    onClick={(e) => { 
+                      e.stopPropagation();
+                      e.preventDefault();
+                      handleEditSpace(space);
+                    }}
+                    className={cn(
+                      "flex items-center h-7 w-7 justify-center rounded-md p-1.5",
+                      "transition-all duration-200 ease-in-out",
+                      "bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.05]",
+                      "text-zinc-400 hover:text-zinc-200",
+                      "cursor-pointer"
+                    )}
+                  >
+                    <Pencil size={11} strokeWidth={1.5} />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  Edit Space
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    onClick={(e) => { 
+                      e.stopPropagation();
+                      e.preventDefault();
+                      handleDeleteSpace(space);
+                    }}
+                    className={cn(
+                      "flex items-center h-7 w-7 justify-center rounded-md p-1.5",
+                      "transition-all duration-200 ease-in-out",
+                      "bg-white/[0.03] hover:bg-red-400/20 border border-white/[0.05]",
+                      "text-red-400 hover:text-red-200",
+                      "cursor-pointer"
+                    )}
+                  >
+                    <Trash className="text-red-400" size={11} strokeWidth={1.5} />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="bg-red-500/20 border-red-500/30 text-red-300">
+                  Delete Space
+                </TooltipContent>
+              </Tooltip>
             </div>
-          </div>
-        )
-      })) ?? [];
+          )
+        };
+      }) ?? [];
 
     return filteredSpaceCommands;
   }, [storeSpaces]);
@@ -552,7 +588,7 @@ export function SpacesCommandProvider({
   }, [handleCreateDialogClose, reopenSpacesCommandCenter]);
 
   return (
-    <>
+    <TooltipProvider>
       <SpaceDialogForm
         open={showCreateDialog}
         onOpenChange={handleCreateDialogClose}
@@ -567,7 +603,7 @@ export function SpacesCommandProvider({
         onConfirm={confirmDeleteSpace}
       />
       {children}
-    </>
+    </TooltipProvider>
   );
 }
 
@@ -894,41 +930,53 @@ export function ConversationsCommandProvider({
         },
         closeCommandOnSelect: false,
         rightElement: (
-          <div className="flex items-center">
-            <div
-              onClick={(e) => { 
-                e.stopPropagation();
-                e.preventDefault();
-                handleEditConversation(conversation);
-              }}
-              className={cn(
-                "flex items-center h-7 w-7 justify-center rounded-md p-1.5 mr-1",
-                "transition-all duration-200 ease-in-out",
-                "bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.05]",
-                "text-zinc-400 hover:text-zinc-200",
-                "cursor-pointer"
-              )}
-              title="Edit Conversation"
-            >
-              <Pencil size={11} strokeWidth={1.5} />
-            </div>
-            <div
-              onClick={(e) => { 
-                e.stopPropagation();
-                e.preventDefault();
-                handleDeleteConversation(conversation);
-              }}
-              className={cn(
-                "flex items-center h-7 w-7 justify-center rounded-md p-1.5",
-                "transition-all duration-200 ease-in-out",
-                "bg-white/[0.03] hover:bg-red-400/20 border border-white/[0.05]",
-                "text-red-400 hover:text-red-200",
-                "cursor-pointer"
-              )}
-              title="Delete Conversation"
-            >
-              <Trash className="text-red-400" size={11} strokeWidth={1.5} />
-            </div>
+          <div className="flex items-center gap-1.5">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  onClick={(e) => { 
+                    e.stopPropagation();
+                    e.preventDefault();
+                    handleEditConversation(conversation);
+                  }}
+                  className={cn(
+                    "flex items-center h-7 w-7 justify-center rounded-md p-1.5",
+                    "transition-all duration-200 ease-in-out",
+                    "bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.05]",
+                    "text-zinc-400 hover:text-zinc-200",
+                    "cursor-pointer"
+                  )}
+                >
+                  <Pencil size={11} strokeWidth={1.5} />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                Edit Conversation
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  onClick={(e) => { 
+                    e.stopPropagation();
+                    e.preventDefault();
+                    handleDeleteConversation(conversation);
+                  }}
+                  className={cn(
+                    "flex items-center h-7 w-7 justify-center rounded-md p-1.5",
+                    "transition-all duration-200 ease-in-out",
+                    "bg-white/[0.03] hover:bg-red-400/20 border border-white/[0.05]",
+                    "text-red-400 hover:text-red-200",
+                    "cursor-pointer"
+                  )}
+                >
+                  <Trash className="text-red-400" size={11} strokeWidth={1.5} />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="bg-red-500/20 border-red-500/30 text-red-300">
+                Delete Conversation
+              </TooltipContent>
+            </Tooltip>
           </div>
         )
       })) ?? [];
@@ -962,7 +1010,7 @@ export function ConversationsCommandProvider({
   useCommandRegistration(conversationCommands());
 
   return (
-    <>
+    <TooltipProvider>
       <ConversationDialogForm
         open={showEditDialog}
         onOpenChange={handleEditDialogClose}
@@ -976,7 +1024,7 @@ export function ConversationsCommandProvider({
         onConfirm={confirmDeleteConversation}
       />
       {children}
-    </>
+    </TooltipProvider>
   );
 }
 
@@ -997,11 +1045,15 @@ export function ModelsCommandProvider({ children, activeSpace = null }: { childr
   
   const handleModelSelect = useCallback(async (modelId: string, provider: Provider) => {
     console.log('Updating space:', storeActiveSpace);
+    if (storeActiveSpace?.id) {
       await updateSpace(storeActiveSpace.id, {
         model: modelId,
         provider: provider
       });
-  }, [storeActiveSpace]);
+    } else {
+      console.error('Cannot update space: No active space ID');
+    }
+  }, [storeActiveSpace, updateSpace]);
 
   const modelCommands = useCallback((): CommandOption[] => {
     const commands: CommandOption[] = [];

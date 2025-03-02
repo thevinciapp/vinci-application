@@ -22,7 +22,7 @@ export function ServerDrivenModelTab({
   return (
     <BaseTab
       icon={hasModel ? (
-        <ProviderIcon provider={activeSpace.provider as Provider} size={15} />
+        <ProviderIcon className='mt-1' provider={activeSpace.provider as Provider} size={15} />
       ) : undefined}
       label={modelName}
       shortcut="M"

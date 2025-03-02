@@ -19,7 +19,7 @@ export function ServerDrivenSpaceTab({
   return (
     <div className="relative flex items-center">
       {activeSpace && (
-        <div className="mr-2">
+        <div className="mr-1">
           <DotSphere 
             size={24} 
             seed={activeSpace.id} 
@@ -33,7 +33,6 @@ export function ServerDrivenSpaceTab({
         </div>
       )}
       <BaseTab
-        icon={<span style={{ color: spaceColor }}>●</span>}
         label={isLoading ? `Loading${activeSpace?.name ? ' ' + activeSpace.name : ''}...` : (activeSpace?.name || "No Space Selected")}
         shortcut="E"
         commandType="spaces"
