@@ -151,8 +151,6 @@ export function CommandProvider({ children }: { children: ReactNode }) {
   });
 
   const registerCommand = useCallback((command: CommandOption) => {
-    if (!isMounted.current) return;
-    
     setCommands(prev => {
       const exists = prev.some(cmd => cmd.id === command.id);
       if (exists) {
@@ -170,8 +168,6 @@ export function CommandProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const unregisterCommand = useCallback((commandId: string) => {
-    if (!isMounted.current) return;
-    
     setCommands(prev => {
       const commandExists = prev.some(cmd => cmd.id === commandId);
       if (!commandExists) return prev;
@@ -180,14 +176,10 @@ export function CommandProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const registerHeader = useCallback((header: ReactNode, type: CommandType) => {
-    if (!isMounted.current) return;
-    
     setHeaders(prev => ({ ...prev, [type]: header }));
   }, []); 
 
   const unregisterHeader = useCallback((type: CommandType) => {
-    if (!isMounted.current) return;
-    
     setHeaders(prev => {
       const newHeaders = { ...prev };
       delete newHeaders[type];  
