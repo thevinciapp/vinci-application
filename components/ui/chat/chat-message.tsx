@@ -1,4 +1,4 @@
-import { User, MessageSquareIcon } from 'lucide-react';
+import { User, MessageSquareIcon, Sparkles } from 'lucide-react';
 import { memo } from 'react';
 import { getModelName, type Provider } from '@/config/models';
 import { ProviderIcon } from './provider-icon';
@@ -8,6 +8,8 @@ import { StreamStatus } from './stream-status';
 import { Markdown } from './markdown';
 import DotSphere from '@/components/ui/space/planet-icon';
 import { useSpaceStore } from '@/stores/space-store';
+import { getChatModeConfig } from '@/config/chat-modes';
+import { SimilarMessage } from '@/types';
 
 interface ChatMessageProps {
     message: Message;
@@ -16,14 +18,13 @@ interface ChatMessageProps {
     streamData?: JSONValue[] | undefined;
 }
 
-// Define the SimilarMessage type
-interface SimilarMessage {
-  id: string;
-  content: string;
-  role: 'user' | 'assistant';
-  createdAt: number;
-  score: number;
-  metadata?: Record<string, any>;
+// Interface for chat mode annotation
+interface ChatModeAnnotation {
+  chat_mode?: string;
+  chat_mode_config?: {
+    tools: string[];
+    mcp_servers?: string[];
+  };
 }
 
 const UserAvatar = ({ avatarUrl }: { avatarUrl?: string }) => (
@@ -67,15 +68,20 @@ const AIAvatar = () => {
     );
 };
 
-const ModelInfo = ({ provider, modelName, similarMessages }: { 
+const ModelInfo = ({ provider, modelName, similarMessages, chatMode }: { 
   provider?: Provider; 
   modelName: string;
   similarMessages?: SimilarMessage[];
+  chatMode?: string;
 }) => {
   const hasSimilarMessages = similarMessages && similarMessages.length > 0;
   
+  // Get the chat mode configuration if available
+  const modeConfig = chatMode ? getChatModeConfig(chatMode) : null;
+  const ModeModeIcon = modeConfig?.icon || Sparkles;
+  
   return (
-    <div className="flex items-center gap-1.5 mb-2.5">
+    <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
       {provider && (
         <div className="px-2 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10">
           <ProviderIcon provider={provider} size={14} />
@@ -85,9 +91,22 @@ const ModelInfo = ({ provider, modelName, similarMessages }: {
         <span className="text-white">{modelName}</span>
       </div>
       
+      {/* Chat mode badge */}
+      {chatMode && modeConfig && (
+        <div className="px-2.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit">
+          <ModeModeIcon size={11} />
+          <span>{modeConfig.name}</span>
+        </div>
+      )}
+      
       {hasSimilarMessages && (
         <button
           className="px-2.5 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10 hover:bg-white/[0.07] transition-colors"
+          onClick={() => {
+            if (window.openSimilarMessages) {
+              window.openSimilarMessages(similarMessages);
+            }
+          }}
         >
           <MessageSquareIcon size={11} className="text-cyan-400/80" />
           <span>{similarMessages.length} similar</span>
@@ -105,13 +124,20 @@ export const ChatMessage = memo<ChatMessageProps>(
             model_used?: string;
             provider?: string;
             similarMessages?: SimilarMessage[];
+            chat_mode?: string;
+            chat_mode_config?: {
+                tools: string[];
+                mcp_servers?: string[];
+            };
         }> | undefined;
 
         const modelAnnotation = annotations?.find(a => a.model_used);
         const providerAnnotation = annotations?.find(a => a.provider);
         const similarMessagesAnnotation = annotations?.find(a => a.similarMessages);
+        const chatModeAnnotation = annotations?.find(a => a.chat_mode);
         
         const similarMessages = similarMessagesAnnotation?.similarMessages || [];
+        const chatMode = chatModeAnnotation?.chat_mode;
 
         const modelName = modelAnnotation?.model_used
             ? getModelName(modelAnnotation.provider as Provider, modelAnnotation.model_used)
@@ -142,6 +168,7 @@ export const ChatMessage = memo<ChatMessageProps>(
                                 provider={providerAnnotation?.provider as Provider}
                                 modelName={modelName}
                                 similarMessages={similarMessages}
+                                chatMode={chatMode}
                             />
                         )}
 
@@ -155,6 +182,7 @@ export const ChatMessage = memo<ChatMessageProps>(
                                 <ModelInfo
                                     provider={providerAnnotation?.provider as Provider}
                                     modelName={modelName}
+                                    chatMode={chatMode}
                                 />
                             )}
                                 {/* Add a growing animation to the StreamStatus container */}

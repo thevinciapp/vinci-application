@@ -111,6 +111,8 @@ export default function ClientChatContent({
       provider: activeSpace?.provider || "",
       model: activeSpace?.model || "",
       searchMode,
+      chatMode: activeSpace?.chat_mode || "ask",
+      chatModeConfig: activeSpace?.chat_mode_config || { tools: [] },
     },
     onFinish() {
       setData([]);
@@ -190,10 +192,7 @@ export default function ClientChatContent({
               />
             </div>
             <div className="px-1 first:pl-1 last:pr-1">
-              <ChatModeTab 
-                mode={searchMode} 
-                onModeChange={setSearchMode} 
-              />
+              <ChatModeTab />
             </div>
             {!isStickToBottom && messages.length > 0 && (
               <div className="px-1 first:pl-1 last:pr-1">

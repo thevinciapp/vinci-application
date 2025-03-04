@@ -6,7 +6,7 @@ import { getMessages } from "@/app/actions/conversations";
 import { getNotifications } from "@/app/actions/notifications";
 import { Toaster } from "@/components/ui/common/toaster";
 import { CommandProvider } from "@/hooks/useCommandCenter";
-import { AllCommandProviders } from "@/components/CommandProviders";
+import { AllCommandProviders } from "@/components/AllCommandProviders";
 import CommandRoot from "@/components/CommandRoot";
 
 export default async function ConversationPage({

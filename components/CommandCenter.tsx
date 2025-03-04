@@ -55,6 +55,8 @@ export function CommandCenter() {
       models: [],
       actions: [],
       messages: [],
+      'chat-modes': [],
+      'similarMessages': [],
     };
 
     filteredCommands.forEach((command) => {

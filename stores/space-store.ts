@@ -30,6 +30,12 @@ export interface Space {
   model: string;
   provider: string;
   color?: string;
+  chat_mode?: string;
+  chat_mode_config?: {
+    tools: string[];
+    mcp_servers?: string[];
+    [key: string]: any;
+  };
   created_at?: string;
   updated_at?: string;
   is_deleted?: boolean;

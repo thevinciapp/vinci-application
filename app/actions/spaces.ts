@@ -112,7 +112,9 @@ export async function createSpace(
     model: string,
     provider: string,
     setActive: boolean,
-    color?: string
+    color?: string,
+    chat_mode: string = 'ask',
+    chat_mode_config?: any
 ): Promise<ActionResponse<Space>> {
     try {
         const supabase = await createClient();
@@ -131,6 +133,8 @@ export async function createSpace(
                 [COLUMNS.MODEL]: model,
                 [COLUMNS.PROVIDER]: provider,
                 [COLUMNS.COLOR]: color || '#3ecfff',
+                chat_mode: chat_mode,
+                chat_mode_config: chat_mode_config || { tools: [] }
             }])
             .select()
             .single();

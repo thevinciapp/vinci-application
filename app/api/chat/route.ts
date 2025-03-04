@@ -123,6 +123,11 @@ type MessageAnnotation = {
   [COLUMNS.PROVIDER]?: Provider;
   [COLUMNS.SPACE_ID]?: string;
   [COLUMNS.CONVERSATION_ID]?: string;
+  chat_mode?: string;
+  chat_mode_config?: {
+    tools: string[];
+    mcp_servers?: string[];
+  };
   similarMessages?: Array<{
     id: string;
     content: string;
@@ -143,6 +148,8 @@ async function saveMessage({
   parentId,
   tags,
   similarMessages,
+  chatMode,
+  chatModeConfig,
 }: {
   content: string;
   role: 'user' | 'assistant';
@@ -152,6 +159,11 @@ async function saveMessage({
   conversationId: string;
   parentId?: string;
   tags: string[];
+  chatMode?: string;
+  chatModeConfig?: {
+    tools: string[];
+    mcp_servers?: string[];
+  };
   similarMessages?: Array<{
     id: string;
     content: string;
@@ -163,7 +175,12 @@ async function saveMessage({
   }>;
 }) {
   console.log(`[API] saveMessage: Creating annotations for ${role} message with model ${model}, provider ${provider}`);
-  const annotations: MessageAnnotation[] = [{ [COLUMNS.MODEL_USED]: model, [COLUMNS.PROVIDER]: provider }];
+  const annotations: MessageAnnotation[] = [{ 
+    [COLUMNS.MODEL_USED]: model, 
+    [COLUMNS.PROVIDER]: provider,
+    chat_mode: chatMode,
+    chat_mode_config: chatModeConfig
+  }];
   
   if (similarMessages && similarMessages.length > 0) {
     console.log(`[API] saveMessage: Adding ${similarMessages.length} similar messages to annotations`);
@@ -228,7 +245,7 @@ function getDaySuffix(day: number): string {
 export async function POST(req: Request) {
   const supabase = await createClient();
 
-  const [user, { messages, spaceId, conversationId, provider, model }] = await Promise.all([
+  const [user, { messages, spaceId, conversationId, provider, model, chatMode, chatModeConfig }] = await Promise.all([
     validateUser(supabase),
     req.json(),
   ]);
@@ -254,9 +271,68 @@ export async function POST(req: Request) {
         dataStream.writeData('Building context');
         const contextString = buildContextString(similarMessages.map((result) => result.message));
 
+        // Build chat mode system prompt based on the selected mode
+        let chatModePrompt = "";
+        if (chatMode) {
+          switch (chatMode) {
+            case "ask":
+              // Default mode, no additional instructions
+              break;
+            case "search":
+              chatModePrompt = "\nYou have access to search tools to find the most up-to-date information.";
+              break;
+            case "code":
+              chatModePrompt = "\nYou are in code mode. Focus on providing code solutions, examples, and technical explanations. Prioritize code quality, efficiency, and best practices in your responses.";
+              break;
+            case "research":
+              chatModePrompt = "\nYou are in research mode. Conduct a thorough analysis of the topic, citing relevant information, providing multiple perspectives, and offering comprehensive explanations.";
+              break;
+            case "think":
+              chatModePrompt = "\nYou are in thinking mode. Use step-by-step reasoning to solve complex problems. Break down your thought process explicitly and consider multiple approaches.";
+              break;
+            case "agent":
+              chatModePrompt = "\nYou are in agent mode. You can utilize multiple tools to accomplish tasks autonomously. Take initiative in solving problems and executing plans to achieve the user's goals.";
+              break;
+            default:
+              // For custom mode, check if there are custom instructions in the chat_mode_config
+              if (chatModeConfig?.custom_instructions) {
+                chatModePrompt = `\n${chatModeConfig.custom_instructions}`;
+              }
+              break;
+          }
+        }
+
+        // List available tools based on chatModeConfig
+        let toolsPrompt = "";
+        if (chatModeConfig?.tools && chatModeConfig.tools.length > 0) {
+          toolsPrompt = "\n\nYou have access to the following tools:\n";
+          chatModeConfig.tools.forEach((toolId: string) => {
+            switch (toolId) {
+              case "web_search":
+                toolsPrompt += "- Web Search: You can search the web for current information\n";
+                break;
+              case "code_interpreter":
+                toolsPrompt += "- Code Interpreter: You can execute code to help solve problems\n";
+                break;
+              case "retrieval":
+                toolsPrompt += "- Knowledge Retrieval: You can access user-provided documents\n";
+                break;
+              case "reasoning":
+                toolsPrompt += "- Advanced Reasoning: You can use step-by-step reasoning for complex problems\n";
+                break;
+              case "research":
+                toolsPrompt += "- Deep Research: You can conduct detailed research on topics\n";
+                break;
+              case "agent":
+                toolsPrompt += "- Autonomous Agent: You can act autonomously to accomplish goals\n";
+                break;
+            }
+          });
+        }
+
         const systemPromptWithContext = contextString
-          ? `${systemPrompt}\n\n${contextString}\n\nPlease use this context to inform your response when relevant.`
-          : systemPrompt;
+          ? `${systemPrompt}${chatModePrompt}${toolsPrompt}\n\n${contextString}\n\nPlease use this context to inform your response when relevant.`
+          : `${systemPrompt}${chatModePrompt}${toolsPrompt}`;
 
         const createModel = providers[provider as Provider];
         if (!createModel) throw new Error(JSON.stringify(ERROR_MESSAGES.INVALID_PROVIDER));
@@ -280,6 +356,8 @@ export async function POST(req: Request) {
                   [COLUMNS.PROVIDER]: provider,
                   [COLUMNS.SPACE_ID]: spaceId,
                   [COLUMNS.CONVERSATION_ID]: conversationId,
+                  chat_mode: chatMode,
+                  chat_mode_config: chatModeConfig,
                   similarMessages: similarMessages.map(result => ({
                     id: result.message.id,
                     content: result.message.content,
@@ -312,6 +390,8 @@ export async function POST(req: Request) {
             spaceId,
             conversationId,
             tags: userTags,
+            chatMode,
+            chatModeConfig,
             similarMessages: similarMessages.map(result => ({
               id: result.message.id,
               content: result.message.content,
@@ -334,6 +414,8 @@ export async function POST(req: Request) {
             conversationId,
             parentId: dbUserMessage.id,
             tags: assistantTags,
+            chatMode,
+            chatModeConfig,
             similarMessages: similarMessages.map(result => ({
               id: result.message.id,
               content: result.message.content,

@@ -23,3 +23,21 @@ export interface Conversation {
   messageCount?: number;
   lastMessage?: string;
 }
+
+// Define the SimilarMessage type for global use
+export interface SimilarMessage {
+  id: string;
+  content: string;
+  role: 'user' | 'assistant';
+  createdAt: number;
+  score: number;
+  conversationId?: string;
+  metadata?: Record<string, any>;
+}
+
+// Add to global Window interface
+declare global {
+  interface Window {
+    openSimilarMessages?: (messages: SimilarMessage[]) => void;
+  }
+}

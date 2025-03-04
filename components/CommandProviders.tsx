@@ -14,7 +14,8 @@ import {
   Pencil,
   SwitchCamera,
   MessageCircle,
-  Ban
+  Ban,
+  Sparkles
 } from "lucide-react";
 import { AVAILABLE_MODELS, PROVIDER_NAMES, PROVIDER_DESCRIPTIONS, Provider } from "@/config/models";
 import { toast } from 'sonner'
@@ -32,6 +33,7 @@ import { Input } from "@/components/ui/common/input";
 import { Label } from "@/components/ui/common/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/common/select";
 import { Textarea } from "@/components/ui/common/textarea";
+import { Checkbox } from "@/components/ui/common/checkbox";
 import { useCommandCenter } from "@/hooks/useCommandCenter";
 import { useRouter } from "next/navigation";
 import { getMostRecentConversation } from "@/app/actions/conversations";
@@ -1516,48 +1518,430 @@ export function MessageSearchProvider({ children }: { children: ReactNode }) {
 /**
  * Combined provider for all command types
  */
-export function AllCommandProviders({ 
-  children,
-  spaces = [],
-  activeSpace = null,
-  conversations = [],
-  activeConversation = null,
-  user = null,
-  messages = [],
-}: { 
-  children: ReactNode;
-  spaces?: any[];
-  activeSpace?: any;
-  conversations?: any[];
-  activeConversation?: any;
-  user?: any;
-  messages?: any[];
+/**
+ * Dialog for creating or editing a chat mode
+ */
+export function ChatModeDialogForm({
+  open,
+  onOpenChange,
+  onCreateSuccess,
+  editMode = null,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreateSuccess: (modeId: string) => void;
+  editMode?: any; // The chat mode to edit, null when creating a new mode
 }) {
-  const { initializeState } = useSpaceStore();
+  const [name, setName] = useState(editMode?.name || "Custom Mode");
+  const [description, setDescription] = useState(editMode?.description || "");
+  const [selectedTools, setSelectedTools] = useState<string[]>(
+    editMode?.tools?.map((t: any) => t.id) || []
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [customInstructions, setCustomInstructions] = useState(editMode?.customInstructions || "");
   
+  const [availableTools, setAvailableTools] = useState<Record<string, any>>({});
+  const router = useRouter();
+  
+  // Get the space store
+  const { activeSpace, updateSpace } = useSpaceStore(
+    useShallow(state => ({
+      activeSpace: state.activeSpace,
+      updateSpace: state.updateSpace
+    }))
+  );
+  
+  // Load available tools on mount
   useEffect(() => {
-    initializeState({
-      spaces,
-      activeSpace,
-      conversations,
-      activeConversation,
-      messages,
-      isLoading: false,
-      loadingType: null
-    });
+    const loadTools = async () => {
+      try {
+        const { AVAILABLE_TOOLS } = await import('@/config/chat-modes');
+        setAvailableTools(AVAILABLE_TOOLS);
+      } catch (error) {
+        console.error("Error loading tools:", error);
+      }
+    };
+    
+    loadTools();
   }, []);
   
+  useEffect(() => {
+    if (open) {
+      if (editMode) {
+        setName(editMode.name || "Custom Mode");
+        setDescription(editMode.description || "");
+        setSelectedTools(editMode.tools?.map((t: any) => t.id) || []);
+        setCustomInstructions(editMode.customInstructions || "");
+      } else {
+        setName("Custom Mode");
+        setDescription("");
+        setSelectedTools([]);
+        setCustomInstructions("");
+      }
+    }
+  }, [open, editMode]);
+  
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      setIsSubmitting(true);
+      
+      try {
+        // Import the createCustomChatMode function
+        const { createCustomChatMode } = await import('@/config/chat-modes');
+        
+        // Create the custom mode config
+        const customMode = createCustomChatMode(
+          name, 
+          description, 
+          selectedTools
+        );
+        
+        // Save any custom instructions in the chat_mode_config
+        const modeConfig = {
+          tools: selectedTools,
+          custom_instructions: customInstructions || undefined,
+          mcp_servers: customMode.mcp_servers || []
+        };
+        
+        // Update the space with the new mode
+        if (activeSpace?.id) {
+          const success = await updateSpace(activeSpace.id, {
+            chat_mode: customMode.id,
+            chat_mode_config: modeConfig
+          });
+          
+          if (success) {
+            toast.success('Mode Created', {
+              description: `Custom mode "${name}" created and activated`
+            });
+            onCreateSuccess(customMode.id);
+            router.refresh();
+          } else {
+            toast.error('Failed to create mode', {
+              description: 'Could not update space settings'
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error creating custom mode:", error);
+        toast.error('Failed to create mode', {
+          description: 'An unexpected error occurred'
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [name, description, selectedTools, customInstructions, activeSpace, updateSpace, onCreateSuccess, router]
+  );
+  
+  const isFormValid = name && name.trim().length > 0 && selectedTools.length > 0;
+  
   return (
-    <ApplicationCommandProvider>
-      <SpacesCommandProvider>
-        <ConversationsCommandProvider>
-          <ModelsCommandProvider>
-            <MessageSearchProvider>
-              <ActionsCommandProvider>{children}</ActionsCommandProvider>
-            </MessageSearchProvider>
-          </ModelsCommandProvider>
-        </ConversationsCommandProvider>
-      </SpacesCommandProvider>
-    </ApplicationCommandProvider>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>Create Custom Chat Mode</DialogTitle>
+            <DialogDescription>
+              Configure a custom chat mode with specific tools and behavior
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Mode name"
+                required
+                className="bg-zinc-900/50 border-white/10"
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="What this mode is best for"
+                rows={2}
+                className="bg-zinc-900/50 border-white/10 min-h-[80px]"
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <Label>Select Tools</Label>
+              <div className="space-y-2 bg-zinc-900/30 rounded-md p-3 border border-white/5">
+                {Object.values(availableTools).map((tool: any) => (
+                  <div key={tool.id} className="flex items-start space-x-2 py-1.5 border-b border-white/5 last:border-b-0">
+                    <Checkbox
+                      id={`tool-${tool.id}`}
+                      checked={selectedTools.includes(tool.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedTools([...selectedTools, tool.id]);
+                        } else {
+                          setSelectedTools(selectedTools.filter(id => id !== tool.id));
+                        }
+                      }}
+                      className="mt-1"
+                    />
+                    <div>
+                      <Label
+                        htmlFor={`tool-${tool.id}`}
+                        className="text-sm font-medium cursor-pointer"
+                      >
+                        {tool.name}
+                      </Label>
+                      <p className="text-xs text-white/60">{tool.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {selectedTools.length === 0 && (
+                <p className="text-xs text-amber-400">Select at least one tool</p>
+              )}
+            </div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="customInstructions">Custom Instructions (Optional)</Label>
+              <Textarea
+                id="customInstructions"
+                value={customInstructions}
+                onChange={(e) => setCustomInstructions(e.target.value)}
+                placeholder="Add custom instructions for the AI in this mode..."
+                rows={4}
+                className="bg-zinc-900/50 border-white/10 min-h-[100px]"
+              />
+              <p className="text-xs text-white/60">
+                These instructions will be added to the system prompt when this mode is active
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="border-white/10 bg-zinc-900/50 hover:bg-zinc-800"
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={isSubmitting || !isFormValid}
+              className="bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/20 text-cyan-300 backdrop-blur-sm"
+            >
+              {isSubmitting ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin h-4 w-4 border-2 border-cyan-400/20 border-t-cyan-400/80 rounded-full" />
+                  <span>Creating...</span>
+                </div>
+              ) : (
+                "Create Mode"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
+
+/**
+ * Provider for chat modes (different AI assistance modes)
+ */
+export function ChatModesCommandProvider({ children }: { children: ReactNode }) {
+  const [showModeDialog, setShowModeDialog] = useState(false);
+  const [editModeData, setEditModeData] = useState<any>(null);
+  const { closeCommandCenter, openCommandType } = useCommandCenter();
+  const router = useRouter();
+  
+  const {
+    activeSpace,
+    updateSpace,
+  } = useSpaceStore(useShallow(state => ({
+    activeSpace: state.activeSpace,
+    updateSpace: state.updateSpace,
+  })));
+  
+  const reopenChatModesCommandCenter = useCallback(() => {
+    openCommandType('chat-modes');
+  }, [openCommandType]);
+  
+  const handleModeSelect = useCallback(async (modeId: string) => {
+    if (!activeSpace) return;
+    
+    try {
+      // Get the mode configuration from the CHAT_MODES constant
+      const { CHAT_MODES } = await import('@/config/chat-modes');
+      const modeConfig = CHAT_MODES[modeId];
+      
+      if (!modeConfig) return;
+      
+      // Extract tool IDs for storage
+      const toolIds = modeConfig.tools.map(tool => tool.id);
+      
+      // Update the space with the new chat mode
+      await updateSpace(activeSpace.id, {
+        chat_mode: modeId,
+        chat_mode_config: { 
+          tools: toolIds,
+          mcp_servers: modeConfig.mcp_servers || []
+        }
+      });
+      
+      toast.success(`Mode Changed`, {
+        description: `Changed to ${modeConfig.name} mode`
+      });
+      
+      closeCommandCenter();
+      router.refresh();
+    } catch (error) {
+      console.error('Failed to change chat mode:', error);
+      toast.error('Failed to change mode', {
+        description: 'Please try again later'
+      });
+    }
+  }, [activeSpace, updateSpace, closeCommandCenter, router]);
+
+  const handleCreateCustomMode = useCallback(() => {
+    closeCommandCenter();
+    setEditModeData(null);
+    setShowModeDialog(true);
+  }, [closeCommandCenter]);
+  
+  const handleCreateDialogClose = useCallback((open: boolean) => {
+    setShowModeDialog(open);
+    if (!open) {
+      setTimeout(() => {
+        reopenChatModesCommandCenter();
+      }, 150);
+    }
+  }, [reopenChatModesCommandCenter]);
+  
+  const onCreateSuccess = useCallback((modeId: string) => {
+    setShowModeDialog(false);
+    // The mode is already active, just close the dialog
+  }, []);
+  
+  const baseModeCommands = useCallback(
+    (): CommandOption[] => [
+      {
+        id: "create-custom-mode",
+        name: "Create Custom Mode",
+        value: "Create Custom Mode",
+        description: "Create a new custom chat mode with specific tools",
+        icon: <Plus className="h-4 w-4" />,
+        type: "chat-modes",
+        keywords: ["create", "custom", "mode", "new", "add"],
+        action: handleCreateCustomMode,
+      },
+    ],
+    [handleCreateCustomMode]
+  );
+  
+  const chatModeCommands = useCallback(async (): Promise<CommandOption[]> => {
+    try {
+      // Dynamically import the CHAT_MODES to avoid circular dependencies
+      const { CHAT_MODE_LIST } = await import('@/config/chat-modes');
+      
+      // Start with built-in modes
+      const modeCommands = CHAT_MODE_LIST.map(mode => {
+        const Icon = mode.icon;
+        
+        return {
+          id: `mode-${mode.id}`,
+          name: mode.name,
+          value: mode.name,
+          description: mode.description,
+          icon: <Icon className="h-4 w-4" />,
+          type: "chat-modes",
+          keywords: mode.keywords || [],
+          action: () => handleModeSelect(mode.id),
+          rightElement: (
+            <>
+              {activeSpace?.chat_mode === mode.id && (
+                <div className="bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-md text-xs">
+                  Active
+                </div>
+              )}
+            </>
+          )
+        };
+      });
+      
+      // Check if current space has a custom mode
+      if (activeSpace?.chat_mode && activeSpace.chat_mode.startsWith('custom-')) {
+        // This is a custom mode - create a command for it
+        const customModeId = activeSpace.chat_mode;
+        const toolCount = activeSpace.chat_mode_config?.tools?.length || 0;
+        const hasCustomInstructions = !!activeSpace.chat_mode_config?.custom_instructions;
+        
+        // Extract custom mode name from ID (fallback to "Custom Mode" if not found)
+        // Format is typically custom-timestamp-name
+        const customModeName = customModeId.split('-').slice(2).join(' ') || "Custom Mode";
+        
+        modeCommands.push({
+          id: `mode-${customModeId}`,
+          name: customModeName,
+          value: customModeName,
+          description: `Custom mode with ${toolCount} tools${hasCustomInstructions ? ' and custom instructions' : ''}`,
+          icon: <Sparkles className="h-4 w-4" />,
+          type: "chat-modes",
+          keywords: ["custom", "mode", "personal", ...customModeName.split(' ')],
+          action: () => handleModeSelect(customModeId),
+          rightElement: (
+            <div className="bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-md text-xs">
+              Active
+            </div>
+          )
+        });
+      }
+      
+      return modeCommands;
+    } catch (error) {
+      console.error('Error loading chat mode commands:', error);
+      return [];
+    }
+  }, [activeSpace, handleModeSelect]);
+
+  // Register commands - we need to handle the async loading of commands
+  const [commands, setCommands] = useState<CommandOption[]>([]);
+  
+  useEffect(() => {
+    const loadCommands = async () => {
+      try {
+        const baseCommands = baseModeCommands();
+        const modeCommands = await chatModeCommands();
+        setCommands([...baseCommands, ...modeCommands]);
+      } catch (error) {
+        console.error('Error loading chat mode commands:', error);
+        setCommands(baseModeCommands());
+      }
+    };
+    
+    loadCommands();
+  }, [baseModeCommands, chatModeCommands]);
+  
+  useCommandRegistration(commands);
+  
+  return (
+    <>
+      <ChatModeDialogForm
+        open={showModeDialog}
+        onOpenChange={handleCreateDialogClose}
+        onCreateSuccess={onCreateSuccess}
+        editMode={editModeData}
+      />
+      {children}
+    </>
+  );
+}
+
+{/* AllCommandProviders is now moved to its own file */}

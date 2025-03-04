@@ -3,7 +3,7 @@ import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, 
 import { useHotkeys } from 'react-hotkeys-hook';
 
 // Command types
-export type CommandType = 'application' | 'spaces' | 'conversations' | 'models' | 'actions' | 'messages';
+export type CommandType = 'application' | 'spaces' | 'conversations' | 'models' | 'actions' | 'messages' | 'chat-modes' | 'similarMessages';
 
 export interface CommandOption {
   id: string;
@@ -30,6 +30,7 @@ export interface CommandOption {
 export interface SearchableCommandConfig {
   minSearchLength: number;
   placeholderText?: string;
+  hideFromCommandList?: boolean; // If true, will not be shown in the main command list
 }
 
 interface CommandContextType {
@@ -72,7 +73,9 @@ export function CommandProvider({ children }: { children: ReactNode }) {
     conversations: null,
     models: null,
     actions: null,
-    messages: null
+    messages: null,
+    'chat-modes': null,
+    'similarMessages': null
   });
   const [isLoading, setIsLoading] = useState(false);
   const [loadingCommandType, setLoadingCommandType] = useState<CommandType | null>(null);
@@ -82,18 +85,12 @@ export function CommandProvider({ children }: { children: ReactNode }) {
     conversations: { minSearchLength: 0 },
     models: { minSearchLength: 0 },
     actions: { minSearchLength: 0 },
-    messages: { minSearchLength: 0 }
+    messages: { minSearchLength: 0 },
+    'chat-modes': { minSearchLength: 0 },
+    'similarMessages': { minSearchLength: 0 }
   });
 
-  // Use a ref to track mounted state to avoid state updates after unmount
-  const isMounted = useRef(true);
   
-  useEffect(() => {
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
   const openCommandCenter = useCallback(() => {
     console.log('openCommandCenter called');
     setIsOpen(true);
@@ -189,6 +186,15 @@ export function CommandProvider({ children }: { children: ReactNode }) {
 
   const filteredCommands = useMemo(() => {
     const filteredCommands = commands.filter(command => {
+      // Check if this command type should be hidden from the main command list
+      const isHiddenType = searchableCommands[command.type]?.hideFromCommandList === true;
+      
+      // When no command type is active (i.e., we're showing the main command list),
+      // hide commands whose type is configured to be hidden
+      if (!activeCommandType && isHiddenType) {
+        return false;
+      }
+      
       // If command has bypassFilter set to true, always include it
       // This allows specialized providers like MessageSearchProvider to
       // override the default filtering behavior when needed
@@ -222,17 +228,13 @@ export function CommandProvider({ children }: { children: ReactNode }) {
     });
 
     return filteredCommands;
-  }, [commands, searchQuery, activeCommandType]);
+  }, [commands, searchQuery, activeCommandType, searchableCommands]);
 
   const registerSearchableCommand = useCallback((type: CommandType, config: SearchableCommandConfig) => {
-    if (!isMounted.current) return;
-    
     setSearchableCommands(prev => ({ ...prev, [type]: config }));
   }, []);
 
   const unregisterSearchableCommand = useCallback((type: CommandType) => {
-    if (!isMounted.current) return;
-    
     setSearchableCommands(prev => {
       const newSearchableCommands = { ...prev };
       delete newSearchableCommands[type];  
