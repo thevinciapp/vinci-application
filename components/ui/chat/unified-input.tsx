@@ -122,54 +122,26 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     if (!showMentionMenu) return;
     
     const handleWindowChange = () => {
-      // Force a re-render of the menu position when window changes
-      if (textareaRef.current && atIndex >= 0) {
-        const textarea = textareaRef.current;
-        const textBeforeCursor = value.substring(0, atIndex);
-        
-        // Create a temporary mirror element to measure text position
-        const mirror = document.createElement('div');
-        mirror.style.position = 'absolute';
-        mirror.style.visibility = 'hidden';
-        mirror.style.whiteSpace = 'pre-wrap';
-        mirror.style.wordBreak = 'break-word';
-        mirror.style.padding = window.getComputedStyle(textarea).padding;
-        mirror.style.width = window.getComputedStyle(textarea).width;
-        mirror.style.font = window.getComputedStyle(textarea).font;
-        mirror.style.lineHeight = window.getComputedStyle(textarea).lineHeight;
-        
-        // Insert text up to the @ symbol
-        mirror.textContent = textBeforeCursor;
-        
-        // Add a span to mark the position
-        const marker = document.createElement('span');
-        marker.id = 'temp-marker';
-        mirror.appendChild(marker);
-        
-        document.body.appendChild(mirror);
-        
-        // Get position of the marker
-        const markerRect = document.getElementById('temp-marker')?.getBoundingClientRect();
-        
-        if (markerRect) {
-          setMentionPosition({
-            top: 0,
-            left: markerRect.left - textarea.getBoundingClientRect().left
-          });
-        }
-        
-        document.body.removeChild(mirror);
+      // Use fixed left positioning rather than calculated position
+      if (textareaRef.current) {
+        setMentionPosition({
+          top: 0,
+          left: 0 // Fixed left alignment
+        });
       }
     };
 
     window.addEventListener('resize', handleWindowChange);
     window.addEventListener('scroll', handleWindowChange, true);
     
+    // Call once initially to position correctly
+    handleWindowChange();
+    
     return () => {
       window.removeEventListener('resize', handleWindowChange);
       window.removeEventListener('scroll', handleWindowChange, true);
     };
-  }, [showMentionMenu, value, atIndex]);
+  }, [showMentionMenu]);
 
   // Check for @ symbol and position the mention menu
   const handleInputChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
@@ -195,43 +167,14 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
         
         // Position the mention menu
         if (textareaRef.current) {
-          const textarea = textareaRef.current;
+          // Instead of calculating position based on @ symbol, use fixed left alignment
+          setMentionPosition({
+            top: 0,
+            left: 0 // Fixed left alignment
+          });
           
-          // Create a temporary mirror element to measure text position
-          const mirror = document.createElement('div');
-          mirror.style.position = 'absolute';
-          mirror.style.visibility = 'hidden';
-          mirror.style.whiteSpace = 'pre-wrap';
-          mirror.style.wordBreak = 'break-word';
-          mirror.style.padding = window.getComputedStyle(textarea).padding;
-          mirror.style.width = window.getComputedStyle(textarea).width;
-          mirror.style.font = window.getComputedStyle(textarea).font;
-          mirror.style.lineHeight = window.getComputedStyle(textarea).lineHeight;
-          
-          // Insert text up to the @ symbol
-          mirror.textContent = textBeforeCursor.substring(0, lastAtIndex);
-          
-          // Add a span to mark the position
-          const marker = document.createElement('span');
-          marker.id = 'marker';
-          mirror.appendChild(marker);
-          
-          document.body.appendChild(mirror);
-          
-          // Get position of the marker
-          const markerRect = document.getElementById('marker')?.getBoundingClientRect();
-          
-          if (markerRect) {
-            // Calculate cursor position relative to textarea
-            setMentionPosition({
-              top: 0, // Not needed anymore as we use fixed positioning with absolute coordinates
-              left: markerRect.left - textarea.getBoundingClientRect().left
-            });
-          }
-          
-          document.body.removeChild(mirror);
+          return;
         }
-        return;
       }
     }
     
@@ -306,20 +249,23 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
       {showMentionMenu && (
         <div 
           ref={mentionContainerRef}
-          className="absolute z-50"
+          className="absolute z-[9999]"
           style={{ 
-            bottom: 'calc(100% + 10px)',
-            left: mentionPosition.left,
-            width: '320px'
+            bottom: 'calc(100% + 0px)',
+            left: '0',
+            width: '320px',
+            maxWidth: 'calc(100% - 20px)',
+            transform: 'translateY(38px)',
           }}
         >
-          <div className="rounded-lg border border-white/10 bg-black/90 shadow-xl backdrop-blur-lg overflow-hidden">
+          <div className="rounded-t-lg border border-white/10 bg-black/90 shadow-xl backdrop-blur-lg overflow-hidden">
             <Command className="bg-transparent" shouldFilter={false}>
               <CommandInput 
                 placeholder="Search..." 
                 value={mentionSearch}
                 onValueChange={setMentionSearch}
                 className="border-b border-white/5"
+                autoFocus
               />
               <CommandList className="max-h-[300px] overflow-auto">
                 {Object.keys(mentionGroups).length === 0 ? (
