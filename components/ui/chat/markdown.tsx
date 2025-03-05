@@ -4,7 +4,7 @@ import ReactMarkdown, { Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { CodeBlock } from "../common/code-block"
 import { cn } from "@/lib/utils"
-import { FileText } from "lucide-react"
+import { FileText, Folder, Hash, Code, Clock } from "lucide-react"
 
 export type MarkdownProps = {
   children: string
@@ -25,24 +25,56 @@ function extractLanguage(className?: string): string {
 }
 
 // Custom component for rendering file mentions
-function FileMention({ name }: { name: string }) {
+// Component to display mentions of various content types
+function ContentMention({ name, type }: { name: string; type?: string }) {
+  // Get the appropriate icon based on content type
+  const getIconForType = (type?: string): React.ReactNode => {
+    switch (type) {
+      case 'file':
+        return <FileText className="h-3 w-3 text-cyan-400" />;
+      case 'folder':
+        return <Folder className="h-3 w-3 text-cyan-400" />;
+      case 'gmail':
+        return <Hash className="h-3 w-3 text-red-400" />;
+      case 'gdrive':
+        return <FileText className="h-3 w-3 text-blue-400" />;
+      case 'dropbox':
+        return <FileText className="h-3 w-3 text-blue-400" />;
+      case 'github':
+        return <Code className="h-3 w-3 text-purple-400" />;
+      case 'conversation':
+        return <Clock className="h-3 w-3 text-green-400" />;
+      case 'message':
+        return <Clock className="h-3 w-3 text-amber-400" />;
+      default:
+        return <FileText className="h-3 w-3 text-cyan-400" />;
+    }
+  };
+  
   return (
     <span 
       className="inline-flex items-center gap-1 px-2 py-1 mr-1 mb-1 rounded bg-white/10 text-xs text-white/90"
       title={name}
     >
-      <FileText className="h-3 w-3 text-cyan-400" />
+      {getIconForType(type)}
       <span className="truncate max-w-[150px]">{name}</span>
     </span>
   );
 }
 
 const INITIAL_COMPONENTS: Partial<Components> = {
-  // Add custom file mention component
+  // Add custom content mention component
   span: function SpanComponent({ className, children, ...props }) {
-    // Check if this is a file mention span
+    // Check if this is a content mention span
+    if (className && className.includes('mention-')) {
+      // Extract content type from className (e.g., mention-file, mention-gdrive)
+      const type = className.replace('mention-', '');
+      return <ContentMention name={children as string} type={type} />;
+    }
+    
+    // Backward compatibility for old file-mention class
     if (className === 'file-mention') {
-      return <FileMention name={children as string} />;
+      return <ContentMention name={children as string} type="file" />;
     }
     
     // Otherwise render as regular span
@@ -183,18 +215,37 @@ const MemoizedMarkdownBlock = memo(
 
 MemoizedMarkdownBlock.displayName = "MemoizedMarkdownBlock"
 
-// Function to preprocess markdown and transform file mentions
+// Function to preprocess markdown and transform content mentions
 function preprocessMarkdown(markdown: string): string {
-  // Find file mentions in the format @[filename](file-id)
-  const fileMentionRegex = /@\[([^\]]+)\]\(file-[^)]+\)/g;
+  // Find mentions in the format @[name](id)
+  const mentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g;
   
-  // Replace file mentions with our custom component syntax
-  // We'll use a special format that won't be processed by other Markdown rules
-  return markdown.replace(fileMentionRegex, (match, fileName) => {
-    // Replace any single backticks in the filename to avoid breaking markdown
-    const escapedName = fileName.replace(/`/g, "'");
-    // Use a more compatible markdown format - inline code with a prefix
-    return `\`file:${escapedName}\``;
+  // Replace mentions with our custom component syntax
+  return markdown.replace(mentionRegex, (match, name, id) => {
+    // Replace any single backticks in the name to avoid breaking markdown
+    const escapedName = name.replace(/`/g, "'");
+    
+    // Determine the content type from the ID
+    let contentType = 'file'; // Default type
+    
+    if (id.startsWith('file-')) {
+      contentType = 'file';
+    } else if (id.startsWith('gdrive-')) {
+      contentType = 'gdrive';
+    } else if (id.startsWith('message-')) {
+      contentType = 'message';
+    } else if (id.startsWith('conversation-')) {
+      contentType = 'conversation';
+    } else if (id.startsWith('github-')) {
+      contentType = 'github';
+    } else if (id.startsWith('slack-')) {
+      contentType = 'slack';
+    } else if (id.startsWith('dropbox-')) {
+      contentType = 'dropbox';
+    }
+    
+    // Create a span with a class that indicates the content type
+    return `<span class="mention-${contentType}">${escapedName}</span>`;
   });
 }
 

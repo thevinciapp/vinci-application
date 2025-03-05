@@ -15,20 +15,185 @@ import {
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { File, Folder, Hash, FileText, Code, Database, ArrowRightFromLine, Clock, X } from 'lucide-react';
 
-// Types of items that can be mentioned
-type MentionItemType = 'file' | 'folder' | 'context' | 'code' | 'database' | 'history' | 'command';
+// Types of items that can be mentioned - expandable for future providers
+type MentionItemType = 
+  | 'file'      // Local files
+  | 'folder'    // Local folders
+  | 'context'   // Context items
+  | 'code'      // Code snippets
+  | 'database'  // Database items
+  | 'history'   // Conversation history
+  | 'command'   // Commands
+  | 'message'   // Individual messages
+  | 'conversation' // Entire conversations
+  | 'gmail'     // Gmail emails
+  | 'gdrive'    // Google Drive files
+  | 'onedrive'  // OneDrive files
+  | 'dropbox'   // Dropbox files
+  | 'notion'    // Notion pages
+  | 'github'    // GitHub repos/issues
+  | 'slack';    // Slack messages
 
+// Generic interface for mention items with common properties
 interface MentionItem {
-  id: string;
-  type: MentionItemType;
-  name: string;
-  description?: string;
-  icon: React.ReactNode;
-  filePath?: string; // Path to the file if it's a file type
-  fileType?: string; // Type of the file (extension)
+  id: string;                // Unique identifier
+  type: MentionItemType;     // Type of the mention item
+  name: string;              // Display name
+  description?: string;      // Optional description
+  icon: React.ReactNode;     // Icon to display
+  
+  // Provider-specific properties
+  providerData?: any;        // Generic container for provider-specific data
+  
+  // Common optional properties
+  path?: string;             // Path or location (files, folders, etc.)
+  contentType?: string;      // MIME type or format
+  size?: number;             // Size in bytes if applicable
+  created?: Date | string;   // Creation time
+  modified?: Date | string;  // Last modified time
+  author?: string;           // Author or creator
+  url?: string;              // URL if applicable
+  
+  // Legacy properties for backward compatibility
+  filePath?: string;         // Path to file (deprecated, use path)
+  fileType?: string;         // File extension (deprecated, use contentType)
 }
 
-// We'll replace this with dynamically loaded files
+// Generic content provider interface - this could be moved to a separate file
+interface ContentProvider {
+  id: string;                // Unique provider ID
+  name: string;              // Display name
+  icon: React.ReactNode;     // Icon for this provider
+  description: string;       // Description of the provider
+  isEnabled: boolean;        // Whether this provider is currently enabled
+  requiresAuth: boolean;     // Whether authentication is required
+  isAuthenticated: boolean;  // Authentication status
+  
+  // Search method - returns promise of MentionItems
+  search: (query: string, options?: any) => Promise<MentionItem[]>;
+  
+  // Get content method - returns promise with content
+  getContent: (item: MentionItem) => Promise<any>;
+  
+  // Optional methods
+  authenticate?: () => Promise<boolean>;
+  refresh?: () => Promise<void>;
+  configure?: (config: any) => Promise<void>;
+}
+
+// Helper to get icon for a file type
+const getIconForFileType = (fileType: string): React.ReactNode => {
+  switch (fileType?.toLowerCase()) {
+    case 'md':
+    case 'txt':
+    case 'doc':
+    case 'docx':
+    case 'rtf':
+    case 'odt':
+      return <FileText className="h-4 w-4" />;
+    case 'js':
+    case 'ts':
+    case 'jsx':
+    case 'tsx':
+    case 'py':
+    case 'java':
+    case 'c':
+    case 'cpp':
+    case 'go':
+    case 'rb':
+      return <Code className="h-4 w-4" />;
+    default:
+      return <File className="h-4 w-4" />;
+  }
+};
+
+// File system provider implementation
+const FileSystemProvider: ContentProvider = {
+  id: 'filesystem',
+  name: 'Local Files',
+  icon: <FileText className="h-4 w-4" />,
+  description: 'Access files from your local file system',
+  isEnabled: true,
+  requiresAuth: false,
+  isAuthenticated: true,
+  
+  // Search for files in the local system
+  search: async (query: string, options?: any) => {
+    if (!window.electronAPI) {
+      console.log("Electron API not available, using mock data");
+      // Return mock data for testing
+      const mockFiles = [
+        { path: '/Users/example/Documents/example.txt', name: 'example.txt', type: 'txt' },
+        { path: '/Users/example/Documents/report.pdf', name: 'report.pdf', type: 'pdf' },
+        { path: '/Users/example/code/app.js', name: 'app.js', type: 'js' }
+      ];
+      
+      return mockFiles
+        .filter(file => file.name.toLowerCase().includes(query.toLowerCase()))
+        .map(file => ({
+          id: `file-${file.path}`,
+          type: 'file',
+          name: file.name,
+          description: file.path,
+          icon: getIconForFileType(file.type),
+          path: file.path,
+          contentType: file.type,
+          // Legacy properties
+          filePath: file.path,
+          fileType: file.type
+        }));
+    }
+    
+    try {
+      const files = await window.electronAPI.searchFiles(query);
+      
+      // Convert to MentionItems
+      return files.map((file: any) => ({
+        id: `file-${file.path}`,
+        type: 'file',
+        name: file.name,
+        description: file.path,
+        icon: getIconForFileType(file.type),
+        path: file.path,
+        contentType: file.type,
+        // Legacy properties
+        filePath: file.path,
+        fileType: file.type
+      }));
+    } catch (error) {
+      console.error("Error searching files:", error);
+      return [];
+    }
+  },
+  
+  // Get content for a file
+  getContent: async (item: MentionItem) => {
+    if (!window.electronAPI) {
+      return { content: "Mock file content for " + item.name, type: "text" };
+    }
+    
+    try {
+      const filePath = item.path || item.filePath;
+      if (!filePath) throw new Error("No file path provided");
+      
+      return await window.electronAPI.readFile(filePath);
+    } catch (error) {
+      console.error("Error reading file:", error);
+      throw error;
+    }
+  }
+};
+
+// All available content providers
+const CONTENT_PROVIDERS: ContentProvider[] = [
+  FileSystemProvider,
+  // Add more providers here as they are implemented
+];
+
+// Default content provider is file system
+const DEFAULT_PROVIDER = FileSystemProvider;
+
+// Initial mention items for non-provider-based options
 const INITIAL_MENTION_ITEMS: MentionItem[] = [
   { id: 'context-1', type: 'context', name: 'User Authentication', description: 'Sign-in and auth flow', icon: <Hash className="h-4 w-4" /> },
   { id: 'code-1', type: 'code', name: 'useAutoScroll()', description: 'Scroll hook implementation', icon: <Code className="h-4 w-4" /> },
@@ -68,26 +233,54 @@ const getGroupDisplayName = (type: MentionItemType): string => {
   return displayNames[type] || type;
 };
 
-// Component for displaying selected file tags with remove button
-const FileTag: React.FC<{
-  fileName: string;
-  id: string;
+// Component for displaying selected content tags with remove button
+const ContentTag: React.FC<{
+  item: {
+    name: string;
+    id: string;
+    type: MentionItemType;
+  };
   onRemove: (id: string) => void;
-}> = ({ fileName, id, onRemove }) => {
+}> = ({ item, onRemove }) => {
+  // Get the appropriate icon based on content type
+  const getIconForType = (type: MentionItemType): React.ReactNode => {
+    switch (type) {
+      case 'file':
+        return <FileText className="h-3 w-3 text-cyan-400" />;
+      case 'folder':
+        return <Folder className="h-3 w-3 text-cyan-400" />;
+      case 'gmail':
+        return <Hash className="h-3 w-3 text-red-400" />;
+      case 'gdrive':
+        return <FileText className="h-3 w-3 text-blue-400" />;
+      case 'dropbox':
+        return <FileText className="h-3 w-3 text-blue-400" />;
+      case 'github':
+        return <Code className="h-3 w-3 text-purple-400" />;
+      case 'conversation':
+        return <Clock className="h-3 w-3 text-green-400" />;
+      case 'message':
+        return <Clock className="h-3 w-3 text-amber-400" />;
+      default:
+        return <FileText className="h-3 w-3 text-white/70" />;
+    }
+  };
+  
   return (
     <span 
-      className="inline-flex items-center gap-1 px-2 py-1 mr-1 mb-1 rounded bg-white/10 text-xs text-white/90"
-      title={fileName}
+      className="inline-flex items-center gap-1 px-2 py-1 mr-1 mb-1 rounded bg-white/10 hover:bg-white/20 transition-colors text-xs text-white/90 group"
+      title={item.name}
     >
-      <FileText className="h-3 w-3 text-white/70" />
-      <span className="truncate max-w-[150px]">{fileName}</span>
+      {getIconForType(item.type)}
+      <span className="truncate max-w-[150px]">{item.name}</span>
       <button 
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          onRemove(id);
+          onRemove(item.id);
         }}
-        className="text-white/50 hover:text-white/90 transition-colors"
+        className="ml-1 text-white/40 hover:text-white/90 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+        aria-label="Remove item"
       >
         <X className="h-3 w-3" />
       </button>
@@ -222,9 +415,9 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
         setMentionSearch(searchTerm);
         setShowMentionMenu(true);
         
-        // Search for files if we have a search term
+        // Search for content across providers
         if (searchTerm) {
-          searchLocalFiles(searchTerm);
+          searchContentProviders(searchTerm);
         }
         
         // Position the mention menu
@@ -317,9 +510,11 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
 
   // Debounce search to improve performance
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Track the active content provider (could expand to multiple providers in the future)
+  const [activeProvider, setActiveProvider] = useState<ContentProvider>(DEFAULT_PROVIDER);
 
-  // Search for local files using Electron API
-  const searchLocalFiles = async (searchTerm: string) => {
+  // Unified search using the content provider framework
+  const searchContentProviders = async (searchTerm: string) => {
     // Cancel any pending search
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
@@ -335,66 +530,18 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
       
       setIsSearching(true);
       
-      if (!window.electronAPI) {
-        // Mock data for testing
-        setTimeout(() => {
-          const mockFiles = [
-            { path: '/Users/example/Documents/example.txt', name: 'example.txt', type: 'txt' },
-            { path: '/Users/example/Documents/report.pdf', name: 'report.pdf', type: 'pdf' },
-            { path: '/Users/example/code/app.js', name: 'app.js', type: 'js' }
-          ];
-          
-          // Convert mock files to mention items
-          const fileItems: MentionItem[] = mockFiles
-            .filter(file => file.name.toLowerCase().includes(searchTerm.toLowerCase()))
-            .map(file => ({
-              id: `file-${file.path}`,
-              type: 'file',
-              name: file.name,
-              description: file.path,
-              icon: getFileIcon(file.type),
-              filePath: file.path,
-              fileType: file.type
-            }));
-          
-          // Combine with non-file mention items (limiting items for performance)
-          const nonFileItems = INITIAL_MENTION_ITEMS.filter(item => item.type !== 'file').slice(0, 3);
-          setMentionItems([...fileItems, ...nonFileItems]);
-          setIsSearching(false);
-        }, 100);
-        
-        return;
-      }
-
       try {
-        // Limit search results for better performance
-        const files = await window.electronAPI.searchFiles(searchTerm);
+        // Get results from active provider
+        const providerResults = await activeProvider.search(searchTerm);
         
-        if (!Array.isArray(files)) {
-          setIsSearching(false);
-          return;
-        }
+        // Combine with standard items
+        const nonProviderItems = INITIAL_MENTION_ITEMS.filter(item => 
+          item.type !== 'file' && item.type !== 'folder'
+        ).slice(0, 3);
         
-        // Convert files to mention items (limiting to 20 files max for performance)
-        const fileItems: MentionItem[] = files.slice(0, 20).map((file: any) => {
-          const fileIcon = getFileIcon(file.type);
-          
-          return {
-            id: `file-${file.path}`,
-            type: 'file',
-            name: file.name, // Just the file name for display
-            description: file.path, // Full path in description
-            icon: fileIcon,
-            filePath: file.path,
-            fileType: file.type
-          };
-        });
-        
-        // Combine with limited non-file items
-        const nonFileItems = INITIAL_MENTION_ITEMS.filter(item => item.type !== 'file').slice(0, 3);
-        setMentionItems([...fileItems, ...nonFileItems]);
+        setMentionItems([...providerResults, ...nonProviderItems]);
       } catch (error) {
-        console.error('Error searching files:', error);
+        console.error(`Error searching with provider ${activeProvider.name}:`, error);
       } finally {
         setIsSearching(false);
       }
@@ -463,35 +610,61 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     setMentionSearch('');
     setAtIndex(-1);
     
-    // Process the file if it's a file type
-    if (item.type === 'file' && item.filePath) {
+    // Process the item based on its type using the content provider framework
+    const processItem = async () => {
+      // Mark item as being processed
       setProcessingFiles(prev => ({ ...prev, [item.id]: true }));
       
-      // Simulate file loading with a slight delay
-      setTimeout(async () => {
-        try {
-          const fileContent = await window.electronAPI?.readFile(item.filePath as string);
-          
-          // Store file data for submission
+      try {
+        // Find the appropriate provider based on item type
+        let provider: ContentProvider | undefined;
+        
+        // For now we just handle files with FileSystemProvider
+        if (item.type === 'file') {
+          provider = CONTENT_PROVIDERS.find(p => p.id === 'filesystem');
+        }
+        // Add more provider types as they are implemented
+        // Example:
+        // else if (item.type === 'gdrive') {
+        //   provider = CONTENT_PROVIDERS.find(p => p.id === 'google-drive');
+        // } 
+        
+        if (!provider) {
+          console.error(`No provider found for item type: ${item.type}`);
+          return;
+        }
+        
+        // Get content using the provider
+        const content = await provider.getContent(item);
+        
+        // Store content based on item type
+        if (item.type === 'file') {
           setSelectedFiles(prev => ({
             ...prev,
             [item.id]: {
-              path: item.filePath as string,
-              content: fileContent?.content || "",
-              type: fileContent?.type || "text"
+              path: item.path || item.filePath || '',
+              content: content.content || '',
+              type: content.type || 'text'
             }
           }));
-          console.log("File read complete:", item.name);
-        } catch (error) {
-          console.error('Error reading file:', error);
-        } finally {
-          setProcessingFiles(prev => {
-            const newState = { ...prev };
-            delete newState[item.id];
-            return newState;
-          });
+          console.log(`Content loaded from ${provider.name}:`, item.name);
         }
-      }, 200);
+        // Handle other content types here as they are implemented
+        
+      } catch (error) {
+        console.error(`Error processing item ${item.name}:`, error);
+      } finally {
+        setProcessingFiles(prev => {
+          const newState = { ...prev };
+          delete newState[item.id];
+          return newState;
+        });
+      }
+    };
+    
+    // Use timeout for better UX
+    if (['file', 'gdrive', 'dropbox', 'onedrive'].includes(item.type)) {
+      setTimeout(processItem, 100);
     }
   };
 
@@ -579,9 +752,9 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     onSubmit();
   };
 
-  // Prepare for file selection in mention dropdown
+  // Extract all content mentions from text (files, conversations, etc.)
   const extractFileMentions = () => {
-    // Updated regex to better handle @ mentions
+    // Regex to match all mentions in the format @[name](id)
     const regex = /@\[([^\]]+)\]\(([^)]+)\)(\s)?/g;
     let match;
     const mentions = [];
@@ -597,13 +770,26 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
       const hasSpace = !!match[3];
       const fullMatch = match[0];
       
-      if (id.startsWith('file-')) {
+      // Accept mentions with different prefixes for different providers
+      // In the future, we could be more selective based on provider types
+      const validPrefixes = ['file-', 'gdrive-', 'message-', 'conversation-', 'dropbox-', 'github-', 'slack-'];
+      const isValidMention = validPrefixes.some(prefix => id.startsWith(prefix)) || id.includes('/');
+      
+      if (isValidMention) {
         mentions.push({ 
           id, 
           name,
           index: match.index,
           length: fullMatch.length,
-          text: fullMatch
+          text: fullMatch,
+          // Determine the type from the ID
+          type: id.startsWith('file-') ? 'file' : 
+                id.startsWith('gdrive-') ? 'gdrive' :
+                id.startsWith('message-') ? 'message' :
+                id.startsWith('conversation-') ? 'conversation' :
+                id.startsWith('github-') ? 'github' :
+                id.startsWith('slack-') ? 'slack' :
+                'file' // Default to file type for backward compatibility
         });
       }
     }
@@ -771,51 +957,51 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
           ${isFocused ? 'bg-white/[0.05] border-white/[0.1]' : ''}
         `}
       >
-        {/* Add styled display for selected files */}
+        {/* Display selected content items with our reusable component */}
         <div className="selected-files-container px-4 pt-2 flex flex-wrap gap-2">
           {extractFileMentions().map(({id, name}) => (
-            <div 
-              key={id} 
-              className="flex items-center gap-1 bg-white/10 hover:bg-white/20 transition-colors rounded-full px-2 py-1 text-xs group"
-            >
-              <FileText className="h-3 w-3 text-cyan-400" />
-              <span className="text-white/90">{name}</span>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  // Remove file mention
-                  const mentions = extractFileMentions();
-                  const mention = mentions.find(m => m.id === id);
+            <ContentTag
+              key={id}
+              item={{
+                id,
+                name,
+                // For backward compatibility, we assume it's a file type
+                // In future, you can extract the provider type from the ID prefix
+                type: id.startsWith('file-') ? 'file' : 
+                       id.startsWith('gdrive-') ? 'gdrive' :
+                       id.startsWith('message-') ? 'message' :
+                       id.startsWith('conversation-') ? 'conversation' :
+                       'file'
+              }}
+              onRemove={(itemId) => {
+                // Remove mention from text
+                const mentions = extractFileMentions();
+                const mention = mentions.find(m => m.id === itemId);
+                
+                if (mention) {
+                  const newValue = internalValue.substring(0, mention.index) + 
+                                   internalValue.substring(mention.index + mention.length);
                   
-                  if (mention) {
-                    const newValue = internalValue.substring(0, mention.index) + 
-                                     internalValue.substring(mention.index + mention.length);
-                    
-                    // Update internal value
-                    setInternalValue(newValue);
-                    
-                    // Update the parent component
-                    const event = {
-                      target: { value: newValue }
-                    } as ChangeEvent<HTMLTextAreaElement>;
-                    onChange(event);
-                    
-                    // Remove from selected files
-                    if (selectedFiles[id]) {
-                      setSelectedFiles(prev => {
-                        const newFiles = {...prev};
-                        delete newFiles[id];
-                        return newFiles;
-                      });
-                    }
+                  // Update internal value
+                  setInternalValue(newValue);
+                  
+                  // Update the parent component
+                  const event = {
+                    target: { value: newValue }
+                  } as ChangeEvent<HTMLTextAreaElement>;
+                  onChange(event);
+                  
+                  // Remove from selected files (if applicable)
+                  if (selectedFiles[itemId]) {
+                    setSelectedFiles(prev => {
+                      const newFiles = {...prev};
+                      delete newFiles[itemId];
+                      return newFiles;
+                    });
                   }
-                }}
-                className="ml-1 text-white/40 hover:text-white/90 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                aria-label="Remove file"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
+                }
+              }}
+            />
           ))}
         </div>
 
