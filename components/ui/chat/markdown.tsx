@@ -4,6 +4,7 @@ import ReactMarkdown, { Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { CodeBlock } from "../common/code-block"
 import { cn } from "@/lib/utils"
+import { FileText } from "lucide-react"
 
 export type MarkdownProps = {
   children: string
@@ -23,13 +24,44 @@ function extractLanguage(className?: string): string {
   return match ? match[1] : "plaintext"
 }
 
+// Custom component for rendering file mentions
+function FileMention({ name }: { name: string }) {
+  return (
+    <span 
+      className="inline-flex items-center gap-1 px-2 py-1 mr-1 mb-1 rounded bg-white/10 text-xs text-white/90"
+      title={name}
+    >
+      <FileText className="h-3 w-3 text-cyan-400" />
+      <span className="truncate max-w-[150px]">{name}</span>
+    </span>
+  );
+}
+
 const INITIAL_COMPONENTS: Partial<Components> = {
+  // Add custom file mention component
+  span: function SpanComponent({ className, children, ...props }) {
+    // Check if this is a file mention span
+    if (className === 'file-mention') {
+      return <FileMention name={children as string} />;
+    }
+    
+    // Otherwise render as regular span
+    return <span className={className} {...props}>{children}</span>;
+  },
+  
   code: function CodeComponent({ className, children, ...props }) {
     const isInline =
       !props.node?.position?.start.line ||
       props.node?.position?.start.line === props.node?.position?.end.line
 
     if (isInline) {
+      // Check if this is a file mention (starts with file:)
+      const content = String(children);
+      if (content.startsWith('file:')) {
+        const fileName = content.substring(5); // Remove the 'file:' prefix
+        return <FileMention name={fileName} />;
+      }
+      
       return (
         <span
           className={cn(
@@ -151,20 +183,40 @@ const MemoizedMarkdownBlock = memo(
 
 MemoizedMarkdownBlock.displayName = "MemoizedMarkdownBlock"
 
+// Function to preprocess markdown and transform file mentions
+function preprocessMarkdown(markdown: string): string {
+  // Find file mentions in the format @[filename](file-id)
+  const fileMentionRegex = /@\[([^\]]+)\]\(file-[^)]+\)/g;
+  
+  // Replace file mentions with our custom component syntax
+  // We'll use a special format that won't be processed by other Markdown rules
+  return markdown.replace(fileMentionRegex, (match, fileName) => {
+    // Replace any single backticks in the filename to avoid breaking markdown
+    const escapedName = fileName.replace(/`/g, "'");
+    // Use a more compatible markdown format - inline code with a prefix
+    return `\`file:${escapedName}\``;
+  });
+}
+
 function MarkdownComponent({
   children,
   id,
   className,
   components = INITIAL_COMPONENTS,
 }: MarkdownProps) {
+  // Preprocess markdown to transform file mentions
+  const processedChildren = useMemo(() => {
+    return preprocessMarkdown(children);
+  }, [children]);
+  
   const blocks = useMemo(() => {
     try {
-      return parseMarkdownIntoBlocks(children)
+      return parseMarkdownIntoBlocks(processedChildren)
     } catch (error) {
       console.error(error)
-      return [children]
+      return [processedChildren]
     }
-  }, [children])
+  }, [processedChildren])
 
   // Use a stable ID for the content blocks
   const contentId = useId()

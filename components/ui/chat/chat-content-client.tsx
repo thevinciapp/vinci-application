@@ -91,6 +91,9 @@ export default function ClientChatContent({
     router.replace(`/protected/spaces/${activeSpace?.id}/conversations/${activeConversation?.id}`);
   }, [storeActiveConversation?.id]);
 
+  // State to store selected files
+  const [selectedFiles, setSelectedFiles] = useState<Record<string, any>>({});
+
   const {
     messages,
     setMessages,
@@ -98,7 +101,7 @@ export default function ClientChatContent({
     setInput,
     isLoading: isChatLoading,
     handleInputChange,
-    handleSubmit,
+    handleSubmit: originalHandleSubmit,
     data,
     setData,
   } = useChat({
@@ -113,11 +116,36 @@ export default function ClientChatContent({
       searchMode,
       chatMode: activeSpace?.chat_mode || "ask",
       chatModeConfig: activeSpace?.chat_mode_config || { tools: [] },
+      files: selectedFiles, // Include files in the API call
     },
     onFinish() {
       setData([]);
+      // Clear files after submission
+      setSelectedFiles({});
     },
   });
+
+  // Custom submit handler that includes file data
+  const handleSubmit = useCallback(() => {
+    originalHandleSubmit();
+  }, [originalHandleSubmit]);
+
+  // Listen for file selection events from UnifiedInput
+  useEffect(() => {
+    const handleFileSelection = (event: CustomEvent) => {
+      if (event.detail && event.detail.files) {
+        setSelectedFiles(event.detail.files);
+      }
+    };
+
+    // Add event listener for custom event
+    document.addEventListener('chatSubmit', handleFileSelection as EventListener);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('chatSubmit', handleFileSelection as EventListener);
+    };
+  }, []);
 
   // Add this effect to track message changes
   useEffect(() => {

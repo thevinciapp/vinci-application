@@ -174,7 +174,9 @@ export const ChatMessage = memo<ChatMessageProps>(
 
                         {isUser ? (
                             <div className="text-sm leading-relaxed whitespace-pre-wrap break-words text-white shadow-[0_0_15px_-5px_rgba(255,255,255,0.3)]">
-                                {message.content}
+                                <Markdown id={`user-${message.id}`}>
+                                    {message.content}
+                                </Markdown>
                             </div>
                         ) : isStreamingAssistant ? (
                             <div className="transition-all duration-500 ease-in-out will-change-transform">

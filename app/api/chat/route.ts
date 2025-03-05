@@ -245,18 +245,38 @@ function getDaySuffix(day: number): string {
 export async function POST(req: Request) {
   const supabase = await createClient();
 
-  const [user, { messages, spaceId, conversationId, provider, model, chatMode, chatModeConfig }] = await Promise.all([
+  const [user, { messages, spaceId, conversationId, provider, model, chatMode, chatModeConfig, files }] = await Promise.all([
     validateUser(supabase),
     req.json(),
   ]);
 
   if (!spaceId) throw new Error(JSON.stringify(ERROR_MESSAGES.MISSING_SPACE_ID));
   if (!conversationId) throw new Error(JSON.stringify(ERROR_MESSAGES.MISSING_CONVERSATION_ID));
+  
+  // Process any files that were attached
+  let filesContent = "";
+  if (files && Object.keys(files).length > 0) {
+    filesContent = Object.entries(files).map(([id, file]: [string, any]) => {
+      // For text files, include the content directly
+      if (file.type === 'text') {
+        return `### File: ${file.path}\n\`\`\`\n${file.content}\n\`\`\`\n\n`;
+      } else {
+        // For binary files, just mention that they were attached
+        return `### File: ${file.path} (binary file)\n\n`;
+      }
+    }).join('\n');
+  }
 
   return createDataStreamResponse({
     execute: async (dataStream) => {
       try {
         const userMessage = messages[messages.length - 1];
+        
+        // If there are files attached, add their content to the user message
+        if (filesContent) {
+          userMessage.content = `${userMessage.content}\n\n${filesContent}`;
+        }
+        
         const conversationContext = messages.slice(0, -1)
           .map((msg: { role: string; content: string }) => `${msg.role.toUpperCase()}: ${msg.content}`)
           .join('\n');

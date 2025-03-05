@@ -4,8 +4,8 @@
   "scripts": {
     "next:dev": "next dev --turbopack",
     "next:build": "next build",
-    "electron:build": "tsup",
-    "electron:build_watch": "tsup --watch",
+    "electron:build": "tsc -p electron/tsconfig.json",
+    "electron:build_watch": "tsc -p electron/tsconfig.json --watch",
     "electron:watch": "cross-env NODE_ENV='development' nodemon",
     "electron:dev": "npm-run-all --parallel electron:build_watch electron:watch",
     "dev": "npm-run-all --parallel electron:dev next:dev"
