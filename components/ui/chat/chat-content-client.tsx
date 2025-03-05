@@ -2,7 +2,7 @@
 import { useChat } from "@ai-sdk/react";
 import { ServerDrivenSpaceTab } from "@/components/ui/space/space-tab";
 import { ServerDrivenConversationTab } from "@/components/ui/conversation/conversation-tab";
-import { ServerDrivenQuickActionsTab } from "@/components/ui/quick-actions-tab";
+import { ServerDrivenQuickActionsTab, ServerDrivenBackgroundTasksTab, ServerDrivenSuggestionsTab } from "@/components/ui/quick-actions-tab";
 import { ServerDrivenModelTab } from "@/components/ui/chat/model-tab";
 import { ChatModeTab } from "@/components/ui/chat/chat-mode-tab";
 import { ArrowDown, Search, Sparkles } from "lucide-react";
@@ -259,13 +259,13 @@ export default function ClientChatContent({
               disabled={!activeSpace || isChatLoading}
             >
               <div className="flex items-center divide-x divide-white/[0.05] bg-white/[0.03] border-t border-l border-r border-white/[0.05] rounded-t-2xl overflow-hidden backdrop-blur-xl w-full shadow-[0_-4px_20px_rgba(62,207,255,0.03)]">
-                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/4">
+                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
                   {/* @ts-ignore */}
                   <ServerDrivenQuickActionsTab 
                     onCreateConversation={(handleCreateConversation)}
                   />
                 </div>
-                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/4">
+                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
                   <BaseTab
                     icon={<Search className="w-3 h-3" />}
                     label="Messages"
@@ -274,16 +274,13 @@ export default function ClientChatContent({
                     onClick={() => openCommandType("conversations")}
                   />
                 </div>
-                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/4">
-                  <BaseTab
-                    icon={<Sparkles className="w-3 h-3" />}
-                    label="Prompts"
-                    shortcut="P"
-                    commandType="actions"
-                    onClick={() => openCommandType("actions")}
-                  />
+                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
+                  <ServerDrivenBackgroundTasksTab />
                 </div>
-                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/4">
+                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
+                  <ServerDrivenSuggestionsTab />
+                </div>
+                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
                   <ServerDrivenConversationTab
                     activeConversation={activeConversation}
                     onCreateConversation={handleCreateConversation}

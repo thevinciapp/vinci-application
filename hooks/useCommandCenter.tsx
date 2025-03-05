@@ -3,7 +3,7 @@ import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, 
 import { useHotkeys } from 'react-hotkeys-hook';
 
 // Command types
-export type CommandType = 'application' | 'spaces' | 'conversations' | 'models' | 'actions' | 'messages' | 'chat-modes' | 'similarMessages';
+export type CommandType = 'application' | 'spaces' | 'conversations' | 'models' | 'actions' | 'messages' | 'chat-modes' | 'similarMessages' | 'background-tasks' | 'suggestions';
 
 export interface CommandOption {
   id: string;
@@ -75,7 +75,9 @@ export function CommandProvider({ children }: { children: ReactNode }) {
     actions: null,
     messages: null,
     'chat-modes': null,
-    'similarMessages': null
+    'similarMessages': null,
+    'background-tasks': null,
+    'suggestions': null
   });
   const [isLoading, setIsLoading] = useState(false);
   const [loadingCommandType, setLoadingCommandType] = useState<CommandType | null>(null);
@@ -87,7 +89,9 @@ export function CommandProvider({ children }: { children: ReactNode }) {
     actions: { minSearchLength: 0 },
     messages: { minSearchLength: 0 },
     'chat-modes': { minSearchLength: 0 },
-    'similarMessages': { minSearchLength: 0 }
+    'similarMessages': { minSearchLength: 0 },
+    'background-tasks': { minSearchLength: 0 },
+    'suggestions': { minSearchLength: 0 }
   });
 
   

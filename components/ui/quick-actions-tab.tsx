@@ -1,4 +1,4 @@
-import { Sparkles } from "lucide-react";
+import { Sparkles, Timer, Lightbulb } from "lucide-react";
 import { BaseTab } from "./common/base-tab";
 import { useCommandCenter } from "@/hooks/useCommandCenter";
 
@@ -38,6 +38,70 @@ export function ServerDrivenQuickActionsTab({
             onClick={() => {
                 toggleCommandCenter();
             }}
+        />
+    );
+}
+
+// Background Tasks Tab
+export function BackgroundTasksTab() {
+    const { openCommandType } = useCommandCenter();
+    
+    return (
+        <BaseTab
+            icon={<Timer className="w-3 h-3" />}
+            label="Background Tasks"
+            shortcut="T"
+            minWidth="actions"
+            commandType="background-tasks"
+            onClick={() => openCommandType("background-tasks")}
+        />
+    );
+}
+
+// Server-driven version for Background Tasks
+export function ServerDrivenBackgroundTasksTab() {
+    const { openCommandType } = useCommandCenter();
+    
+    return (
+        <BaseTab
+            icon={<Timer className="w-3 h-3" />}
+            label="Background Tasks"
+            shortcut="T"
+            minWidth="actions"
+            commandType="background-tasks"
+            onClick={() => openCommandType("background-tasks")}
+        />
+    );
+}
+
+// Suggestions Tab
+export function SuggestionsTab() {
+    const { openCommandType } = useCommandCenter();
+    
+    return (
+        <BaseTab
+            icon={<Lightbulb className="w-3 h-3" />}
+            label="Suggestions"
+            shortcut="G"
+            minWidth="actions"
+            commandType="suggestions"
+            onClick={() => openCommandType("suggestions")}
+        />
+    );
+}
+
+// Server-driven version for Suggestions
+export function ServerDrivenSuggestionsTab() {
+    const { openCommandType } = useCommandCenter();
+    
+    return (
+        <BaseTab
+            icon={<Lightbulb className="w-3 h-3" />}
+            label="Suggestions"
+            shortcut="G"
+            minWidth="actions"
+            commandType="suggestions"
+            onClick={() => openCommandType("suggestions")}
         />
     );
 }

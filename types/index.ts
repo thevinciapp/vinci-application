@@ -35,6 +35,9 @@ export interface SimilarMessage {
   metadata?: Record<string, any>;
 }
 
+// Re-export mention types
+export * from './mention';
+
 // Add to global Window interface
 declare global {
   interface Window {

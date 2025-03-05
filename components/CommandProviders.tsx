@@ -15,7 +15,13 @@ import {
   SwitchCamera,
   MessageCircle,
   Ban,
-  Sparkles
+  Sparkles,
+  Timer,
+  Activity,
+  Lightbulb,
+  Check,
+  X,
+  Clock
 } from "lucide-react";
 import { AVAILABLE_MODELS, PROVIDER_NAMES, PROVIDER_DESCRIPTIONS, Provider } from "@/config/models";
 import { toast } from 'sonner'
@@ -1942,6 +1948,359 @@ export function ChatModesCommandProvider({ children }: { children: ReactNode }) 
       {children}
     </>
   );
+}
+
+/**
+ * Provider for background tasks commands
+ */
+export function BackgroundTasksCommandProvider({ children }: { children: ReactNode }) {
+  const [tasks, setTasks] = useState<any[]>([]);
+  const { closeCommandCenter } = useCommandCenter();
+  
+  // Interface for a background task
+  interface BackgroundTask {
+    id: string;
+    description: string;
+    status: 'pending' | 'in-progress' | 'completed' | 'failed';
+    createdAt: number;
+    completedAt?: number;
+    progress?: number;
+  }
+  
+  // Example function to create a new background task
+  const createBackgroundTask = useCallback((description: string) => {
+    const newTask: BackgroundTask = {
+      id: `task-${Date.now()}`,
+      description,
+      status: 'pending',
+      createdAt: Date.now(),
+    };
+    
+    setTasks(prevTasks => [...prevTasks, newTask]);
+    
+    // This would be replaced with actual task creation logic
+    toast.success('Task Created', {
+      description: `New background task: ${description}`
+    });
+    
+    return newTask.id;
+  }, []);
+
+  // Example function to update a task's status
+  const updateTaskStatus = useCallback((taskId: string, status: 'pending' | 'in-progress' | 'completed' | 'failed', progress?: number) => {
+    setTasks(prevTasks => 
+      prevTasks.map(task => 
+        task.id === taskId 
+          ? { 
+              ...task, 
+              status, 
+              progress, 
+              ...(status === 'completed' ? { completedAt: Date.now() } : {})
+            } 
+          : task
+      )
+    );
+  }, []);
+  
+  // Example function to remove a task
+  const removeTask = useCallback((taskId: string) => {
+    setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
+  }, []);
+  
+  // Natural language parser for creating tasks (placeholder)
+  const parseTaskFromNaturalLanguage = useCallback((input: string) => {
+    // This is a placeholder - in a real implementation, you would use NLP
+    // to extract task details from natural language
+    
+    const description = input.trim();
+    
+    if (description.length < 5) {
+      return null;
+    }
+    
+    // Create the task
+    return createBackgroundTask(description);
+  }, [createBackgroundTask]);
+  
+  // Create task command
+  const createTaskCommand = useCallback((): CommandOption => {
+    return {
+      id: "create-background-task",
+      name: "Create Background Task",
+      value: "Create Background Task",
+      description: "Start a new background task with natural language",
+      icon: <Plus className="h-4 w-4" />,
+      type: "background-tasks",
+      keywords: ["task", "background", "create", "new", "schedule", "run"],
+      action: () => {
+        // You could show a dialog here, but for now we'll just use prompt
+        const description = prompt("Describe the task you want to run in the background:");
+        if (description) {
+          parseTaskFromNaturalLanguage(description);
+        }
+      },
+    };
+  }, [parseTaskFromNaturalLanguage]);
+  
+  // Generate commands for each task
+  const taskCommands = useCallback((): CommandOption[] => {
+    const getStatusElementAndIcon = (task: any): { icon: React.ReactNode, statusElement: React.ReactNode } => {
+      let icon;
+      let statusElement;
+      
+      switch (task.status) {
+        case 'pending':
+          icon = <Clock className="h-4 w-4 text-yellow-400" />;
+          statusElement = (
+            <div className="px-1.5 py-0.5 text-xs font-medium rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+              Pending
+            </div>
+          );
+          break;
+        case 'in-progress':
+          icon = <Activity className="h-4 w-4 text-blue-400" />;
+          statusElement = (
+            <div className="px-1.5 py-0.5 text-xs font-medium rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">
+              {task.progress ? `${task.progress}%` : 'Running'}
+            </div>
+          );
+          break;
+        case 'completed':
+          icon = <Check className="h-4 w-4 text-green-400" />;
+          statusElement = (
+            <div className="px-1.5 py-0.5 text-xs font-medium rounded bg-green-500/20 text-green-400 border border-green-500/30">
+              Completed
+            </div>
+          );
+          break;
+        case 'failed':
+          icon = <X className="h-4 w-4 text-red-400" />;
+          statusElement = (
+            <div className="px-1.5 py-0.5 text-xs font-medium rounded bg-red-500/20 text-red-400 border border-red-500/30">
+              Failed
+            </div>
+          );
+          break;
+        default:
+          icon = <Clock className="h-4 w-4 text-white/70" />;
+          statusElement = (
+            <div className="px-1.5 py-0.5 text-xs font-medium rounded bg-white/10 text-white/70 border border-white/10">
+              Unknown
+            </div>
+          );
+      }
+      
+      return { icon, statusElement };
+    };
+    
+    return tasks.map(task => {
+      // Get the icon and status element
+      const { icon, statusElement } = getStatusElementAndIcon(task);
+      
+      // Generate unique ID for the task to use in the command
+      const taskCommandId = `task-${task.id}`;
+      
+      // Create the task command
+      return {
+        id: taskCommandId,
+        name: task.description,
+        value: task.description,
+        description: `Task created ${new Date(task.createdAt).toLocaleString()}`,
+        icon,
+        type: "background-tasks" as CommandType,
+        keywords: ["task", "background", ...task.description.split(/\s+/)],
+        action: () => {
+          // Here you would show task details, but for now just log
+          console.log("Task selected:", task.id);
+        },
+        rightElement: (
+          <div className="flex items-center gap-1.5">
+            {statusElement}
+            <button
+              onClick={(e) => { 
+                e.stopPropagation();
+                e.preventDefault();
+                // Use the task.id directly rather than capturing it from closure
+                removeTask(task.id);
+              }}
+              className={cn(
+                "flex items-center h-7 w-7 justify-center rounded-md p-1.5",
+                "transition-all duration-200 ease-in-out",
+                "bg-white/[0.03] hover:bg-red-400/20 border border-white/[0.05]",
+                "text-red-400 hover:text-red-200",
+                "cursor-pointer"
+              )}
+            >
+              <Trash className="text-red-400" size={11} strokeWidth={1.5} />
+            </button>
+          </div>
+        )
+      };
+    });
+  }, [tasks, removeTask]);
+  
+  // Register all commands
+  useCommandRegistration([createTaskCommand(), ...taskCommands()]);
+  
+  return <>{children}</>;
+}
+
+/**
+ * Provider for AI generated suggestions
+ */
+export function SuggestionsCommandProvider({ children }: { children: ReactNode }) {
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const { closeCommandCenter } = useCommandCenter();
+  
+  // Interface for a suggestion
+  interface Suggestion {
+    id: string;
+    description: string;
+    source: string;
+    confidence: number;
+    createdAt: number;
+    accepted?: boolean;
+  }
+  
+  // Example function to add a new suggestion
+  const addSuggestion = useCallback((description: string, source: string, confidence: number = 0.8) => {
+    const newSuggestion: Suggestion = {
+      id: `suggestion-${Date.now()}`,
+      description,
+      source,
+      confidence,
+      createdAt: Date.now(),
+    };
+    
+    setSuggestions(prevSuggestions => [...prevSuggestions, newSuggestion]);
+    
+    return newSuggestion.id;
+  }, []);
+  
+  // Example function to accept a suggestion
+  const acceptSuggestion = useCallback((suggestionId: string) => {
+    setSuggestions(prevSuggestions => {
+      // Find the suggestion within the callback to avoid dependency on suggestions array
+      const suggestion = prevSuggestions.find(s => s.id === suggestionId);
+      
+      // Show toast here to avoid dependency on suggestions
+      if (suggestion) {
+        toast.success('Suggestion Accepted', {
+          description: `Now executing: ${suggestion.description}`
+        });
+      }
+      
+      return prevSuggestions.map(suggestion => 
+        suggestion.id === suggestionId 
+          ? { ...suggestion, accepted: true } 
+          : suggestion
+      );
+    });
+  }, []);
+  
+  // Example function to reject a suggestion
+  const rejectSuggestion = useCallback((suggestionId: string) => {
+    setSuggestions(prevSuggestions => prevSuggestions.filter(s => s.id !== suggestionId));
+    
+    toast.info('Suggestion Dismissed');
+  }, []);
+  
+  // Track whether examples have been added already
+  const hasAddedExamplesRef = useRef(false);
+  
+  // Add example suggestions on first render
+  useEffect(() => {
+    // This would be replaced with actual suggestions from the AI
+    // Using a ref to prevent this effect from running more than once
+    if (!hasAddedExamplesRef.current) {
+      // Using function callbacks directly here to avoid dependency on addSuggestion
+      setSuggestions(prev => [
+        ...prev,
+        {
+          id: `suggestion-${Date.now()}`,
+          description: "Create a space to organize your machine learning resources",
+          source: "Based on your recent conversations about ML",
+          confidence: 0.8,
+          createdAt: Date.now(),
+        },
+        {
+          id: `suggestion-${Date.now() + 1}`,
+          description: "Summarize yesterday's conversation about React performance",
+          source: "You seemed interested in this topic",
+          confidence: 0.7,
+          createdAt: Date.now(),
+        }
+      ]);
+      
+      hasAddedExamplesRef.current = true;
+    }
+  }, []); // Empty dependency array
+  
+  // Generate commands for each suggestion
+  const suggestionCommands = useCallback((): CommandOption[] => {
+    return suggestions.map(suggestion => {
+      // Generate unique IDs to avoid stale closures
+      const suggestionId = suggestion.id;
+      
+      return {
+        id: `suggestion-${suggestionId}`,
+        name: suggestion.description,
+        value: suggestion.description,
+        description: `${suggestion.source} • ${Math.round(suggestion.confidence * 100)}% confidence`,
+        icon: <Lightbulb className="h-4 w-4 text-amber-400" />,
+        type: "suggestions" as CommandType,
+        keywords: ["suggestion", "recommend", ...suggestion.description.split(/\s+/)],
+        action: () => {
+          acceptSuggestion(suggestionId);
+          closeCommandCenter();
+        },
+        rightElement: (
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={(e) => { 
+                e.stopPropagation();
+                e.preventDefault();
+                acceptSuggestion(suggestionId);
+                closeCommandCenter();
+              }}
+              className={cn(
+                "flex items-center h-7 w-7 justify-center rounded-md p-1.5",
+                "transition-all duration-200 ease-in-out",
+                "bg-white/[0.03] hover:bg-green-400/20 border border-white/[0.05]",
+                "text-green-400 hover:text-green-200",
+                "cursor-pointer"
+              )}
+              title="Accept Suggestion"
+            >
+              <Check className="text-green-400" size={11} strokeWidth={1.5} />
+            </button>
+            <button
+              onClick={(e) => { 
+                e.stopPropagation();
+                e.preventDefault();
+                rejectSuggestion(suggestionId);
+              }}
+              className={cn(
+                "flex items-center h-7 w-7 justify-center rounded-md p-1.5",
+                "transition-all duration-200 ease-in-out",
+                "bg-white/[0.03] hover:bg-red-400/20 border border-white/[0.05]",
+                "text-red-400 hover:text-red-200",
+                "cursor-pointer"
+              )}
+              title="Dismiss"
+            >
+              <X className="text-red-400" size={11} strokeWidth={1.5} />
+            </button>
+          </div>
+        )
+      };
+    });
+  }, [suggestions, acceptSuggestion, rejectSuggestion, closeCommandCenter]);
+  
+  // Register all commands
+  useCommandRegistration(suggestionCommands());
+  
+  return <>{children}</>;
 }
 
 {/* AllCommandProviders is now moved to its own file */}

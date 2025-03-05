@@ -57,6 +57,8 @@ export function CommandCenter() {
       messages: [],
       'chat-modes': [],
       'similarMessages': [],
+      'background-tasks': [],
+      'suggestions': [],
     };
 
     filteredCommands.forEach((command) => {
@@ -194,7 +196,7 @@ export function CommandCenter() {
                   </CommandShortcut>
                 )}
                 {command.rightElement && (
-                  <div className="flex items-center ml-auto pointer-events-auto">
+                  <div className="flex items-center ml-auto">
                     {command.rightElement}
                   </div>
                 )}
@@ -249,7 +251,7 @@ export function CommandCenter() {
                     </CommandShortcut>
                   )}
                   {command.rightElement && (
-                    <div className="flex items-center ml-auto pointer-events-auto">
+                    <div className="flex items-center ml-auto">
                       {command.rightElement}
                     </div>
                   )}

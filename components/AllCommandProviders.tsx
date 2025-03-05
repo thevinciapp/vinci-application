@@ -8,7 +8,9 @@ import {
   ModelsCommandProvider, 
   ActionsCommandProvider, 
   MessageSearchProvider,
-  ChatModesCommandProvider
+  ChatModesCommandProvider,
+  BackgroundTasksCommandProvider,
+  SuggestionsCommandProvider
 } from './CommandProviders';
 import { SimilarMessagesCommandProvider } from './SimilarMessagesCommandProvider';
 import { useSpaceStore } from '@/stores/space-store';
@@ -54,7 +56,11 @@ export function AllCommandProviders({
             <ChatModesCommandProvider>
               <MessageSearchProvider>
                 <SimilarMessagesCommandProvider>
-                  <ActionsCommandProvider>{children}</ActionsCommandProvider>
+                  <BackgroundTasksCommandProvider>
+                    <SuggestionsCommandProvider>
+                      <ActionsCommandProvider>{children}</ActionsCommandProvider>
+                    </SuggestionsCommandProvider>
+                  </BackgroundTasksCommandProvider>
                 </SimilarMessagesCommandProvider>
               </MessageSearchProvider>
             </ChatModesCommandProvider>
