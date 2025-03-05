@@ -45,6 +45,19 @@ export const useMentionSystem = () => {
   
   // Handle item selection
   const handleMentionSelect = useCallback(async (item: MentionItem, text: string, onTextUpdate: (newText: string) => void) => {
+    // Check if this item is already mentioned in the text
+    const existingMentions = extractMentions(text);
+    const isDuplicate = existingMentions.some(mention => mention.id === item.id);
+    
+    if (isDuplicate) {
+      console.log('Item already mentioned:', item.name);
+      // Close the mention menu without adding a duplicate
+      setShowMentionMenu(false);
+      setMentionSearch('');
+      setAtIndex(-1);
+      return;
+    }
+    
     // Insert the selected item at the @ position first for better UI responsiveness
     if (atIndex >= 0) {
       const beforeAt = text.substring(0, atIndex);
@@ -131,9 +144,14 @@ export const useMentionSystem = () => {
         
         return true;
       }
-    } else {
-      // Hide menu if we're not after an @ symbol
-      setShowMentionMenu(false);
+    } else if (caretPosition > 0 && textBeforeCursor[caretPosition - 1] !== '@') {
+      // Only hide menu if we're not right after typing @ and we moved away
+      // This prevents flickering when @ is first typed
+      const isAtJustTyped = textBeforeCursor.endsWith('@');
+      
+      if (!isAtJustTyped) {
+        setShowMentionMenu(false);
+      }
     }
     
     return false;

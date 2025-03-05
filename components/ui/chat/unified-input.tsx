@@ -41,6 +41,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     showMentionMenu,
     setShowMentionMenu,
     mentionItems,
+    mentionSearch,
     isSearching,
     selectedItems,
     processingItems,
@@ -143,15 +144,26 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     }
   };
 
+  // Create ref for mention menu
+  const mentionMenuRef = useRef<{handleKeyDown: (e: React.KeyboardEvent) => boolean}>(null);
+  
+  // No need for code block generation anymore
+  
   // Handle keyboard navigation and special keys
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (showMentionMenu) {
+    if (showMentionMenu && mentionMenuRef.current) {
+      // First try to let the mention menu handle the key event
+      const handled = mentionMenuRef.current.handleKeyDown(e);
+      
+      // If the mention menu handled it, we're done
+      if (handled) {
+        return;
+      }
+      
+      // If not handled and it's Escape, close the menu
       if (e.key === 'Escape') {
         e.preventDefault();
         setShowMentionMenu(false);
-      } else if (['ArrowUp', 'ArrowDown', 'Enter', 'Tab'].includes(e.key)) {
-        // Let the Command component handle these keys
-        e.preventDefault();
       }
     } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -179,10 +191,13 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
   const handleSubmit = () => {
     if (!value.trim() || disabled) return;
     
+    // Use the internal value which preserves the @[name](id) format
+    const finalMessage = internalValue;
+    
     // Create a custom event with content data
     const customEvent = new CustomEvent('chatSubmit', {
       detail: {
-        message: value,
+        message: finalMessage,
         files: selectedItems
       }
     });
@@ -203,20 +218,23 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
       
       {/* Mention selection menu */}
       <MentionMenu
+        ref={mentionMenuRef}
         isVisible={showMentionMenu}
         isSearching={isSearching}
         items={mentionItems}
+        searchTerm={mentionSearch}
         onItemSelect={(item) => 
           handleMentionSelect(item, internalValue, (newText) => {
             setInternalValue(newText);
             const event = { target: { value: newText } } as ChangeEvent<HTMLTextAreaElement>;
             onChange(event);
             
-            // Focus the textarea
-            setTimeout(() => textareaRef.current?.focus(), 10);
+            // Focus the textarea immediately
+            textareaRef.current?.focus();
           })
         }
         onClose={() => setShowMentionMenu(false)}
+        anchorRef={textareaRef}
       />
       
       <div 
@@ -252,13 +270,10 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
             onChange={handleInputChange}
             onFocus={() => setIsFocused(true)}
             onBlur={() => {
-              // Delay hiding the mention menu to allow for clicking on it
+              // Only update focus state, don't hide the mention menu
+              // The Popover component will handle menu visibility
               setTimeout(() => {
                 setIsFocused(false);
-                // Only hide the menu if not clicking on it
-                if (!document.activeElement?.closest('.command-menu-container')) {
-                  setShowMentionMenu(false);
-                }
               }, 100);
             }}
             onKeyDown={handleKeyDown}
@@ -267,7 +282,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
             style={{ overflow: value.split('\n').length > 8 ? 'auto' : 'hidden' }}
             rows={1}
           />
-
+          
           <div className="flex items-center mr-2">
             {Object.keys(processingItems).length > 0 && (
               <div className="flex items-center mr-2">
