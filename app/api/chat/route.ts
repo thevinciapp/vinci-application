@@ -256,13 +256,29 @@ export async function POST(req: Request) {
   // Process any files that were attached
   let filesContent = "";
   if (files && Object.keys(files).length > 0) {
+    // Log files being processed
+    console.log(`Processing ${Object.keys(files).length} attached files`);
+    
     filesContent = Object.entries(files).map(([id, file]: [string, any]) => {
-      // For text files, include the content directly
-      if (file.type === 'text') {
-        return `### File: ${file.path}\n\`\`\`\n${file.content}\n\`\`\`\n\n`;
+      console.log(`Processing file: ${file.path}, content size: ${file.content?.length || 0} bytes, type: ${file.type}`);
+      
+      // For files with content, include the content directly
+      if (file.content && file.content.length > 0) {
+        // Try to detect file type from extension
+        const ext = file.path.split('.').pop()?.toLowerCase();
+        const isCode = [
+          'js', 'ts', 'jsx', 'tsx', 'py', 'rb', 'java', 'c', 'cpp', 'h', 'go', 
+          'rs', 'php', 'cs', 'swift', 'kt', 'scala', 'hs', 'sql', 'html', 'css', 
+          'scss', 'sass', 'less'
+        ].includes(ext);
+        
+        // Use code block with language if it's code
+        const codeBlockSyntax = isCode ? `\`\`\`${ext}\n` : '```\n';
+        
+        return `### File: ${file.path}\n${codeBlockSyntax}${file.content}\n\`\`\`\n\n`;
       } else {
-        // For binary files, just mention that they were attached
-        return `### File: ${file.path} (binary file)\n\n`;
+        // For binary files or files without content, just mention that they were attached
+        return `### File: ${file.path} (unable to read content)\n\n`;
       }
     }).join('\n');
   }
@@ -272,7 +288,12 @@ export async function POST(req: Request) {
       try {
         const userMessage = messages[messages.length - 1];
         
-        // If there are files attached, add their content to the user message
+        // Create a copy of the user message with file content for the AI model
+        // but keep the display message unchanged for the user interface
+        const originalUserContent = userMessage.content;
+        
+        // If there are files attached, add their content to the message sent to the AI
+        // but not to what's displayed in the UI
         if (filesContent) {
           userMessage.content = `${userMessage.content}\n\n${filesContent}`;
         }
@@ -401,9 +422,11 @@ export async function POST(req: Request) {
           const userTags = await generateTags(userMessage.content, conversationContext);
           const assistantTags = await generateTags(text, conversationContext);
           
-          console.log('[API] Saving user message with content:', userMessage.content.substring(0, 50) + '...');
+          // Save the user message with the original content (without file details)
+          // This ensures the UI shows the clean message with just the file tags
+          console.log('[API] Saving user message with content:', originalUserContent.substring(0, 50) + '...');
           const dbUserMessage = await saveMessage({
-            content: userMessage.content,
+            content: originalUserContent,
             role: 'user',
             model,
             provider,

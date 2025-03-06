@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, memo } from 'react';
+import { useEffect, useState, useRef, memo, useCallback } from 'react';
 import { JSONValue } from 'ai';
 
 interface StreamStatusProps {
@@ -24,18 +24,28 @@ function getLatestStatus(streamData?: JSONValue[]): string {
 }
 
 export const StreamStatus = memo(({ streamData }: StreamStatusProps) => {
-  const [statusHistory, setStatusHistory] = useState<string[]>([]);
+  // Use useRef for status history to avoid re-renders when history changes
+  const statusHistoryRef = useRef<string[]>([]);
   const [currentStatus, setCurrentStatus] = useState<string>('Processing...');
+  // Use useRef for current status to determine changes without triggering re-renders
+  const currentStatusRef = useRef<string>(currentStatus);
+  
+  // Track timestamps
   const lastUpdateTimeRef = useRef<number>(Date.now());
   const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const initialProcessingShownRef = useRef<boolean>(false);
   const lastProcessedDataLengthRef = useRef<number>(0);
   
+  // Force re-render function - only call this when we really need to update the UI
+  const [, forceUpdate] = useState({});
+  const triggerRender = useCallback(() => forceUpdate({}), []);
+  
+  // Process streamData changes without causing re-renders for every update
   useEffect(() => {
-    // Bail out early if no new data
+    // Bail out early if no new data or not enough new chunks to warrant processing
     if (!streamData || !Array.isArray(streamData) || 
         streamData.length === 0 || 
-        streamData.length === lastProcessedDataLengthRef.current) {
+        (streamData.length > 5 && streamData.length - lastProcessedDataLengthRef.current < 5)) {
       return;
     }
     
@@ -46,33 +56,42 @@ export const StreamStatus = memo(({ streamData }: StreamStatusProps) => {
     const currentTime = Date.now();
     
     // Only update if the status has changed to avoid unnecessary renders
-    if (newStatus !== currentStatus) {
+    if (newStatus !== currentStatusRef.current) {
       // Clear any existing transition timeout
       if (transitionTimeoutRef.current) {
         clearTimeout(transitionTimeoutRef.current);
       }
       
-      // Ensure minimum transition time of 600ms between status changes
+      // Ensure minimum transition time of 800ms between status changes to reduce flickering
       const timeSinceLastUpdate = currentTime - lastUpdateTimeRef.current;
-      const transitionDelay = Math.max(0, 600 - timeSinceLastUpdate);
+      const transitionDelay = Math.max(0, 800 - timeSinceLastUpdate);
       
       transitionTimeoutRef.current = setTimeout(() => {
         // First, add the current status to history (including the initial "Processing...")
-        setStatusHistory(prev => {
-          // Only add "Processing..." to history once when the first real status arrives
-          if (currentStatus === 'Processing...' && !initialProcessingShownRef.current) {
-            initialProcessingShownRef.current = true;
-            return [currentStatus, ...prev].slice(0, 3); // Keep last 3 statuses
-          }
-          return [currentStatus, ...prev].slice(0, 3); // Keep last 3 statuses
-        });
+        if (currentStatusRef.current === 'Processing...' && !initialProcessingShownRef.current) {
+          initialProcessingShownRef.current = true;
+          statusHistoryRef.current = [currentStatusRef.current, ...statusHistoryRef.current].slice(0, 3);
+        } else {
+          statusHistoryRef.current = [currentStatusRef.current, ...statusHistoryRef.current].slice(0, 3);
+        }
         
         // Then, update current status to the new status
-        setCurrentStatus(newStatus);
+        currentStatusRef.current = newStatus;
+        // Only update state (causing re-render) if it's actually different
+        if (currentStatus !== newStatus) {
+          setCurrentStatus(newStatus);
+        } else {
+          // Force a single render to show updated history
+          triggerRender();
+        }
+        
         lastUpdateTimeRef.current = Date.now();
       }, transitionDelay);
     }
-  }, [streamData, currentStatus]);
+  }, [streamData, currentStatus, triggerRender]);
+  
+  // Get the status history from ref for rendering
+  const statusHistory = statusHistoryRef.current;
   
   return (
     <div className="group rounded-lg backdrop-blur-sm border border-white/[0.05] overflow-hidden transform-gpu transition-all duration-300 ease-out hover:border-white/[0.1]">
@@ -112,7 +131,7 @@ export const StreamStatus = memo(({ streamData }: StreamStatusProps) => {
     </div>
   );
 }, (prevProps, nextProps) => {
-  // Only re-render if streamData has changed in a meaningful way
+  // Only re-render if streamData has changed significantly
   if (!prevProps.streamData && !nextProps.streamData) return true;
   if (!prevProps.streamData || !nextProps.streamData) return false;
   
@@ -122,9 +141,9 @@ export const StreamStatus = memo(({ streamData }: StreamStatusProps) => {
   // If the lengths are the same, don't re-render
   if (prevLength === nextLength) return true;
   
-  // If we have a lot of updates, only re-render every 5 updates
-  // to avoid excessive re-renders during fast streaming
-  if (prevLength > 10 && nextLength > prevLength && (nextLength - prevLength) < 5) {
+  // Only re-render after significant changes (at least 10 new chunks)
+  // This dramatically reduces re-renders during fast streaming
+  if (nextLength > prevLength && (nextLength - prevLength) < 10) {
     return true;
   }
   

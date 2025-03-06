@@ -56,7 +56,7 @@
     "autoprefixer": "10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "cmdk": "^1.0.4",
+    "cmdk": "^1.0.0",
     "developer-icons": "^5.2.9",
     "emoji-picker-react": "^4.12.0",
     "framer-motion": "^12.0.6",

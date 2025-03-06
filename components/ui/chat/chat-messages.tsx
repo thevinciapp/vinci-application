@@ -1,7 +1,7 @@
 'use client';
 
 import { ChatContainer, useAutoScroll } from '@/components/ui/chat-container';
-import { useEffect, forwardRef, useRef, useState, useCallback } from 'react';
+import { useEffect, forwardRef, useRef, useState, useCallback, memo, useMemo } from 'react';
 import { ChatMessage } from './chat-message';
 import { JSONValue, Message } from 'ai';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -14,26 +14,109 @@ interface ChatMessagesProps {
   streamData?: JSONValue[] | undefined;
 }
 
-export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
+// Memoized message component to reduce re-renders
+const MemoizedMessage = memo(({ 
+  message, 
+  index, 
+  isLoading, 
+  streamData, 
+  messagesLength, 
+  nextMessageRole, 
+  shouldAddSeparator 
+}: { 
+  message: Message; 
+  index: number; 
+  isLoading: boolean; 
+  streamData?: JSONValue[];
+  messagesLength: number;
+  nextMessageRole?: string;
+  shouldAddSeparator: boolean;
+}) => {
+  const messageRef = useRef<HTMLDivElement>(null);
+
+  return (
+    <>
+      <div 
+        key={message.id} 
+        ref={messageRef}
+        className="transition-all"
+      >
+        <ChatMessage 
+          message={message} 
+          isLoading={isLoading}
+          streamData={streamData}
+        />
+      </div>
+      {shouldAddSeparator && (
+        <div className="w-full flex justify-center my-8">
+          <div className="w-1/3 h-px bg-white/[0.05]" />
+        </div>
+      )}
+    </>
+  );
+}, (prevProps, nextProps) => {
+  // Only re-render if message content or streaming state changes
+  if (prevProps.message.id !== nextProps.message.id) return false;
+  if (prevProps.message.content !== nextProps.message.content) return false;
+  if (prevProps.isLoading !== nextProps.isLoading) return false;
+  
+  // For streaming messages, only compare first and last stream data
+  if (prevProps.message.role === 'assistant' && prevProps.isLoading && nextProps.isLoading) {
+    const prevStreamLength = prevProps.streamData?.length || 0;
+    const nextStreamLength = nextProps.streamData?.length || 0;
+    return (nextStreamLength - prevStreamLength < 5);
+  }
+  
+  return true;
+});
+
+MemoizedMessage.displayName = 'MemoizedMessage';
+
+// Memoized placeholder message component
+const PlaceholderMessage = memo(({ 
+  needsSeparator,
+  streamData
+}: { 
+  needsSeparator: boolean;
+  streamData?: JSONValue[];
+}) => {
+  return (
+    <div key="placeholder-assistant" className="space-y-2">
+      {needsSeparator && (
+        <div className="w-full flex justify-center my-8">
+          <div className="w-1/3 h-px bg-white/[0.05]" />
+        </div>
+      )}
+      <ChatMessage 
+        message={{
+          id: 'placeholder-assistant',
+          role: 'assistant',
+          content: '',
+        }}
+        isLoading={true}
+        streamData={streamData || [{ status: 'Processing...' }]}
+      />
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  // Only re-render on significant stream data updates
+  const prevStreamLength = prevProps.streamData?.length || 0;
+  const nextStreamLength = nextProps.streamData?.length || 0;
+  return (nextStreamLength - prevStreamLength < 5);
+});
+
+PlaceholderMessage.displayName = 'PlaceholderMessage';
+
+const ChatMessagesComponent = forwardRef<HTMLDivElement, ChatMessagesProps>(
   ({ messages, onStickToBottomChange, onScrollToBottom, isLoading, streamData }, ref) => {
-    const [highlightedElement, setHighlightedElement] = useState<HTMLDivElement | null>(null);
-    const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-    const [hasUserInteracted, setHasUserInteracted] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const actualRef = (ref as React.RefObject<HTMLDivElement>) || containerRef;
+    const prevMessagesLengthRef = useRef(messages.length);
     
     const { 
       autoScrollEnabled, 
       scrollToBottom 
     } = useAutoScroll(actualRef, true);
-    
-    useEffect(() => {
-      console.log('[CLIENT] Chat messages render:', { 
-        count: messages.length, 
-        messageIds: messages.map(m => m.id),
-        isLoading
-      });
-    }, [messages, isLoading]);
     
     useEffect(() => {
       if (onStickToBottomChange) {
@@ -50,6 +133,42 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
         onScrollToBottom(handleScrollToBottom);
       }
     }, [onScrollToBottom, scrollToBottom]);
+    
+    // Log only when messages length changes
+    useEffect(() => {
+      if (prevMessagesLengthRef.current !== messages.length) {
+        prevMessagesLengthRef.current = messages.length;
+        console.log('[CLIENT] Chat messages count changed:', { 
+          count: messages.length
+        });
+      }
+    }, [messages.length]);
+
+    // Precompute message separators to avoid recalculation on each render
+    const messageSeparatorMap = useMemo(() => {
+      const separators: Record<string, boolean> = {};
+      
+      messages.forEach((message, index) => {
+        if (index < messages.length - 1) {
+          separators[message.id] = message.role !== messages[index + 1].role;
+        } else {
+          separators[message.id] = false;
+        }
+      });
+      
+      return separators;
+    }, [messages]);
+
+    // Check if we need a separator for placeholder message
+    const needsPlaceholderSeparator = useMemo(() => {
+      return messages.length > 1 && 
+        messages[messages.length - 1].role !== 'assistant';
+    }, [messages]);
+    
+    // Check if we should show placeholder
+    const shouldShowPlaceholder = messages.length > 0 && 
+      messages[messages.length - 1].role === 'user' && 
+      isLoading;
 
     return (
       <div className="relative flex-1 flex flex-col h-full">
@@ -61,57 +180,23 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
           <div className="max-w-[85%] w-full mx-auto">
             <div className="space-y-12">
               {messages.map((message, index) => (
-                <div 
-                  key={message.id} 
-                  ref={(el) => {
-                    if (el && message.id !== 'streaming-message') {
-                      messageRefs.current.set(message.id, el);
-                    }
-                  }}
-                  className={`transition-all ${
-                    highlightedElement === messageRefs.current.get(message.id) && !hasUserInteracted
-                      ? 'bg-cyan-950/20 -mx-6 px-6 py-4 rounded-lg border-2 border-cyan-500/50 animate-highlight-glow relative z-10 shadow-xl' 
-                      : ''
-                  }`}
-                >
-                  {highlightedElement === messageRefs.current.get(message.id) && !hasUserInteracted && (
-                    <div className="absolute top-2 right-3 text-xs text-cyan-400 animate-pulse-fast">
-                      Click anywhere to dismiss
-                    </div>
-                  )}
-                  <ChatMessage 
-                    message={message} 
-                    isLoading={isLoading}
-                    streamData={streamData}
-                  />
-                  {index < messages.length - 1 && messages[index].role !== messages[index + 1].role && (
-                    <div className="w-full flex justify-center my-8">
-                      <div className="w-1/3 h-px bg-white/[0.05]" />
-                    </div>
-                  )}
-                </div>
+                <MemoizedMessage
+                  key={message.id}
+                  message={message}
+                  index={index}
+                  isLoading={isLoading}
+                  streamData={index === messages.length - 1 && message.role === 'assistant' ? streamData : undefined}
+                  messagesLength={messages.length}
+                  nextMessageRole={index < messages.length - 1 ? messages[index + 1].role : undefined}
+                  shouldAddSeparator={messageSeparatorMap[message.id]}
+                />
               ))}
               
-              {/* Add placeholder assistant message when last message is from user and we're loading */}
-              {messages.length > 0 && 
-               messages[messages.length - 1].role === 'user' && 
-               isLoading && (
-                <div key="placeholder-assistant" className="space-y-2">
-                  {messages.length > 1 && messages[messages.length - 1].role !== messages[messages.length - 2].role && (
-                    <div className="w-full flex justify-center my-8">
-                      <div className="w-1/3 h-px bg-white/[0.05]" />
-                    </div>
-                  )}
-                  <ChatMessage 
-                    message={{
-                      id: 'placeholder-assistant',
-                      role: 'assistant',
-                      content: '',
-                    }}
-                    isLoading={true}
-                    streamData={[{ status: 'Processing...' }]}
-                  />
-                </div>
+              {shouldShowPlaceholder && (
+                <PlaceholderMessage 
+                  needsSeparator={needsPlaceholderSeparator}
+                  streamData={streamData}
+                />
               )}
             </div>
           </div>
@@ -121,4 +206,11 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
   }
 );
 
+// Set display name for the base component
+ChatMessagesComponent.displayName = 'ChatMessagesComponent';
+
+// Apply memo to the component after definition
+export const ChatMessages = memo(ChatMessagesComponent);
+
+// Set display name for the memoized component
 ChatMessages.displayName = 'ChatMessages';

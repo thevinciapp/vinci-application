@@ -1,4 +1,4 @@
-import { User, MessageSquareIcon, Sparkles, FileText } from 'lucide-react';
+import { User, MessageSquareIcon, Sparkles, FileText, File } from 'lucide-react';
 import { memo, useMemo } from 'react';
 import { getModelName, type Provider } from '@/config/models';
 import { ProviderIcon } from './provider-icon';
@@ -15,27 +15,32 @@ import { SimilarMessage } from '@/types';
 const UserMessageWithMentions = memo(({ id, content }: { id: string, content: string }) => {
   // Process the content to identify and render filenames as tags
   const processedContent = useMemo(() => {
-    // Simple regex to detect file patterns with extensions
-    // This will match common file extensions
-    const fileRegex = /\b[\w-]+\.(pdf|doc|docx|txt|jpg|png|gif|mp4|mp3|xls|xlsx|ppt|pptx|zip|rar)\b/g;
+    // First, pre-process the content to remove file tags for display
+    // This format is the special marker we use: @[filename](filepath)
+    const fileTagRegex = /@\[(.*?)\]\((.*?)\)/g;
     
-    if (!fileRegex.test(content)) {
-      // If no file patterns found, return the plain content
+    // Check if we need to process any file tags
+    if (!fileTagRegex.test(content)) {
       return <span>{content}</span>;
     }
     
-    // Split the content by file mentions and render each part
-    const parts = [];
+    // Replace all file tags with their display components
+    const parts: React.ReactNode[] = [];
     let lastIndex = 0;
-    let match;
     let key = 0;
     
-    // Reset regex to start from beginning
-    fileRegex.lastIndex = 0;
+    // Create a clean version of the text without special markers
+    let cleanedContent = content;
+    let match;
     
-    // Find all file patterns in text
-    while ((match = fileRegex.exec(content)) !== null) {
-      // Add text before the filename
+    // Reset regex to start from beginning
+    fileTagRegex.lastIndex = 0;
+    
+    // Process each file tag match
+    while ((match = fileTagRegex.exec(content)) !== null) {
+      const [fullMatch, fileName, filePath] = match;
+      
+      // Add text before the file tag
       if (match.index > lastIndex) {
         parts.push(
           <span key={`text-${key++}`}>
@@ -44,22 +49,26 @@ const UserMessageWithMentions = memo(({ id, content }: { id: string, content: st
         );
       }
       
-      // Add the file as a tag component
-      const fileName = match[0]; // The complete filename with extension
+      // Add the file tag component
       parts.push(
         <span 
           key={`file-${key++}`}
-          className="inline-flex items-center gap-1 px-2 py-1 mr-1 rounded bg-white/10 text-xs text-white/90"
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 mr-1 rounded bg-cyan-500/20 text-xs text-cyan-300"
+          title={filePath}
         >
-          <FileText className="h-3 w-3 text-cyan-400" />
+          <File className="h-3 w-3" />
           <span className="truncate max-w-[150px]">{fileName}</span>
         </span>
       );
       
-      lastIndex = match.index + match[0].length;
+      // Update the last index to after this match
+      lastIndex = match.index + fullMatch.length;
+      
+      // Remove this match from the cleaned content
+      cleanedContent = cleanedContent.replace(fullMatch, "");
     }
     
-    // Add any remaining text
+    // Add any remaining text after the last match
     if (lastIndex < content.length) {
       parts.push(
         <span key={`text-${key++}`}>
@@ -76,6 +85,9 @@ const UserMessageWithMentions = memo(({ id, content }: { id: string, content: st
       {processedContent}
     </div>
   );
+}, (prevProps, nextProps) => {
+  // Only re-render if the content has changed
+  return prevProps.content === nextProps.content && prevProps.id === nextProps.id;
 });
 
 interface ChatMessageProps {
@@ -271,6 +283,35 @@ export const ChatMessage = memo<ChatMessageProps>(
                 </div>
             </div>
         );
+    },
+    (prevProps, nextProps) => {
+        // Custom equality comparison to avoid unnecessary re-renders
+        if (prevProps.message.id !== nextProps.message.id) return false;
+        if (prevProps.message.role !== nextProps.message.role) return false;
+        
+        // For user messages, only re-render if content changes
+        if (prevProps.message.role === 'user') {
+            return prevProps.message.content === nextProps.message.content;
+        }
+        
+        // For assistant messages, check if we're in streaming state
+        const isStreamingPrev = prevProps.isLoading && (prevProps.message.id === 'placeholder-assistant' || prevProps.message.content.length === 0);
+        const isStreamingNext = nextProps.isLoading && (nextProps.message.id === 'placeholder-assistant' || nextProps.message.content.length === 0);
+        
+        // If streaming state changed, re-render
+        if (isStreamingPrev !== isStreamingNext) return false;
+        
+        // If streaming, only update every 5 stream data changes to reduce re-renders
+        if (isStreamingNext && prevProps.streamData && nextProps.streamData) {
+            const prevLength = prevProps.streamData.length;
+            const nextLength = nextProps.streamData.length;
+            
+            // Only re-render if streamData length increased by at least 5
+            return nextLength <= prevLength || (nextLength - prevLength < 5);
+        }
+        
+        // For normal messages, only re-render if content changes
+        return prevProps.message.content === nextProps.message.content;
     }
 );
 
