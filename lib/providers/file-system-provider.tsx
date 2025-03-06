@@ -1,7 +1,6 @@
 import { ContentProvider, MentionContent, MentionItem } from '@/types/mention';
 import { FileText, File, Folder, Code } from 'lucide-react';
 
-// Helper to get icon for a file type
 export const getIconForFileType = (fileType: string): React.ReactNode => {
   switch (fileType?.toLowerCase()) {
     case 'md':
@@ -27,7 +26,6 @@ export const getIconForFileType = (fileType: string): React.ReactNode => {
   }
 };
 
-// File system provider implementation
 export const FileSystemProvider: ContentProvider = {
   id: 'filesystem',
   name: 'Local Files',
@@ -38,34 +36,15 @@ export const FileSystemProvider: ContentProvider = {
   isAuthenticated: true,
   supportedTypes: ['file', 'folder'],
   
-  // Search for files in the local system
   search: async (query: string, options?: any): Promise<MentionItem[]> => {
     if (!window.electronAPI) {
-      console.log("Electron API not available, using mock data");
-      // Return mock data for testing
-      const mockFiles = [
-        { path: '/Users/example/Documents/example.txt', name: 'example.txt', type: 'txt' },
-        { path: '/Users/example/Documents/report.pdf', name: 'report.pdf', type: 'pdf' },
-        { path: '/Users/example/code/app.js', name: 'app.js', type: 'js' }
-      ];
-      
-      return mockFiles
-        .filter(file => file.name.toLowerCase().includes(query.toLowerCase()))
-        .map(file => ({
-          id: `file-${file.path}`,
-          type: 'file',
-          name: file.name,
-          description: file.path,
-          icon: getIconForFileType(file.type),
-          path: file.path,
-          contentType: file.type
-        }));
+      console.log("Electron API not available");
+      return [];
     }
     
     try {
       const files = await window.electronAPI.searchFiles(query);
       
-      // Convert to MentionItems
       return files.map((file: any) => ({
         id: `file-${file.path}`,
         type: 'file',
@@ -81,7 +60,6 @@ export const FileSystemProvider: ContentProvider = {
     }
   },
   
-  // Get content for a file
   getContent: async (item: MentionItem): Promise<MentionContent> => {
     if (!window.electronAPI) {
       return { 

@@ -138,44 +138,15 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
       if (caretPosition > atIndex && caretPosition <= atIndex + 20) {
         const query = e.target.value.substring(atIndex + 1, caretPosition);
         
-        // If the query changed, debounce search updates to avoid excessive API calls
         if (query !== suggestionQuery) {
           setSuggestionQuery(query);
-          
-          // Clear previous timeout
-          if (searchTimeoutRef.current) {
-            clearTimeout(searchTimeoutRef.current);
-          }
-          
-          // Immediately show the suggestions menu, but debounce the search
           setShowSuggestions(true);
-          
-          // Start short debounce timer for searching to prevent spamming file system
-          const now = Date.now();
-          const timeSinceLastSearch = now - lastSearchTimeRef.current;
-          const minSearchDelay = query.length <= 2 ? 150 : 50; // Shorter delay for longer queries
-          
-          if (timeSinceLastSearch > 500) {
-            // If it's been a while, search immediately
-            console.log(`Searching immediately for: @${query}`);
-            // No need to set timeout, just remember the time
-            lastSearchTimeRef.current = now;
-          } else {
-            // Otherwise debounce
-            searchTimeoutRef.current = setTimeout(() => {
-              console.log(`Debounced search for: @${query}`);
-              lastSearchTimeRef.current = Date.now();
-            }, minSearchDelay);
-          }
         }
       } else if (caretPosition <= atIndex) {
         setShowSuggestions(false);
       }
     } else {
       setShowSuggestions(false);
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
     }
   };
 
