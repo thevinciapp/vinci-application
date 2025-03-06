@@ -31,7 +31,7 @@ export const ContentTag: React.FC<ContentTagProps> = ({ item, onRemove }) => {
   
   return (
     <span 
-      className="inline-flex items-center gap-1 px-2 py-1 mr-1 mb-1 rounded bg-white/10 hover:bg-white/20 transition-colors text-xs text-white/90 group"
+      className="inline-flex items-center gap-1 px-2 py-1 mr-1 rounded bg-white/10 hover:bg-white/20 transition-colors text-xs text-white/90 group"
       title={item.name}
     >
       {getIconForType(item.type)}

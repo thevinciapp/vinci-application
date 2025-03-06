@@ -1,5 +1,5 @@
-import { User, MessageSquareIcon, Sparkles } from 'lucide-react';
-import { memo } from 'react';
+import { User, MessageSquareIcon, Sparkles, FileText } from 'lucide-react';
+import { memo, useMemo } from 'react';
 import { getModelName, type Provider } from '@/config/models';
 import { ProviderIcon } from './provider-icon';
 import { JSONValue, Message } from 'ai';
@@ -10,6 +10,73 @@ import DotSphere from '@/components/ui/space/planet-icon';
 import { useSpaceStore } from '@/stores/space-store';
 import { getChatModeConfig } from '@/config/chat-modes';
 import { SimilarMessage } from '@/types';
+
+// Component for rendering user messages with file mentions
+const UserMessageWithMentions = memo(({ id, content }: { id: string, content: string }) => {
+  // Process the content to identify and render filenames as tags
+  const processedContent = useMemo(() => {
+    // Simple regex to detect file patterns with extensions
+    // This will match common file extensions
+    const fileRegex = /\b[\w-]+\.(pdf|doc|docx|txt|jpg|png|gif|mp4|mp3|xls|xlsx|ppt|pptx|zip|rar)\b/g;
+    
+    if (!fileRegex.test(content)) {
+      // If no file patterns found, return the plain content
+      return <span>{content}</span>;
+    }
+    
+    // Split the content by file mentions and render each part
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+    let key = 0;
+    
+    // Reset regex to start from beginning
+    fileRegex.lastIndex = 0;
+    
+    // Find all file patterns in text
+    while ((match = fileRegex.exec(content)) !== null) {
+      // Add text before the filename
+      if (match.index > lastIndex) {
+        parts.push(
+          <span key={`text-${key++}`}>
+            {content.substring(lastIndex, match.index)}
+          </span>
+        );
+      }
+      
+      // Add the file as a tag component
+      const fileName = match[0]; // The complete filename with extension
+      parts.push(
+        <span 
+          key={`file-${key++}`}
+          className="inline-flex items-center gap-1 px-2 py-1 mr-1 rounded bg-white/10 text-xs text-white/90"
+        >
+          <FileText className="h-3 w-3 text-cyan-400" />
+          <span className="truncate max-w-[150px]">{fileName}</span>
+        </span>
+      );
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Add any remaining text
+    if (lastIndex < content.length) {
+      parts.push(
+        <span key={`text-${key++}`}>
+          {content.substring(lastIndex)}
+        </span>
+      );
+    }
+    
+    return <>{parts}</>;
+  }, [content]);
+  
+  return (
+    <div id={id}>
+      {processedContent}
+    </div>
+  );
+});
 
 interface ChatMessageProps {
     message: Message;
@@ -174,9 +241,7 @@ export const ChatMessage = memo<ChatMessageProps>(
 
                         {isUser ? (
                             <div className="text-sm leading-relaxed whitespace-pre-wrap break-words text-white shadow-[0_0_15px_-5px_rgba(255,255,255,0.3)]">
-                                <Markdown id={`user-${message.id}`}>
-                                    {message.content}
-                                </Markdown>
+                                <UserMessageWithMentions id={`user-${message.id}`} content={message.content} />
                             </div>
                         ) : isStreamingAssistant ? (
                             <div className="transition-all duration-500 ease-in-out will-change-transform">

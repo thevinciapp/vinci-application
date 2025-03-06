@@ -12,7 +12,10 @@ import {
 import { MentionItem, ExtractedMention, SelectedMentionItem } from '@/types/mention';
 import { useMentionSystem } from '@/hooks/useMentionSystem';
 import { ContentTag } from './content-tag';
+// No need for custom styling anymore
 import { MentionMenu } from './mention-menu';
+import { useSpaceStore, FileReference } from '@/stores/space-store';
+import { useShallow } from 'zustand/react/shallow';
 
 interface UnifiedInputProps {
   value: string;
@@ -21,6 +24,23 @@ interface UnifiedInputProps {
   disabled?: boolean;
   children?: React.ReactNode;
 }
+
+// Helper function to render mention tags below the input
+const renderMentionTags = (mentions: ExtractedMention[], onRemove: (id: string) => void) => {
+  if (!mentions.length) return null;
+  
+  return (
+    <div className="flex flex-wrap gap-1 px-4 pt-2 pb-1">
+      {mentions.map(mention => (
+        <ContentTag
+          key={mention.id}
+          item={{id: mention.id, name: mention.name, type: mention.type}}
+          onRemove={onRemove}
+        />
+      ))}
+    </div>
+  );
+};
 
 // Component for text input with @ mentions functionality
 export const UnifiedInput: React.FC<UnifiedInputProps> = ({
@@ -35,6 +55,21 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [cursorPosition, setCursorPosition] = useState(0);
   const [internalValue, setInternalValue] = useState<string>(value);
+  
+  // Access the space store for file references
+  const { 
+    fileReferences,
+    addFileReference,
+    removeFileReference,
+    clearFileReferences
+  } = useSpaceStore(
+    useShallow((state) => ({
+      fileReferences: state.uiState.fileReferences,
+      addFileReference: state.addFileReference,
+      removeFileReference: state.removeFileReference,
+      clearFileReferences: state.clearFileReferences
+    }))
+  );
   
   // Use the mention system hook for most of the mention functionality
   const { 
@@ -82,23 +117,18 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     }
   }, [value]);
 
-  // Handle input changes and mention detection
   const handleInputChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const newDisplayText = e.target.value;
     const caretPosition = e.target.selectionStart || 0;
     setCursorPosition(caretPosition);
     
-    // Check for @ symbol to trigger mention menu
     checkForMentionTrigger(newDisplayText, caretPosition);
     
-    // Map display position to internal position
     const internalPosition = mapDisplayToInternalPosition(caretPosition, internalValue);
     
-    // Update internal value while preserving mentions
     let newInternalValue = internalValue;
     const prevDisplayText = getDisplayText(internalValue);
     
-    // Find common prefix length to determine what changed
     let commonPrefixLength = 0;
     while (
       commonPrefixLength < prevDisplayText.length && 
@@ -108,7 +138,6 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
       commonPrefixLength++;
     }
     
-    // Handle text addition or removal
     if (newDisplayText.length >= prevDisplayText.length) {
       // Text was added
       const addedText = newDisplayText.substring(commonPrefixLength, caretPosition);
@@ -147,20 +176,15 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
   // Create ref for mention menu
   const mentionMenuRef = useRef<{handleKeyDown: (e: React.KeyboardEvent) => boolean}>(null);
   
-  // No need for code block generation anymore
   
-  // Handle keyboard navigation and special keys
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (showMentionMenu && mentionMenuRef.current) {
-      // First try to let the mention menu handle the key event
       const handled = mentionMenuRef.current.handleKeyDown(e);
       
-      // If the mention menu handled it, we're done
       if (handled) {
         return;
       }
       
-      // If not handled and it's Escape, close the menu
       if (e.key === 'Escape') {
         e.preventDefault();
         setShowMentionMenu(false);
@@ -169,14 +193,12 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
       e.preventDefault();
       handleSubmit();
     } else if (e.key === 'Backspace') {
-      // Handle backspace when text is empty but mentions exist
       const displayText = getDisplayText(internalValue);
       const mentions = extractMentions(internalValue);
       
       if (displayText === '' && mentions.length > 0) {
         e.preventDefault();
         
-        // Remove the last mention
         const lastMention = mentions[mentions.length - 1];
         removeSelectedItem(lastMention.id, internalValue, (newText) => {
           setInternalValue(newText);
@@ -187,18 +209,42 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     }
   };
 
-  // Submit the message with any attached items
   const handleSubmit = () => {
     if (!value.trim() || disabled) return;
     
-    // Use the internal value which preserves the @[name](id) format
-    const finalMessage = internalValue;
+    // Get all mentions from the message
+    const mentions = extractMentions(internalValue);
     
-    // Create a custom event with content data
+    // Get the display text with just the file names (no mention syntax)
+    const displayMessage = getDisplayText(internalValue);
+    
+    // Build the collection of mentioned files
+    const mentionedFiles: Record<string, FileReference> = {};
+    
+    mentions.forEach((mention) => {
+      if (mention.type === 'file' && selectedItems[mention.id]) {
+        const fileData = selectedItems[mention.id];
+        const fileRef: FileReference = {
+          id: mention.id,
+          path: fileData.path || fileData.id,
+          name: mention.name,
+          content: fileData.content,
+          type: fileData.type
+        };
+        
+        // Add file reference to the store
+        addFileReference(fileRef);
+        
+        // Add to our local collection for the event
+        mentionedFiles[mention.id] = fileRef;
+      }
+    });
+    
+    // Create a custom event with the content data
     const customEvent = new CustomEvent('chatSubmit', {
       detail: {
-        message: finalMessage,
-        files: selectedItems
+        message: displayMessage, // Plain text with file names only
+        files: mentionedFiles
       }
     });
     
@@ -209,9 +255,8 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     onSubmit();
   };
 
-  // Get all mentions in the text
   const mentions = extractMentions(internalValue);
-
+  
   return (
     <div className="relative">
       {children}
@@ -239,49 +284,43 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
       
       <div 
         className={`
-          relative rounded-2xl rounded-t-none
+          relative rounded-b-2xl
           bg-white/[0.03] border border-white/[0.05]
           transition-all duration-300
           overflow-hidden backdrop-blur-xl
           ${isFocused ? 'bg-white/[0.05] border-white/[0.1]' : ''}
         `}
       >
-        {/* Selected content items */}
-        <div className="selected-files-container px-4 pt-2 flex flex-wrap gap-2">
-          {mentions.map(({id, name, type}) => (
-            <ContentTag
-              key={id}
-              item={{id, name, type}}
-              onRemove={(itemId) => {
-                removeSelectedItem(itemId, internalValue, (newText) => {
-                  setInternalValue(newText);
-                  const event = { target: { value: newText } } as ChangeEvent<HTMLTextAreaElement>;
-                  onChange(event);
-                });
-              }}
-            />
-          ))}
-        </div>
 
         <div className="flex items-center gap-2">
-          <textarea
-            ref={textareaRef}
-            value={getDisplayText(internalValue)}
-            onChange={handleInputChange}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => {
-              // Only update focus state, don't hide the mention menu
-              // The Popover component will handle menu visibility
-              setTimeout(() => {
-                setIsFocused(false);
-              }, 100);
-            }}
-            onKeyDown={handleKeyDown}
-            placeholder={"Type @ to mention or insert... (Press ⌘+/ to focus)"}
-            className="flex-1 text-sm resize-none min-h-[48px] max-h-[200px] px-4 py-3 focus:bg-transparent bg-transparent focus:outline-none transition-colors duration-200 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent text-white/90 placeholder:text-white/40"
-            style={{ overflow: value.split('\n').length > 8 ? 'auto' : 'hidden' }}
-            rows={1}
-          />
+          <div className="flex-1 flex flex-col">
+            {/* Render mention tags at the top */}
+            {mentions.length > 0 && renderMentionTags(mentions, (itemId) => {
+              removeSelectedItem(itemId, internalValue, (newText) => {
+                setInternalValue(newText);
+                const event = { target: { value: newText } } as ChangeEvent<HTMLTextAreaElement>;
+                onChange(event);
+              });
+            })}
+            
+            {/* Simple textarea with clear styling */}
+            <textarea
+              ref={textareaRef}
+              value={getDisplayText(internalValue)}
+              onChange={handleInputChange}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => {
+                setTimeout(() => {
+                  setIsFocused(false);
+                }, 100);
+              }}
+              onKeyDown={handleKeyDown}
+              placeholder={"Type @ to mention files (Press ⌘+/ to focus)"}
+              className="flex-1 text-sm resize-none min-h-[48px] max-h-[200px] px-4 py-3 focus:bg-transparent bg-transparent focus:outline-none transition-colors duration-200 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent text-white/90 placeholder:text-white/40"
+              style={{ overflow: value.split('\n').length > 8 ? 'auto' : 'hidden' }}
+              rows={1}
+            />
+          </div>
           
           <div className="flex items-center mr-2">
             {Object.keys(processingItems).length > 0 && (

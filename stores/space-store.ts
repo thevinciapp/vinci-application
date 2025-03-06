@@ -20,6 +20,7 @@ export interface UIState {
   messages: any[] | null;
   isLoading: boolean;
   loadingType: 'space' | 'conversation' | 'messages' | null;
+  fileReferences: FileReference[];
 }
 
 export interface Space {
@@ -69,6 +70,14 @@ export interface InitialState {
   loadingType?: 'space' | 'conversation' | 'messages' | null;
 }
 
+export interface FileReference {
+  id: string;
+  path: string;
+  name: string;
+  content?: string;
+  type?: string;
+}
+
 export interface SpaceStore {
   // State
   spaces: Space[] | null;
@@ -87,6 +96,12 @@ export interface SpaceStore {
   
   // UI State update methods
   updateUIState: (updates: Partial<UIState>) => void;
+  
+  // File reference methods
+  addFileReference: (fileRef: FileReference) => void;
+  removeFileReference: (id: string) => void;
+  clearFileReferences: () => void;
+  getFileReferences: () => FileReference[];
   
   // Space fetch operations
   fetchSpaces: () => Promise<Space[] | null>;
@@ -127,6 +142,12 @@ export interface SpaceStore {
   
   // Navigation helper (keeping for backward compatibility)
   navigateToActiveConversation: (router: any) => void;
+  
+  // File references operations
+  addFileReference: (fileRef: FileReference) => void;
+  removeFileReference: (id: string) => void;
+  clearFileReferences: () => void;
+  getFileReferences: () => FileReference[];
 }
 
 export const useSpaceStore = create<SpaceStore>((set, get) => ({
@@ -146,7 +167,8 @@ export const useSpaceStore = create<SpaceStore>((set, get) => ({
     activeConversation: null,
     messages: null,
     isLoading: false,
-    loadingType: null
+    loadingType: null,
+    fileReferences: []
   },
   
   // Single consolidated initialization function
@@ -174,7 +196,8 @@ export const useSpaceStore = create<SpaceStore>((set, get) => ({
         activeConversation: initialState.activeConversation || null,
         messages: initialState.messages || null,
         isLoading: initialState.isLoading || false,
-        loadingType: initialState.loadingType || null
+        loadingType: initialState.loadingType || null,
+        fileReferences: []
       }
     });
     
@@ -1025,6 +1048,44 @@ export const useSpaceStore = create<SpaceStore>((set, get) => ({
       // No conversations, just go to the space
       router.push(`/protected/spaces/${activeSpace.id}/conversations`);
     }
+  },
+  
+  // File references operations
+  addFileReference: (fileRef) => {
+    console.log('[STORE] Adding file reference', fileRef);
+    set((state) => ({
+      uiState: {
+        ...state.uiState,
+        fileReferences: [
+          ...state.uiState.fileReferences.filter(ref => ref.id !== fileRef.id),
+          fileRef
+        ]
+      }
+    }));
+  },
+  
+  removeFileReference: (id) => {
+    console.log('[STORE] Removing file reference', id);
+    set((state) => ({
+      uiState: {
+        ...state.uiState,
+        fileReferences: state.uiState.fileReferences.filter(ref => ref.id !== id)
+      }
+    }));
+  },
+  
+  clearFileReferences: () => {
+    console.log('[STORE] Clearing all file references');
+    set((state) => ({
+      uiState: {
+        ...state.uiState,
+        fileReferences: []
+      }
+    }));
+  },
+  
+  getFileReferences: () => {
+    return get().uiState.fileReferences;
   },
 }));
 

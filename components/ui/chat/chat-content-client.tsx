@@ -55,13 +55,15 @@ export default function ClientChatContent({
     activeSpace: storeActiveSpace,
     conversations: storeConversations,
     activeConversation: storeActiveConversation,
-    messages: storeMessages
+    messages: storeMessages,
+    fileReferences
   } = useSpaceStore(
     useShallow((state) => state.uiState)
   );
 
   const { 
-    createConversation, 
+    createConversation,
+    clearFileReferences
   } = useSpaceStore();
   
   const activeSpace = storeActiveSpace || initialData.activeSpace;
@@ -91,8 +93,20 @@ export default function ClientChatContent({
     router.replace(`/protected/spaces/${activeSpace?.id}/conversations/${activeConversation?.id}`);
   }, [storeActiveConversation?.id]);
 
-  // State to store selected files
-  const [selectedFiles, setSelectedFiles] = useState<Record<string, any>>({});
+  // Convert file references to the format expected by the API
+  const fileReferencesMap = useCallback(() => {
+    const fileMap: Record<string, any> = {};
+    fileReferences.forEach(fileRef => {
+      fileMap[fileRef.id] = {
+        id: fileRef.id,
+        path: fileRef.path,
+        name: fileRef.name,
+        content: fileRef.content,
+        type: fileRef.type
+      };
+    });
+    return fileMap;
+  }, [fileReferences]);
 
   const {
     messages,
@@ -116,36 +130,24 @@ export default function ClientChatContent({
       searchMode,
       chatMode: activeSpace?.chat_mode || "ask",
       chatModeConfig: activeSpace?.chat_mode_config || { tools: [] },
-      files: selectedFiles, // Include files in the API call
+      files: fileReferencesMap(), // Use file references from the store
     },
     onFinish() {
       setData([]);
-      // Clear files after submission
-      setSelectedFiles({});
+      // Clear file references after submission
+      clearFileReferences();
     },
   });
 
-  // Custom submit handler that includes file data
+  // Custom submit handler
   const handleSubmit = useCallback(() => {
+    console.log('[CLIENT] Submitting with file references:', fileReferences);
     originalHandleSubmit();
-  }, [originalHandleSubmit]);
+  }, [originalHandleSubmit, fileReferences]);
 
-  // Listen for file selection events from UnifiedInput
-  useEffect(() => {
-    const handleFileSelection = (event: CustomEvent) => {
-      if (event.detail && event.detail.files) {
-        setSelectedFiles(event.detail.files);
-      }
-    };
-
-    // Add event listener for custom event
-    document.addEventListener('chatSubmit', handleFileSelection as EventListener);
-
-    // Cleanup
-    return () => {
-      document.removeEventListener('chatSubmit', handleFileSelection as EventListener);
-    };
-  }, []);
+  // We don't need to listen for file selection events anymore
+  // as the file references are now handled by the space store directly
+  // and will be included in the API request via the fileReferencesMap function
 
   // Add this effect to track message changes
   useEffect(() => {

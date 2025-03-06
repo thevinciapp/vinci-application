@@ -48,7 +48,6 @@ export const formatMention = (name: string, id: string): string => {
   return `@[${name}](${id}) `;
 };
 
-// Gets display text by removing mention syntax
 export const getDisplayText = (text: string): string => {
   if (!text) return '';
   
@@ -58,14 +57,16 @@ export const getDisplayText = (text: string): string => {
   // Replace mentions from right to left to avoid position issues
   for (let i = mentions.length - 1; i >= 0; i--) {
     const mention = mentions[i];
+    
+    // Replace the mention with just the filename
     displayText = displayText.substring(0, mention.index) + 
+                  mention.name + 
                   displayText.substring(mention.index + mention.length);
   }
   
   return displayText;
 };
 
-// Maps cursor position in display text to position in internal text with mentions
 export const mapDisplayToInternalPosition = (displayPosition: number, internalText: string): number => {
   if (!internalText) return displayPosition;
   
