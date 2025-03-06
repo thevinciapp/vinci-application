@@ -39,7 +39,6 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const [tokens, setTokens] = useState<Token[]>([{ id: "initial", type: "text", content: "" }]);
-  const [inputValue, setInputValue] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionQuery, setSuggestionQuery] = useState("");
 
@@ -54,13 +53,10 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     }))
   );
 
-  // State for file search results and loading state
   const [fileResults, setFileResults] = useState<FileTag[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Search for files using the file system provider
   const searchFiles = useCallback(async (query: string) => {
-    // Don't search if query is empty
     if (!query.trim()) {
       setFileResults([]);
       return;
@@ -100,14 +96,12 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     }
   }, []);
 
-  // Effect to search files when query changes (with debounce controlled by the input handler)
   useEffect(() => {
     if (suggestionQuery) {
       searchFiles(suggestionQuery);
     }
   }, [suggestionQuery, searchFiles]);
 
-  // Get filtered files for display
   const filteredFiles = React.useMemo(() => {
     if (!suggestionQuery) return fileResults;
     
@@ -125,31 +119,24 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     focusInput();
   }, { enableOnFormTags: true });
 
-  // Focus the input when clicking on the container
   const handleContainerClick = (e: React.MouseEvent) => {
     if (e.target === containerRef.current) {
       inputRef.current?.focus();
     }
   };
 
-  // Track the last time we performed a file search to avoid excessive searches
   const lastSearchTimeRef = useRef<number>(0);
-  // Track search debounce timer
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Handle input changes with optimized file search
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setInputValue(value);
+    onChange(e);
     
-    // Detect @ symbol with cursor position awareness
-    if (value.includes("@")) {
-      const atIndex = value.lastIndexOf("@");
+    if (e.target.value.includes("@")) {
+      const atIndex = e.target.value.lastIndexOf("@");
       const caretPosition = e.target.selectionStart || 0;
       
-      // Only trigger search if user is typing after an @ symbol
       if (caretPosition > atIndex && caretPosition <= atIndex + 20) {
-        const query = value.substring(atIndex + 1, caretPosition);
+        const query = e.target.value.substring(atIndex + 1, caretPosition);
         
         // If the query changed, debounce search updates to avoid excessive API calls
         if (query !== suggestionQuery) {
@@ -182,11 +169,9 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
           }
         }
       } else if (caretPosition <= atIndex) {
-        // User moved cursor back before the @ symbol, hide suggestions
         setShowSuggestions(false);
       }
     } else {
-      // No @ symbol in text, hide suggestions
       setShowSuggestions(false);
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
@@ -194,10 +179,8 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     }
   };
 
-  // Handle key events
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Backspace" && inputValue === "" && tokens.length > 0) {
-      // Remove the last token if it's a file tag
+    if (e.key === "Backspace" && value === "" && tokens.length > 0) {
       const lastToken = tokens[tokens.length - 1];
       if (lastToken.type === "file") {
         const newTokens = [...tokens];
@@ -283,9 +266,9 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
       };
   
       // If the current input has an @ symbol, split it
-      if (inputValue.includes("@")) {
-        const atIndex = inputValue.lastIndexOf("@");
-        const textBefore = inputValue.substring(0, atIndex);
+      if (value.includes("@")) {
+        const atIndex = value.lastIndexOf("@");
+        const textBefore = value.substring(0, atIndex);
   
         // Update the current text token with text before @
         const newTokens = [...tokens];
@@ -299,11 +282,13 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
         // Just add the file token after the current text
         setTokens([...tokens, fileToken, newTextToken]);
       }
+      
+      // Clear the input after adding file token
+      const event = { target: { value: "" } } as ChangeEvent<HTMLInputElement>;
+      onChange(event);
     } catch (error) {
       console.error("Error selecting file:", error);
     } finally {
-      // Reset input and suggestions
-      setInputValue("");
       setShowSuggestions(false);
       setIsSearching(false);
   
@@ -343,80 +328,66 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     }, 0);
   };
 
-  // Handle form submission
-  const handleSubmit = () => {
-    if (disabled) return;
-    
-    // Check if there's any content to submit
-    const hasContent = tokens.some(token => 
-      (token.type === "text" && token.content.trim() !== "") || 
-      token.type === "file"
-    );
-    
-    if (!hasContent && inputValue.trim() === "") {
-      console.log('[UnifiedInput] Nothing to submit - empty message');
+  // Track if a message is currently being submitted to prevent double submission
+  const isSubmittingRef = useRef(false);
+
+  const handleSubmit = async () => {
+    if (disabled || isSubmittingRef.current) {
+      console.log('[UnifiedInput] Submission blocked: disabled or already submitting');
       return;
     }
     
-    // Combine all tokens into a cleaned display message - without the file path information
-    // Instead, we'll use files in the store for the actual API request
-    const displayMessage = tokens
-      .map((token) => {
-        if (token.type === "text") return token.content;
-        // Just add the file name with a special marker that will be detected and styled in chat-message
-        return `@[${token.file?.name}](${token.file?.path})`;
-      })
-      .join("") + inputValue;
+    isSubmittingRef.current = true;
     
-    console.log('[UnifiedInput] Submitting message:', displayMessage);
-    
-    // We don't need to add file references again as they were added when the files were selected
-    // Just collect references to log what's being sent
-    const files: Record<string, any> = {};
-    tokens.forEach(token => {
-      if (token.type === "file" && token.file) {
-        const file = token.file;
-        files[file.id] = {
-          id: file.id,
-          path: file.path,
-          name: file.name
-        };
-      }
-    });
-    
-    console.log('[UnifiedInput] Sending message with file references:', Object.keys(files).length);
-    
-    // Debug: Log file references to ensure they have content
-    if (Object.keys(files).length > 0) {
-      // Get all file references from the store to verify they have content
-      const allFileRefs = useSpaceStore.getState().uiState.fileReferences;
-      console.log(`[UnifiedInput] File references in store: ${allFileRefs.length}`);
-      allFileRefs.forEach(ref => {
-        console.log(`[UnifiedInput] File [${ref.name}]: Content size = ${ref.content?.length || 0} bytes`);
-      });
-    }
-    
-    // Make sure we have a non-empty message to submit
-    let finalMessage = displayMessage;
-    if (finalMessage.trim() === "") {
-      console.log('[UnifiedInput] Warning: Empty message after processing - adding space to ensure it\'s sent');
-      finalMessage = " "; // Add a space to ensure it's not empty
-    }
-    
-    // Update the parent component's value with the display message
-    const event = { target: { value: finalMessage } } as ChangeEvent<HTMLInputElement>;
-    onChange(event);
-    
-    // Call the submit handler which will use the file references from the space store
-    // Use a small timeout to ensure state changes have been processed
-    setTimeout(() => {
-      console.log('[UnifiedInput] Calling submit handler');
-      onSubmit();
+    try {
+      // Check if there's any content to submit
+      const hasContent = tokens.some(token => 
+        (token.type === "text" && token.content.trim() !== "") || 
+        token.type === "file"
+      );
       
-      // Reset state after submission
-      setTokens([{ id: "initial", type: "text", content: "" }]);
-      setInputValue("");
-    }, 10);
+      if (!hasContent && value.trim() === "") {
+        console.log('[UnifiedInput] Nothing to submit - empty message');
+        isSubmittingRef.current = false;
+        return;
+      }
+      
+      // Combine all tokens into a cleaned display message
+      const displayMessage = tokens
+        .map((token) => {
+          if (token.type === "text") return token.content;
+          return `@[${token.file?.name}](${token.file?.path})`;
+        })
+        .join("") + value;
+      
+      console.log('[UnifiedInput] Submitting message:', displayMessage);
+      
+      // Ensure non-empty message
+      let finalMessage = displayMessage.trim() || " ";
+      
+      // Save the current state in case we need to restore it
+      const savedTokens = [...tokens];
+      
+      try {
+        // Update parent value and submit
+        const event = { target: { value: finalMessage } } as ChangeEvent<HTMLInputElement>;
+        onChange(event);
+        await Promise.resolve(onSubmit());
+        
+        // Only clear tokens after successful submission
+        setTokens([{ id: "initial", type: "text", content: "" }]);
+        console.log('[UnifiedInput] Message submitted successfully');
+      } catch (error) {
+        console.error('[UnifiedInput] Submission failed:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('[UnifiedInput] Error during submission:', error);
+      // Restore tokens if submission fails
+      setTokens(savedTokens);
+    } finally {
+      isSubmittingRef.current = false;
+    }
   };
 
   // Cleanup function to remove timers when component unmounts
@@ -496,7 +467,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
                       ref={inputRef}
                       type="text"
                       className="flex-1 min-w-[120px] bg-transparent outline-none text-white/90 text-sm placeholder:text-white/40"
-                      value={inputValue}
+                      value={value}
                       onChange={handleInputChange}
                       onKeyDown={handleKeyDown}
                       onFocus={() => setIsFocused(true)}

@@ -112,10 +112,10 @@ export default function ClientChatContent({
     messages,
     setMessages,
     input,
-    setInput,
     isLoading: isChatLoading,
+    setInput,
     handleInputChange,
-    handleSubmit: originalHandleSubmit,
+    handleSubmit,
     data,
     setData,
   } = useChat({
@@ -130,33 +130,13 @@ export default function ClientChatContent({
       searchMode,
       chatMode: activeSpace?.chat_mode || "ask",
       chatModeConfig: activeSpace?.chat_mode_config || { tools: [] },
-      files: fileReferencesMap(), // Use file references from the store
+      files: fileReferencesMap(),
     },
     onFinish() {
       setData([]);
-      // Clear file references after submission
       clearFileReferences();
     },
   });
-
-  // Custom submit handler
-  const handleSubmit = useCallback(() => {
-    console.log('[CLIENT] Submitting with file references:', fileReferences);
-    originalHandleSubmit();
-  }, [originalHandleSubmit, fileReferences]);
-
-  // We don't need to listen for file selection events anymore
-  // as the file references are now handled by the space store directly
-  // and will be included in the API request via the fileReferencesMap function
-
-  // Add this effect to track message changes
-  useEffect(() => {
-    console.log('[CLIENT] Messages state updated:', {
-      messagesCount: messages.length,
-      messageIds: messages.map(m => m.id).slice(0, 5), // Show first 5 IDs only to keep logs clean
-      fromInitialLoad: messages === initialMessages
-    });
-  }, [messages, initialMessages]);
 
   const handleStickToBottomChange = useCallback((isAtBottom: boolean) => {
     setIsStickToBottom(isAtBottom);
