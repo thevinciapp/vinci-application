@@ -197,7 +197,7 @@ export const MentionMenu = React.forwardRef<MentionMenuHandle, MentionMenuProps>
                         value={item.name} // For keyboard accessibility
                         data-highlighted={isHighlighted}
                       >
-                        <span className="flex-shrink-0 text-white/70">{item.icon}</span>
+                        <span className="shrink-0 text-white/70">{item.icon}</span>
                         <div className="flex flex-col overflow-hidden">
                           <span className="text-sm font-medium text-white truncate">{item.name}</span>
                           {item.description && (

@@ -68,7 +68,7 @@ export function ScrollButton({
       size="icon"
       variant="outline"
       className={cn(
-        "size-8 rounded-full bg-background/80 backdrop-blur transition-opacity hover:bg-background",
+        "size-8 rounded-full bg-background/80 backdrop-blur-sm transition-opacity hover:bg-background",
         className
       )}
       onClick={handleClick}

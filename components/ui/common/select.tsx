@@ -19,7 +19,7 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-white/[0.05] bg-white/[0.02] px-3 py-2 text-sm text-white/90 transition-all duration-200 focus:bg-white/[0.03] focus:border-white/[0.1] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
+      "flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-white/[0.05] bg-white/[0.02] px-3 py-2 text-sm text-white/90 transition-all duration-200 focus:bg-white/[0.03] focus:border-white/[0.1] focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
       className
     )}
     {...props}
@@ -118,7 +118,7 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm text-white/80 outline-none transition-all duration-200 hover:bg-white/[0.05] hover:text-white data-[state=checked]:bg-white/[0.05] data-[state=checked]:text-white focus:bg-white/[0.08] focus:text-white data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm text-white/80 outline-hidden transition-all duration-200 hover:bg-white/[0.05] hover:text-white data-[state=checked]:bg-white/[0.05] data-[state=checked]:text-white focus:bg-white/[0.08] focus:text-white data-disabled:pointer-events-none data-disabled:opacity-50",
       className
     )}
     {...props}

@@ -52,7 +52,7 @@ export function BaseTab({
         }}
       >
         {icon && (
-          <div className="relative z-10 text-white/60 group-hover:text-[#3ecfff]/80 transition-colors duration-300 flex-shrink-0">
+          <div className="relative z-10 text-white/60 group-hover:text-[#3ecfff]/80 transition-colors duration-300 shrink-0">
             {icon}
           </div>
         )}
@@ -63,7 +63,7 @@ export function BaseTab({
           <span className="text-white/60 text-[10px] ml-auto shrink-0 relative z-10">⌘{shortcut}</span>
         )}
         {rightElement && (
-          <div className="ml-auto relative z-10 flex-shrink-0">
+          <div className="ml-auto relative z-10 shrink-0">
             {rightElement}
           </div>
         )}

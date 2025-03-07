@@ -50,10 +50,10 @@ export function ServerDrivenConversationTab({
               onClick={handleNewConversation}
               disabled={isCreating || !activeConversation?.space_id}
               className={cn(
-                "inline-flex items-center justify-center rounded-full w-4 h-4 ml-1.5 flex-shrink-0",
+                "inline-flex items-center justify-center rounded-full w-4 h-4 ml-1.5 shrink-0",
                 "text-white/80 bg-white/5 hover:bg-white/10",
                 "border border-white/10 transition-colors",
-                "focus:outline-none focus:ring-2 focus:ring-white/20",
+                "focus:outline-hidden focus:ring-2 focus:ring-white/20",
                 (isCreating || !activeConversation?.space_id) && "opacity-50 cursor-not-allowed"
               )}
             >

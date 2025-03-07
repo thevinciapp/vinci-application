@@ -197,7 +197,7 @@ export function SpaceDialogForm({
                   {Object.entries(PROVIDER_NAMES).map(([key, name]) => (
                     <SelectItem key={key} value={key}>
                       <div className="flex items-center gap-2">
-                        <ProviderIcon type="color" provider={key} size={14} className="flex-shrink-0" />
+                        <ProviderIcon type="color" provider={key} size={14} className="shrink-0" />
                         <span>{name}</span>
                       </div>
                     </SelectItem>
@@ -235,7 +235,7 @@ export function SpaceDialogForm({
             <Button 
               type="submit" 
               disabled={isLoading || !isFormValid}
-              className="bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/20 text-cyan-300 backdrop-blur-sm"
+              className="bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/20 text-cyan-300 backdrop-blur-xs"
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">
@@ -300,7 +300,7 @@ export function DeleteSpaceDialog({
           <Button 
             variant="outline" 
             onClick={() => onOpenChange(false)}
-            className="border-white/10 bg-white/5 hover:bg-white/10 text-white backdrop-blur-sm"
+            className="border-white/10 bg-white/5 hover:bg-white/10 text-white backdrop-blur-xs"
           >
             Cancel
           </Button>
@@ -308,7 +308,7 @@ export function DeleteSpaceDialog({
             variant="destructive" 
             onClick={handleDelete} 
             disabled={isSubmitting}
-            className="bg-red-500/20 hover:bg-red-500/30 border border-red-500/20 text-red-400 backdrop-blur-sm"
+            className="bg-red-500/20 hover:bg-red-500/30 border border-red-500/20 text-red-400 backdrop-blur-xs"
           >
             {isSubmitting ? (
               <div className="flex items-center gap-2">
@@ -538,7 +538,7 @@ export function SpacesCommandProvider({
                     "cursor-default"
                   )}
                 >
-                  <ProviderIcon type="color" provider={space.provider} size={14} className="flex-shrink-0" />
+                  <ProviderIcon type="color" provider={space.provider} size={14} className="shrink-0" />
                 </div>
               )}
               </TooltipTrigger>
@@ -714,7 +714,7 @@ export function ConversationDialogForm({
             <Button 
               type="submit" 
               disabled={isSubmitting || !title}
-              className="bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/20 text-cyan-300 backdrop-blur-sm"
+              className="bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/20 text-cyan-300 backdrop-blur-xs"
             >
               {isSubmitting ? (
                 <div className="flex items-center gap-2">
@@ -779,7 +779,7 @@ export function DeleteConversationDialog({
           <Button 
             variant="outline" 
             onClick={() => onOpenChange(false)}
-            className="border-white/10 bg-white/5 hover:bg-white/10 text-white backdrop-blur-sm"
+            className="border-white/10 bg-white/5 hover:bg-white/10 text-white backdrop-blur-xs"
           >
             Cancel
           </Button>
@@ -787,7 +787,7 @@ export function DeleteConversationDialog({
             variant="destructive" 
             onClick={handleDelete} 
             disabled={isSubmitting}
-            className="bg-red-500/20 hover:bg-red-500/30 border border-red-500/20 text-red-400 backdrop-blur-sm"
+            className="bg-red-500/20 hover:bg-red-500/30 border border-red-500/20 text-red-400 backdrop-blur-xs"
           >
             {isSubmitting ? (
               <div className="flex items-center gap-2">
@@ -1741,7 +1741,7 @@ export function ChatModeDialogForm({
             <Button 
               type="submit" 
               disabled={isSubmitting || !isFormValid}
-              className="bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/20 text-cyan-300 backdrop-blur-sm"
+              className="bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/20 text-cyan-300 backdrop-blur-xs"
             >
               {isSubmitting ? (
                 <div className="flex items-center gap-2">

@@ -94,12 +94,12 @@ export const StreamStatus = memo(({ streamData }: StreamStatusProps) => {
   const statusHistory = statusHistoryRef.current;
   
   return (
-    <div className="group rounded-lg backdrop-blur-sm border border-white/[0.05] overflow-hidden transform-gpu transition-all duration-300 ease-out hover:border-white/[0.1]">
+    <div className="group rounded-lg backdrop-blur-xs border border-white/[0.05] overflow-hidden transform-gpu transition-all duration-300 ease-out hover:border-white/[0.1]">
       {/* Main status container styled like a tab */}
       <div className="px-3 py-2 relative overflow-hidden bg-white/[0.025] hover:bg-white/[0.035] transition-all duration-300">
         <div className="flex items-center gap-3 relative z-10">
           {/* Status indicator with pulse animation */}
-          <div className="relative w-3.5 h-3.5 flex-shrink-0">
+          <div className="relative w-3.5 h-3.5 shrink-0">
             <div className="absolute inset-0 rounded-full bg-cyan-400/20 animate-pulse-slow" />
             <div className="absolute inset-0.5 rounded-full bg-cyan-400 group-hover:bg-[#3ecfff] transition-colors duration-300 animate-pulse-fast" />
           </div>

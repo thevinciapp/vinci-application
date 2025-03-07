@@ -285,7 +285,7 @@ function ChatContainer({
       {children}
       <div
         ref={bottomRef}
-        className="h-[1px] w-full flex-shrink-0 scroll-mt-4"
+        className="h-[1px] w-full shrink-0 scroll-mt-4"
         aria-hidden="true"
       />
     </div>

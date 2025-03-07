@@ -68,7 +68,7 @@ const CommandInput = React.forwardRef<
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
-        "flex h-12 w-full bg-transparent hover:bg-transparent focus:bg-transparent py-3 text-sm text-white/90 outline-none placeholder:text-white/50 disabled:cursor-not-allowed disabled:opacity-50",
+        "flex h-12 w-full bg-transparent hover:bg-transparent focus:bg-transparent py-3 text-sm text-white/90 outline-hidden placeholder:text-white/50 disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       {...props}
@@ -135,10 +135,10 @@ const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-pointer select-none items-center rounded-md px-3 py-2.5 text-sm text-white/80 outline-none transition-all duration-200",
+      "relative flex cursor-pointer select-none items-center rounded-md px-3 py-2.5 text-sm text-white/80 outline-hidden transition-all duration-200",
       "aria-selected:bg-white/[0.05] aria-selected:text-white",
-      "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-      "hover:bg-white/[0.05] hover:backdrop-blur-sm active:bg-white/[0.06]",
+      "data-disabled:pointer-events-none data-disabled:opacity-50",
+      "hover:bg-white/[0.05] hover:backdrop-blur-xs active:bg-white/[0.06]",
       "border border-transparent hover:border-white/[0.06]",
       "group pointer-events-auto",
       className

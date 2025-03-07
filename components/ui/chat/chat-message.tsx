@@ -124,11 +124,11 @@ const AIAvatar = () => {
     return (
         <div className="relative group">
             {/* Refined outer glow */}
-            <div className="absolute -inset-2 bg-gradient-to-r from-cyan-500/10 via-indigo-400/10 to-purple-500/10 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+            <div className="absolute -inset-2 bg-linear-to-r from-cyan-500/10 via-indigo-400/10 to-purple-500/10 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             
             {/* Elegant halo effect */}
             <div className="absolute -inset-4 opacity-0 group-hover:opacity-70 transition-opacity duration-500">
-                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-500/8 to-indigo-500/8 animate-pulse-slow" />
+                <div className="absolute inset-0 rounded-full bg-linear-to-r from-cyan-500/8 to-indigo-500/8 animate-pulse-slow" />
             </div>
             
             {/* DotSphere component as the avatar - using exact same props as space-tab.tsx except for size */}
@@ -162,11 +162,11 @@ const ModelInfo = ({ provider, modelName, similarMessages, chatMode }: {
   return (
     <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
       {provider && (
-        <div className="px-2 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10">
+        <div className="px-2 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-linear-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10">
           <ProviderIcon provider={provider} size={14} />
         </div>
       )}
-      <div className="px-2.5 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10">
+      <div className="px-2.5 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-linear-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10">
         <span className="text-white">{modelName}</span>
       </div>
       
@@ -180,7 +180,7 @@ const ModelInfo = ({ provider, modelName, similarMessages, chatMode }: {
       
       {hasSimilarMessages && (
         <button
-          className="px-2.5 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10 hover:bg-white/[0.07] transition-colors"
+          className="px-2.5 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-linear-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10 hover:bg-white/[0.07] transition-colors"
           onClick={() => {
             if (window.openSimilarMessages) {
               window.openSimilarMessages(similarMessages);
@@ -236,7 +236,7 @@ export const ChatMessage = memo<ChatMessageProps>(
 
         return (
             <div className={`flex items-start gap-5 w-full mx-auto group transition-opacity ${isUser ? 'flex-row-reverse' : ''}`}>
-                <div className={`flex-shrink-0 ${isUser ? '' : 'mt-1'}`}>
+                <div className={`shrink-0 ${isUser ? '' : 'mt-1'}`}>
                     {isUser ? <UserAvatar avatarUrl={userAvatarUrl} /> : <AIAvatar />}
                 </div>
 

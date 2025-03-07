@@ -175,7 +175,7 @@ const INITIAL_COMPONENTS: Partial<Components> = {
   // Enhanced paragraph spacing
   p: function PComponent({ children, ...props }) {
     return (
-      <p className="leading-7 [&:not(:first-child)]:mt-4" {...props}>
+      <p className="leading-7 not-first:mt-4" {...props}>
         {children}
       </p>
     )

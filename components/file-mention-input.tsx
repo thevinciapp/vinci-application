@@ -198,7 +198,7 @@ export function FileMentionInput() {
                   key={token.id}
                   ref={inputRef}
                   type="text"
-                  className="flex-1 min-w-[120px] bg-transparent outline-none"
+                  className="flex-1 min-w-[120px] bg-transparent outline-hidden"
                   value={inputValue}
                   onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
