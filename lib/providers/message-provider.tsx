@@ -1,64 +1,65 @@
 import { ContentProvider, MentionContent, MentionItem } from '@/types/mention';
-import { Clock } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
+import { searchMessages } from '@/app/actions/conversations';
 
-// Mock message provider implementation - in a real implementation, this would fetch from your API
+// Implementation that uses Supabase to search real messages
 export const MessageProvider: ContentProvider = {
   id: 'message',
   name: 'Messages',
-  icon: <Clock className="h-4 w-4" />,
+  icon: <MessageSquare className="h-4 w-4" />,
   description: 'Access previous messages from conversations',
   isEnabled: true,
-  requiresAuth: false,
+  requiresAuth: true,
   isAuthenticated: true,
   supportedTypes: ['message', 'conversation'],
   
   // Search for messages
   search: async (query: string, options?: any): Promise<MentionItem[]> => {
     try {
-      // This would typically be an API call to your backend
-      // For now we'll use mock data
-      const mockMessages = [
-        { 
-          id: 'message-123', 
-          content: 'Here is how to implement that feature...', 
-          timestamp: '2023-01-15T12:30:00Z',
-          conversationId: 'conv-1',
-          conversationName: 'Feature Implementation'
-        },
-        { 
-          id: 'message-456', 
-          content: 'The error occurs because of incorrect config...', 
-          timestamp: '2023-01-14T15:45:00Z',
-          conversationId: 'conv-2',
-          conversationName: 'Bug Fixing Session'
-        },
-        { 
-          id: 'message-789', 
-          content: 'For testing, you should use Jest with the following setup...', 
-          timestamp: '2023-01-13T09:15:00Z',
-          conversationId: 'conv-3',
-          conversationName: 'Testing Strategy'
-        }
-      ];
+      if (!query || query.length < 2) {
+        return [];
+      }
       
-      return mockMessages
-        .filter(msg => 
-          msg.content.toLowerCase().includes(query.toLowerCase()) ||
-          msg.conversationName.toLowerCase().includes(query.toLowerCase())
-        )
-        .map(msg => ({
-          id: `message-${msg.id}`,
+      // Default to search across all spaces if not specified
+      const searchScope = options?.searchScope || 'all';
+      const searchMode = options?.searchMode || 'text';
+      const limit = options?.limit || 10;
+      
+      // Use the server action to search messages
+      const response = await searchMessages(
+        query, 
+        searchScope, 
+        searchMode,
+        options?.conversationId,
+        options?.spaceId,
+        limit
+      );
+      
+      if (!response.data?.results || !Array.isArray(response.data.results)) {
+        return [];
+      }
+      
+      // Format the search results as mention items
+      return response.data.results.map(message => {
+        // Truncate content for display
+        const displayName = message.content.substring(0, 60) + (message.content.length > 60 ? '...' : '');
+        
+        return {
+          id: `message-${message.id}`,
           type: 'message',
-          name: msg.content.substring(0, 30) + (msg.content.length > 30 ? '...' : ''),
-          description: `From: ${msg.conversationName}`,
-          icon: <Clock className="h-4 w-4" />,
+          name: displayName,
+          description: `From: ${message.conversationTitle}`,
+          icon: <MessageSquare className={`h-4 w-4 ${message.role === 'assistant' ? 'text-cyan-400' : 'text-white/70'}`} />,
           providerData: {
-            messageId: msg.id,
-            conversationId: msg.conversationId,
-            timestamp: msg.timestamp,
-            fullContent: msg.content
+            messageId: message.id,
+            conversationId: message.conversation_id,
+            timestamp: message.created_at,
+            fullContent: message.content,
+            role: message.role,
+            conversationTitle: message.conversationTitle
           }
-        }));
+        };
+      });
     } catch (error) {
       console.error("Error searching messages:", error);
       return [];
@@ -68,15 +69,16 @@ export const MessageProvider: ContentProvider = {
   // Get content for a message
   getContent: async (item: MentionItem): Promise<MentionContent> => {
     try {
-      // In a real implementation, this would fetch the full message from your backend
-      // For now we'll just return the info we already have
+      // We already have the full message content from the search
       return {
         content: item.providerData?.fullContent || item.name,
         type: 'text',
         metadata: {
           conversationId: item.providerData?.conversationId,
           messageId: item.providerData?.messageId,
-          timestamp: item.providerData?.timestamp
+          timestamp: item.providerData?.timestamp,
+          role: item.providerData?.role,
+          conversationTitle: item.providerData?.conversationTitle
         }
       };
     } catch (error) {
