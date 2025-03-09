@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { MessageSquare, Sparkles, Calendar } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { CommandGroup, CommandItem, CommandList } from "vinci-ui";
 import { ProviderComponentProps } from '../../types';
 
 interface SimilarMessage {
@@ -14,7 +14,7 @@ interface SimilarMessage {
   similarity: number;
 }
 
-export function SimilarMessagesProvider({ searchQuery, onSelect, onAction }: ProviderComponentProps) {
+export function SimilarMessagesProvider({ searchQuery, onSelect }: ProviderComponentProps) {
   // Example similar messages - in real implementation, this would be fetched based on current context
   const similarMessages: SimilarMessage[] = [
     {
@@ -55,50 +55,41 @@ export function SimilarMessagesProvider({ searchQuery, onSelect, onAction }: Pro
     return date.toLocaleDateString();
   };
 
-  // Render empty state if no similar messages found
-  if (!filteredMessages.length) {
-    return (
-      <div className="flex flex-col items-center justify-center p-4 text-center text-sm text-gray-500">
-        <Sparkles className="h-8 w-8 mb-2 text-gray-400" />
-        <p>No similar messages found</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-2 p-2">
-      {filteredMessages.map(message => (
-        <div
-          key={message.id}
-          className={cn(
-            "flex items-center justify-between p-3 rounded-lg",
-            "bg-white/[0.03] hover:bg-white/[0.06]",
-            "border border-white/[0.05]",
-            "transition-all duration-200 ease-in-out",
-            "cursor-pointer"
-          )}
-          onClick={() => onSelect?.(message)}
-        >
-          <div className="flex items-center gap-3">
-            <MessageSquare className="h-4 w-4 text-purple-400" />
-            <div className="flex flex-col">
-              <span className="text-sm">{message.content}</span>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs text-gray-500">{message.conversationName}</span>
-                <span className="text-xs text-gray-500">•</span>
-                <div className="flex items-center gap-1 text-xs text-gray-500">
-                  <Calendar className="h-3 w-3" />
-                  {formatTimestamp(message.timestamp)}
+    <CommandList>
+      <CommandGroup heading="Similar Messages">
+        {filteredMessages.length === 0 ? (
+          <p className="p-2 text-sm text-muted-foreground">No similar messages found</p>
+        ) : (
+          filteredMessages.map(message => (
+            <CommandItem
+              key={message.id}
+              value={message.content}
+              onSelect={() => onSelect?.(message)}
+              className="flex items-start justify-between py-3"
+            >
+              <div className="flex items-start gap-2">
+                <MessageSquare className="h-4 w-4 text-purple-500 mt-0.5" />
+                <div className="flex flex-col">
+                  <p className="font-medium">{message.content}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-muted-foreground">{message.conversationName}</span>
+                    <span className="text-xs text-muted-foreground">•</span>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      {formatTimestamp(message.timestamp)}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-          
-          <div className="px-1.5 py-0.5 text-xs font-medium rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">
-            {Math.round(message.similarity * 100)}% similar
-          </div>
-        </div>
-      ))}
-    </div>
+              
+              <div className="px-1.5 py-0.5 text-xs font-medium rounded bg-purple-500/20 text-purple-500 border border-purple-500/30">
+                {Math.round(message.similarity * 100)}% similar
+              </div>
+            </CommandItem>
+          ))
+        )}
+      </CommandGroup>
+    </CommandList>
   );
 }

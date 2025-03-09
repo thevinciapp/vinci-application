@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Search, MessageSquare, Calendar } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { CommandGroup, CommandItem, CommandList } from "vinci-ui";
 import { ProviderComponentProps } from '../../types';
 
 interface Message {
@@ -13,7 +13,7 @@ interface Message {
   conversationName: string;
 }
 
-export function MessageSearchProvider({ searchQuery, onSelect, onAction }: ProviderComponentProps) {
+export function MessageSearchProvider({ searchQuery, onSelect }: ProviderComponentProps) {
   // Example messages - in real implementation, this would be fetched based on search
   const messages: Message[] = [
     {
@@ -50,46 +50,37 @@ export function MessageSearchProvider({ searchQuery, onSelect, onAction }: Provi
     return date.toLocaleDateString();
   };
 
-  // Render empty state if no messages found
-  if (!filteredMessages.length) {
-    return (
-      <div className="flex flex-col items-center justify-center p-4 text-center text-sm text-gray-500">
-        <Search className="h-8 w-8 mb-2 text-gray-400" />
-        <p>No messages found</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-2 p-2">
-      {filteredMessages.map(message => (
-        <div
-          key={message.id}
-          className={cn(
-            "flex items-center justify-between p-3 rounded-lg",
-            "bg-white/[0.03] hover:bg-white/[0.06]",
-            "border border-white/[0.05]",
-            "transition-all duration-200 ease-in-out",
-            "cursor-pointer"
-          )}
-          onClick={() => onSelect?.(message)}
-        >
-          <div className="flex items-center gap-3">
-            <MessageSquare className="h-4 w-4 text-blue-400" />
-            <div className="flex flex-col">
-              <span className="text-sm">{message.content}</span>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs text-gray-500">{message.conversationName}</span>
-                <span className="text-xs text-gray-500">•</span>
-                <div className="flex items-center gap-1 text-xs text-gray-500">
-                  <Calendar className="h-3 w-3" />
-                  {formatTimestamp(message.timestamp)}
+    <CommandList>
+      <CommandGroup heading="Message Search">
+        {filteredMessages.length === 0 ? (
+          <p className="p-2 text-sm text-muted-foreground">No messages found</p>
+        ) : (
+          filteredMessages.map(message => (
+            <CommandItem
+              key={message.id}
+              value={message.content}
+              onSelect={() => onSelect?.(message)}
+              className="flex items-start py-3"
+            >
+              <div className="flex items-start gap-2">
+                <MessageSquare className="h-4 w-4 text-primary mt-0.5" />
+                <div className="flex flex-col">
+                  <p className="font-medium">{message.content}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-muted-foreground">{message.conversationName}</span>
+                    <span className="text-xs text-muted-foreground">•</span>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      {formatTimestamp(message.timestamp)}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
+            </CommandItem>
+          ))
+        )}
+      </CommandGroup>
+    </CommandList>
   );
 }

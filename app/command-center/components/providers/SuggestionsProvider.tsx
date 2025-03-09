@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Lightbulb, Check, X } from 'lucide-react';
+import { Lightbulb, Check, X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import { CommandGroup, CommandItem, CommandList, CommandSeparator, Button } from "vinci-ui";
 import { cn } from '@/lib/utils';
 import { ProviderComponentProps } from '../../types';
 
@@ -16,7 +17,22 @@ interface Suggestion {
 }
 
 export function SuggestionsProvider({ searchQuery, onSelect, onAction }: ProviderComponentProps) {
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([
+    {
+      id: 'suggestion-1',
+      description: 'Open settings to configure application preferences',
+      source: 'User activity analysis',
+      confidence: 0.85,
+      createdAt: Date.now() - 3600000,
+    },
+    {
+      id: 'suggestion-2',
+      description: 'Create a new conversation in Project Space',
+      source: 'Recent workspace activity',
+      confidence: 0.75,
+      createdAt: Date.now() - 7200000,
+    }
+  ]);
 
   // Example function to add a new suggestion
   const addSuggestion = (description: string, source: string, confidence: number = 0.8) => {
@@ -41,7 +57,7 @@ export function SuggestionsProvider({ searchQuery, onSelect, onAction }: Provide
         toast.success('Suggestion Accepted', {
           description: `Now executing: ${suggestion.description}`
         });
-        onSelect?.(suggestion);
+        if (onSelect) onSelect(suggestion);
       }
       
       return prevSuggestions.map(suggestion => 
@@ -56,6 +72,26 @@ export function SuggestionsProvider({ searchQuery, onSelect, onAction }: Provide
   const rejectSuggestion = (suggestionId: string) => {
     setSuggestions(prevSuggestions => prevSuggestions.filter(s => s.id !== suggestionId));
     toast.info('Suggestion Dismissed');
+  };
+
+  const handleSelect = (suggestion: Suggestion) => {
+    acceptSuggestion(suggestion.id);
+  };
+
+  const handleAccept = (e: React.MouseEvent, suggestionId: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    acceptSuggestion(suggestionId);
+  };
+
+  const handleReject = (e: React.MouseEvent, suggestionId: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    rejectSuggestion(suggestionId);
+  };
+
+  const handleCreate = () => {
+    if (onAction) onAction('create', {});
   };
 
   // Attach methods to window for global access
@@ -77,82 +113,68 @@ export function SuggestionsProvider({ searchQuery, onSelect, onAction }: Provide
     suggestion.source.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Render empty state if no suggestions
-  if (!filteredSuggestions.length) {
-    return (
-      <div className="flex flex-col items-center justify-center p-4 text-center text-sm text-gray-500">
-        <Lightbulb className="h-8 w-8 mb-2 text-gray-400" />
-        <p>No suggestions available</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-2 p-2">
-      {filteredSuggestions.map(suggestion => (
-        <div
-          key={suggestion.id}
-          className={cn(
-            "flex items-center justify-between p-3 rounded-lg",
-            "bg-white/[0.03] hover:bg-white/[0.06]",
-            "border border-white/[0.05]",
-            "transition-all duration-200 ease-in-out",
-            "cursor-pointer"
-          )}
-          onClick={() => acceptSuggestion(suggestion.id)}
+    <CommandList>
+      <CommandGroup heading="Suggestions">
+        {filteredSuggestions.length === 0 ? (
+          <p className="p-2 text-sm text-muted-foreground">No suggestions available</p>
+        ) : (
+          filteredSuggestions.map(suggestion => (
+            <CommandItem
+              key={suggestion.id}
+              value={suggestion.description}
+              onSelect={() => handleSelect(suggestion)}
+              className="flex flex-col items-start py-3"
+            >
+              <div className="w-full flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Lightbulb className="h-4 w-4 text-amber-500" />
+                  <div className="flex flex-col">
+                    <p className="font-medium">{suggestion.description}</p>
+                    <p className="text-xs text-muted-foreground">{suggestion.source}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-amber-500/20 text-amber-500 border border-amber-500/30">
+                    {Math.round(suggestion.confidence * 100)}% confidence
+                  </span>
+                  
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-green-500 hover:text-green-400 hover:bg-green-500/20"
+                      onClick={(e) => handleAccept(e, suggestion.id)}
+                    >
+                      <Check size={14} />
+                    </Button>
+                    
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive/80 hover:bg-destructive/20"
+                      onClick={(e) => handleReject(e, suggestion.id)}
+                    >
+                      <X size={14} />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CommandItem>
+          ))
+        )}
+      </CommandGroup>
+      <CommandSeparator />
+      <CommandGroup>
+        <CommandItem 
+          onSelect={handleCreate}
+          className="text-primary"
         >
-          <div className="flex items-center gap-3">
-            <Lightbulb className="h-4 w-4 text-amber-400" />
-            <div className="flex flex-col">
-              <span className="text-sm">{suggestion.description}</span>
-              <span className="text-xs text-gray-500">{suggestion.source}</span>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <div className="px-1.5 py-0.5 text-xs font-medium rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
-              {Math.round(suggestion.confidence * 100)}% confidence
-            </div>
-            
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={(e) => { 
-                  e.stopPropagation();
-                  e.preventDefault();
-                  acceptSuggestion(suggestion.id);
-                }}
-                className={cn(
-                  "flex items-center h-7 w-7 justify-center rounded-md p-1.5",
-                  "transition-all duration-200 ease-in-out",
-                  "bg-white/[0.03] hover:bg-green-400/20 border border-white/[0.05]",
-                  "text-green-400 hover:text-green-200",
-                  "cursor-pointer"
-                )}
-                title="Accept Suggestion"
-              >
-                <Check className="text-green-400" size={11} strokeWidth={1.5} />
-              </button>
-              <button
-                onClick={(e) => { 
-                  e.stopPropagation();
-                  e.preventDefault();
-                  rejectSuggestion(suggestion.id);
-                }}
-                className={cn(
-                  "flex items-center h-7 w-7 justify-center rounded-md p-1.5",
-                  "transition-all duration-200 ease-in-out",
-                  "bg-white/[0.03] hover:bg-red-400/20 border border-white/[0.05]",
-                  "text-red-400 hover:text-red-200",
-                  "cursor-pointer"
-                )}
-                title="Dismiss"
-              >
-                <X className="text-red-400" size={11} strokeWidth={1.5} />
-              </button>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
+          <Plus size={16} className="mr-2" />
+          Create new suggestion
+        </CommandItem>
+      </CommandGroup>
+    </CommandList>
   );
 }

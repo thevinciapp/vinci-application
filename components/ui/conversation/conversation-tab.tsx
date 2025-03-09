@@ -7,7 +7,6 @@ import {
   BaseTab
 } from "vinci-ui"
 import { cn } from '@/lib/utils'
-import { useCommandCenter } from '@/hooks/useCommandCenter'
 import { useState } from 'react'
 
 export function ServerDrivenConversationTab({
@@ -17,7 +16,6 @@ export function ServerDrivenConversationTab({
   activeConversation: any;
   onCreateConversation: (title: string) => Promise<void>;
 }) {
-  const { openCommandType } = useCommandCenter();
   const [isCreating, setIsCreating] = useState(false);
 
   const handleNewConversation = async () => {
@@ -39,7 +37,6 @@ export function ServerDrivenConversationTab({
           label={activeConversation?.title || "No Conversation Selected"}
           shortcut="C"
           commandType="conversations"
-          onClick={() => openCommandType("conversations")}
           className="w-full"
         />
       </div>

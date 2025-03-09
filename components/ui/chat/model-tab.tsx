@@ -2,7 +2,6 @@ import { getModelName, type Provider } from '@/config/models'
 import { ProviderIcon } from './provider-icon'
 import React from 'react'
 import { BaseTab } from 'vinci-ui'
-import { useCommandCenter } from '@/hooks/useCommandCenter'
 
 export function ServerDrivenModelTab({ 
   activeSpace,
@@ -11,7 +10,6 @@ export function ServerDrivenModelTab({
   activeSpace: any,
   onUpdateSpace: (spaceId: string, updates: any) => Promise<any>
 }) {
-  const { openCommandType } = useCommandCenter()
   const hasModel = !!(activeSpace?.provider && activeSpace?.model)
   
   // Get model name safely, handling undefined values
@@ -27,7 +25,6 @@ export function ServerDrivenModelTab({
       label={modelName}
       shortcut="M"
       commandType="models"
-      onClick={() => openCommandType("models")}
     />
   )
 }

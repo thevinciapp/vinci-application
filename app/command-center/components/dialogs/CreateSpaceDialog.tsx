@@ -3,21 +3,45 @@
 import React, { useState } from "react";
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea } from "vinci-ui";
 import { DialogComponentProps } from "../../types";
-import { createSpace } from "@/app/actions/spaces";
+import { useSpaceStore } from "@/stores/space-store";
+import { useRouter } from "next/navigation";
 
 export const CreateSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose, onConfirm }) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { createSpace } = useSpaceStore();
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     try {
-      const response = await createSpace({ name, description });
-      if (response.success) {
-        onConfirm?.(response.data);
+      // Using the default Claude model and provider for simplicity
+      const space = await createSpace(
+        name,
+        description, 
+        "claude-3-haiku-20240307", // Default model
+        "anthropic", // Default provider
+        "#3ecfff" // Default color
+      );
+      
+      if (space) {
+        // Close dialog
+        onClose();
+        
+        // Refresh command center
+        window.electronAPI?.refreshCommandCenter?.();
+        
+        // Navigate to the new space if user clicks
+        if (onConfirm) {
+          onConfirm(space);
+        }
       }
     } catch (error) {
       console.error('Error creating space:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -54,8 +78,12 @@ export const CreateSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClos
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit">Create Space</Button>
+            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Creating..." : "Create Space"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

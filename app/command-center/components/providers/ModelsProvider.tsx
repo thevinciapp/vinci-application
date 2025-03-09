@@ -1,28 +1,88 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
+import { CommandGroup, CommandItem, CommandList, CommandSeparator } from "vinci-ui";
 import { AVAILABLE_MODELS } from "@/config/models";
 import { ProviderIcon } from "@lobehub/icons";
+import { useSpaceStore } from '@/stores/space-store';
+import { updateSpace } from "@/app/actions/spaces";
 import { ProviderComponentProps } from "../../types";
 
-export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery }) => {
-  const filteredModels = Object.entries(AVAILABLE_MODELS)
-    .flatMap(([provider, models]) =>
-      models.filter(model =>
-        model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        model.description?.toLowerCase().includes(searchQuery.toLowerCase())
-      ).map(model => ({ ...model, provider }))
+export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect }) => {
+  const router = useRouter();
+  const { activeSpace } = useSpaceStore();
+  // Group models by provider
+  const modelsByProvider = Object.entries(AVAILABLE_MODELS).reduce((acc, [provider, models]) => {
+    // Filter models based on search query
+    const filteredModels = models.filter(model =>
+      model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      model.description?.toLowerCase().includes(searchQuery.toLowerCase())
     );
+    
+    if (filteredModels.length > 0) {
+      acc[provider] = filteredModels.map(model => ({ ...model, provider }));
+    }
+    
+    return acc;
+  }, {} as Record<string, any[]>);
+
+  // If no models match the search query
+  if (Object.keys(modelsByProvider).length === 0) {
+    return (
+      <CommandList>
+        <CommandGroup>
+          <p className="p-2 text-sm text-muted-foreground">No models found</p>
+        </CommandGroup>
+      </CommandList>
+    );
+  }
 
   return (
-    <div className="model-grid">
-      {filteredModels.map((model, idx) => (
-        <div key={idx} className="model-item">
-          <ProviderIcon type="color" provider={model.provider} size={24} />
-          <h4>{model.name}</h4>
-          <p>{model.description}</p>
-        </div>
+    <CommandList>
+      {Object.entries(modelsByProvider).map(([provider, models], index, array) => (
+        <React.Fragment key={provider}>
+          <CommandGroup heading={provider.charAt(0).toUpperCase() + provider.slice(1)}>
+            {models.map((model, idx) => (
+              <CommandItem
+                key={`${provider}-${idx}`}
+                value={model.name}
+                onSelect={async () => {
+                  // Handle model selection by updating the active space's model
+                  if (activeSpace?.id) {
+                    try {
+                      // Update the space with the new model and provider
+                      const response = await updateSpace(activeSpace.id, { 
+                        model: model.name,
+                        provider: provider
+                      });
+                      
+                      if (response.status === 'success') {
+                        // Let the parent know something was selected to close the command center
+                        if (onSelect) onSelect({ ...model, provider });
+                      }
+                    } catch (error) {
+                      console.error('Error updating space model:', error);
+                    }
+                  }
+                }}
+                className="flex items-center justify-between py-3"
+              >
+                <div className="flex items-center gap-2">
+                  <ProviderIcon type="color" provider={model.provider} size={18} />
+                  <div className="flex flex-col">
+                    <p className="font-medium">{model.name}</p>
+                    {model.description && (
+                      <p className="text-xs text-muted-foreground">{model.description}</p>
+                    )}
+                  </div>
+                </div>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+          {index < array.length - 1 && <CommandSeparator />}
+        </React.Fragment>
       ))}
-    </div>
+    </CommandList>
   );
 };

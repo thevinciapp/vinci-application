@@ -1,33 +1,111 @@
 "use client";
 
 import React from "react";
-import { PencilLine, Trash } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { PencilLine, Trash, MessageSquare, Plus } from "lucide-react";
+import { CommandGroup, CommandItem, CommandList, CommandSeparator, Button } from "vinci-ui";
 import { useSpaceStore } from '@/stores/space-store';
+import { switchConversation } from "@/app/actions/conversations";
 import { ProviderComponentProps } from "../../types";
 
 export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect, onAction }) => {
+  const router = useRouter();
   const { activeSpace, conversations } = useSpaceStore();
   const filteredConversations = (conversations ?? [])
-    .filter(conv => conv.spaceId === activeSpace?.id)
+    .filter(conv => conv.space_id === activeSpace?.id)
     .filter(conv =>
       (conv.title || 'Untitled').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+  const handleSelect = async (conversation: any) => {
+    try {
+      // Use the switchConversation server action
+      const response = await switchConversation(conversation.id);
+      
+      if (response.status === 'success') {
+        // Let the parent know something was selected to close the command center
+        if (onSelect) onSelect(conversation);
+      }
+    } catch (error) {
+      console.error('Error handling conversation selection:', error);
+    }
+  };
+
+  const handleEdit = (e: React.MouseEvent, conversation: any) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (onAction) onAction('edit', conversation);
+  };
+
+  const handleDelete = (e: React.MouseEvent, conversation: any) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (onAction) onAction('delete', conversation);
+  };
+
+  const handleCreate = () => {
+    if (onAction) onAction('create', {});
+  };
+
+  if (!activeSpace) {
+    return (
+      <CommandList>
+        <CommandGroup>
+          <p className="p-2 text-sm text-muted-foreground">No active space selected</p>
+        </CommandGroup>
+      </CommandList>
+    );
+  }
+
   return (
-    <div className="conversation-list">
-      {filteredConversations.map(conv => (
-        <div key={conv.id} className="conversation-item" onClick={() => onSelect?.(conv)}>
-          <h4>{conv.title}</h4>
-          <div className="conversation-actions">
-            <button onClick={(e) => { e.stopPropagation(); onAction?.('edit', conv); }}>
-              <PencilLine size={16} />
-            </button>
-            <button onClick={(e) => { e.stopPropagation(); onAction?.('delete', conv); }}>
-              <Trash size={16} />
-            </button>
-          </div>
-        </div>
-      ))}
-    </div>
+    <CommandList>
+      <CommandGroup heading={`Conversations in ${activeSpace.name}`}>
+        {filteredConversations.length === 0 ? (
+          <p className="p-2 text-sm text-muted-foreground">No conversations found</p>
+        ) : (
+          filteredConversations.map(conv => (
+            <CommandItem
+              key={conv.id}
+              value={conv.title || 'Untitled'}
+              onSelect={() => handleSelect(conv)}
+              className="flex items-center justify-between py-3"
+            >
+              <div className="flex items-center gap-2">
+                <MessageSquare size={16} className="text-primary" />
+                <p className="font-medium">{conv.title || 'Untitled'}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7" 
+                  onClick={(e) => handleEdit(e, conv)}
+                >
+                  <PencilLine size={14} />
+                </Button>
+                <Button 
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-destructive hover:text-destructive/80 hover:bg-destructive/20" 
+                  onClick={(e) => handleDelete(e, conv)}
+                >
+                  <Trash size={14} />
+                </Button>
+              </div>
+            </CommandItem>
+          ))
+        )}
+      </CommandGroup>
+      <CommandSeparator />
+      <CommandGroup>
+        <CommandItem 
+          onSelect={handleCreate}
+          className="text-primary"
+        >
+          <Plus size={16} className="mr-2" />
+          Create new conversation
+        </CommandItem>
+      </CommandGroup>
+    </CommandList>
   );
 };

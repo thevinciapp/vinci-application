@@ -4,8 +4,6 @@ import { createClient } from "@/utils/supabase/server";
 import { getSpaceData, setActiveSpace, getSpaces } from "@/app/actions/spaces";
 import { getMessages } from "@/app/actions/conversations";
 import { getNotifications } from "@/app/actions/notifications";
-import { Toaster } from "vinci-ui";
-import { CommandProvider } from "@/hooks/useCommandCenter";
 import { AllCommandProviders } from "@/components/AllCommandProviders";
 
 export default async function ConversationPage({
@@ -70,22 +68,9 @@ export default async function ConversationPage({
   };
 
   return (
-    <CommandProvider>
-        <AllCommandProviders
-          spaces={initialData.spaces}
-          activeSpace={initialData.activeSpace}
-          conversations={initialData.conversations}
-          activeConversation={initialData.activeConversation}
-          user={user}
-          messages={initialData.messages}
-          >
-            <div className="flex flex-col h-screen">
-              <ClientChatContent
-                  user={user}
-                  initialData={initialData}
-              />
-            </div>
-        </AllCommandProviders>
-    </CommandProvider>                      
+    <ClientChatContent
+      user={user}
+      initialData={initialData}
+    />
   );
 } 

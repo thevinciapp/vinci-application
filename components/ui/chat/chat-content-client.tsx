@@ -163,7 +163,7 @@ export default function ClientChatContent({
   
   
   return (
-    <div className="flex flex-col h-full bg-black text-white relative chat-container">
+    <div>
       <div className="fixed top-4 right-4 z-50">
         {user && <UserProfileDropdown user={user} initialNotifications={initialData.notifications} />}
       </div>

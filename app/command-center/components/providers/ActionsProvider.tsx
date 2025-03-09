@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Play, Settings, Command, FileText, FolderOpen } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { CommandGroup, CommandItem, CommandList } from "vinci-ui";
 import { ProviderComponentProps } from '../../types';
 
 interface Action {
@@ -14,14 +14,14 @@ interface Action {
   shortcut?: string;
 }
 
-export function ActionsProvider({ searchQuery, onSelect, onAction }: ProviderComponentProps) {
+export function ActionsProvider({ searchQuery, onSelect }: ProviderComponentProps) {
   // Example actions - in real implementation, these would be dynamically registered
   const actions: Action[] = [
     {
       id: 'open-settings',
       name: 'Open Settings',
       description: 'Configure application settings',
-      icon: <Settings className="h-4 w-4 text-gray-400" />,
+      icon: <Settings className="h-4 w-4" />,
       category: 'system',
       shortcut: '⌘,'
     },
@@ -29,7 +29,7 @@ export function ActionsProvider({ searchQuery, onSelect, onAction }: ProviderCom
       id: 'open-command-center',
       name: 'Command Center',
       description: 'Open the command center',
-      icon: <Command className="h-4 w-4 text-blue-400" />,
+      icon: <Command className="h-4 w-4 text-primary" />,
       category: 'system',
       shortcut: '⌘K'
     },
@@ -37,7 +37,7 @@ export function ActionsProvider({ searchQuery, onSelect, onAction }: ProviderCom
       id: 'new-file',
       name: 'New File',
       description: 'Create a new file',
-      icon: <FileText className="h-4 w-4 text-green-400" />,
+      icon: <FileText className="h-4 w-4 text-green-500" />,
       category: 'file',
       shortcut: '⌘N'
     },
@@ -45,7 +45,7 @@ export function ActionsProvider({ searchQuery, onSelect, onAction }: ProviderCom
       id: 'open-folder',
       name: 'Open Folder',
       description: 'Open a folder in the workspace',
-      icon: <FolderOpen className="h-4 w-4 text-amber-400" />,
+      icon: <FolderOpen className="h-4 w-4 text-amber-500" />,
       category: 'navigation',
       shortcut: '⌘O'
     }
@@ -68,57 +68,49 @@ export function ActionsProvider({ searchQuery, onSelect, onAction }: ProviderCom
     return acc;
   }, {} as Record<string, Action[]>);
 
-  // Render empty state if no actions found
-  if (!filteredActions.length) {
+  // If no actions match the search query
+  if (Object.keys(groupedActions).length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-4 text-center text-sm text-gray-500">
-        <Play className="h-8 w-8 mb-2 text-gray-400" />
-        <p>No actions found</p>
-      </div>
+      <CommandList>
+        <CommandGroup>
+          <p className="p-2 text-sm text-muted-foreground">No actions found</p>
+        </CommandGroup>
+      </CommandList>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4 p-2">
-      {Object.entries(groupedActions).map(([category, actions]) => (
-        <div key={category} className="flex flex-col gap-2">
-          {/* Category Header */}
-          <div className="px-2 py-1">
-            <span className="text-xs font-medium text-gray-500 uppercase">
-              {category.charAt(0).toUpperCase() + category.slice(1)}
-            </span>
-          </div>
-
-          {/* Actions List */}
-          {actions.map(action => (
-            <div
+    <CommandList>
+      {Object.entries(groupedActions).map(([category, categoryActions]) => (
+        <CommandGroup 
+          key={category} 
+          heading={category.charAt(0).toUpperCase() + category.slice(1)}
+        >
+          {categoryActions.map(action => (
+            <CommandItem
               key={action.id}
-              className={cn(
-                "flex items-center justify-between p-3 rounded-lg",
-                "bg-white/[0.03] hover:bg-white/[0.06]",
-                "border border-white/[0.05]",
-                "transition-all duration-200 ease-in-out",
-                "cursor-pointer"
-              )}
-              onClick={() => onSelect?.(action)}
+              value={action.name}
+              onSelect={() => onSelect?.(action)}
+              className="flex items-center justify-between py-3"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 {action.icon}
-                <div className="flex flex-col">
-                  <span className="text-sm">{action.name}</span>
-                  <span className="text-xs text-gray-500">{action.description}</span>
+                <div>
+                  <p className="font-medium">{action.name}</p>
+                  {action.description && (
+                    <p className="text-xs text-muted-foreground">{action.description}</p>
+                  )}
                 </div>
               </div>
-              
               {action.shortcut && (
-                <div className="px-1.5 py-0.5 text-xs font-medium rounded bg-gray-500/20 text-gray-400 border border-gray-500/30">
+                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
                   {action.shortcut}
-                </div>
+                </kbd>
               )}
-            </div>
+            </CommandItem>
           ))}
-        </div>
+        </CommandGroup>
       ))}
-    </div>
+    </CommandList>
   );
 }

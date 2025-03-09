@@ -1,7 +1,6 @@
 'use client'
 
 import { BaseTab } from 'vinci-ui'
-import { useCommandCenter } from '@/hooks/useCommandCenter'
 import DotSphere from './planet-icon'
 
 export function ServerDrivenSpaceTab({ 
@@ -12,8 +11,6 @@ export function ServerDrivenSpaceTab({
   activeSpace: any,
   isLoading?: boolean
 }) {
-  const { openCommandType } = useCommandCenter()
-
   const spaceColor = activeSpace?.color || '#3ecfff'
 
   return (
@@ -36,7 +33,6 @@ export function ServerDrivenSpaceTab({
         label={isLoading ? `Loading${activeSpace?.name ? ' ' + activeSpace.name : ''}...` : (activeSpace?.name || "No Space Selected")}
         shortcut="E"
         commandType="spaces"
-        onClick={() => openCommandType("spaces")}
         rightElement={isLoading ? <span className="loading-dots text-[10px] text-cyan-400"></span> : undefined}
       />
     </div>

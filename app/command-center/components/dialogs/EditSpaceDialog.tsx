@@ -3,14 +3,37 @@
 import React, { useState } from "react";
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea } from "vinci-ui";
 import { DialogComponentProps } from "../../types";
+import { useSpaceStore } from "@/stores/space-store";
 
-export const EditSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose, onConfirm }) => {
-  const [name, setName] = useState(data.name || "");
-  const [description, setDescription] = useState(data.description || "");
+export const EditSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose }) => {
+  const space = data;
+  const [name, setName] = useState(space?.name || "");
+  const [description, setDescription] = useState(space?.description || "");
+  const [isLoading, setIsLoading] = useState(false);
+  const { updateSpace } = useSpaceStore();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onConfirm?.({ ...data, name, description });
+    
+    if (!space || !space.id) return;
+    
+    setIsLoading(true);
+    try {
+      const success = await updateSpace(space.id, { 
+        name, 
+        description 
+      });
+      
+      if (success) {
+        // Refresh command center
+        window.electronAPI?.refreshCommandCenter?.();
+        onClose();
+      }
+    } catch (error) {
+      console.error('Error updating space:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -46,8 +69,20 @@ export const EditSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose,
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit">Save Changes</Button>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onClose}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="submit"
+              disabled={isLoading}
+            >
+              {isLoading ? "Saving..." : "Save Changes"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
