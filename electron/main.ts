@@ -27,17 +27,21 @@ function createCommandCenterWindow() {
   console.log("Preload script path for command center:", preloadPath);
 
   commandCenterWindow = new BrowserWindow({
-    width: 680,  // Smaller, focused window like Raycast
-    height: 500,
-    show: false,
-    frame: false, // Frameless for better look
-    transparent: true, // Support for transparent bg
-    resizable: false,
-    fullscreenable: false,
+    width: 680, // Narrow, focused width like Raycast
+    height: 600,
+    show: false, // Start hidden, show when ready
+    frame: false, // Frameless for a modern, clean look
+    transparent: true, // Enable transparency for rounded corners and effects
+    resizable: true, // Allow resizing for better adaptability
+    fullscreenable: false, // Prevent full-screen mode
+    alwaysOnTop: true, // Stay above other windows, like Raycast
+    vibrancy: "under-window", // macOS vibrancy for a frosted glass effect
+    visualEffectState: "active", // Ensure vibrancy stays active
+    skipTaskbar: true, // Don’t show in taskbar/dock when hidden
     webPreferences: {
       preload: preloadPath,
-      nodeIntegration: false,
-      contextIsolation: true,
+      nodeIntegration: false, // Security best practice
+      contextIsolation: true, // Isolate preload script
     },
   });
 
@@ -66,6 +70,21 @@ function createCommandCenterWindow() {
   commandCenterWindow.on('blur', () => {
     if (commandCenterWindow) {
       commandCenterWindow.hide();
+      
+      // Notify renderers about window being hidden
+      BrowserWindow.getAllWindows().forEach(window => {
+        if (!window.isDestroyed()) {
+          window.webContents.send('sync-command-center-state', 'close');
+        }
+      });
+    }
+  });
+  
+  // Add resize handler to ensure proper background
+  commandCenterWindow.on('resize', () => {
+    if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
+      const [width, height] = commandCenterWindow.getSize();
+      commandCenterWindow.webContents.send('window-resized', { width, height });
     }
   });
   
@@ -74,6 +93,13 @@ function createCommandCenterWindow() {
     if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
       event.preventDefault();
       commandCenterWindow.hide();
+      
+      // Notify renderers about window being hidden
+      BrowserWindow.getAllWindows().forEach(window => {
+        if (!window.isDestroyed()) {
+          window.webContents.send('sync-command-center-state', 'close');
+        }
+      });
     }
   });
 }
@@ -322,10 +348,11 @@ function registerGlobalShortcuts() {
   // Use Command+Option+A as the global command center shortcut
   const shortcutKey = 'CommandOrControl+Option+A';
   
-  // Register main shortcut - now opens command center directly
+  // Register main shortcut - now properly toggles command center
   const success = globalShortcut.register(shortcutKey, () => {
-    console.log(`${shortcutKey} was pressed - opening command center`);
-    createCommandCenterWindow();
+    console.log(`${shortcutKey} was pressed - toggling command center`);
+    // Use toggle function to ensure same key can open and close
+    toggleCommandCenterWindow();
   });
   
   // Register shortcuts for specific command types
@@ -340,18 +367,53 @@ function registerGlobalShortcuts() {
   // Register each command type shortcut
   Object.entries(commandTypeShortcuts).forEach(([shortcutKey, commandType]) => {
     globalShortcut.register(shortcutKey, () => {
-      console.log(`${shortcutKey} was pressed - opening ${commandType} command`);
+      console.log(`${shortcutKey} was pressed - toggling ${commandType} command`);
       
-      // Create/show command center window
-      createCommandCenterWindow();
-      
-      // Set command type with slight delay to ensure window is ready
-      setTimeout(() => {
-        // First check if window exists and is not destroyed before sending message
-        if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
-          commandCenterWindow.webContents.send('set-command-type', commandType);
-        }
-      }, 100);
+      // If command center is already visible with this type, close it (like Raycast)
+      if (commandCenterWindow && 
+          !commandCenterWindow.isDestroyed() && 
+          commandCenterWindow.isVisible()) {
+        
+        // Check if we're already showing this command type before closing
+        // This allows pressing the same shortcut to close the command center
+        BrowserWindow.getAllWindows().forEach(window => {
+          if (!window.isDestroyed()) {
+            window.webContents.send('check-command-type', commandType);
+          }
+        });
+        
+        // Hide after a small delay to give time for the check
+        setTimeout(() => {
+          if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
+            commandCenterWindow.hide();
+            
+            // Notify renderers about window being hidden
+            BrowserWindow.getAllWindows().forEach(window => {
+              if (!window.isDestroyed()) {
+                window.webContents.send('sync-command-center-state', 'close');
+              }
+            });
+          }
+        }, 50);
+      } else {
+        // Otherwise create/show command center window
+        createCommandCenterWindow();
+        
+        // Set command type with slight delay to ensure window is ready
+        setTimeout(() => {
+          // First check if window exists and is not destroyed before sending message
+          if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
+            commandCenterWindow.webContents.send('set-command-type', commandType);
+            
+            // Notify renderers about command type being set
+            BrowserWindow.getAllWindows().forEach(window => {
+              if (!window.isDestroyed() && window.webContents.id !== commandCenterWindow.webContents.id) {
+                window.webContents.send('sync-command-center-state', 'open', commandType);
+              }
+            });
+          }
+        }, 100);
+      }
     });
   });
 
@@ -383,16 +445,42 @@ ipcMain.on('close-command-center', () => {
   }
 });
 
+/**
+ * Toggle command center window like Raycast
+ * This function handles toggling (show/hide) the command center window
+ */
+function toggleCommandCenterWindow() {
+  console.log('Toggling command center window');
+  
+  // If window exists and is visible, hide it
+  if (commandCenterWindow && !commandCenterWindow.isDestroyed() && commandCenterWindow.isVisible()) {
+    console.log('Command center window is visible, hiding it');
+    commandCenterWindow.hide();
+    
+    // Notify all renderers about window being hidden
+    BrowserWindow.getAllWindows().forEach(window => {
+      if (!window.isDestroyed()) {
+        window.webContents.send('sync-command-center-state', 'close');
+      }
+    });
+  } else {
+    // Otherwise show/create it
+    console.log('Command center window is not visible, showing it');
+    createCommandCenterWindow();
+    
+    // Notify all renderers about window being shown
+    BrowserWindow.getAllWindows().forEach(window => {
+      if (!window.isDestroyed()) {
+        window.webContents.send('sync-command-center-state', 'open');
+      }
+    });
+  }
+}
+
 // Toggle command center visibility
 ipcMain.on('toggle-command-center', () => {
   console.log('toggle-command-center received');
-  // If command center window exists and is visible, hide it
-  if (commandCenterWindow && !commandCenterWindow.isDestroyed() && commandCenterWindow.isVisible()) {
-    commandCenterWindow.hide();
-  } else {
-    // Otherwise create/show it
-    createCommandCenterWindow();
-  }
+  toggleCommandCenterWindow();
   
   // Also notify the main app for in-app command center
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -445,6 +533,24 @@ ipcMain.on('sync-command-center-state', (event, action, data) => {
       window.webContents.send('sync-command-center-state', action, data);
     }
   });
+});
+
+// Handle command type checking responses
+ipcMain.on('command-type-check', (event, commandType) => {
+  console.log(`command-type-check received for: ${commandType}`);
+  
+  // If this event came from commandCenterWindow, we should close it if it's showing this type
+  if (commandCenterWindow && !commandCenterWindow.isDestroyed() && event.sender.id === commandCenterWindow.webContents.id) {
+    console.log(`Command center is showing ${commandType}, closing window`);
+    commandCenterWindow.hide();
+    
+    // Notify all renderers about state change
+    BrowserWindow.getAllWindows().forEach(window => {
+      if (!window.isDestroyed()) {
+        window.webContents.send('sync-command-center-state', 'close');
+      }
+    });
+  }
 });
 
 // Handle app lifecycle events

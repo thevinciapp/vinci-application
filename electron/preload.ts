@@ -14,9 +14,14 @@ declare global {
       openCommandType: (commandType: string) => void;
       closeCommandCenter: () => void;
       refreshCommandCenter: () => void;
+      checkCommandType: (commandType: string) => void;
       onToggleCommandCenter: (callback: () => void) => () => void;
       onSetCommandType: (callback: (event: any, commandType: string) => void) => () => void;
       onRefreshCommandCenter: (callback: () => void) => () => void;
+      onSyncCommandCenterState: (callback: (event: any, action: string, data?: any) => void) => () => void;
+      onWindowResize: (callback: (event: any, dimensions: {width: number, height: number}) => void) => () => void;
+      onCheckCommandType: (callback: (event: any, commandType: string) => void) => () => void;
+      removeWindowResizeListener: () => void;
     };
   }
 }
@@ -94,6 +99,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.send("sync-command-center-state", "refresh");
   },
   
+  // New function to respond to command type check
+  checkCommandType: (commandType: string) => {
+    console.log(`Checking if command type ${commandType} is active`);
+    // Send response back to main process
+    ipcRenderer.send("command-type-check", commandType);
+  },
+  
   // Enhanced listener for command center toggle events
   onToggleCommandCenter: (callback: () => void) => {
     ipcRenderer.on("toggle-command-center", callback);
@@ -125,5 +137,26 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => {
       ipcRenderer.removeListener("sync-command-center-state", callback);
     };
+  },
+  
+  // New listener for window resize events
+  onWindowResize: (callback: (event: any, dimensions: {width: number, height: number}) => void) => {
+    ipcRenderer.on("window-resized", callback);
+    return () => {
+      ipcRenderer.removeListener("window-resized", callback);
+    };
+  },
+  
+  // New listener for command type checking
+  onCheckCommandType: (callback: (event: any, commandType: string) => void) => {
+    ipcRenderer.on("check-command-type", callback);
+    return () => {
+      ipcRenderer.removeListener("check-command-type", callback);
+    };
+  },
+  
+  // Convenience function to remove resize listener
+  removeWindowResizeListener: () => {
+    ipcRenderer.removeAllListeners("window-resized");
   }
 });

@@ -2,10 +2,8 @@
 import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState, useRef } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 
-// Helper to check if we're running in Electron
 const isElectron = typeof window !== 'undefined' && 'electronAPI' in window;
 
-// Type-safe way to access the Electron API with proper TypeScript types
 const getElectronAPI = (): ElectronAPI | undefined => {
   if (typeof window !== 'undefined' && 'electronAPI' in window) {
     return window.electronAPI;
@@ -13,7 +11,6 @@ const getElectronAPI = (): ElectronAPI | undefined => {
   return undefined;
 };
 
-// Command types
 export type CommandType = 'application' | 'spaces' | 'conversations' | 'models' | 'actions' | 'messages' | 'chat-modes' | 'similarMessages' | 'background-tasks' | 'suggestions';
 
 export interface CommandOption {
@@ -37,7 +34,6 @@ export interface CommandOption {
   bypassFilter?: boolean;
 }
 
-// Define an interface for searchable command configuration
 export interface SearchableCommandConfig {
   minSearchLength: number;
   placeholderText?: string;
@@ -138,16 +134,44 @@ export function CommandProvider({ children }: { children: ReactNode }) {
       }
     }
   }, []);
+
+  // Handle window blur events to ensure state consistency
+  useEffect(() => {
+    if (!isElectron) return;
+    
+    // Create a function to handle when the window is blurred
+    const handleWindowBlur = () => {
+      console.log('Window blur detected - syncing command center state');
+      // We need to make sure our state reflects the actual window visibility
+      // This is critical for proper state management in Electron environments
+      
+      // Notify the main process about the blur event
+      const api = getElectronAPI();
+      if (api && 'syncCommandCenterState' in api && typeof api.syncCommandCenterState === 'function') {
+        api.syncCommandCenterState('blur');
+      }
+    };
+    
+    // Add the blur event listener to the window
+    window.addEventListener('blur', handleWindowBlur);
+    
+    // Clean up the listener when the component unmounts
+    return () => {
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+  }, [isOpen]);
   
   const toggleCommandCenter = useCallback(() => {
     console.log('toggleCommandCenter called');
     
     if (isOpen) {
+      // If we're in a specific command type, go back to main command list
       if (activeCommandType !== null) {
         console.log('Switching from specific command type to main command center');
         setActiveCommandType(null);
       } else {
-        // Close the command center
+        // Close the command center completely
+        console.log('Closing command center');
         setIsOpen(false);
         setSearchQuery('');
         setActiveCommandType(null);
@@ -165,7 +189,8 @@ export function CommandProvider({ children }: { children: ReactNode }) {
         }
       }
     } else {
-      // Open the command center
+      // Open the command center to main view
+      console.log('Opening command center');
       setIsOpen(true);
       setActiveCommandType(null);
       
@@ -200,10 +225,23 @@ export function CommandProvider({ children }: { children: ReactNode }) {
   
   const openCommandType = useCallback((type: CommandType) => {
     console.log('openCommandType called with:', type);
+    
+    // If command center is open with this same type, close it (like Raycast toggle behavior)
     if (isOpen && activeCommandType === type) {
+      console.log('Command center already open with this type, closing it');
       closeCommandType(type);
     } else {
+      // If command center is open but with a different type, switch to new type
+      if (isOpen && activeCommandType !== type) {
+        console.log('Command center open with different type, switching to:', type);
+      } else {
+        console.log('Opening command center with type:', type);
+      }
+      
+      // Set the active command type
       setActiveCommandType(type);
+      
+      // Ensure command center is open
       if (!isOpen) {
         setIsOpen(true);
       }
@@ -211,7 +249,10 @@ export function CommandProvider({ children }: { children: ReactNode }) {
       // If Electron is available, also tell the main process to set the command type
       if (isElectron) {
         console.log('Calling Electron openCommandType with:', type);
-        getElectronAPI()?.openCommandType(type);
+        const api = getElectronAPI();
+        if (api && 'openCommandType' in api && typeof api.openCommandType === 'function') {
+          api.openCommandType(type);
+        }
       }
     }
   }, [isOpen, activeCommandType, closeCommandType]);
@@ -225,31 +266,41 @@ export function CommandProvider({ children }: { children: ReactNode }) {
     if (!api) return;
     
     // Listen for toggle command center events from Electron
-    const removeToggleListener = api.onToggleCommandCenter(() => {
-      console.log('Received toggle-command-center from Electron');
-      if (isOpen) {
-        if (activeCommandType !== null) {
-          // Just switch back to main command list if a specific type is open
-          setActiveCommandType(null);
+    let removeToggleListener = () => {};
+    if ('onToggleCommandCenter' in api && typeof api.onToggleCommandCenter === 'function') {
+      removeToggleListener = api.onToggleCommandCenter(() => {
+        console.log('Received toggle-command-center from Electron');
+        if (isOpen) {
+          if (activeCommandType !== null) {
+            // Just switch back to main command list if a specific type is open
+            setActiveCommandType(null);
+          } else {
+            // Close it entirely if already at main command list
+            setIsOpen(false);
+            setSearchQuery('');
+          }
         } else {
-          // Close it entirely if already at main command list
-          setIsOpen(false);
-          setSearchQuery('');
+          // Open it if closed
+          setIsOpen(true);
         }
-      } else {
-        // Open it if closed
-        setIsOpen(true);
-      }
-    });
+      });
+    } else {
+      console.log('onToggleCommandCenter not available in Electron API');
+    }
     
     // Listen for command type setting from Electron
-    const removeCommandTypeListener = api.onSetCommandType((event, commandType) => {
-      console.log('Received set-command-type from Electron:', commandType);
-      setActiveCommandType(commandType as CommandType);
-      if (!isOpen) {
-        setIsOpen(true);
-      }
-    });
+    let removeCommandTypeListener = () => {};
+    if ('onSetCommandType' in api && typeof api.onSetCommandType === 'function') {
+      removeCommandTypeListener = api.onSetCommandType((event, commandType) => {
+        console.log('Received set-command-type from Electron:', commandType);
+        setActiveCommandType(commandType as CommandType);
+        if (!isOpen) {
+          setIsOpen(true);
+        }
+      });
+    } else {
+      console.log('onSetCommandType not available in Electron API');
+    }
     
     // Check if refresh listener is available - handling potential missing API method
     let removeRefreshListener = () => {};
@@ -264,8 +315,8 @@ export function CommandProvider({ children }: { children: ReactNode }) {
     
     // Check if sync state listener is available - handling potential missing API method
     let removeSyncListener = () => {};
-    if ('onSyncCommandCenterState' in api) {
-      removeSyncListener = (api as any).onSyncCommandCenterState((event: any, action: string, data?: any) => {
+    if ('onSyncCommandCenterState' in api && typeof api.onSyncCommandCenterState === 'function') {
+      removeSyncListener = api.onSyncCommandCenterState((event: any, action: string, data?: any) => {
         console.log('Received sync-command-center-state from Electron:', action, data);
         
         switch (action) {
@@ -295,6 +346,12 @@ export function CommandProvider({ children }: { children: ReactNode }) {
           case 'refresh':
             // Handle refresh logic if needed
             break;
+          case 'blur':
+            // Handle window blur event to ensure state consistency
+            console.log('Syncing state after window blur');
+            // Don't close on blur, just ensure state is consistent
+            // This prevents inconsistency between the window state and React state
+            break;
         }
       });
     } else {
@@ -303,12 +360,17 @@ export function CommandProvider({ children }: { children: ReactNode }) {
     
     // Clean up listeners when component unmounts
     return () => {
+      // Properly remove all listeners to prevent memory leaks
+      console.log('Cleaning up all command center IPC listeners');
       removeToggleListener();
       removeCommandTypeListener();
       removeRefreshListener();
-      removeSyncListener();
+      // Explicitly make sure the sync listener is cleaned up
+      if (removeSyncListener && typeof removeSyncListener === 'function') {
+        removeSyncListener();
+      }
     };
-  }, [isOpen, activeCommandType]);
+  }, [isOpen, activeCommandType, setIsOpen, setSearchQuery, setActiveCommandType]);
   
   useHotkeys('esc', () => {
     console.log('esc key pressed');

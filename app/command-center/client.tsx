@@ -4,9 +4,7 @@ import React, { useEffect, useState } from 'react';
 // Add a type reference to ensure TypeScript can see the window.electronAPI interface
 /// <reference path="../../electron/electron-api.d.ts" />
 
-// Import existing CommandCenter component for consistent UI
-import CommandCenterComponent from '@/components/CommandCenter';
-import { useCommandCenter, CommandType } from '@/hooks/useCommandCenter';
+import { CommandCenter} from '@/components/CommandCenter';
 
 // Define type for command objects to match what we're using
 interface CommandOption {
@@ -26,7 +24,7 @@ export default function CommandCenterClient({ initialDataLoaded = false }: Comma
   const [isStandaloneWindow, setIsStandaloneWindow] = useState(false);
 
   return (
-    <CommandCenterComponent 
+    <CommandCenter 
       standaloneMode={isStandaloneWindow}
     />
   );
