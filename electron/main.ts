@@ -1,6 +1,10 @@
 import { app, BrowserWindow, ipcMain, globalShortcut, screen } from "electron";
 import { join } from "path";
 import { API } from "../lib/api-client";
+import keytar from "keytar";
+
+// API base URL
+const API_BASE_URL = 'http://localhost:3000';
 
 import type { 
   CommandType,
@@ -13,10 +17,15 @@ import type {
   AppStateResult
 } from "./types";
 
+// Keytar settings
+const KEYTAR_SERVICE = 'SpatialApp';
+const KEYTAR_ACCOUNT = 'SpatialAuthCookies';
+
 // Global variables
 let mainWindow: BrowserWindow | null = null;
 let commandCenterWindow: BrowserWindow | null = null;
 let isDialogOpen = false;
+let authCookies: Record<string, string> = {};
 let authToken: string | null = null;
 
 // App state management
@@ -186,6 +195,12 @@ function registerGlobalShortcuts() {
         }
       } else {
         createCommandCenterWindow().then(() => {
+          // Send the current app state immediately
+          if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
+            console.log('[ELECTRON] Sending app state to command center on shortcut');
+            commandCenterWindow.webContents.send('init-app-state', appState);
+          }
+          
           setTimeout(() => {
             if (commandType) {
               commandCenterWindow?.webContents.send("set-command-type", commandType);
@@ -207,8 +222,61 @@ async function toggleCommandCenterWindow() {
     commandCenterWindow.hide();
   } else {
     await createCommandCenterWindow();
+    
+    // Make sure we send the app state when toggling
+    if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
+      console.log('[ELECTRON] Sending app state to command center on toggle');
+      commandCenterWindow.webContents.send('init-app-state', appState);
+    }
   }
   broadcastAppState();
+}
+
+/**
+ * Auth management with keytar
+ */
+async function saveAuthData(cookies: Record<string, string>, token: string): Promise<void> {
+  try {
+    // Store auth cookies
+    const cookiesJson = JSON.stringify(cookies);
+    await keytar.setPassword(KEYTAR_SERVICE, KEYTAR_ACCOUNT, cookiesJson);
+    
+    // Also store access token for additional operations
+    await keytar.setPassword(KEYTAR_SERVICE, `${KEYTAR_ACCOUNT}_token`, token);
+    
+    console.log('[ELECTRON] Auth data saved to keychain');
+  } catch (error) {
+    console.error('[ELECTRON] Failed to save auth data to keychain:', error);
+  }
+}
+
+async function loadAuthData(): Promise<{ cookies: Record<string, string>, token: string | null }> {
+  try {
+    const cookiesJson = await keytar.getPassword(KEYTAR_SERVICE, KEYTAR_ACCOUNT);
+    const token = await keytar.getPassword(KEYTAR_SERVICE, `${KEYTAR_ACCOUNT}_token`);
+    
+    if (cookiesJson) {
+      const cookies = JSON.parse(cookiesJson) as Record<string, string>;
+      return { cookies, token };
+    }
+    
+    return { cookies: {}, token };
+  } catch (error) {
+    console.error('[ELECTRON] Failed to load auth data from keychain:', error);
+    return { cookies: {}, token: null };
+  }
+}
+
+async function deleteAuthData(): Promise<boolean> {
+  try {
+    await keytar.deletePassword(KEYTAR_SERVICE, KEYTAR_ACCOUNT);
+    await keytar.deletePassword(KEYTAR_SERVICE, `${KEYTAR_ACCOUNT}_token`);
+    console.log('[ELECTRON] Auth data deleted from keychain');
+    return true;
+  } catch (error) {
+    console.error('[ELECTRON] Failed to delete auth data from keychain:', error);
+    return false;
+  }
 }
 
 /**
@@ -234,12 +302,12 @@ async function waitForServer(maxAttempts = 10, delayMs = 1000): Promise<boolean>
 
 // Custom API fetch with auth token
 async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
-  const headers = {
-    ...options.headers,
+  const headers: Record<string, string> = {
+    ...options.headers as Record<string, string>,
     'Content-Type': 'application/json',
   };
   
-  // Add auth token if available
+  // Add the token as a bearer token if available
   if (authToken) {
     headers['Authorization'] = `Bearer ${authToken}`;
   }
@@ -247,6 +315,7 @@ async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Re
   return fetch(url, {
     ...options,
     headers,
+    credentials: 'include'  // Still include credentials for extra safety
   });
 }
 
@@ -270,16 +339,41 @@ async function fetchInitialAppData(): Promise<AppStateResult> {
       };
     }
 
-    const spacesResult = await API.spaces.getSpaces();
-    if (!spacesResult.success) throw new Error(spacesResult.error);
+    // Use our custom fetchWithAuth function to ensure cookies are attached
+    const spacesResponse = await fetchWithAuth(`${API_BASE_URL}/api/spaces`);
+    const spacesData = await spacesResponse.json();
     
-    const activeSpaceResult = await API.activeSpace.getActiveSpace();
-    if (!activeSpaceResult.success) throw new Error(activeSpaceResult.error);
+    if (spacesData.status !== 'success') {
+      throw new Error(spacesData.error || 'Failed to fetch spaces');
+    }
+    
+    const spacesResult = {
+      success: true,
+      data: spacesData.data
+    };
+    
+    // Use fetchWithAuth for active space
+    const activeSpaceResponse = await fetchWithAuth(`${API_BASE_URL}/api/active-space`);
+    const activeSpaceData = await activeSpaceResponse.json();
+    
+    if (activeSpaceData.status !== 'success') {
+      throw new Error(activeSpaceData.error || 'Failed to fetch active space');
+    }
+    
+    const activeSpaceResult = {
+      success: true,
+      data: activeSpaceData.data
+    };
     
     let conversations: Conversation[] = [];
     if (activeSpaceResult.data?.activeSpace) {
-      const convResult = await API.conversations.getConversations(activeSpaceResult.data.activeSpace.id);
-      if (convResult.success) conversations = convResult.data || [];
+      // Use fetchWithAuth for conversations
+      const convResponse = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${activeSpaceResult.data.activeSpace.id}/conversations`);
+      const convData = await convResponse.json();
+      
+      if (convData.status === 'success') {
+        conversations = convData.data || [];
+      }
     }
 
     return {
@@ -323,14 +417,84 @@ async function refreshAppData(): Promise<AppStateResult> {
 ipcMain.handle('get-app-state', async () => appState);
 ipcMain.handle('refresh-app-data', refreshAppData);
 
-// Auth token management
-ipcMain.handle('set-auth-token', (event, token) => {
+// Auth management
+ipcMain.handle('set-auth-token', async (event, token) => {
+  if (!token) {
+    console.error('[ELECTRON] Empty token received');
+    return false;
+  }
+  
+  // Store token in memory
   authToken = token;
   console.log('[ELECTRON] Auth token received');
-  return true;
+  
+  try {
+    // Create a simpler approach - we'll store the token and use it directly
+    // in the Authorization header for future requests
+    const testRequest = await fetch('http://localhost:3000/api/spaces', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    // Check if the token works
+    if (!testRequest.ok) {
+      console.error(`[ELECTRON] Auth token validation failed: ${testRequest.status}`);
+      const errorText = await testRequest.text();
+      console.error(`[ELECTRON] Error response: ${errorText}`);
+      throw new Error(`Auth validation failed: ${testRequest.status}`);
+    }
+    
+    // If we got here, token is valid
+    console.log('[ELECTRON] Auth token validated successfully');
+    
+    // Just save the token to keychain - we'll use it directly in headers
+    authCookies = {}; // No need for cookies with this approach
+    await saveAuthData(authCookies, token);
+    
+    // Refresh app data immediately with the new cookies
+    try {
+      const freshData = await fetchInitialAppData();
+      if (!freshData.error) {
+        appState = { ...freshData };
+        broadcastAppState();
+        console.log('[ELECTRON] Data refreshed after receiving auth credentials');
+      }
+    } catch (error) {
+      console.error('[ELECTRON] Failed to refresh data after receiving auth credentials:', error);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('[ELECTRON] Error during auth setup:', error);
+    return false;
+  }
 });
 
 ipcMain.handle('get-auth-token', () => authToken);
+
+// Sign out handler
+ipcMain.handle('sign-out', async () => {
+  try {
+    // Clear auth data from memory
+    authToken = null;
+    authCookies = {};
+    
+    // Delete auth data from keychain
+    await deleteAuthData();
+    
+    // Reset app state
+    appState = { ...initialAppState };
+    broadcastAppState();
+    
+    console.log('[ELECTRON] User signed out successfully');
+    return true;
+  } catch (error) {
+    console.error('[ELECTRON] Sign out failed:', error);
+    return false;
+  }
+});
 
 ipcMain.on('sync-app-state', (event, newState: Partial<AppState>) => {
   appState = { ...appState, ...newState, lastFetched: Date.now() };
@@ -372,7 +536,51 @@ app.whenReady().then(async () => {
       return;
     }
 
-    await fetchInitialAppData();
+    // Load auth data from keychain
+    const { cookies, token } = await loadAuthData();
+    if (Object.keys(cookies).length > 0 && token) {
+      // Store in memory
+      authCookies = cookies;
+      authToken = token;
+      console.log('[ELECTRON] Auth data loaded from keychain');
+      
+      // Verify the auth data is valid
+      try {
+        // Test request to validate cookies and token
+        const testResponse = await fetchWithAuth(`${API_BASE_URL}/api/auth/session`);
+        const testData = await testResponse.json();
+        
+        if (testData.status === 'success' && testData.data?.session) {
+          console.log('[ELECTRON] Saved auth data is valid');
+          
+          // Attempt to fetch initial data with the loaded cookies
+          try {
+            const freshData = await fetchInitialAppData();
+            if (!freshData.error) {
+              appState = { ...freshData };
+              console.log('[ELECTRON] Initial data loaded with saved auth data');
+            } else {
+              console.log('[ELECTRON] Failed to load initial data:', freshData.error);
+              // Keep auth data, may just be a temporary issue
+            }
+          } catch (error) {
+            console.error('[ELECTRON] Failed to fetch initial data with saved auth data:', error);
+          }
+        } else {
+          console.log('[ELECTRON] Saved auth data is invalid or expired, clearing');
+          // Clear invalid auth data
+          authCookies = {};
+          authToken = null;
+          await deleteAuthData();
+        }
+      } catch (error) {
+        console.error('[ELECTRON] Failed to validate saved auth data:', error);
+        // Don't delete auth data, may just be a server connectivity issue
+      }
+    } else {
+      console.log('[ELECTRON] No saved auth data found');
+    }
+    
     registerGlobalShortcuts();
     createWindow();
   } catch (error) {

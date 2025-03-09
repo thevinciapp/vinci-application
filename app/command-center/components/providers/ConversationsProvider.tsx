@@ -4,7 +4,7 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { PencilLine, Trash, MessageSquare, Plus } from "lucide-react";
 import { CommandGroup, CommandItem, CommandList, CommandSeparator, Button } from "vinci-ui";
-// @ts-expect-error - Known issue with vinci-ui component props
+
 import { API } from '@/lib/api-client';
 import { Space, Conversation } from '@/types';
 import { ProviderComponentProps } from "../../types";
@@ -17,8 +17,25 @@ export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ search
   const [activeConversation, setActiveConversation] = React.useState<Conversation | null>(null);
 
   React.useEffect(() => {
-    const fetchData = async () => {
+    const loadData = async () => {
       try {
+        // First try to get data from Electron app state
+        if (typeof window !== 'undefined' && window.electronAPI) {
+          try {
+            const appState = await window.electronAPI.getAppState();
+            if (appState && appState.activeSpace && appState.conversations) {
+              console.log('ConversationsProvider: Using cached data from Electron');
+              setActiveSpace(appState.activeSpace);
+              setConversations(appState.conversations || []);
+              setIsLoading(false);
+              return; // Exit early if we have data
+            }
+          } catch (error) {
+            console.log('ConversationsProvider: No cached data available');
+          }
+        }
+        
+        // Fallback to API calls if needed
         const activeSpaceResult = await API.activeSpace.getActiveSpace();
         if (activeSpaceResult.success && activeSpaceResult.data?.activeSpace) {
           const space = activeSpaceResult.data.activeSpace;
@@ -41,7 +58,7 @@ export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ search
       }
     };
 
-    fetchData();
+    loadData();
   }, []);
 
   const filteredConversations = conversations

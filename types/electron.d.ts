@@ -16,6 +16,11 @@ interface ElectronAPI {
   getAuthToken?: () => Promise<string | null>;
   
   /**
+   * Sign out the current user and clear authentication
+   */
+  signOut?: () => Promise<boolean>;
+  
+  /**
    * Get the current application state
    */
   getAppState?: () => Promise<{

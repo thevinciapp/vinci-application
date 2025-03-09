@@ -13,6 +13,7 @@ export default function Login() {
   const { toast } = useToast();
   const [error, setError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  
   return (
     <form className="flex flex-col w-full">
       <div className="bg-black/20 border border-white/[0.05] backdrop-blur-xl rounded-xl p-6">
@@ -87,8 +88,12 @@ export default function Login() {
                       const session = response.data as { session?: { access_token: string } };
                       if (session?.session?.access_token) {
                         // Send token to Electron main process
-                        await window.electronAPI.setAuthToken(session.session.access_token);
-                        console.log('Auth token passed to Electron');
+                        const success = await window.electronAPI.setAuthToken(session.session.access_token);
+                        if (success) {
+                          console.log('Auth token and cookies passed to Electron successfully');
+                        } else {
+                          console.error('Failed to set up authentication in Electron');
+                        }
                       }
                     } catch (error) {
                       console.error('Failed to pass auth token to Electron:', error);

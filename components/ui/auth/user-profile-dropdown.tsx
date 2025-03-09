@@ -62,7 +62,19 @@ export function UserProfileDropdown({ user, initialNotifications = [] }: UserPro
     : '??';
 
   const handleLogout = async () => {
+    // First sign out from the server
     const response = await AuthAPI.signOut();
+    
+    // Then clear Electron auth data if in desktop app
+    if (typeof window !== 'undefined' && window.electronAPI?.signOut) {
+      try {
+        await window.electronAPI.signOut();
+        console.log('Signed out from Electron app');
+      } catch (error) {
+        console.error('Error signing out from Electron:', error);
+      }
+    }
+    
     if (response.success) {
       router.push('/sign-in');
     }

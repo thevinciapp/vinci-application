@@ -15,8 +15,24 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const fetchActiveSpace = async () => {
+    const loadActiveSpace = async () => {
       try {
+        // First try to get active space from Electron app state
+        if (typeof window !== 'undefined' && window.electronAPI) {
+          try {
+            const appState = await window.electronAPI.getAppState();
+            if (appState && appState.activeSpace) {
+              console.log('ModelsProvider: Using cached active space from Electron');
+              setActiveSpace(appState.activeSpace);
+              setIsLoading(false);
+              return; // Exit early if we have data
+            }
+          } catch (error) {
+            console.log('ModelsProvider: No cached data available');
+          }
+        }
+        
+        // Fallback to API call if needed
         const result = await API.activeSpace.getActiveSpace();
         if (result.success && result.data?.activeSpace) {
           setActiveSpace(result.data.activeSpace);
@@ -31,7 +47,7 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
       }
     };
 
-    fetchActiveSpace();
+    loadActiveSpace();
   }, []);
   const modelsByProvider = Object.entries(AVAILABLE_MODELS).reduce((acc, [provider, models]) => {
     const filteredModels = models.filter(model =>

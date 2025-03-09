@@ -162,14 +162,67 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const syncAuthToken = async () => {
       if (typeof window !== 'undefined' && window.electronAPI) {
         try {
-          // Fetch the current session
+          // First check if we already have auth token in Electron
+          const existingToken = await window.electronAPI.getAuthToken();
+          if (existingToken) {
+            console.log('Auth token already exists in Electron');
+            // Refresh the data to verify the token is valid
+            try {
+              const freshAppData = await window.electronAPI.refreshAppData();
+              if (freshAppData && !freshAppData.error) {
+                console.log('Successfully refreshed app data with existing token');
+                setAppState(prev => ({
+                  ...prev,
+                  spaces: freshAppData.spaces || prev.spaces,
+                  activeSpace: freshAppData.activeSpace || prev.activeSpace,
+                  conversations: freshAppData.conversations || prev.conversations,
+                  isLoading: false,
+                  error: null,
+                  lastFetched: freshAppData.lastFetched || Date.now()
+                }));
+                return; // Exit early if we already have a valid token
+              } else {
+                console.log('Existing token may be invalid, attempting to refresh');
+              }
+            } catch (refreshError) {
+              console.error('Failed to refresh with existing token:', refreshError);
+            }
+          }
+          
+          // Fetch the current session if needed
           const response = await fetch('/api/auth/session');
           if (response.ok) {
             const data = await response.json();
             if (data?.data?.session?.access_token) {
-              // Pass the token to Electron
-              await window.electronAPI.setAuthToken(data.data.session.access_token);
-              console.log('Auth token synced with Electron on initialization');
+              // Pass the token to Electron - this will trigger the endpoint
+              // that fetches and caches auth cookies
+              const success = await window.electronAPI.setAuthToken(data.data.session.access_token);
+              console.log('Auth token synced with Electron on initialization:', success ? 'success' : 'failed');
+              
+              if (success) {
+                // Add a small delay to ensure cookies are properly processed
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Refresh the data now that we have auth credentials
+                try {
+                  const freshAppData = await window.electronAPI.refreshAppData();
+                  if (freshAppData && !freshAppData.error) {
+                    setAppState(prev => ({
+                      ...prev,
+                      spaces: freshAppData.spaces || prev.spaces,
+                      activeSpace: freshAppData.activeSpace || prev.activeSpace,
+                      conversations: freshAppData.conversations || prev.conversations,
+                      isLoading: false,
+                      error: null,
+                      lastFetched: freshAppData.lastFetched || Date.now()
+                    }));
+                  } else {
+                    console.error('Failed to get data after token refresh:', freshAppData?.error);
+                  }
+                } catch (refreshError) {
+                  console.error('Failed to refresh app data after auth token sync:', refreshError);
+                }
+              }
             }
           }
         } catch (error) {

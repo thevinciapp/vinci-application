@@ -14,8 +14,24 @@ export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
   const [isLoading, setIsLoading] = React.useState(true);
   
   React.useEffect(() => {
-    const fetchSpaces = async () => {
+    const loadSpaces = async () => {
       try {
+        // First try to get spaces from Electron app state
+        if (typeof window !== 'undefined' && window.electronAPI) {
+          try {
+            const appState = await window.electronAPI.getAppState();
+            if (appState && appState.spaces && appState.spaces.length > 0) {
+              console.log('SpacesProvider: Using cached spaces from Electron');
+              setSpaces(appState.spaces);
+              setIsLoading(false);
+              return; // Exit early if we have data
+            }
+          } catch (error) {
+            console.log('SpacesProvider: No cached spaces available');
+          }
+        }
+        
+        // Fallback to API call if needed
         const result = await API.spaces.getSpaces();
         if (result.success) {
           setSpaces(result.data || []);
@@ -28,7 +44,8 @@ export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
         setIsLoading(false);
       }
     };
-    fetchSpaces();
+    
+    loadSpaces();
   }, []);
 
   const filteredSpaces = spaces.filter(space => 

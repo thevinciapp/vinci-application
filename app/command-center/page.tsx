@@ -40,6 +40,24 @@ const CommandCenter = () => {
   useEffect(() => {
     const initializeData = async () => {
       setIsLoading(true);
+      
+      // First check if we can get data from Electron
+      if (typeof window !== 'undefined' && window.electronAPI) {
+        try {
+          const appState = await window.electronAPI.getAppState();
+          if (appState && appState.spaces && appState.activeSpace) {
+            console.log('Using cached app state from Electron');
+            setSpaces(appState.spaces || []);
+            setActiveSpace(appState.activeSpace || null);
+            setIsLoading(false);
+            return; // Exit early if we have data
+          }
+        } catch (error) {
+          console.log('No cached app state available, fetching fresh data');
+        }
+      }
+      
+      // Fallback to API calls if needed
       await Promise.all([fetchSpaces(), fetchActiveSpace()]);
       setIsLoading(false);
     };
@@ -131,7 +149,6 @@ const CommandCenter = () => {
         <CommandList>
           <CommandGroup heading="Select a category">
             {Object.keys(providers).map((key) => (
-              // @ts-expect-error - Known issue with vinci-ui component props
               <CommandItem 
                 key={key}
                 onSelect={() => setCurrentProvider(key)}
@@ -163,7 +180,6 @@ const CommandCenter = () => {
   return (
     <div className={styles.container}>
       <Command className="rounded-lg border shadow-md">
-        // @ts-expect-error - Known issue with vinci-ui component props
         <CommandInput
           value={searchQuery}
           onValueChange={handleSearchChange}

@@ -48,17 +48,10 @@ export default function ClientChatContent({
   const { activeSpace, conversations, isLoading: isAppLoading, error: appError } = appState;
   const activeConversation = conversations?.[0] || null;
 
-  // Clear app error on unmount
   useEffect(() => {
     return () => clearError();
   }, []);
-
-  // Refresh app state when component mounts
-  useEffect(() => {
-    refreshAppState();
-  }, []);
-
-  // Reset messages when active conversation changes
+  
   useEffect(() => {
     if (activeConversation) {
       setMessages([]);

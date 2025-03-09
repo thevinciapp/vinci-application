@@ -78,7 +78,6 @@ export function MessageSearchProvider({ searchQuery, onSelect }: ProviderCompone
           <p className="p-2 text-sm text-muted-foreground">No messages found</p>
         ) : (
           filteredMessages.map(message => (
-            // @ts-expect-error - Known issue with vinci-ui component props
             <CommandItem
               key={message.id}
               value={message.content}

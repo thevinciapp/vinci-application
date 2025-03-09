@@ -35,9 +35,18 @@ export const updateSession = async (request: NextRequest) => {
       },
     );
 
-    // This will refresh session if expired - required for Server Components
-    // https://supabase.com/docs/guides/auth/server-side/nextjs
-    const user = await supabase.auth.getUser();
+    // Check for Authorization header (Bearer token) for Electron
+    const authHeader = request.headers.get('Authorization');
+    let user;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      user = await supabase.auth.getUser(token);
+    } else {
+      // This will refresh session if expired - required for Server Components
+      // https://supabase.com/docs/guides/auth/server-side/nextjs
+      user = await supabase.auth.getUser();
+    }
 
     // protected routes
     if (request.nextUrl.pathname.startsWith("/protected") && user.error) {

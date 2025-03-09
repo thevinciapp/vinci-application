@@ -1,14 +1,17 @@
 {
   "private": true,
   "main": "build/main.js",
- "scripts": {
+  "scripts": {
     "next:dev": "next dev",
     "next:build": "next build",
     "electron:build": "tsc -p electron/tsconfig.json",
     "electron:build_watch": "tsc -p electron/tsconfig.json --watch",
     "electron:watch": "cross-env NODE_ENV='development' nodemon -r tsconfig-paths/register --exec electron ./build/electron/main.js",
     "electron:dev": "npm-run-all --parallel electron:build_watch electron:watch",
-    "dev": "npm-run-all --parallel electron:dev next:dev"
+    "dev": "npm-run-all --parallel electron:dev next:dev",
+    "postinstall": "electron-builder install-app-deps",
+    "start": "electron .",
+    "dist": "electron-builder"
   },
   "dependencies": {
     "@agentic/ai-sdk": "^7.3.1",
@@ -63,6 +66,7 @@
     "get-port-please": "^3.1.2",
     "highlight.js": "^11.11.1",
     "isomorphic-dompurify": "^2.21.0",
+    "keytar": "^7.9.0",
     "latest": "^0.2.0",
     "lodash": "^4.17.21",
     "lucide-react": "^0.468.0",
@@ -100,6 +104,7 @@
     "@swc/core": "^1.10.12",
     "@swc/helpers": "^0.5.15",
     "@tailwindcss/postcss": "^4.0.12",
+    "@types/keytar": "^4.4.2",
     "@types/lodash": "^4.17.15",
     "@types/node": "22.10.2",
     "@types/react": "19.0.10",
@@ -122,8 +127,15 @@
     "@types/react": "19.0.10",
     "@types/react-dom": "19.0.4"
   },
-  "mac": {
-    "entitlements": "entitlements.plist",
-    "entitlementsInherit": "entitlements.plist"
+  "build": {
+    "appId": "com.vinci.app",
+    "asar": true,
+    "files": [
+      "**/*"
+    ],
+    "mac": {
+      "entitlements": "entitlements.plist",
+      "entitlementsInherit": "entitlements.plist"
+    }
   }
 }
