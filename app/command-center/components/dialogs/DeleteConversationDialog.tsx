@@ -4,8 +4,7 @@ import React, { useState } from "react";
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "vinci-ui";
 import { toast } from 'sonner';
 import { DialogComponentProps } from "../../types";
-import { deleteConversation } from "@/app/actions/conversations";
-import { ActionResponse } from "@/app/types/action-response";
+import { API } from '@/lib/api-client';
 
 export const DeleteConversationDialog: React.FC<DialogComponentProps> = ({ data, onClose, onConfirm }) => {
   const [isDeleting, setIsDeleting] = useState(false);
@@ -15,13 +14,13 @@ export const DeleteConversationDialog: React.FC<DialogComponentProps> = ({ data,
     
     setIsDeleting(true);
     try {
-      const response = await deleteConversation(data.id) as ActionResponse<void>;
-      if (response.status === 'success') {
+      const result = await API.conversations.deleteConversation(data.id);
+      if (result.success) {
         toast.success('Conversation deleted successfully');
         onConfirm?.(data);
         onClose();
       } else {
-        toast.error(response.error || 'Failed to delete conversation');
+        toast.error(result.error || 'Failed to delete conversation');
       }
     } catch (error) {
       console.error('Error deleting conversation:', error);

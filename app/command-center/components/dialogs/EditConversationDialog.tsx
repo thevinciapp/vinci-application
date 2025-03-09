@@ -4,8 +4,7 @@ import React, { useState } from "react";
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label } from "vinci-ui";
 import { toast } from 'sonner';
 import { DialogComponentProps } from "../../types";
-import { updateConversationTitle } from "@/app/actions/conversations";
-import { ActionResponse } from "@/app/types/action-response";
+import { API } from '@/lib/api-client';
 
 export const EditConversationDialog: React.FC<DialogComponentProps> = ({ data, onClose, onConfirm }) => {
   const [title, setTitle] = useState(data.title || "");
@@ -23,14 +22,14 @@ export const EditConversationDialog: React.FC<DialogComponentProps> = ({ data, o
 
     setIsSubmitting(true);
     try {
-      const response = await updateConversationTitle(data.id, trimmedTitle) as ActionResponse<void>;
-      if (response.status === 'success') {
+      const result = await API.conversations.updateConversation(data.id, trimmedTitle);
+      if (result.success) {
         toast.success('Conversation updated successfully');
         // Pass updated data with new title
         onConfirm?.({ ...data, title: trimmedTitle });
         onClose();
       } else {
-        toast.error(response.error || 'Failed to update conversation');
+        toast.error(result.error || 'Failed to update conversation');
       }
     } catch (error) {
       console.error('Error updating conversation:', error);

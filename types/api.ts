@@ -17,3 +17,10 @@ export interface AppState {
 export interface AppStateResult extends AppState {
   error?: string;
 }
+
+export interface SpaceData {
+  space: Space;
+  conversations: Conversation[];
+  messages: any[];
+  activeConversation: Conversation | null;
+}

@@ -36,6 +36,15 @@ export interface Conversation {
 }
 
 // Message types
+export interface Message {
+  id: string;
+  content: string;
+  role: 'user' | 'assistant';
+  timestamp: number;
+  conversationId: string;
+  conversationName?: string;
+}
+
 export interface SimilarMessage {
   id: string;
   content: string;

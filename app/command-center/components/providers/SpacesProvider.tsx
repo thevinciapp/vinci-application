@@ -4,39 +4,58 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { PencilLine, Trash, Globe, Plus } from "lucide-react";
 import { CommandGroup, CommandItem, CommandList, CommandSeparator, Button } from "vinci-ui";
-import { useSpaceStore } from '@/stores/space-store';
-import { setActiveSpace } from "@/app/actions/spaces";
+import { API } from '@/lib/api-client';
+import { Space } from '@/types';
 import { ProviderComponentProps } from "../../types";
 
 export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect, onAction }) => {
   const router = useRouter();
-  const { spaces, isLoading } = useSpaceStore();
-  const filteredSpaces = (spaces ?? []).filter(space => 
+  const [spaces, setSpaces] = React.useState<Space[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  
+  React.useEffect(() => {
+    const fetchSpaces = async () => {
+      try {
+        const result = await API.spaces.getSpaces();
+        if (result.success) {
+          setSpaces(result.data || []);
+        } else {
+          console.error('Error fetching spaces:', result.error);
+        }
+      } catch (error) {
+        console.error('Error fetching spaces:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchSpaces();
+  }, []);
+
+  const filteredSpaces = spaces.filter(space => 
     space.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     space.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleSelect = async (space: any) => {
+  const handleSelect = async (space: Space) => {
     try {
-      const response = await setActiveSpace(space.id);
-      
-      if (response.status === 'success') {
+      const result = await API.activeSpace.setActiveSpace(space.id);
+      if (result.success) {
         if (onSelect) onSelect(space);
       } else {
-        console.error('Error setting active space:', response.error);
+        console.error('Error setting active space:', result.error);
       }
     } catch (error) {
       console.error('Error handling space selection:', error);
     }
   };
 
-  const handleEdit = (e: React.MouseEvent, space: any) => {
+  const handleEdit = (e: React.MouseEvent, space: Space) => {
     e.stopPropagation();
     e.preventDefault();
     if (onAction) onAction('edit', space);
   };
 
-  const handleDelete = (e: React.MouseEvent, space: any) => {
+  const handleDelete = (e: React.MouseEvent, space: Space) => {
     e.stopPropagation();
     e.preventDefault();
     if (onAction) onAction('delete', space);

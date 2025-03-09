@@ -6,6 +6,16 @@
 
 interface ElectronAPI {
   /**
+   * Set authentication token for Electron main process
+   */
+  setAuthToken?: (token: string) => Promise<boolean>;
+  
+  /**
+   * Get current authentication token from Electron main process
+   */
+  getAuthToken?: () => Promise<string | null>;
+  
+  /**
    * Get the current application state
    */
   getAppState?: () => Promise<{

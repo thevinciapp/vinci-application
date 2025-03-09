@@ -1,6 +1,10 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("electronAPI", {
+  // Auth management
+  setAuthToken: (token: string) => ipcRenderer.invoke('set-auth-token', token),
+  getAuthToken: () => ipcRenderer.invoke('get-auth-token'),
+  
   searchFiles: async (searchTerm: string) => {
     try {
       const results = await ipcRenderer.invoke("search-files", searchTerm);

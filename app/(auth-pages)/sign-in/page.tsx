@@ -71,17 +71,33 @@ export default function Login() {
                   return;
                 }
 
-                const { success, error: apiError, toast: toastData } = await AuthAPI.signIn({ email, password });
+                const response = await AuthAPI.signIn({ email, password });
                 
-                if (success) {
+                if (response.success) {
                   toast({
-                    title: toastData?.title || "Success",
-                    description: toastData?.description || "Successfully signed in",
+                    title: "Success",
+                    description: "Successfully signed in",
                     variant: "success"
                   });
+                  
+                  // Share auth token with Electron if in desktop context
+                  if (typeof window !== 'undefined' && window.electronAPI) {
+                    try {
+                      // Get session access token from response data
+                      const session = response.data as { session?: { access_token: string } };
+                      if (session?.session?.access_token) {
+                        // Send token to Electron main process
+                        await window.electronAPI.setAuthToken(session.session.access_token);
+                        console.log('Auth token passed to Electron');
+                      }
+                    } catch (error) {
+                      console.error('Failed to pass auth token to Electron:', error);
+                    }
+                  }
+                  
                   router.push('/command-center');
                 } else {
-                  setError(apiError || 'Failed to sign in');
+                  setError(response.error || 'Failed to sign in');
                 }
               } catch (error) {
                 setError('An unexpected error occurred');

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast, type ToastVariant } from "@/components/ui/use-toast";
 import { SubmitButton } from "@/components/ui/auth/submit-button";
 import { Input, Label } from "vinci-ui";
 import Link from "next/link";
@@ -73,19 +73,31 @@ export default function Signup() {
                   }
 
                   const { success, error: apiError, toast: toastData } = await AuthAPI.signUp({ email, password });
+                  const variant: ToastVariant = success ? "success" : "destructive";
                   
                   if (success) {
                     toast({
                       title: toastData?.title || "Success",
                       description: toastData?.description || "Successfully signed up",
-                      variant: "success"
+                      variant
                     });
                     router.push('/sign-in');
                   } else {
+                    toast({
+                      title: "Error",
+                      description: apiError || 'Failed to sign up',
+                      variant
+                    });
                     setError(apiError || 'Failed to sign up');
                   }
                 } catch (error) {
-                  setError('An unexpected error occurred');
+                  const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+                  toast({
+                    title: "Error",
+                    description: errorMessage,
+                    variant: "destructive"
+                  });
+                  setError(errorMessage);
                   console.error('Sign up error:', error);
                 } finally {
                   setIsLoading(false);

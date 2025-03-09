@@ -5,13 +5,34 @@ import { useRouter } from "next/navigation";
 import { CommandGroup, CommandItem, CommandList, CommandSeparator } from "vinci-ui";
 import { AVAILABLE_MODELS } from "@/config/models";
 import { ProviderIcon } from "@lobehub/icons";
-import { useSpaceStore } from '@/stores/space-store';
-import { updateSpace } from "@/app/actions/spaces";
+import { API } from '@/lib/api-client';
+import { Space } from '@/types';
 import { ProviderComponentProps } from "../../types";
 
 export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect }) => {
   const router = useRouter();
-  const { activeSpace, isLoading } = useSpaceStore();
+  const [activeSpace, setActiveSpace] = React.useState<Space | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchActiveSpace = async () => {
+      try {
+        const result = await API.activeSpace.getActiveSpace();
+        if (result.success && result.data?.activeSpace) {
+          setActiveSpace(result.data.activeSpace);
+        } else {
+          console.error('Error fetching active space:', result.error);
+          setActiveSpace(null);
+        }
+      } catch (error) {
+        console.error('Error fetching active space:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchActiveSpace();
+  }, []);
   const modelsByProvider = Object.entries(AVAILABLE_MODELS).reduce((acc, [provider, models]) => {
     const filteredModels = models.filter(model =>
       model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -62,12 +83,13 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
                   if (activeSpace?.id) {
                     try {
                       // Update the space with the new model and provider
-                      const response = await updateSpace(activeSpace.id, { 
+                      const result = await API.spaces.updateSpace(activeSpace.id, {
                         model: model.name,
                         provider: provider
                       });
                       
-                      if (response.status === 'success') {
+                      if (result.success && result.data) {
+                        setActiveSpace(result.data);
                         // Let the parent know something was selected to close the command center
                         if (onSelect) onSelect({ ...model, provider });
                       }
@@ -78,6 +100,7 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
                 }}
                 className="flex items-center justify-between py-3"
               >
+                {/* @ts-ignore - Known issue with CommandItem children prop */}
                 <div className="flex items-center gap-2">
                   <ProviderIcon type="color" provider={model.provider} size={18} />
                   <div className="flex flex-col">

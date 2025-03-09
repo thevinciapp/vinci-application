@@ -3,14 +3,14 @@
 import React, { useState } from "react";
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea } from "vinci-ui";
 import { DialogComponentProps } from "../../types";
-import { useSpaceStore } from "@/stores/space-store";
+import { API } from "@/lib/api-client";
 import { useRouter } from "next/navigation";
 
 export const CreateSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose, onConfirm }) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { createSpace } = useSpaceStore();
+
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -18,13 +18,18 @@ export const CreateSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClos
     setIsLoading(true);
     try {
       // Using the default Claude model and provider for simplicity
-      const space = await createSpace(
+      const result = await API.spaces.createSpace({
         name,
-        description, 
-        "claude-3-haiku-20240307", // Default model
-        "anthropic", // Default provider
-        "#3ecfff" // Default color
-      );
+        description,
+        model: "claude-3-haiku-20240307", // Default model
+        provider: "anthropic", // Default provider
+        color: "#3ecfff" // Default color
+      });
+      
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      const space = result.data;
       
       if (space) {
         // Close dialog

@@ -1,36 +1,52 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, MessageSquare, Calendar } from 'lucide-react';
 import { CommandGroup, CommandItem, CommandList } from "vinci-ui";
 import { ProviderComponentProps } from '../../types';
+import { API } from '@/lib/api-client';
+import { Message, Conversation } from '@/types';
 
-interface Message {
-  id: string;
-  content: string;
+interface MessageWithConversation extends Message {
   timestamp: number;
-  conversationId: string;
   conversationName: string;
+  conversation?: Conversation;
 }
 
 export function MessageSearchProvider({ searchQuery, onSelect }: ProviderComponentProps) {
-  // Example messages - in real implementation, this would be fetched based on search
-  const messages: Message[] = [
-    {
-      id: '1',
-      content: 'Let\'s discuss the new React architecture',
-      timestamp: Date.now() - 3600000, // 1 hour ago
-      conversationId: 'conv1',
-      conversationName: 'Project Planning'
-    },
-    {
-      id: '2',
-      content: 'Here\'s the implementation for the command center',
-      timestamp: Date.now() - 7200000, // 2 hours ago
-      conversationId: 'conv2',
-      conversationName: 'Development'
-    }
-  ];
+  const [messages, setMessages] = useState<MessageWithConversation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMessages = async () => {
+      if (!searchQuery) {
+        setMessages([]);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const result = await API.messages.getMessages(searchQuery);
+        if (result.success) {
+          const messagesWithConversations: MessageWithConversation[] = (result.data || []).map(msg => ({
+            ...msg,
+            timestamp: new Date(msg.created_at).getTime(),
+            conversationName: msg.conversation?.title || 'Untitled'
+          })) || [];
+          setMessages(messagesWithConversations);
+        } else {
+          console.error('Error fetching messages:', result.error);
+        }
+      } catch (error) {
+        console.error('Error searching messages:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    setIsLoading(true);
+    fetchMessages();
+  }, [searchQuery]);
 
   // Filter messages based on search query
   const filteredMessages = messages.filter(message => 
@@ -53,10 +69,16 @@ export function MessageSearchProvider({ searchQuery, onSelect }: ProviderCompone
   return (
     <CommandList>
       <CommandGroup heading="Message Search">
-        {filteredMessages.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center p-4">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+            <span className="ml-2 text-sm text-muted-foreground">Searching messages...</span>
+          </div>
+        ) : filteredMessages.length === 0 ? (
           <p className="p-2 text-sm text-muted-foreground">No messages found</p>
         ) : (
           filteredMessages.map(message => (
+            // @ts-expect-error - Known issue with vinci-ui component props
             <CommandItem
               key={message.id}
               value={message.content}

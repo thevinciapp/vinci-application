@@ -3,14 +3,14 @@
 import React, { useState } from "react";
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea } from "vinci-ui";
 import { DialogComponentProps } from "../../types";
-import { useSpaceStore } from "@/stores/space-store";
+import { API } from "@/lib/api-client";
+import { Space } from "@/types";
 
 export const EditSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose }) => {
-  const space = data;
+  const space = data as Space;
   const [name, setName] = useState(space?.name || "");
   const [description, setDescription] = useState(space?.description || "");
   const [isLoading, setIsLoading] = useState(false);
-  const { updateSpace } = useSpaceStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,15 +19,17 @@ export const EditSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose 
     
     setIsLoading(true);
     try {
-      const success = await updateSpace(space.id, { 
-        name, 
-        description 
+      const result = await API.spaces.updateSpace(space.id, {
+        name,
+        description
       });
       
-      if (success) {
+      if (result.success) {
         // Refresh command center
         window.electronAPI?.refreshCommandCenter?.();
         onClose();
+      } else {
+        throw new Error(result.error);
       }
     } catch (error) {
       console.error('Error updating space:', error);

@@ -1,12 +1,12 @@
 {
   "private": true,
   "main": "build/main.js",
-  "scripts": {
+ "scripts": {
     "next:dev": "next dev",
     "next:build": "next build",
     "electron:build": "tsc -p electron/tsconfig.json",
     "electron:build_watch": "tsc -p electron/tsconfig.json --watch",
-    "electron:watch": "cross-env NODE_ENV='development' nodemon",
+    "electron:watch": "cross-env NODE_ENV='development' nodemon -r tsconfig-paths/register --exec electron ./build/electron/main.js",
     "electron:dev": "npm-run-all --parallel electron:build_watch electron:watch",
     "dev": "npm-run-all --parallel electron:dev next:dev"
   },
@@ -114,6 +114,7 @@
     "tailwind-merge": "^2.6.0",
     "tailwindcss": "^4.0.12",
     "tailwindcss-animate": "^1.0.7",
+    "tsconfig-paths": "^4.2.0",
     "tsup": "^8.3.6",
     "typescript": "5.7.2"
   },

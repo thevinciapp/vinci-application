@@ -14,35 +14,22 @@ import { UserProfileDropdown } from "@/components/ui/auth/user-profile-dropdown"
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState, useEffect } from "react";
 import { ConversationsAPI } from "@/lib/api-client";
+import { useAppState } from "@/lib/app-state-context";
+import { toast } from "@/components/ui/use-toast";
 
 interface ClientChatContentProps {
   user: User;
-  initialData: {
-    spaces: any[];
-    activeSpace: any;
-    conversations: any[];
-    activeConversation: any;
-    messages: any[];
-    allMessages: Record<string, any[]>;
-    notifications?: any[];
-  };
 }
 
 export default function ClientChatContent({
   user,
-  initialData,
 }: ClientChatContentProps) {
   const router = useRouter();
-  
   const [isStickToBottom, setIsStickToBottom] = useState(true);
   const [searchMode, setSearchMode] = useState<"chat" | "search" | "semantic" | "hybrid">("chat");
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  
   const [fileReferences, setFileReferences] = useState<any[]>([]);
-  const { activeSpace, activeConversation, messages: storeMessages } = initialData;
-  
   const clearFileReferences = () => setFileReferences([]);
-
   const fileReferencesMap = useCallback(() => {
     const fileMap: Record<string, any> = {};
     fileReferences.forEach(fileRef => {
@@ -57,6 +44,27 @@ export default function ClientChatContent({
     return fileMap;
   }, [fileReferences]);
 
+  const { appState, refreshAppState, clearError } = useAppState();
+  const { activeSpace, conversations, isLoading: isAppLoading, error: appError } = appState;
+  const activeConversation = conversations?.[0] || null;
+
+  // Clear app error on unmount
+  useEffect(() => {
+    return () => clearError();
+  }, []);
+
+  // Refresh app state when component mounts
+  useEffect(() => {
+    refreshAppState();
+  }, []);
+
+  // Reset messages when active conversation changes
+  useEffect(() => {
+    if (activeConversation) {
+      setMessages([]);
+    }
+  }, [activeConversation?.id]);
+
   const {
     messages,
     setMessages,
@@ -70,7 +78,7 @@ export default function ClientChatContent({
   } = useChat({
     id: activeConversation?.id || 'default',
     api: "/api/chat",
-    initialMessages: storeMessages || [],
+    initialMessages: [],
     body: {
       spaceId: activeSpace?.id || "",
       conversationId: activeConversation?.id || null,
@@ -112,13 +120,19 @@ export default function ClientChatContent({
       }
     } catch (error) {
       console.error('Failed to create conversation:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create conversation';
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     }
   };
 
   return (
     <div>
       <div className="fixed top-4 right-4 z-50">
-        {user && <UserProfileDropdown user={user} initialNotifications={initialData.notifications} />}
+        {user && <UserProfileDropdown user={user} />}
       </div>
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
         <div
@@ -144,7 +158,7 @@ export default function ClientChatContent({
               />
             </div>
             <div className="px-1 first:pl-1 last:pr-1">
-              <ChatModeTab />
+              <ChatModeTab chatMode={activeSpace?.chat_mode} />
             </div>
             {!isStickToBottom && messages.length > 0 && (
               <div className="px-1 first:pl-1 last:pr-1">
@@ -165,13 +179,18 @@ export default function ClientChatContent({
           <div className="absolute top-0 left-[20%] w-[500px] h-[500px] bg-[#3ecfff]/[0.015] blur-[120px] rounded-full" />
           <div className="absolute top-[20%] right-[20%] w-[400px] h-[400px] bg-[#D4966A]/[0.015] blur-[100px] rounded-full" />
           <div className="absolute bottom-[10%] left-[30%] w-[600px] h-[600px] bg-[#3ecfff]/[0.01] blur-[130px] rounded-full" />
+          {appError && (
+            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-red-500/20 text-red-200 px-4 py-2 rounded-lg border border-red-500/30 backdrop-blur-xl">
+              {appError}
+            </div>
+          )}
         </div>
         <ChatMessages
           messages={messages}
           onStickToBottomChange={handleStickToBottomChange}
           onScrollToBottom={handleScrollToBottom}
           ref={messagesContainerRef}
-          isLoading={isChatLoading}
+          isLoading={isChatLoading || isAppLoading}
           streamData={data}
         />
         <div className="fixed left-1/2 bottom-8 -translate-x-1/2 w-[800px] z-50">
@@ -180,7 +199,7 @@ export default function ClientChatContent({
               value={input}
               onChange={handleInputChange}
               onSubmit={handleSubmit}
-              disabled={!activeSpace || isChatLoading}
+              disabled={!activeSpace || isChatLoading || isAppLoading}
             >
               <div className="flex items-center divide-x divide-white/[0.05] bg-white/[0.03] border-t border-l border-r border-white/[0.05] rounded-t-2xl overflow-hidden backdrop-blur-xl w-full shadow-[0_-4px_20px_rgba(62,207,255,0.03)]">
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">

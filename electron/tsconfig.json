@@ -1,14 +1,22 @@
 {
+  "extends": "../tsconfig.json",
   "compilerOptions": {
     "target": "ES2020",
     "module": "CommonJS",
     "moduleResolution": "node",
     "esModuleInterop": true,
     "outDir": "../build",
-    "rootDir": "./",
+    "rootDir": "../",
     "strict": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": false,
+    "baseUrl": "../",
+    "paths": {
+      "@lib/*": ["lib/*"],
+      "@/*": ["*"]
+    }
   },
-  "include": ["./**/*", "../types/electron.d.ts", "../node_modules/@types/node-fetch"]
+  "include": ["./**/*", "../types/electron.d.ts", "../lib/**/*.ts"],
+  "exclude": ["../lib/**/*.tsx"]
 }
