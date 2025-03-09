@@ -7,7 +7,6 @@ import { getNotifications } from "@/app/actions/notifications";
 import { Toaster } from "vinci-ui";
 import { CommandProvider } from "@/hooks/useCommandCenter";
 import { AllCommandProviders } from "@/components/AllCommandProviders";
-import CommandRoot from "@/components/CommandRoot";
 
 export default async function ConversationPage({
   params
@@ -80,14 +79,12 @@ export default async function ConversationPage({
           user={user}
           messages={initialData.messages}
           >
-            <div className="flex flex-col h-screen bg-black text-white">
-            <ClientChatContent
-                user={user}
-                initialData={initialData}
-            />
+            <div className="flex flex-col h-screen">
+              <ClientChatContent
+                  user={user}
+                  initialData={initialData}
+              />
             </div>
-            <CommandRoot />
-            <Toaster />
         </AllCommandProviders>
     </CommandProvider>                      
   );
