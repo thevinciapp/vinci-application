@@ -26,14 +26,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.send("toggle-command-center");
     ipcRenderer.send("sync-command-center-state", "toggle");
   },
+  closeCommandCenter: () => {
+    ipcRenderer.send("close-command-center");
+    ipcRenderer.send("sync-command-center-state", "close");
+  },
   openCommandType: (commandType: string) => {
     ipcRenderer.send("show-command-center");
     ipcRenderer.send("set-command-type", commandType);
     ipcRenderer.send("sync-command-center-state", "open", commandType);
-  },
-  closeCommandCenter: () => {
-    ipcRenderer.send("close-command-center");
-    ipcRenderer.send("sync-command-center-state", "close");
   },
   refreshCommandCenter: () => {
     ipcRenderer.send("refresh-command-center");

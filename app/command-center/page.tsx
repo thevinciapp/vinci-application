@@ -1,59 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Input } from "vinci-ui";
+import { getMostRecentConversation } from "@/app/actions/conversations";
+import { providers } from "./registry/providers";
+import { dialogs } from "./registry/dialogs";
+import styles from "./styles/CommandCenter.module.css";
 
-type ProviderComponentProps = {
-  searchQuery: string;
-};
-
-type DialogComponentProps = {
-  data: any;
-  onClose: () => void;
-  onConfirm?: (data: any) => void;
-};
-
-interface ProviderRegistry {
-  [key: string]: React.FC<ProviderComponentProps>;
-}
-
-interface DialogRegistry {
-  [key: string]: React.FC<DialogComponentProps>;
-}
-
-const providers: ProviderRegistry = {
-  spaces: ({ searchQuery }) => <div>Spaces UI - Search results for: {searchQuery}</div>,
-  conversations: ({ searchQuery }) => <div>Conversations UI - Search results for: {searchQuery}</div>,
-  models: ({ searchQuery }) => <div>Models UI - Search results for: {searchQuery}</div>,
-  tasks: ({ searchQuery }) => <div>Tasks UI - Search results for: {searchQuery}</div>, // Example extension
-};
-
-// Dialog Components
-const dialogs: DialogRegistry = {
-  "delete-space": ({ data, onClose }) => (
-    <div>
-      <p>Are you sure you want to delete space {data.spaceId}?</p>
-      <button onClick={onClose}>Cancel</button>
-      <button onClick={onClose}>Confirm</button> {/* Add onConfirm logic if needed */}
-    </div>
-  ),
-  edit: ({ data, onClose }) => (
-    <div>
-      <p>Edit dialog for {data.item}</p>
-      <button onClick={onClose}>Cancel</button>
-      <button onClick={onClose}>Save</button>
-    </div>
-  ),
-  "create-space": ({ data, onClose }) => (
-    <div>
-      <p>Create a new space with name: {data.name || "Unnamed"}</p>
-      <button onClick={onClose}>Cancel</button>
-      <button onClick={onClose}>Create</button>
-    </div>
-  ), // Example extension
-};
-
-// Main CommandCenter Component
 const CommandCenter = () => {
+  const router = useRouter();
   const [currentProvider, setCurrentProvider] = useState<string | null>(null);
   const [currentDialog, setCurrentDialog] = useState<{ type: string; data: any } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -86,12 +42,9 @@ const CommandCenter = () => {
       }
     };
 
-    // Attach IPC listeners
     window.electronAPI?.onSetCommandType?.(onSetCommandType);
     window.electronAPI?.onOpenDialog?.(onOpenDialog);
     window.electronAPI?.onSyncCommandCenterState?.(onSyncCommandCenterState);
-
-    // Cleanup listeners on unmount
     return () => {
       // Cleanup not implemented; add if supported by electronAPI
     };
@@ -104,7 +57,35 @@ const CommandCenter = () => {
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
-    // Add dynamic search logic here if needed
+  };
+
+  const handleSelect = async (item: any) => {
+    try {
+      if (currentProvider === 'spaces') {
+        const conversationResponse = await getMostRecentConversation(item.id);
+        if (conversationResponse.data) {
+          router.push(`/protected/spaces/${item.id}/conversations/${conversationResponse.data.id}`);
+        }
+      } else if (currentProvider === 'conversations') {
+        router.push(`/protected/spaces/${item.spaceId}/conversations/${item.id}`);
+      }
+      (window as any).electronAPI?.closeCommandCenter?.();
+    } catch (error) {
+      console.error('Error handling selection:', error);
+    }
+  };
+
+  const handleAction = async (action: string, data: any) => {
+    try {
+      const dialogType = `${action}-${currentProvider?.slice(0, -1)}`;
+      if (dialogs[dialogType]) {
+        (window as any).electronAPI?.openDialog?.(dialogType, data);
+      } else {
+        console.warn(`Unknown dialog type: ${dialogType}`);
+      }
+    } catch (error) {
+      console.error('Error handling action:', error);
+    }
   };
 
   const renderProviderUI = () => {
@@ -112,7 +93,11 @@ const CommandCenter = () => {
       return <div>Search results for: {searchQuery}</div>;
     }
     const ProviderComponent = providers[currentProvider];
-    return <ProviderComponent searchQuery={searchQuery} />;
+    return <ProviderComponent 
+      searchQuery={searchQuery} 
+      onSelect={handleSelect}
+      onAction={handleAction}
+    />;
   };
 
   const renderDialog = () => {
@@ -122,51 +107,23 @@ const CommandCenter = () => {
   };
 
   return (
-    <div style={styles.container}>
-      <input
+    <div className={styles.container}>
+      <Input
         type="text"
         value={searchQuery}
         onChange={handleSearchChange}
         placeholder="Search or type a command..."
-        style={styles.searchInput}
+        className={styles.searchInput}
       />
       {currentDialog ? (
-        <div style={styles.dialogContainer}>{renderDialog()}</div>
+        <div className={styles.dialogContainer}>{renderDialog()}</div>
       ) : (
-        <div style={styles.resultsContainer}>{renderProviderUI()}</div>
+        <div className={styles.resultsContainer}>{renderProviderUI()}</div>
       )}
     </div>
   );
 };
 
-// Inline styles (replace with CSS modules or styled-components in production)
-const styles = {
-  container: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100vh",
-    padding: "20px",
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    backdropFilter: "blur(10px)",
-    borderRadius: "10px",
-  },
-  searchInput: {
-    padding: "10px",
-    fontSize: "16px",
-    borderRadius: "5px",
-    border: "1px solid #ccc",
-    marginBottom: "20px",
-  },
-  resultsContainer: {
-    flex: 1,
-    overflowY: "auto",
-  },
-  dialogContainer: {
-    flex: 1,
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-};
+
 
 export default CommandCenter;

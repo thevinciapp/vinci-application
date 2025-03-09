@@ -6,7 +6,6 @@ import { File, Loader2, MessageSquare, X } from 'lucide-react';
 import { Button, cn, Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "vinci-ui";
 import { useSpaceStore } from '@/stores/space-store';
 import { useShallow } from 'zustand/react/shallow';
-import { providerRegistry } from '@/lib/providers/provider-registry';
 
 type FileTag = {
   id: string

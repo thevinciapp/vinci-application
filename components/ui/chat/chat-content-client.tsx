@@ -11,10 +11,7 @@ import { User } from "@supabase/supabase-js";
 import { UnifiedInput } from "@/components/ui/chat/unified-input";
 import { ChatMessages } from "@/components/ui/chat/chat-messages";
 import { UserProfileDropdown } from "@/components/ui/auth/user-profile-dropdown";
-import { useCommandCenter } from "@/hooks/useCommandCenter";
 import { useRouter } from "next/navigation";
-import { sendMessage, createConversation, switchConversation, deleteConversation } from "@/app/actions/conversations";
-import { updateSpace } from "@/app/actions/spaces";
 import { useCallback, useRef, useState, useEffect } from "react";
 import { useSpaceStore } from "@/stores/space-store";
 import { useShallow } from "zustand/react/shallow";
@@ -37,7 +34,6 @@ export default function ClientChatContent({
   initialData,
 }: ClientChatContentProps) {
   const router = useRouter();
-  const { openCommandType } = useCommandCenter();
   
   const [isStickToBottom, setIsStickToBottom] = useState(true);
   const [searchMode, setSearchMode] = useState<"chat" | "search" | "semantic" | "hybrid">("chat");
@@ -193,12 +189,6 @@ export default function ClientChatContent({
               {/* @ts-ignore */}
               <ServerDrivenModelTab 
                 activeSpace={activeSpace}
-                onUpdateSpace={async (spaceId: string, updates: any) => {
-                  const success = await updateSpace(spaceId, updates);
-                  if (success) {
-                    router.refresh();
-                  }
-                }}
               />
             </div>
             <div className="px-1 first:pl-1 last:pr-1">
@@ -253,7 +243,6 @@ export default function ClientChatContent({
                     label="Messages"
                     shortcut="F"
                     commandType="conversations"
-                    onClick={() => openCommandType("conversations")}
                   />
                 </div>
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">

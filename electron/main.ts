@@ -104,12 +104,16 @@ function createWindow() {
  */
 function registerGlobalShortcuts() {
   const commandTypeShortcuts = {
-    "CommandOrControl+Option+A": null, // General toggle
+    "CommandOrControl+Option+A": null,
     "CommandOrControl+Option+S": "spaces",
     "CommandOrControl+Option+C": "conversations",
     "CommandOrControl+Option+M": "models",
-    "CommandOrControl+Option+T": "background-tasks",
+    "CommandOrControl+Option+T": "backgroundTasks",
     "CommandOrControl+Option+G": "suggestions",
+    "CommandOrControl+Option+H": "actions",
+    "CommandOrControl+Option+Q": "chatModes",
+    "CommandOrControl+Option+W": "messageSearch",
+    "CommandOrControl+Option+E": "similarMessages",
   };
 
   Object.entries(commandTypeShortcuts).forEach(([shortcut, commandType]) => {
@@ -171,6 +175,18 @@ function toggleCommandCenterWindow() {
     }
   });
 }
+
+// IPC Handlers for Command Center
+ipcMain.on("close-command-center", () => {
+  if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
+    commandCenterWindow.hide();
+    BrowserWindow.getAllWindows().forEach((window) => {
+      if (!window.isDestroyed()) {
+        window.webContents.send("sync-command-center-state", "close");
+      }
+    });
+  }
+});
 
 // IPC Handlers for Dialogs
 ipcMain.on("open-dialog", (event, dialogType: string, data: any) => {
