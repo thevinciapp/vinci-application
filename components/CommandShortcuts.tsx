@@ -1,4 +1,4 @@
-import { useModalHotkey, useCommandCenter } from "@/hooks/useCommandCenter";
+import { useModalHotkey, useCommandCenter, CommandType } from "@/hooks/useCommandCenter";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useEffect } from "react";
 
@@ -7,7 +7,7 @@ import { useEffect } from "react";
  * This can be placed anywhere in your component tree, typically near the root
  */
 export function CommandShortcuts() {
-  const { toggleCommandCenter } = useCommandCenter();
+  const { toggleCommandCenter, openCommandType } = useCommandCenter();
 
   // Register regular in-app shortcut
   useHotkeys('meta+k', (event) => {
@@ -18,21 +18,46 @@ export function CommandShortcuts() {
     enableOnContentEditable: true
   }); 
   
-  // Listen for system-wide shortcut events from Electron
+  // Listen for toggle command center events from Electron
   useEffect(() => {
     // Check if running in Electron
     if (typeof window !== 'undefined' && window.electronAPI) {
-      const removeListener = window.electronAPI.onOpenCommandCenter(() => {
+      // Main command center toggle listener
+      const removeToggleListener = window.electronAPI.onToggleCommandCenter(() => {
         toggleCommandCenter();
       });
       
-      // Clean up listener on unmount
+      // Command type selection listener
+      const removeSetCommandTypeListener = window.electronAPI.onSetCommandType((_, commandType) => {
+        openCommandType(commandType as CommandType);
+      });
+      
+      // Register ability to open specific modals from Electron
+      const openSpecificModal = (commandType: CommandType) => {
+        if (typeof window.electronAPI !== 'undefined') {
+          window.electronAPI.openCommandType(commandType);
+        }
+      };
+      
+      // Create global helper for modal opening that can be accessed from DevTools
+      // This is helpful for debugging/testing
+      if (typeof window !== 'undefined') {
+        (window as any).__openModal = openSpecificModal;
+      }
+      
+      // Clean up listeners on unmount
       return () => {
-        if (removeListener) removeListener();
+        if (removeToggleListener) removeToggleListener();
+        if (removeSetCommandTypeListener) removeSetCommandTypeListener();
+        if (typeof window !== 'undefined') {
+          delete (window as any).__openModal;
+        }
       };
     }
-  }, [toggleCommandCenter]);
+  }, [toggleCommandCenter, openCommandType]);
 
+  // Register in-app shortcuts for specific command types
+  // These shortcuts only work when the app is already in focus
   useModalHotkey("spaces", "meta+s");
   useModalHotkey("conversations", "meta+b");
   useModalHotkey("models", "meta+m");

@@ -22,7 +22,8 @@ interface Window {
     
     // Command center functions
     toggleCommandCenter: () => void;
-    closeCommandCenter: () => void;
-    onOpenCommandCenter: (callback: () => void) => (() => void);
+    openCommandType: (commandType: string) => void;
+    onToggleCommandCenter: (callback: () => void) => (() => void);
+    onSetCommandType: (callback: (event: any, commandType: string) => void) => (() => void);
   };
 }

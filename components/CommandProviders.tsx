@@ -1852,13 +1852,14 @@ export function ChatModesCommandProvider({ children }: { children: ReactNode }) 
     [handleCreateCustomMode]
   );
   
+  // Load chat mode commands - these may contain custom modes specific to this space
   const chatModeCommands = useCallback(async (): Promise<CommandOption[]> => {
     try {
-      // Dynamically import the CHAT_MODES to avoid circular dependencies
+      // Dynamically import the CHAT_MODE_LIST to avoid circular dependencies
       const { CHAT_MODE_LIST } = await import('@/config/chat-modes');
       
       // Start with built-in modes
-      const modeCommands = CHAT_MODE_LIST.map(mode => {
+      const modeCommands: CommandOption[] = CHAT_MODE_LIST.map(mode => {
         const Icon = mode.icon;
         
         return {
@@ -1867,7 +1868,7 @@ export function ChatModesCommandProvider({ children }: { children: ReactNode }) 
           value: mode.name,
           description: mode.description,
           icon: <Icon className="h-4 w-4" />,
-          type: "chat-modes",
+          type: "chat-modes" as CommandType,
           keywords: mode.keywords || [],
           action: () => handleModeSelect(mode.id),
           rightElement: (
@@ -1899,7 +1900,7 @@ export function ChatModesCommandProvider({ children }: { children: ReactNode }) 
           value: customModeName,
           description: `Custom mode with ${toolCount} tools${hasCustomInstructions ? ' and custom instructions' : ''}`,
           icon: <Sparkles className="h-4 w-4" />,
-          type: "chat-modes",
+          type: "chat-modes" as CommandType,
           keywords: ["custom", "mode", "personal", ...customModeName.split(' ')],
           action: () => handleModeSelect(customModeId),
           rightElement: (

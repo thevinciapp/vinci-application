@@ -2,6 +2,17 @@
 import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState, useRef } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 
+// Helper to check if we're running in Electron
+const isElectron = typeof window !== 'undefined' && 'electronAPI' in window;
+
+// Type-safe way to access the Electron API with proper TypeScript types
+const getElectronAPI = (): ElectronAPI | undefined => {
+  if (typeof window !== 'undefined' && 'electronAPI' in window) {
+    return window.electronAPI;
+  }
+  return undefined;
+};
+
 // Command types
 export type CommandType = 'application' | 'spaces' | 'conversations' | 'models' | 'actions' | 'messages' | 'chat-modes' | 'similarMessages' | 'background-tasks' | 'suggestions';
 
@@ -95,31 +106,74 @@ export function CommandProvider({ children }: { children: ReactNode }) {
   });
 
   
+  // Enhanced command center open/close functions that work with Electron
   const openCommandCenter = useCallback(() => {
     console.log('openCommandCenter called');
+    // Update React state
     setIsOpen(true);
+    
+    // If Electron is available, also tell the main process to show the command center window
+    if (isElectron) {
+      console.log('Calling Electron show-command-center');
+      getElectronAPI()?.toggleCommandCenter();
+    }
   }, []);
+  
   const closeCommandCenter = useCallback(() => {
     console.log('closeCommandCenter called');
+    // Update React state
     setIsOpen(false);
     setSearchQuery('');
     setActiveCommandType(null);
+    
+    // If Electron is available, also tell the main process to hide the command center window
+    if (isElectron) {
+      console.log('Calling Electron close-command-center');
+      const api = getElectronAPI();
+      // If closeCommandCenter is not available, fall back to toggleCommandCenter when open
+      if (api && 'closeCommandCenter' in api && typeof api.closeCommandCenter === 'function') {
+        api.closeCommandCenter();
+      } else if (api && api.toggleCommandCenter) {
+        api.toggleCommandCenter(); // This will toggle off if command center is already open
+      }
+    }
   }, []);
   
   const toggleCommandCenter = useCallback(() => {
     console.log('toggleCommandCenter called');
+    
     if (isOpen) {
       if (activeCommandType !== null) {
         console.log('Switching from specific command type to main command center');
         setActiveCommandType(null);
       } else {
+        // Close the command center
         setIsOpen(false);
         setSearchQuery('');
         setActiveCommandType(null);
+        
+        // If Electron is available, also tell the main process
+        if (isElectron) {
+          console.log('Calling Electron close-command-center');
+          const api = getElectronAPI();
+          // If closeCommandCenter is not available, fall back to toggleCommandCenter when open
+          if (api && 'closeCommandCenter' in api && typeof api.closeCommandCenter === 'function') {
+            api.closeCommandCenter();
+          } else if (api && api.toggleCommandCenter) {
+            api.toggleCommandCenter(); // This will toggle off if command center is already open
+          }
+        }
       }
     } else {
+      // Open the command center
       setIsOpen(true);
       setActiveCommandType(null);
+      
+      // If Electron is available, also tell the main process
+      if (isElectron) {
+        console.log('Calling Electron toggle-command-center');
+        getElectronAPI()?.toggleCommandCenter();
+      }
     }
   }, [isOpen, activeCommandType]);
   
@@ -129,6 +183,18 @@ export function CommandProvider({ children }: { children: ReactNode }) {
       setIsOpen(false);
       setActiveCommandType(null);
       setSearchQuery('');
+      
+      // If Electron is available, also tell the main process
+      if (isElectron && typeof window !== 'undefined') {
+        console.log('Calling Electron close-command-center');
+        const api = getElectronAPI();
+        if (api && 'closeCommandCenter' in api) {
+          (api as any).closeCommandCenter();
+        } else if (api && api.toggleCommandCenter) {
+          // Fallback to toggle if command center is currently open
+          api.toggleCommandCenter();
+        }
+      }
     }
   }, [isOpen, activeCommandType]);
   
@@ -141,9 +207,109 @@ export function CommandProvider({ children }: { children: ReactNode }) {
       if (!isOpen) {
         setIsOpen(true);
       }
+      
+      // If Electron is available, also tell the main process to set the command type
+      if (isElectron) {
+        console.log('Calling Electron openCommandType with:', type);
+        getElectronAPI()?.openCommandType(type);
+      }
     }
   }, [isOpen, activeCommandType, closeCommandType]);
-
+  
+  // Listen for Electron IPC events when available
+  useEffect(() => {
+    if (!isElectron) return;
+    
+    console.log('Setting up Electron IPC listeners for command center');
+    const api = getElectronAPI();
+    if (!api) return;
+    
+    // Listen for toggle command center events from Electron
+    const removeToggleListener = api.onToggleCommandCenter(() => {
+      console.log('Received toggle-command-center from Electron');
+      if (isOpen) {
+        if (activeCommandType !== null) {
+          // Just switch back to main command list if a specific type is open
+          setActiveCommandType(null);
+        } else {
+          // Close it entirely if already at main command list
+          setIsOpen(false);
+          setSearchQuery('');
+        }
+      } else {
+        // Open it if closed
+        setIsOpen(true);
+      }
+    });
+    
+    // Listen for command type setting from Electron
+    const removeCommandTypeListener = api.onSetCommandType((event, commandType) => {
+      console.log('Received set-command-type from Electron:', commandType);
+      setActiveCommandType(commandType as CommandType);
+      if (!isOpen) {
+        setIsOpen(true);
+      }
+    });
+    
+    // Check if refresh listener is available - handling potential missing API method
+    let removeRefreshListener = () => {};
+    if ('onRefreshCommandCenter' in api) {
+      removeRefreshListener = (api as any).onRefreshCommandCenter(() => {
+        console.log('Received refresh-command-center from Electron');
+        // Implement any refresh logic here
+      });
+    } else {
+      console.log('onRefreshCommandCenter not available in Electron API');
+    }
+    
+    // Check if sync state listener is available - handling potential missing API method
+    let removeSyncListener = () => {};
+    if ('onSyncCommandCenterState' in api) {
+      removeSyncListener = (api as any).onSyncCommandCenterState((event: any, action: string, data?: any) => {
+        console.log('Received sync-command-center-state from Electron:', action, data);
+        
+        switch (action) {
+          case 'open': 
+            setIsOpen(true);
+            if (data) {
+              setActiveCommandType(data as CommandType);
+            }
+            break;
+          case 'close': 
+            setIsOpen(false);
+            setSearchQuery('');
+            setActiveCommandType(null);
+            break;
+          case 'toggle':
+            if (isOpen) {
+              if (activeCommandType !== null) {
+                setActiveCommandType(null);
+              } else {
+                setIsOpen(false);
+                setSearchQuery('');
+              }
+            } else {
+              setIsOpen(true);
+            }
+            break;
+          case 'refresh':
+            // Handle refresh logic if needed
+            break;
+        }
+      });
+    } else {
+      console.log('onSyncCommandCenterState not available in Electron API');
+    }
+    
+    // Clean up listeners when component unmounts
+    return () => {
+      removeToggleListener();
+      removeCommandTypeListener();
+      removeRefreshListener();
+      removeSyncListener();
+    };
+  }, [isOpen, activeCommandType]);
+  
   useHotkeys('esc', () => {
     console.log('esc key pressed');
     if (isOpen) {

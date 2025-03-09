@@ -1,9 +1,31 @@
 "use client"
 
 import React, { useEffect } from 'react';
-import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut } from 'vinci-ui';
+import { Command, CommandDialog as CommandDialogBase, CommandEmpty, CommandGroup, CommandInput as CommandInputBase, CommandItem, CommandList, CommandSeparator, CommandShortcut } from 'vinci-ui';
 import { CommandOption, CommandType, useCommandCenter } from '@/hooks/useCommandCenter';
 import { Loader2 } from 'lucide-react';
+
+// Create properly typed wrappers for the command components
+interface CommandInputProps {
+  placeholder: string;
+  onValueChange: (value: string) => void;
+}
+
+interface CommandDialogProps {
+  children: React.ReactNode;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+// Wrap the CommandInput with proper types
+const CommandInput = (props: CommandInputProps) => {
+  return <CommandInputBase {...props} />;
+};
+
+// Wrap the CommandDialog with proper types
+const CommandDialog = (props: CommandDialogProps) => {
+  return <CommandDialogBase {...props} />;
+};
 
 /**
  * Main CommandCenter component that integrates with the CMDK library
@@ -31,7 +53,7 @@ const HighlightMatches = ({ text, searchQuery }: { text: string, searchQuery: st
   );
 };
 
-export function CommandCenter() {
+export function CommandCenter({ standaloneMode = false }: { standaloneMode?: boolean } = {}) {
   const {
     isOpen,
     closeCommandCenter,
@@ -264,7 +286,7 @@ export function CommandCenter() {
       );
     });
   };
-
+  
   return (
     <>
       {isOpen && (
@@ -272,18 +294,16 @@ export function CommandCenter() {
           <Command shouldFilter={false} loop>
             <CommandInput
               placeholder="Type a command or search..."
-              onValueChange={setSearchQuery}
+              onValueChange={(value) => setSearchQuery(value)}
             />
-        {activeCommandType && headers[activeCommandType] && (
-          <>
-            {headers[activeCommandType]}
-          </>
-        )}
-        <CommandList className="scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-            {renderCommandGroups()}
-        </CommandList>
-      </Command>
-      </CommandDialog> 
+            {activeCommandType && headers[activeCommandType] && (
+              <>{headers[activeCommandType]}</>
+            )}
+            <CommandList className="scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+              {renderCommandGroups()}
+            </CommandList>
+          </Command>
+        </CommandDialog>
       )}
     </>
   );

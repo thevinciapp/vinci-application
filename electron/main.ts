@@ -7,60 +7,33 @@ import { promisify } from "util";
 
 const execAsync = promisify(exec);
 
-let mainWindow: BrowserWindow;
-let commandCenterWindow: BrowserWindow | null = null; // Separate window for lightweight command center
-
-// Create the main application window
-const createWindow = () => {
-  console.log("Creating Electron window");
-
-  const preloadPath = join(__dirname, "preload.js");
-  console.log("Preload script path:", preloadPath);
-  console.log("Preload script exists:", fs.existsSync(preloadPath));
-
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    webPreferences: {
-      preload: preloadPath,
-      nodeIntegration: false,
-      contextIsolation: true,
-    },
-  });
-
-  mainWindow.loadURL("http://localhost:3000");
-};
+// Separate window declarations
+let mainWindow: BrowserWindow | null = null;
+let commandCenterWindow: BrowserWindow | null = null;
 
 /**
- * Creates a lightweight command center window that's detached from the main app
- * This allows for quick access to commands without launching the full application
+ * Create a separate command center window
+ * This window can be opened globally without showing the main application
  */
-const createCommandCenterWindow = () => {
-  // If window already exists, just focus it
-  if (commandCenterWindow) {
-    if (commandCenterWindow.isMinimized()) {
-      commandCenterWindow.restore();
-    }
+function createCommandCenterWindow() {
+  // Only create if it doesn't exist or was destroyed
+  if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
+    commandCenterWindow.show();
     commandCenterWindow.focus();
     return;
   }
 
-  console.log("Creating lightweight command center window");
-
   const preloadPath = join(__dirname, "preload.js");
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  
-  // Create a small, centered window
+  console.log("Preload script path for command center:", preloadPath);
+
   commandCenterWindow = new BrowserWindow({
-    width: 640,
-    height: 400,
-    show: false, // Don't show until ready
-    frame: false, // No window frame
-    transparent: true, // Allows for rounded corners
+    width: 680,  // Smaller, focused window like Raycast
+    height: 500,
+    show: false,
+    frame: false, // Frameless for better look
+    transparent: true, // Support for transparent bg
     resizable: false,
-    center: true, // Center on screen
-    skipTaskbar: true, // Don't show in taskbar
-    alwaysOnTop: true, // Keep on top of other windows
+    fullscreenable: false,
     webPreferences: {
       preload: preloadPath,
       nodeIntegration: false,
@@ -68,34 +41,80 @@ const createCommandCenterWindow = () => {
     },
   });
 
-  // Position in the center of the screen
-  commandCenterWindow.setPosition(
-    Math.floor(width / 2 - 320),
-    Math.floor(height / 2 - 200)
-  );
-
-  // Load only the command center URL (special route)
-  commandCenterWindow.loadURL("http://localhost:3000/command-center");
-
-  // Show when ready to prevent flickering
+  // Show when ready
   commandCenterWindow.once('ready-to-show', () => {
+    // Non-null assertion since we know commandCenterWindow exists here
+    commandCenterWindow!.show();
+    // Center on active screen
+    const { x, y, width } = screen.getDisplayNearestPoint(
+      screen.getCursorScreenPoint()
+    ).workArea;
+    const winBounds = commandCenterWindow!.getBounds();
+    // Null check to satisfy TypeScript
     if (commandCenterWindow) {
-      commandCenterWindow.show();
-      // Automatically focus the search input
-      commandCenterWindow.webContents.focus();
+      commandCenterWindow.setPosition(
+        Math.floor(x + (width - winBounds.width) / 2),
+        Math.floor(y + 100) // Place near top of screen
+      );
     }
   });
 
-  // Hide on blur (when user clicks outside)
+  // Load command center URL - direct to the command center page
+  commandCenterWindow.loadURL("http://localhost:3000/command-center");
+  
+  // Handle blur - hide when not in focus (like Raycast)
   commandCenterWindow.on('blur', () => {
     if (commandCenterWindow) {
       commandCenterWindow.hide();
     }
   });
+  
+  // Prevent actual close, just hide window
+  commandCenterWindow.on('close', (event) => {
+    if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
+      event.preventDefault();
+      commandCenterWindow.hide();
+    }
+  });
+}
 
-  // Clean up on close
-  commandCenterWindow.on('closed', () => {
-    commandCenterWindow = null;
+/**
+ * Create the main application window
+ */
+const createWindow = () => {
+  console.log("Creating main application window");
+
+  const preloadPath = join(__dirname, "preload.js");
+  console.log("Preload script path:", preloadPath);
+  console.log("Preload script exists:", fs.existsSync(preloadPath));
+
+  // Create main window
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    show: false,
+    webPreferences: {
+      preload: preloadPath,
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+  
+  // Show when ready - mainWindow must exist at this point
+  mainWindow!.once('ready-to-show', () => {
+    console.log("Window ready to show");
+    // Use non-null assertion since mainWindow must exist in this callback
+    mainWindow!.show();
+  });
+
+  // Load the main app URL
+  if (mainWindow) {
+    mainWindow.loadURL("http://localhost:3000");
+  }
+  
+  // Handle window close - actual app close
+  mainWindow.on('closed', () => {
+    mainWindow = null;
   });
 };
 
@@ -128,7 +147,7 @@ async function spotlightFileSearch(searchTerm: string, maxResults = 100): Promis
     searchTerm = searchTerm.toLowerCase().trim();
 
     // Use mdfind to query Spotlight
-    // -onlyin ~ limits search to user’s home directory by default (adjustable)
+    // -onlyin ~ limits search to user's home directory by default (adjustable)
     // kMDItemFSName matches file names
     const cmd = `mdfind "kMDItemFSName == '*${searchTerm}*'c" -onlyin ~ | head -n ${maxResults}`;
     console.log(`Executing Spotlight search: ${cmd}`);
@@ -296,40 +315,157 @@ app.on("activate", () => {
 
 /**
  * Register global shortcuts that will work even when app is not focused
+ * In our new architecture, we use global shortcuts to open the command center directly
+ * without needing to open the main application window
  */
 function registerGlobalShortcuts() {
-  // Use Command+Option+A (uncommon shortcut that won't interfere with native commands)
+  // Use Command+Option+A as the global command center shortcut
   const shortcutKey = 'CommandOrControl+Option+A';
   
-  // Register the shortcut to open the lightweight command center
+  // Register main shortcut - now opens command center directly
   const success = globalShortcut.register(shortcutKey, () => {
-    console.log(`${shortcutKey} was pressed - opening lightweight command center`);
-    
-    // Open the lightweight command center instead of the main application
+    console.log(`${shortcutKey} was pressed - opening command center`);
     createCommandCenterWindow();
+  });
+  
+  // Register shortcuts for specific command types
+  const commandTypeShortcuts = {
+    'CommandOrControl+Option+S': 'spaces',
+    'CommandOrControl+Option+C': 'conversations',
+    'CommandOrControl+Option+M': 'models',
+    'CommandOrControl+Option+T': 'background-tasks',
+    'CommandOrControl+Option+G': 'suggestions',
+  };
+  
+  // Register each command type shortcut
+  Object.entries(commandTypeShortcuts).forEach(([shortcutKey, commandType]) => {
+    globalShortcut.register(shortcutKey, () => {
+      console.log(`${shortcutKey} was pressed - opening ${commandType} command`);
+      
+      // Create/show command center window
+      createCommandCenterWindow();
+      
+      // Set command type with slight delay to ensure window is ready
+      setTimeout(() => {
+        // First check if window exists and is not destroyed before sending message
+        if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
+          commandCenterWindow.webContents.send('set-command-type', commandType);
+        }
+      }, 100);
+    });
   });
 
   if (!success) {
-    console.error(`Failed to register global shortcut: ${shortcutKey}`);
+    console.error("Failed to register global shortcut");
   } else {
     console.log(`Global shortcut registered successfully: ${shortcutKey}`);
   }
-
+  
   // Clean up shortcuts when app quits
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
   });
 }
 
-// IPC handlers for command center operations
-ipcMain.on('toggle-command-center', () => {
-  // When toggled from within the app, still use the lightweight version
+// Enhanced IPC handlers for integrated command center control
+// Direct command to show the command center window
+ipcMain.on('show-command-center', () => {
+  console.log('show-command-center received - ensuring window is visible');
+  // Create window if it doesn't exist, otherwise show it
   createCommandCenterWindow();
 });
 
-// Allow command center to close itself
+// Handler to close the command center
 ipcMain.on('close-command-center', () => {
-  if (commandCenterWindow) {
+  console.log('close-command-center received - hiding window');
+  if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
     commandCenterWindow.hide();
+  }
+});
+
+// Toggle command center visibility
+ipcMain.on('toggle-command-center', () => {
+  console.log('toggle-command-center received');
+  // If command center window exists and is visible, hide it
+  if (commandCenterWindow && !commandCenterWindow.isDestroyed() && commandCenterWindow.isVisible()) {
+    commandCenterWindow.hide();
+  } else {
+    // Otherwise create/show it
+    createCommandCenterWindow();
+  }
+  
+  // Also notify the main app for in-app command center
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    // Non-null assertion since we already checked it's not null above
+    mainWindow!.webContents.send('toggle-command-center');
+  }
+});
+
+// Set specific command type
+ipcMain.on('set-command-type', (event, commandType) => {
+  console.log(`set-command-type received: ${commandType}`);
+  // First ensure command center window is created and visible
+  createCommandCenterWindow();
+  
+  // Propagate to appropriate window with short delay to ensure window is ready
+  setTimeout(() => {
+    // Propagate to standing-alone command center window if it exists and is focused
+    if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
+      console.log(`Sending command type ${commandType} to command center window`);
+      commandCenterWindow.webContents.send('set-command-type', commandType);
+    }
+    
+    // Also propagate to main window if it exists
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      console.log(`Sending command type ${commandType} to main window`);
+      mainWindow.webContents.send('set-command-type', commandType);
+    }
+  }, 100); // Small delay to ensure the window is ready
+});
+
+// Refresh command center data
+ipcMain.on('refresh-command-center', () => {
+  console.log('refresh-command-center received');
+  if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
+    commandCenterWindow.webContents.send('refresh-command-center');
+  }
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('refresh-command-center');
+  }
+});
+
+// New handler for syncing command center state across windows
+ipcMain.on('sync-command-center-state', (event, action, data) => {
+  console.log(`sync-command-center-state received: ${action}`, data ? `with data: ${data}` : '');
+  
+  // Broadcast to all windows except sender
+  BrowserWindow.getAllWindows().forEach(window => {
+    // Skip the sender window to avoid feedback loops
+    if (window.webContents.id !== event.sender.id && !window.isDestroyed()) {
+      window.webContents.send('sync-command-center-state', action, data);
+    }
+  });
+});
+
+// Handle app lifecycle events
+app.whenReady().then(() => {
+  // Register global shortcuts first
+  registerGlobalShortcuts();
+  
+  // For regular app launch, create the main window
+  createWindow();
+  
+  // For MacOS, recreate window when dock icon is clicked if no windows are open
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+});
+
+// Handle app quit
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
   }
 });
