@@ -37,6 +37,8 @@ export const CreateSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClos
         if (onConfirm) {
           onConfirm(space);
         }
+      } else {
+        console.error('Space creation returned null');
       }
     } catch (error) {
       console.error('Error creating space:', error);

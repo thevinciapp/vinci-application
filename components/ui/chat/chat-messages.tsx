@@ -11,6 +11,7 @@ interface ChatMessagesProps {
   onScrollToBottom?: (callback: () => void) => void;
   isLoading?: boolean;
   streamData?: JSONValue[] | undefined;
+  spaceId?: string;
 }
 
 // Memoized message component to reduce re-renders
@@ -21,7 +22,8 @@ const MemoizedMessage = memo(({
   streamData, 
   messagesLength, 
   nextMessageRole, 
-  shouldAddSeparator 
+  shouldAddSeparator,
+  spaceId 
 }: { 
   message: Message; 
   index: number; 
@@ -30,6 +32,7 @@ const MemoizedMessage = memo(({
   messagesLength: number;
   nextMessageRole?: string;
   shouldAddSeparator: boolean;
+  spaceId?: string;
 }) => {
   const messageRef = useRef<HTMLDivElement>(null);
 
@@ -44,6 +47,7 @@ const MemoizedMessage = memo(({
           message={message} 
           isLoading={isLoading}
           streamData={streamData}
+          spaceId={spaceId}
         />
       </div>
       {shouldAddSeparator && (
@@ -74,10 +78,12 @@ MemoizedMessage.displayName = 'MemoizedMessage';
 // Memoized placeholder message component
 const PlaceholderMessage = memo(({ 
   needsSeparator,
-  streamData
+  streamData,
+  spaceId
 }: { 
   needsSeparator: boolean;
   streamData?: JSONValue[];
+  spaceId?: string;
 }) => {
   return (
     <div key="placeholder-assistant" className="space-y-2">
@@ -94,6 +100,7 @@ const PlaceholderMessage = memo(({
         }}
         isLoading={true}
         streamData={streamData || [{ status: 'Processing...' }]}
+        spaceId={spaceId}
       />
     </div>
   );
@@ -107,7 +114,7 @@ const PlaceholderMessage = memo(({
 PlaceholderMessage.displayName = 'PlaceholderMessage';
 
 const ChatMessagesComponent = forwardRef<HTMLDivElement, ChatMessagesProps>(
-  ({ messages, onStickToBottomChange, onScrollToBottom, isLoading, streamData }, ref) => {
+  ({ messages, onStickToBottomChange, onScrollToBottom, isLoading, streamData, spaceId }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const actualRef = (ref as React.RefObject<HTMLDivElement>) || containerRef;
     const prevMessagesLengthRef = useRef(messages.length);
@@ -188,6 +195,7 @@ const ChatMessagesComponent = forwardRef<HTMLDivElement, ChatMessagesProps>(
                   messagesLength={messages.length}
                   nextMessageRole={index < messages.length - 1 ? messages[index + 1].role : undefined}
                   shouldAddSeparator={messageSeparatorMap[message.id]}
+                  spaceId={spaceId}
                 />
               ))}
               
@@ -195,6 +203,7 @@ const ChatMessagesComponent = forwardRef<HTMLDivElement, ChatMessagesProps>(
                 <PlaceholderMessage 
                   needsSeparator={needsPlaceholderSeparator}
                   streamData={streamData}
+                  spaceId={spaceId}
                 />
               )}
             </div>

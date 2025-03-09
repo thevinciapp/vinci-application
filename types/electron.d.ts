@@ -6,6 +6,42 @@
 
 interface ElectronAPI {
   /**
+   * Get the current application state
+   */
+  getAppState?: () => Promise<{
+    spaces: any[];
+    activeSpace: any | null;
+    conversations: any[];
+    initialDataLoaded: boolean;
+    lastFetched: number | null;
+  }>;
+
+  /**
+   * Refresh the application data from the server
+   */
+  refreshAppData?: () => Promise<{
+    spaces: any[];
+    activeSpace: any | null;
+    conversations: any[];
+    initialDataLoaded: boolean;
+    lastFetched: number;
+  }>;
+
+  /**
+   * Sync application state changes to other windows
+   */
+  syncAppState?: (newState: any) => void;
+
+  /**
+   * Listen for initialization of app state
+   */
+  onInitAppState?: (callback: (event: any, state: any) => void) => () => void;
+
+  /**
+   * Listen for app data updates
+   */
+  onAppDataUpdated?: (callback: (event: any, state: any) => void) => () => void;
+  /**
    * Open a specific command type
    */
   openCommandType?: (commandType: string) => void;

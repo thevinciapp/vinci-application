@@ -13,8 +13,7 @@ import { ChatMessages } from "@/components/ui/chat/chat-messages";
 import { UserProfileDropdown } from "@/components/ui/auth/user-profile-dropdown";
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState, useEffect } from "react";
-import { useSpaceStore } from "@/stores/space-store";
-import { useShallow } from "zustand/react/shallow";
+import { ConversationsAPI } from "@/lib/api-client";
 
 interface ClientChatContentProps {
   user: User;
@@ -39,57 +38,11 @@ export default function ClientChatContent({
   const [searchMode, setSearchMode] = useState<"chat" | "search" | "semantic" | "hybrid">("chat");
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   
-  console.log('[CLIENT] ClientChatContent initializing with data:', {
-    initialSpaces: initialData.spaces?.length || 0,
-    initialActiveSpace: initialData.activeSpace?.id,
-    initialConversations: initialData.conversations?.length || 0,
-    initialActiveConversation: initialData.activeConversation?.id,
-    initialMessages: initialData.messages?.length || 0,
-  });
+  const [fileReferences, setFileReferences] = useState<any[]>([]);
+  const { activeSpace, activeConversation, messages: storeMessages } = initialData;
   
-  const {
-    activeSpace: storeActiveSpace,
-    conversations: storeConversations,
-    activeConversation: storeActiveConversation,
-    messages: storeMessages,
-    fileReferences
-  } = useSpaceStore(
-    useShallow((state) => state.uiState)
-  );
+  const clearFileReferences = () => setFileReferences([]);
 
-  const { 
-    createConversation,
-    clearFileReferences
-  } = useSpaceStore();
-  
-  const activeSpace = storeActiveSpace || initialData.activeSpace;
-  const conversations = storeConversations || initialData.conversations;
-  const activeConversation = storeActiveConversation || initialData.activeConversation;
-  const initialMessages = storeMessages || initialData.messages;
-
-  console.log('[CLIENT] Resolved state:', {
-    activeSpaceId: activeSpace?.id,
-    conversationsCount: conversations?.length || 0,
-    activeConversationId: activeConversation?.id,
-    messagesFromStore: storeMessages?.length || 0,
-    resolvedInitialMessages: initialMessages?.length || 0,
-  });
-
-  useEffect(() => {
-    if (storeActiveConversation && storeActiveConversation !== activeConversation) {
-      console.log('[CLIENT] Active conversation changed, updating messages', {
-        newConversationId: storeActiveConversation?.id,
-        oldConversationId: activeConversation?.id,
-        availableMessages: storeMessages?.length || 0
-      });
-      setMessages(storeMessages || []);
-      setData([]);
-    }
-
-    router.replace(`/protected/spaces/${activeSpace?.id}/conversations/${activeConversation?.id}`);
-  }, [storeActiveConversation?.id]);
-
-  // Convert file references to the format expected by the API
   const fileReferencesMap = useCallback(() => {
     const fileMap: Record<string, any> = {};
     fileReferences.forEach(fileRef => {
@@ -117,7 +70,7 @@ export default function ClientChatContent({
   } = useChat({
     id: activeConversation?.id || 'default',
     api: "/api/chat",
-    initialMessages: initialMessages,
+    initialMessages: storeMessages || [],
     body: {
       spaceId: activeSpace?.id || "",
       conversationId: activeConversation?.id || null,
@@ -153,15 +106,15 @@ export default function ClientChatContent({
     if (!activeSpace) return;
     
     try {
-      await createConversation();
+      const { success, data: newConversation } = await ConversationsAPI.createConversation(activeSpace.id);
+      if (success && newConversation) {
+        router.push(`/chat/${newConversation.id}`);
+      }
     } catch (error) {
       console.error('Failed to create conversation:', error);
     }
   };
 
-  console.log('[CLIENT] Messages:', messages);
-  
-  
   return (
     <div>
       <div className="fixed top-4 right-4 z-50">
@@ -181,7 +134,6 @@ export default function ClientChatContent({
             <div className="px-1 first:pl-1 last:pr-1">
               {/* @ts-ignore */}
               <ServerDrivenSpaceTab 
-                spaces={initialData.spaces}
                 activeSpace={activeSpace}
               />
             </div>

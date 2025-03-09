@@ -1,22 +1,19 @@
-import { signUpAction } from "@/app/actions";
-import { FormMessage, Message } from "@/components/ui/auth/form-message";
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useToast } from "@/components/ui/use-toast";
 import { SubmitButton } from "@/components/ui/auth/submit-button";
-import { Input } from "@/components/ui/common/input";
-import { Label } from "@/components/ui/common/label";
+import { Input, Label } from "vinci-ui";
 import Link from "next/link";
 import { SmtpMessage } from "../smtp-message";
+import { AuthAPI } from "@/lib/api-client";
 
-export default async function Signup(props: {
-  searchParams: Promise<Message>;
-}) {
-  const searchParams = await props.searchParams;
-  if ("message" in searchParams) {
-    return (
-      <div className="w-full flex-1 flex items-center justify-center">
-        <FormMessage message={searchParams} />
-      </div>
-    );
-  }
+export default function Signup() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [error, setError] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(false);
 
   return (
     <>
@@ -52,14 +49,53 @@ export default async function Signup(props: {
                 className="bg-white/[0.03] border border-white/[0.08] backdrop-blur-xl text-white/90 h-11 px-4 py-2 rounded-lg focus:border-[#3ecfff]/50 focus:ring-0 transition-colors placeholder:text-white/20"
               />
             </div>
+            {error && (
+              <div className="text-red-500 text-sm mb-4">{error}</div>
+            )}
             <SubmitButton 
-              formAction={signUpAction} 
-              pendingText="Signing up..."
+              pendingText="Signing up..." 
+              formAction={async (formData: FormData) => {
+                try {
+                  setError("");
+                  setIsLoading(true);
+
+                  const email = formData.get('email') as string;
+                  const password = formData.get('password') as string;
+
+                  if (!email || !password) {
+                    setError("Please fill in all fields");
+                    return;
+                  }
+
+                  if (password.length < 6) {
+                    setError("Password must be at least 6 characters");
+                    return;
+                  }
+
+                  const { success, error: apiError, toast: toastData } = await AuthAPI.signUp({ email, password });
+                  
+                  if (success) {
+                    toast({
+                      title: toastData?.title || "Success",
+                      description: toastData?.description || "Successfully signed up",
+                      variant: "success"
+                    });
+                    router.push('/sign-in');
+                  } else {
+                    setError(apiError || 'Failed to sign up');
+                  }
+                } catch (error) {
+                  setError('An unexpected error occurred');
+                  console.error('Sign up error:', error);
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
               variant="cyan"
+              disabled={isLoading}
             >
-              Sign up
+              {isLoading ? "Signing up..." : "Sign up"}
             </SubmitButton>
-            <FormMessage message={searchParams} />
           </div>
         </div>
       </form>

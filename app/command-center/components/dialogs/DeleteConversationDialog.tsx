@@ -16,7 +16,7 @@ export const DeleteConversationDialog: React.FC<DialogComponentProps> = ({ data,
     setIsDeleting(true);
     try {
       const response = await deleteConversation(data.id) as ActionResponse<void>;
-      if (!response.error) {
+      if (response.status === 'success') {
         toast.success('Conversation deleted successfully');
         onConfirm?.(data);
         onClose();

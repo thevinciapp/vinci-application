@@ -4,8 +4,7 @@ import React, { ChangeEvent, useCallback, useEffect, useRef, useState } from 're
 import { useHotkeys } from 'react-hotkeys-hook';
 import { File, Loader2, MessageSquare, X } from 'lucide-react';
 import { Button, cn, Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "vinci-ui";
-import { useSpaceStore } from '@/stores/space-store';
-import { useShallow } from 'zustand/react/shallow';
+
 
 type FileTag = {
   id: string
@@ -52,17 +51,22 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { 
-    addFileReference,
-    spaceId,
-    activeConversationId 
-  } = useSpaceStore(
-    useShallow((state) => ({
-      addFileReference: state.addFileReference,
-      spaceId: state.activeSpace?.id,
-      activeConversationId: state.activeConversation?.id
-    }))
-  );
+  interface FileReference {
+    id: string;
+    name: string;
+    path: string;
+    content?: string;
+    type?: string;
+  }
+
+  const addFileReference = (file: FileReference) => {
+    // We'll handle this through props in the future
+    console.log('File reference added:', file);
+  };
+  
+  // These will come from props in the future
+  const spaceId = undefined;
+  const activeConversationId = undefined;
 
   const [fileResults, setFileResults] = useState<FileTag[]>([]);
   const [messageResults, setMessageResults] = useState<MessageTag[]>([]);
@@ -517,10 +521,10 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
       // Ensure non-empty message
       let finalMessage = displayMessage.trim() || " ";
       
-      // Save the current state in case we need to restore it
-      const savedTokens = [...tokens];
-      
       try {
+        // Save the current state in case we need to restore it
+        const savedTokens = [...tokens];
+
         // Update parent value and submit
         const event = { target: { value: finalMessage } } as ChangeEvent<HTMLInputElement>;
         onChange(event);
@@ -536,7 +540,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     } catch (error) {
       console.error('[UnifiedInput] Error during submission:', error);
       // Restore tokens if submission fails
-      setTokens(savedTokens);
+      setTokens([{ id: "initial", type: "text", content: "" }]);
     } finally {
       isSubmittingRef.current = false;
     }

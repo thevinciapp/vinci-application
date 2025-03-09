@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Command, CommandInput, CommandList, CommandGroup, CommandItem, CommandEmpty } from "vinci-ui";
-import { getMostRecentConversation } from "@/app/actions/conversations";
 import { useSpaceStore } from "@/stores/space-store";
 import { providers } from "./registry/providers";
 import { dialogs } from "./registry/dialogs";
@@ -11,20 +10,19 @@ import styles from "./styles/CommandCenter.module.css";
 
 const CommandCenter = () => {
   const router = useRouter();
-  const { spaces, activeSpace, conversations } = useSpaceStore();
+  const { 
+    spaces, 
+    activeSpace, 
+    conversations, 
+    initializeState, 
+    fetchSpaces, 
+    fetchSpaceData 
+  } = useSpaceStore();
   
   const [currentProvider, setCurrentProvider] = useState<string | null>(null);
   const [currentDialog, setCurrentDialog] = useState<{ type: string; data: any } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Log the state of spaces and conversations when they change
-  useEffect(() => {
-    console.log('Command Center - Spaces loaded:', spaces?.length || 0);
-    console.log('Command Center - Active Space:', activeSpace?.id);
-    console.log('Command Center - Conversations loaded:', conversations?.length || 0);
-  }, [spaces, activeSpace, conversations]);
-
-  // Set up Electron event listeners
   useEffect(() => {
     const onSetCommandType = (event: any, commandType: string) => {
       if (providers[commandType]) {
@@ -51,7 +49,13 @@ const CommandCenter = () => {
       } else if (action === "open" && data && providers[data]) {
         setCurrentProvider(data);
       } else if (action === "refresh") {
-        // Refresh handled automatically through Zustand store updates
+        // Trigger a refresh of spaces data
+        fetchSpaces().catch(console.error);
+        
+        // If there's an active space, refresh its data too
+        if (activeSpace?.id) {
+          fetchSpaceData(activeSpace.id).catch(console.error);
+        }
       }
     };
 
@@ -59,15 +63,15 @@ const CommandCenter = () => {
     window.electronAPI?.onOpenDialog?.(onOpenDialog);
     window.electronAPI?.onSyncCommandCenterState?.(onSyncCommandCenterState);
     
-    // Set default provider if none selected
-    if (!currentProvider && spaces?.length > 0) {
+    // Set default provider if none selected and data is loaded
+    if (!currentProvider && !isLoading && spaces?.length > 0) {
       setCurrentProvider('spaces');
     }
     
     return () => {
       // Cleanup not implemented; add if supported by electronAPI
     };
-  }, [spaces]);
+  }, [spaces, isLoading, activeSpace]);
 
   const closeDialog = () => {
     setCurrentDialog(null);
@@ -79,8 +83,6 @@ const CommandCenter = () => {
   };
 
   const handleSelect = (item: any) => {
-    // Just close the command center when any item is selected
-    // Selection logic is now handled in each provider
     (window as any).electronAPI?.closeCommandCenter?.();
   };
 
@@ -139,6 +141,7 @@ const CommandCenter = () => {
           onValueChange={handleSearchChange}
           placeholder="Search or type a command..."
           className={styles.searchInput}
+          disabled={isLoading}
         />
         
         <CommandEmpty>No results found.</CommandEmpty>

@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["./**/*", "../types/electron.d.ts"]
+  "include": ["./**/*", "../types/electron.d.ts", "../node_modules/@types/node-fetch"]
 }

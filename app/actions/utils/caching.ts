@@ -1,58 +1,53 @@
-"use server";
-
-import { redis, CACHE_KEYS, CACHE_TTL } from "@/app/lib/cache";
+import { redis, CACHE_KEYS, CACHE_TTL } from '@/app/lib/cache';
+import type { Space } from '@/types';
 
 /**
- * Invalidate cache for a specific key
+ * Invalidate space-related caches
  */
-export async function invalidateCache(key: string): Promise<void> {
-  await redis.del(key);
+export async function invalidateSpaceCache(userId: string, spaceId?: string) {
+  const keys = [CACHE_KEYS.SPACES(userId)];
+  
+  if (spaceId) {
+    keys.push(
+      CACHE_KEYS.SPACE(spaceId),
+      CACHE_KEYS.SPACE_DATA(spaceId),
+      CACHE_KEYS.CONVERSATIONS(spaceId),
+      CACHE_KEYS.MOST_RECENT_CONVERSATION(spaceId)
+    );
+  }
+  
+  await Promise.all(keys.map(key => redis.del(key)));
 }
 
 /**
- * Invalidate all cache keys related to a space
+ * Cache space data
  */
-export async function invalidateSpaceCache(spaceId: string, userId?: string): Promise<void> {
+export async function cacheSpace(userId: string, space: Space) {
   await Promise.all([
-    redis.del(CACHE_KEYS.SPACE(spaceId)),
-    redis.del(CACHE_KEYS.SPACE_DATA(spaceId)),
-    redis.del(CACHE_KEYS.SPACE_HISTORY(spaceId)),
-    redis.del(CACHE_KEYS.CONVERSATIONS(spaceId)),
-    userId ? redis.del(CACHE_KEYS.SPACES(userId)) : Promise.resolve(),
+    redis.set(CACHE_KEYS.SPACE(space.id), JSON.stringify(space), { ex: CACHE_TTL.SPACE }),
+    invalidateSpaceCache(userId) // Invalidate spaces list to force refresh
   ]);
 }
 
 /**
- * Invalidate all cache keys related to a conversation
+ * Get space from cache
  */
-export async function invalidateConversationCache(conversationId: string, spaceId?: string): Promise<void> {
-  await Promise.all([
-    redis.del(CACHE_KEYS.MESSAGES(conversationId)),
-    spaceId ? redis.del(CACHE_KEYS.CONVERSATIONS(spaceId)) : Promise.resolve(),
-    spaceId ? redis.del(CACHE_KEYS.SPACE_DATA(spaceId)) : Promise.resolve(),
-  ]);
+export async function getCachedSpace(spaceId: string): Promise<Space | null> {
+  const cached = await redis.get<string>(CACHE_KEYS.SPACE(spaceId));
+  return cached ? JSON.parse(cached) : null;
 }
 
 /**
- * Get Redis client instance
+ * Cache spaces list
  */
-export async function getRedisClient(): Promise<Redis> {
-  return redis;
+export async function cacheSpaces(userId: string, spaces: Space[]) {
+  await redis.set(CACHE_KEYS.SPACES(userId), JSON.stringify(spaces), { ex: CACHE_TTL.SPACES });
 }
 
 /**
- * Get cache key for a resource
+ * Get spaces list from cache
  */
-export async function getCacheKey(
-  type: keyof typeof CACHE_KEYS, 
-  id: string
-): Promise<string> {
-  return CACHE_KEYS[type](id);
+export async function getCachedSpaces(userId: string): Promise<Space[] | null> {
+  const cached = await redis.get<string>(CACHE_KEYS.SPACES(userId));
+  return cached ? JSON.parse(cached) : null;
 }
-
-/**
- * Get cache TTL for a resource type
- */
-export async function getCacheTTL(type: keyof typeof CACHE_TTL): Promise<number> {
-  return CACHE_TTL[type];
-} 

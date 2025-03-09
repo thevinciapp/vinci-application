@@ -23,10 +23,11 @@ export const EditConversationDialog: React.FC<DialogComponentProps> = ({ data, o
 
     setIsSubmitting(true);
     try {
-      const response = await updateConversationTitle(data.id, trimmedTitle) as ActionResponse<any>;
-      if (!response.error) {
+      const response = await updateConversationTitle(data.id, trimmedTitle) as ActionResponse<void>;
+      if (response.status === 'success') {
         toast.success('Conversation updated successfully');
-        onConfirm?.(response.data);
+        // Pass updated data with new title
+        onConfirm?.({ ...data, title: trimmedTitle });
         onClose();
       } else {
         toast.error(response.error || 'Failed to update conversation');
@@ -63,7 +64,7 @@ export const EditConversationDialog: React.FC<DialogComponentProps> = ({ data, o
               />
             </div>
           </div>
-          <DialogFooter className={styles.dialogFooter}>
+          <DialogFooter>
             <Button 
               type="button" 
               variant="outline" 

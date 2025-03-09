@@ -10,7 +10,7 @@ import { ProviderComponentProps } from "../../types";
 
 export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect, onAction }) => {
   const router = useRouter();
-  const { spaces } = useSpaceStore();
+  const { spaces, isLoading } = useSpaceStore();
   const filteredSpaces = (spaces ?? []).filter(space => 
     space.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     space.description?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -18,11 +18,13 @@ export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
 
   const handleSelect = async (space: any) => {
     try {
-      // Set this space as active using server action
-      await setActiveSpace(space.id);
+      const response = await setActiveSpace(space.id);
       
-      // Let the parent know something was selected to close the command center
-      if (onSelect) onSelect(space);
+      if (response.status === 'success') {
+        if (onSelect) onSelect(space);
+      } else {
+        console.error('Error setting active space:', response.error);
+      }
     } catch (error) {
       console.error('Error handling space selection:', error);
     }
@@ -47,7 +49,12 @@ export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
   return (
     <CommandList>
       <CommandGroup heading="Spaces">
-        {filteredSpaces.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center p-4">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+            <span className="ml-2 text-sm text-muted-foreground">Loading spaces...</span>
+          </div>
+        ) : filteredSpaces.length === 0 ? (
           <p className="p-2 text-sm text-muted-foreground">No spaces found</p>
         ) : (
           filteredSpaces.map(space => (
@@ -93,6 +100,7 @@ export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
         <CommandItem 
           onSelect={handleCreate}
           className="text-primary"
+          disabled={isLoading}
         >
           <Plus size={16} className="mr-2" />
           Create new space

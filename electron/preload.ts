@@ -1,7 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("electronAPI", {
-  // File operations
   searchFiles: async (searchTerm: string) => {
     try {
       const results = await ipcRenderer.invoke("search-files", searchTerm);
@@ -21,7 +20,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     }
   },
   ping: () => "pong",
-  // Command center controls
   toggleCommandCenter: () => {
     ipcRenderer.send("toggle-command-center");
     ipcRenderer.send("sync-command-center-state", "toggle");
@@ -77,5 +75,44 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onOpenDialog: (callback: (event: any, dialogType: string, data: any) => void) => {
     ipcRenderer.on("open-dialog", callback);
     return () => ipcRenderer.removeListener("open-dialog", callback);
+  },
+  
+  // App state management
+  getAppState: async () => {
+    try {
+      return await ipcRenderer.invoke('get-app-state');
+    } catch (error) {
+      console.error("Error getting app state:", error);
+      return null;
+    }
+  },
+  
+  refreshAppData: async () => {
+    try {
+      return await ipcRenderer.invoke('refresh-app-data');
+    } catch (error) {
+      console.error("Error refreshing app data:", error);
+      return null;
+    }
+  },
+  
+  syncAppState: (newState: any) => {
+    ipcRenderer.send('sync-app-state', newState);
+  },
+  
+  onInitAppState: (callback: (event: any, state: any) => void) => {
+    ipcRenderer.on('init-app-state', callback);
+    return () => ipcRenderer.removeListener('init-app-state', callback);
+  },
+  
+  onAppDataUpdated: (callback: (event: any, state: any) => void) => {
+    ipcRenderer.on('app-data-updated', callback);
+    return () => ipcRenderer.removeListener('app-data-updated', callback);
+  },
+  
+  // Legacy handler for backward compatibility
+  onInitData: (callback: (event: any, data: any) => void) => {
+    ipcRenderer.on("init-data", callback);
+    return () => ipcRenderer.removeListener("init-data", callback);
   },
 });

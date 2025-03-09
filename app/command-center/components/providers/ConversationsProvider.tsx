@@ -10,12 +10,15 @@ import { ProviderComponentProps } from "../../types";
 
 export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect, onAction }) => {
   const router = useRouter();
-  const { activeSpace, conversations } = useSpaceStore();
+  const { activeSpace, conversations, isLoading, loadingSpaceId } = useSpaceStore();
   const filteredConversations = (conversations ?? [])
     .filter(conv => conv.space_id === activeSpace?.id)
     .filter(conv =>
       (conv.title || 'Untitled').toLowerCase().includes(searchQuery.toLowerCase())
     );
+    
+  // Check if this provider is in a loading state
+  const isProviderLoading = isLoading || (loadingSpaceId === activeSpace?.id);
 
   const handleSelect = async (conversation: any) => {
     try {
@@ -60,7 +63,12 @@ export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ search
   return (
     <CommandList>
       <CommandGroup heading={`Conversations in ${activeSpace.name}`}>
-        {filteredConversations.length === 0 ? (
+        {isProviderLoading ? (
+          <div className="flex items-center justify-center p-4">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+            <span className="ml-2 text-sm text-muted-foreground">Loading conversations...</span>
+          </div>
+        ) : filteredConversations.length === 0 ? (
           <p className="p-2 text-sm text-muted-foreground">No conversations found</p>
         ) : (
           filteredConversations.map(conv => (
@@ -101,6 +109,7 @@ export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ search
         <CommandItem 
           onSelect={handleCreate}
           className="text-primary"
+          disabled={isProviderLoading}
         >
           <Plus size={16} className="mr-2" />
           Create new conversation

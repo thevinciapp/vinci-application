@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from 'vinci-ui';
 import { StreamStatus } from './stream-status';
 import { Markdown } from './markdown';
 import DotSphere from '@/components/ui/space/planet-icon';
-import { useSpaceStore } from '@/stores/space-store';
+
 import { getChatModeConfig } from '@/config/chat-modes';
 import { SimilarMessage } from '@/types';
 
@@ -115,11 +115,12 @@ const UserAvatar = ({ avatarUrl }: { avatarUrl?: string }) => (
     </Avatar>
 );
 
-const AIAvatar = () => {
-    // Use the active space ID from the store as the seed
-    // This ensures the AIAvatar looks identical to the active space's DotSphere
-    const activeSpace = useSpaceStore(state => state.activeSpace);
-    const seed = activeSpace?.id || "default-space"; // Fallback if no active space
+interface AIAvatarProps {
+    spaceId?: string;
+}
+
+const AIAvatar = ({ spaceId }: AIAvatarProps) => {
+    const seed = spaceId || "default-space"; // Fallback if no space ID
     
     return (
         <div className="relative group">
@@ -195,8 +196,12 @@ const ModelInfo = ({ provider, modelName, similarMessages, chatMode }: {
   );
 };
 
-export const ChatMessage = memo<ChatMessageProps>(
-    ({ message, userAvatarUrl, isLoading, streamData }) => {
+interface ExtendedChatMessageProps extends ChatMessageProps {
+    spaceId?: string;
+}
+
+export const ChatMessage = memo<ExtendedChatMessageProps>(
+    ({ message, userAvatarUrl, isLoading, streamData, spaceId }) => {
         const isUser = message.role === 'user';
 
         const annotations = message.annotations as Array<{

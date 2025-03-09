@@ -12,9 +12,10 @@ import { createClient } from '@/utils/supabase/server';
 import { COLUMNS, DB_TABLES, ERROR_MESSAGES } from '@/constants';
 import { type Provider } from '@/config/models';
 import { NextResponse } from 'next/server';
-import { createMessage, getMessages, updateConversationTitle } from '@/app/actions';
+import { redis, CACHE_KEYS, CACHE_TTL } from '@/app/lib/cache';
 import { searchSimilarMessages, upsertChatMessage } from '@/utils/pinecone';
 import { extractReasoningMiddleware } from 'ai';
+import { MessagesAPI, ConversationsAPI } from '@/lib/api-client';
 
 const middleware = extractReasoningMiddleware({
   tagName: 'think',
@@ -188,14 +189,16 @@ async function saveMessage({
   }
 
   console.log(`[API] saveMessage: Creating message in database with ${annotations.length} annotations`);
-  const dbMessage = await createMessage(
-    {
-      [COLUMNS.CONTENT]: content,
-      [COLUMNS.ROLE]: role,
-      [COLUMNS.ANNOTATIONS]: annotations,
-    },
-    conversationId
-  );
+  // Create message using MessagesAPI
+  const { success, data: dbMessage, error } = await MessagesAPI.createMessage(conversationId, {
+    content,
+    role,
+    annotations,
+  });
+
+  if (!success || !dbMessage) {
+    throw new Error(error || 'Failed to save message');
+  }
 
   console.log('dbMessage', dbMessage);
 
@@ -470,7 +473,13 @@ export async function POST(req: Request) {
             })),
           });
 
-          const allMessages = await getMessages(conversationId);
+          // Get all messages for title generation
+          const { success, data: allMessages, error: messagesError } = await MessagesAPI.getMessages(conversationId);
+          if (!success || !allMessages) {
+            console.error('Failed to fetch messages for title generation:', messagesError);
+            return;
+          }
+          
           if (allMessages && allMessages.length >= 3) {
             const titleSystemPrompt = `
               You are a title generator. Generate a concise title (2-4 words) capturing the conversation's main topic. Return only the title.
@@ -485,7 +494,13 @@ export async function POST(req: Request) {
               temperature: 0.3,
               maxTokens: 20,
             });
-            await updateConversationTitle(conversationId, newTitle);
+            
+            // Update conversation title using API
+            const { success: updateSuccess, error: updateError } = await ConversationsAPI.updateConversation(conversationId, newTitle);
+            
+            if (!updateSuccess) {
+              console.error('Failed to update conversation title:', updateError);
+            }
           }
           
         }).catch((error) => {

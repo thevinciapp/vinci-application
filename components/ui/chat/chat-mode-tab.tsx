@@ -3,15 +3,13 @@
 import React from 'react'
 import { BaseTab } from 'vinci-ui'
 import { getChatModeConfig } from '@/config/chat-modes'
-import { useSpaceStore } from '@/stores/space-store'
-import { useShallow } from 'zustand/react/shallow'
+interface ChatModeTabProps {
+  chatMode?: string;
+}
 
-export const ChatModeTab: React.FC = () => {
-  const { activeSpace } = useSpaceStore(
-    useShallow((state) => ({ activeSpace: state.uiState.activeSpace }))
-  )
+export const ChatModeTab: React.FC<ChatModeTabProps> = ({ chatMode = 'ask' }) => {
   
-  const currentMode = activeSpace?.chat_mode || 'ask'
+  const currentMode = chatMode
   
   const modeConfig = getChatModeConfig(currentMode)
   

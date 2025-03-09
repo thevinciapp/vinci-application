@@ -13,6 +13,7 @@ export const CACHE_KEYS = {
   CONVERSATIONS: (spaceId: string) => `conversations:${spaceId}`,
   MESSAGES: (conversationId: string) => `messages:${conversationId}`,
   SPACE_DATA: (spaceId: string) => `space_data:${spaceId}`,
+  CONVERSATION: (conversationId: string) => `conversation:${conversationId}`,
   MOST_RECENT_CONVERSATION: (spaceId: string) => `most_recent_conversation:${spaceId}`,
 };
 
@@ -26,4 +27,5 @@ export const CACHE_TTL = {
   CONVERSATIONS: 60 * 5, // 5 minutes
   MESSAGES: 60 * 5, // 5 minutes
   SPACE_DATA: 60 * 5, // 5 minutes
+  CONVERSATION: 60 * 5, // 5 minutes
 }; 

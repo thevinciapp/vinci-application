@@ -17,8 +17,8 @@ import {
 } from "vinci-ui";
 import { cn } from "@/lib/utils";
 import { User } from '@supabase/supabase-js';
-import { signOutAction } from '@/app/actions/auth';
-import { getNotifications, markAllNotificationsAsRead, markNotificationAsRead } from '@/app/actions/notifications';
+import { AuthAPI } from '@/lib/api-client';
+import { NotificationsAPI } from '@/lib/api-client';
 
 interface UserProfileDropdownProps {
   user: User;
@@ -41,17 +41,17 @@ export function UserProfileDropdown({ user, initialNotifications = [] }: UserPro
   }, [notifications]);
   
   const handleMarkAsRead = async (notificationId: string) => {
-    await markNotificationAsRead(notificationId);
-    const notificationsResponse = await getNotifications();
-    if (notificationsResponse.status === 'success') { 
+    await NotificationsAPI.markAsRead(notificationId);
+    const notificationsResponse = await NotificationsAPI.getNotifications();
+    if (notificationsResponse.success) { 
       setNotifications(notificationsResponse.data || []);
     }
   };
 
   const handleMarkAllAsRead = async () => {
-    await markAllNotificationsAsRead();
-    const notificationsResponse = await getNotifications();
-    if (notificationsResponse.status === 'success') {
+    await NotificationsAPI.markAllAsRead();
+    const notificationsResponse = await NotificationsAPI.getNotifications();
+    if (notificationsResponse.success) {
       setNotifications(notificationsResponse.data || []);
     }
   };
@@ -62,8 +62,10 @@ export function UserProfileDropdown({ user, initialNotifications = [] }: UserPro
     : '??';
 
   const handleLogout = async () => {
-    router.push('/sign-in');
-    await signOutAction();
+    const response = await AuthAPI.signOut();
+    if (response.success) {
+      router.push('/sign-in');
+    }
   };
 
   return (

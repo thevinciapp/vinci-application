@@ -11,10 +11,8 @@ import { ProviderComponentProps } from "../../types";
 
 export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect }) => {
   const router = useRouter();
-  const { activeSpace } = useSpaceStore();
-  // Group models by provider
+  const { activeSpace, isLoading } = useSpaceStore();
   const modelsByProvider = Object.entries(AVAILABLE_MODELS).reduce((acc, [provider, models]) => {
-    // Filter models based on search query
     const filteredModels = models.filter(model =>
       model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       model.description?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -27,7 +25,19 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
     return acc;
   }, {} as Record<string, any[]>);
 
-  // If no models match the search query
+  if (isLoading) {
+    return (
+      <CommandList>
+        <CommandGroup>
+          <div className="flex items-center justify-center p-4">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+            <span className="ml-2 text-sm text-muted-foreground">Loading models...</span>
+          </div>
+        </CommandGroup>
+      </CommandList>
+    );
+  }
+  
   if (Object.keys(modelsByProvider).length === 0) {
     return (
       <CommandList>

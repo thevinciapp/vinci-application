@@ -7,12 +7,9 @@ export function ServerDrivenSpaceTab({
   activeSpace,
   isLoading = false
 }: { 
-  spaces: any[],
   activeSpace: any,
   isLoading?: boolean
 }) {
-  const spaceColor = activeSpace?.color || '#3ecfff'
-
   return (
     <div className="relative flex items-center">
       {activeSpace && (
