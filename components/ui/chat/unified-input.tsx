@@ -3,7 +3,7 @@
 import React, { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { File, Loader2, MessageSquare, X } from 'lucide-react';
-import { Button, Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "vinci-ui";
+import { Button, cn, Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "vinci-ui";
 import { useSpaceStore } from '@/stores/space-store';
 import { useShallow } from 'zustand/react/shallow';
 import { providerRegistry } from '@/lib/providers/provider-registry';
@@ -553,7 +553,13 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
   }, []);
 
   return (
-    <div className="relative">
+    <div
+  className={cn(
+    "command-glass-effect relative rounded-2xl",
+    "transition-all duration-300",
+    isFocused && "bg-white/[0.05] border-white/[0.1]"
+  )}
+>
       {children}
       
       {/* Suggestions Popover (Files & Messages) */}

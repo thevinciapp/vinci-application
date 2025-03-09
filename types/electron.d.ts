@@ -17,5 +17,12 @@ interface Window {
       type: 'text' | 'binary';
       extension?: string;
     }>;
+    
+    ping: () => string;
+    
+    // Command center functions
+    toggleCommandCenter: () => void;
+    closeCommandCenter: () => void;
+    onOpenCommandCenter: (callback: () => void) => (() => void);
   };
 }

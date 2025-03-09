@@ -35,5 +35,25 @@ contextBridge.exposeInMainWorld("electronAPI", {
   ping: () => {
     console.log("electronAPI.ping called");
     return "pong";
+  },
+  
+  // Command center toggle functionality
+  toggleCommandCenter: () => {
+    console.log("Toggling command center from preload");
+    ipcRenderer.send("toggle-command-center");
+  },
+  
+  // Close the command center window
+  closeCommandCenter: () => {
+    console.log("Closing command center from preload");
+    ipcRenderer.send("close-command-center");
+  },
+  
+  // Register listener for command center open event
+  onOpenCommandCenter: (callback: () => void) => {
+    ipcRenderer.on("open-command-center", callback);
+    return () => {
+      ipcRenderer.removeListener("open-command-center", callback);
+    };
   }
 });

@@ -1,5 +1,6 @@
 import { useModalHotkey, useCommandCenter } from "@/hooks/useCommandCenter";
 import { useHotkeys } from "react-hotkeys-hook";
+import { useEffect } from "react";
 
 /**
  * Component that registers keyboard shortcuts for specific command types
@@ -8,6 +9,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 export function CommandShortcuts() {
   const { toggleCommandCenter } = useCommandCenter();
 
+  // Register regular in-app shortcut
   useHotkeys('meta+k', (event) => {
     event.preventDefault();
     toggleCommandCenter();
@@ -15,6 +17,21 @@ export function CommandShortcuts() {
     enableOnFormTags: true,
     enableOnContentEditable: true
   }); 
+  
+  // Listen for system-wide shortcut events from Electron
+  useEffect(() => {
+    // Check if running in Electron
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      const removeListener = window.electronAPI.onOpenCommandCenter(() => {
+        toggleCommandCenter();
+      });
+      
+      // Clean up listener on unmount
+      return () => {
+        if (removeListener) removeListener();
+      };
+    }
+  }, [toggleCommandCenter]);
 
   useModalHotkey("spaces", "meta+s");
   useModalHotkey("conversations", "meta+b");

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, globalShortcut, screen } from "electron";
 import { join, extname, basename } from "path";
 import * as fs from "fs";
 import * as path from "path";
@@ -8,6 +8,7 @@ import { promisify } from "util";
 const execAsync = promisify(exec);
 
 let mainWindow: BrowserWindow;
+let commandCenterWindow: BrowserWindow | null = null; // Separate window for lightweight command center
 
 // Create the main application window
 const createWindow = () => {
@@ -28,6 +29,74 @@ const createWindow = () => {
   });
 
   mainWindow.loadURL("http://localhost:3000");
+};
+
+/**
+ * Creates a lightweight command center window that's detached from the main app
+ * This allows for quick access to commands without launching the full application
+ */
+const createCommandCenterWindow = () => {
+  // If window already exists, just focus it
+  if (commandCenterWindow) {
+    if (commandCenterWindow.isMinimized()) {
+      commandCenterWindow.restore();
+    }
+    commandCenterWindow.focus();
+    return;
+  }
+
+  console.log("Creating lightweight command center window");
+
+  const preloadPath = join(__dirname, "preload.js");
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  
+  // Create a small, centered window
+  commandCenterWindow = new BrowserWindow({
+    width: 640,
+    height: 400,
+    show: false, // Don't show until ready
+    frame: false, // No window frame
+    transparent: true, // Allows for rounded corners
+    resizable: false,
+    center: true, // Center on screen
+    skipTaskbar: true, // Don't show in taskbar
+    alwaysOnTop: true, // Keep on top of other windows
+    webPreferences: {
+      preload: preloadPath,
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  // Position in the center of the screen
+  commandCenterWindow.setPosition(
+    Math.floor(width / 2 - 320),
+    Math.floor(height / 2 - 200)
+  );
+
+  // Load only the command center URL (special route)
+  commandCenterWindow.loadURL("http://localhost:3000/command-center");
+
+  // Show when ready to prevent flickering
+  commandCenterWindow.once('ready-to-show', () => {
+    if (commandCenterWindow) {
+      commandCenterWindow.show();
+      // Automatically focus the search input
+      commandCenterWindow.webContents.focus();
+    }
+  });
+
+  // Hide on blur (when user clicks outside)
+  commandCenterWindow.on('blur', () => {
+    if (commandCenterWindow) {
+      commandCenterWindow.hide();
+    }
+  });
+
+  // Clean up on close
+  commandCenterWindow.on('closed', () => {
+    commandCenterWindow = null;
+  });
 };
 
 // Cache for storing search results
@@ -209,6 +278,8 @@ app.whenReady().then(() => {
     return;
   }
   createWindow();
+  
+  registerGlobalShortcuts();
 });
 
 app.on("window-all-closed", () => {
@@ -220,5 +291,45 @@ app.on("window-all-closed", () => {
 app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
+  }
+});
+
+/**
+ * Register global shortcuts that will work even when app is not focused
+ */
+function registerGlobalShortcuts() {
+  // Use Command+Option+A (uncommon shortcut that won't interfere with native commands)
+  const shortcutKey = 'CommandOrControl+Option+A';
+  
+  // Register the shortcut to open the lightweight command center
+  const success = globalShortcut.register(shortcutKey, () => {
+    console.log(`${shortcutKey} was pressed - opening lightweight command center`);
+    
+    // Open the lightweight command center instead of the main application
+    createCommandCenterWindow();
+  });
+
+  if (!success) {
+    console.error(`Failed to register global shortcut: ${shortcutKey}`);
+  } else {
+    console.log(`Global shortcut registered successfully: ${shortcutKey}`);
+  }
+
+  // Clean up shortcuts when app quits
+  app.on('will-quit', () => {
+    globalShortcut.unregisterAll();
+  });
+}
+
+// IPC handlers for command center operations
+ipcMain.on('toggle-command-center', () => {
+  // When toggled from within the app, still use the lightweight version
+  createCommandCenterWindow();
+});
+
+// Allow command center to close itself
+ipcMain.on('close-command-center', () => {
+  if (commandCenterWindow) {
+    commandCenterWindow.hide();
   }
 });

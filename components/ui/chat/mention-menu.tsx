@@ -1,8 +1,8 @@
 "use client"
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from 'vinci-ui';
+import { Popover, PopoverContent, PopoverAnchor } from 'vinci-ui';
 import { MentionItem, MentionItemType } from '@/types/mention';
 import { cn } from '@/lib/utils';
 
