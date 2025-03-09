@@ -2,13 +2,11 @@
 
 import React, { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Button } from '@/components/ui/common/button';
 import { File, Loader2, MessageSquare, X } from 'lucide-react';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Button, Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "vinci-ui";
 import { useSpaceStore } from '@/stores/space-store';
 import { useShallow } from 'zustand/react/shallow';
 import { providerRegistry } from '@/lib/providers/provider-registry';
-import { MentionItem } from '@/types/mention';
 
 type FileTag = {
   id: string

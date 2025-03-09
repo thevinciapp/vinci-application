@@ -1,8 +1,7 @@
 import { forgotPasswordAction } from "@/app/actions/auth";
 import { FormMessage, Message } from "@/components/ui/auth/form-message";
 import { SubmitButton } from "@/components/ui/auth/submit-button";
-import { Input } from "@/components/ui/common/input";
-import { Label } from "@/components/ui/common/label";
+import { Input, Label } from "vinci-ui";
 import Link from "next/link";
 import { SmtpMessage } from "../smtp-message";
 

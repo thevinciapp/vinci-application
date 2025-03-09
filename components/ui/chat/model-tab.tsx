@@ -1,7 +1,7 @@
 import { getModelName, type Provider } from '@/config/models'
 import { ProviderIcon } from './provider-icon'
 import React from 'react'
-import { BaseTab } from '@/components/ui/common/base-tab'
+import { BaseTab } from 'vinci-ui'
 import { useCommandCenter } from '@/hooks/useCommandCenter'
 
 export function ServerDrivenModelTab({ 

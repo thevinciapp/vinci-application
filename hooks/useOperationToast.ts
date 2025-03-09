@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useToast } from './use-toast';
+import { useToast } from 'vinci-ui';
 import { ActionResponse } from '@/app/actions/utils/responses';
 
 /**

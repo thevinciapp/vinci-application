@@ -28,11 +28,6 @@ const createWindow = () => {
   });
 
   mainWindow.loadURL("http://localhost:3000");
-  mainWindow.webContents.openDevTools();
-
-  mainWindow.webContents.on("did-finish-load", () => {
-    console.log("Webpage finished loading");
-  });
 };
 
 // Cache for storing search results

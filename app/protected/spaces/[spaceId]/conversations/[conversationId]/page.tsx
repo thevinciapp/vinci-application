@@ -4,7 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { getSpaceData, setActiveSpace, getSpaces } from "@/app/actions/spaces";
 import { getMessages } from "@/app/actions/conversations";
 import { getNotifications } from "@/app/actions/notifications";
-import { Toaster } from "@/components/ui/common/toaster";
+import { Toaster } from "vinci-ui";
 import { CommandProvider } from "@/hooks/useCommandCenter";
 import { AllCommandProviders } from "@/components/AllCommandProviders";
 import CommandRoot from "@/components/CommandRoot";

@@ -33,24 +33,24 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/common/dialog";
-import { Button } from "@/components/ui/common/button";
-import { Input } from "@/components/ui/common/input";
-import { Label } from "@/components/ui/common/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/common/select";
-import { Textarea } from "@/components/ui/common/textarea";
-import { Checkbox } from "@/components/ui/common/checkbox";
+} from "vinci-ui";
+import { Button } from "vinci-ui";
+import { Input } from "vinci-ui";
+import { Label } from "vinci-ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "vinci-ui";
+import { Textarea } from "vinci-ui";
+import { Checkbox } from "vinci-ui";
 import { useCommandCenter } from "@/hooks/useCommandCenter";
 import { useRouter } from "next/navigation";
 import { getMostRecentConversation } from "@/app/actions/conversations";
 import { cn } from "@/lib/utils";
 import { useSpaceStore, Space as SpaceType, Conversation as ConversationType } from '@/stores/space-store';
 import { useShallow } from "zustand/react/shallow";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/common/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "vinci-ui";
 import { ProviderIcon } from "@lobehub/icons";
 import { createSpace as createSpaceAction, deleteSpace as deleteSpaceAction, updateSpace as updateSpaceAction } from "@/app/actions/spaces";
 import { createConversation as createConversationAction, deleteConversation as deleteConversationAction, updateConversationTitle, searchMessages } from "@/app/actions/conversations";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "vinci-ui";
 
 /**
  * Dialog for creating or editing a space

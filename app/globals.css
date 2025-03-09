@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import 'vinci-ui/styles.css';
 
 @custom-variant dark (&:is(.dark *));
 

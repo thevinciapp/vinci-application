@@ -1,6 +1,6 @@
 'use client'
 
-import { BaseTab } from '@/components/ui/common/base-tab'
+import { BaseTab } from 'vinci-ui'
 import { useCommandCenter } from '@/hooks/useCommandCenter'
 import DotSphere from './planet-icon'
 

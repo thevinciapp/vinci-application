@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { BaseTab } from '../common/base-tab'
+import { BaseTab } from 'vinci-ui'
 import { getChatModeConfig } from '@/config/chat-modes'
 import { useCommandCenter } from '@/hooks/useCommandCenter'
 import { useSpaceStore } from '@/stores/space-store'

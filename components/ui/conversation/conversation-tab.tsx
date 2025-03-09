@@ -4,8 +4,8 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/common/tooltip"
-import { BaseTab } from '@/components/ui/common/base-tab'
+  BaseTab
+} from "vinci-ui"
 import { cn } from '@/lib/utils'
 import { useCommandCenter } from '@/hooks/useCommandCenter'
 import { useState } from 'react'

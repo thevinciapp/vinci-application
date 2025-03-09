@@ -1,5 +1,5 @@
 import { Sparkles, Timer, Lightbulb } from "lucide-react";
-import { BaseTab } from "./common/base-tab";
+import { BaseTab } from "vinci-ui";
 import { useCommandCenter } from "@/hooks/useCommandCenter";
 
 // Original component that uses hooks

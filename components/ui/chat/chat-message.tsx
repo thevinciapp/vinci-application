@@ -3,7 +3,7 @@ import { memo, useMemo } from 'react';
 import { getModelName, type Provider } from '@/config/models';
 import { ProviderIcon } from './provider-icon';
 import { JSONValue, Message } from 'ai';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/common/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from 'vinci-ui';
 import { StreamStatus } from './stream-status';
 import { Markdown } from './markdown';
 import DotSphere from '@/components/ui/space/planet-icon';

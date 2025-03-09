@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, LogOut, User as UserIcon, Settings } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/common/avatar";
-import { Button } from "@/components/ui/common/button";
+import { Avatar, AvatarFallback, AvatarImage } from "vinci-ui";
+import { Button } from "vinci-ui";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +14,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/common/dropdown-menu";
+} from "vinci-ui";
 import { cn } from "@/lib/utils";
 import { User } from '@supabase/supabase-js';
 import { signOutAction } from '@/app/actions/auth';

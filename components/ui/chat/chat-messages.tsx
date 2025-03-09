@@ -1,10 +1,9 @@
 'use client';
 
 import { ChatContainer, useAutoScroll } from '@/components/ui/chat-container';
-import { useEffect, forwardRef, useRef, useState, useCallback, memo, useMemo } from 'react';
+import { useEffect, forwardRef, useRef, memo, useMemo } from 'react';
 import { ChatMessage } from './chat-message';
 import { JSONValue, Message } from 'ai';
-import { useSearchParams, useRouter } from 'next/navigation';
 
 interface ChatMessagesProps {
   messages: Message[];

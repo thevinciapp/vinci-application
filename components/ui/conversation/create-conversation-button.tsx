@@ -1,7 +1,6 @@
 import React, { useCallback } from 'react';
 import { useLoadingOperation } from '@/hooks/useLoadingOperation';
 import { createConversation } from '@/app/actions/conversations';
-import { useOperationToast } from '@/hooks/useOperationToast';
 
 const CreateConversationButton: React.FC = () => {
   const conversationCreation = useLoadingOperation(

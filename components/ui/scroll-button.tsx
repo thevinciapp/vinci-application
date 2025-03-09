@@ -3,7 +3,7 @@
 import * as React from "react"
 import { ArrowDown } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/common/button"
+import { Button } from "vinci-ui"
 
 export type ScrollButtonProps = {
   containerRef: React.RefObject<HTMLElement | null>

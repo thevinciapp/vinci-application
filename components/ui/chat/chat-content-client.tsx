@@ -6,7 +6,7 @@ import { ServerDrivenQuickActionsTab, ServerDrivenBackgroundTasksTab, ServerDriv
 import { ServerDrivenModelTab } from "@/components/ui/chat/model-tab";
 import { ChatModeTab } from "@/components/ui/chat/chat-mode-tab";
 import { ArrowDown, Search, Sparkles } from "lucide-react";
-import { BaseTab } from "@/components/ui/common/base-tab";
+import { BaseTab } from "vinci-ui";
 import { User } from "@supabase/supabase-js";
 import { UnifiedInput } from "@/components/ui/chat/unified-input";
 import { ChatMessages } from "@/components/ui/chat/chat-messages";

@@ -1,7 +1,6 @@
 import { hasEnvVars } from "@/utils/supabase/check-env-vars";
 import Link from "next/link";
-import { Badge } from "../common/badge";
-import { Button } from "../common/button";
+import { Badge, Button } from "vinci-ui";
 import { createClient } from "@/utils/supabase/server";
 import { UserProfileDropdown } from "./user-profile-dropdown";
 

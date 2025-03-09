@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Plus, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/common/button';
 import { createSpace } from '@/app/actions/spaces';
 import { useLoadingOperation } from '@/hooks/useLoadingOperation';
 import { useRouteTransition } from '@/hooks/useRouteTransition';
 import { useOperationToast } from '@/hooks/useOperationToast';
 import {
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -13,17 +13,17 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/common/dialog';
-import { Input } from '@/components/ui/common/input';
-import { Label } from '@/components/ui/common/label';
-import { Textarea } from '@/components/ui/common/textarea';
+  Input,
+  Label,
+  Textarea
+} from 'vinci-ui';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/common/select';
+} from 'vinci-ui';
 
 // Default options
 const DEFAULT_MODEL = 'claude-3-sonnet-20240229';

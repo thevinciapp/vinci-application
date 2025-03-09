@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from '@/components/ui/common/button';
+import { Button } from 'vinci-ui';
 import { useCommandCenter } from '@/hooks/useCommandCenter';
 import { Command } from 'lucide-react';
 import { CommandType } from '@/hooks/useCommandCenter';

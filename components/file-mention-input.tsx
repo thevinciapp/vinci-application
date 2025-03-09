@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "vinci-ui"
 import { File, X } from "lucide-react"
 
 // Mock file data
