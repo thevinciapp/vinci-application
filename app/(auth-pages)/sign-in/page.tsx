@@ -95,7 +95,7 @@ export default function Login() {
                     }
                   }
                   
-                  router.push('/command-center');
+                  router.push('/protected');
                 } else {
                   setError(response.error || 'Failed to sign in');
                 }
