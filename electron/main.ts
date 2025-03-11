@@ -560,7 +560,7 @@ async function fetchInitialAppData(): Promise<AppStateResult> {
       };
     }
     
-    if (!authToken) {
+    if (!accessToken) {
       console.log('[ELECTRON] No auth token available, deferring data fetch');
       return {
         ...initialAppState,
