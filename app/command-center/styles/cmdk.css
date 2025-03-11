@@ -4,8 +4,9 @@
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
-  background: var(--background/95);
-  backdrop-filter: blur(16px);
+  background: rgba(22, 22, 23, 0.95);
+  backdrop-filter: blur(20px);
+  border: 2px solid rgba(235, 235, 245, 0.06);
 
   [cmdk-root] {
     width: 100%;
@@ -26,24 +27,24 @@
     font-family: var(--font-sans);
     border: none;
     width: 100%;
-    font-size: 15px;
-    padding: 16px;
+    font-size: 16px;
+    padding: 12px;
     outline: none;
     background: transparent;
-    color: var(--foreground);
-    border-bottom: 1px solid var(--border);
+    color: rgba(235, 235, 245, 0.6);
+    border-bottom: 2px solid rgba(235, 235, 245, 0.06);
 
     &::placeholder {
-      color: var(--muted-foreground);
+      color: rgba(235, 235, 245, 0.3);
     }
   }
 
   [cmdk-list] {
-    padding: 16px;
+    padding: 8px;
     flex: 1;
     overflow: auto;
     overscroll-behavior: contain;
-    transition: all 150ms ease;
+    transition: 100ms ease;
     margin: 0;
     display: flex;
     flex-direction: column;
@@ -52,57 +53,55 @@
   [cmdk-item] {
     content-visibility: auto;
     cursor: pointer;
-    height: 48px;
+    height: 44px;
     border-radius: 8px;
     font-size: 14px;
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 0 16px;
-    color: var(--foreground);
+    padding: 0 12px;
+    color: rgba(235, 235, 245, 0.6);
     user-select: none;
     will-change: background, color;
     transition: all 150ms ease;
-    margin: 4px 0;
+    margin: 0;
     position: relative;
     background: transparent;
 
     &[data-selected='true'] {
-      background: var(--accent);
-      color: var(--accent-foreground);
+      background: rgba(235, 235, 245, 0.06);
+      color: rgba(235, 235, 245, 0.9);
     }
 
     &[data-disabled='true'] {
-      color: var(--muted-foreground);
+      color: rgba(235, 235, 245, 0.2);
       cursor: not-allowed;
     }
 
     &:active {
-      background: var(--accent);
-      color: var(--accent-foreground);
+      background: rgba(235, 235, 245, 0.08);
     }
 
     svg {
       width: 16px;
       height: 16px;
-      color: var(--muted-foreground);
+      color: rgba(235, 235, 245, 0.4);
     }
   }
 
   [cmdk-group] {
-    margin: 0;
+    margin: 8px 0;
     padding: 0;
   }
 
   [cmdk-group-heading] {
     user-select: none;
     font-size: 12px;
-    color: var(--muted-foreground);
-    padding: 0 16px;
+    color: rgba(235, 235, 245, 0.4);
+    padding: 0 12px;
     display: flex;
     align-items: center;
     margin-bottom: 8px;
-    margin-top: 8px;
   }
 
   [cmdk-empty] {
@@ -110,16 +109,16 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 64px;
+    height: 48px;
     white-space: pre-wrap;
-    color: var(--muted-foreground);
+    color: rgba(235, 235, 245, 0.4);
     padding: 0 16px;
   }
 
   [cmdk-separator] {
     height: 1px;
     width: 100%;
-    background: var(--border);
+    background: rgba(235, 235, 245, 0.06);
     margin: 4px 0;
   }
 
@@ -129,28 +128,27 @@
 
   .cmdk-actions {
     position: absolute;
-    right: 16px;
+    right: 8px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
   }
 
   .cmdk-meta {
     margin-left: auto;
-    color: var(--muted-foreground);
+    color: rgba(235, 235, 245, 0.4);
     font-size: 12px;
   }
 
   .dialog {
-    background: var(--background/95);
-    border-radius: 8px;
+    background: rgba(22, 22, 23, 0.95);
+    border-radius: 12px;
     padding: 24px;
     width: 100%;
-    max-width: 500px;
+    max-width: 640px;
     margin: 0 auto;
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    border: 1px solid var(--border);
-    backdrop-filter: blur(16px);
+    border: 1px solid rgba(235, 235, 245, 0.06);
+    backdrop-filter: blur(20px);
   }
 }
 

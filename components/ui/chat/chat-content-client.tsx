@@ -69,7 +69,7 @@ export default function ClientChatContent({
     data,
     setData,
   } = useChat({
-    id: activeConversation?.id || 'default',
+    id: `${activeConversation?.id || 'default'}-${activeSpace?.provider || ''}-${activeSpace?.model || ''}`,
     api: "/api/chat",
     initialMessages: [],
     body: {

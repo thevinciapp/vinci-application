@@ -27,8 +27,8 @@ export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ search
 
   const handleSelect = async (conversation: Conversation) => {
     try {
-      // First ensure the conversation's space is active
       const result = await API.activeSpace.setActiveSpace(conversation.space_id);
+      
       if (result.success) {
         await refreshAppState();
         if (onSelect) onSelect({...conversation, closeOnSelect: true});

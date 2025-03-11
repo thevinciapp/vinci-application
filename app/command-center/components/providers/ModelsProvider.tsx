@@ -32,17 +32,14 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
     if (!activeSpace?.id) return;
 
     try {
-      // First update the space with the new model
       const result = await API.spaces.updateSpace(activeSpace.id, {
         model: model.name,
         provider: provider
       });
       
       if (result.success) {
-        // Refresh global state to ensure all components have latest data
         await refreshAppState();
         
-        // Close the command center
         if (onSelect) onSelect({ ...model, provider, closeOnSelect: true });
       } else {
         console.error('Error updating space model:', result.error);
