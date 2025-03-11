@@ -57,7 +57,7 @@ export function SuggestionsProvider({ searchQuery, onSelect, onAction }: Provide
         toast.success('Suggestion Accepted', {
           description: `Now executing: ${suggestion.description}`
         });
-        if (onSelect) onSelect(suggestion);
+        if (onSelect) onSelect({...suggestion, closeOnSelect: true});
       }
       
       return prevSuggestions.map(suggestion => 
@@ -75,7 +75,9 @@ export function SuggestionsProvider({ searchQuery, onSelect, onAction }: Provide
   };
 
   const handleSelect = (suggestion: Suggestion) => {
+    // Accept the suggestion and close the command center
     acceptSuggestion(suggestion.id);
+    // The closeOnSelect property is added to the suggestion in acceptSuggestion
   };
 
   const handleAccept = (e: React.MouseEvent, suggestionId: string) => {

@@ -51,7 +51,7 @@ export default function ClientChatContent({
   useEffect(() => {
     return () => clearError();
   }, []);
-  
+
   useEffect(() => {
     if (activeConversation) {
       setMessages([]);
@@ -123,7 +123,7 @@ export default function ClientChatContent({
   };
 
   return (
-    <div>
+    <div className="h-full w-full">
       <div className="fixed top-4 right-4 z-50">
         {user && <UserProfileDropdown user={user} />}
       </div>

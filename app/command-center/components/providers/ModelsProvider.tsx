@@ -107,7 +107,8 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
                       if (result.success && result.data) {
                         setActiveSpace(result.data);
                         // Let the parent know something was selected to close the command center
-                        if (onSelect) onSelect({ ...model, provider });
+                        // Add closeOnSelect: true to indicate we want to close the command center after updating the model
+                        if (onSelect) onSelect({ ...model, provider, closeOnSelect: true });
                       }
                     } catch (error) {
                       console.error('Error updating space model:', error);

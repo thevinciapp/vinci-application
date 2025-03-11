@@ -65,7 +65,7 @@ export function SimilarMessagesProvider({ searchQuery, onSelect }: ProviderCompo
             <CommandItem
               key={message.id}
               value={message.content}
-              onSelect={() => onSelect?.(message)}
+              onSelect={() => onSelect?.({...message, closeOnSelect: true})}
               className="flex items-start justify-between py-3"
             >
               <div className="flex items-start gap-2">

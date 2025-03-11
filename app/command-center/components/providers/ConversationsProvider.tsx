@@ -72,7 +72,8 @@ export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ search
       const result = await API.activeSpace.setActiveSpace(conversation.space_id);
       if (result.success) {
         setActiveConversation(conversation);
-        if (onSelect) onSelect(conversation);
+        // Add closeOnSelect: true to indicate we want to close the command center after selecting
+        if (onSelect) onSelect({...conversation, closeOnSelect: true});
       } else {
         console.error('Error setting active conversation:', result.error);
       }

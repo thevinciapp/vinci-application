@@ -80,7 +80,7 @@ export function BackgroundTasksProvider({ searchQuery, onSelect }: ProviderCompo
             <CommandItem
               key={task.id}
               value={task.description}
-              onSelect={() => onSelect?.(task)}
+              onSelect={() => onSelect?.({...task, closeOnSelect: true})}
               className="flex flex-col items-start justify-between py-3"
             >
               <div className="flex w-full items-center justify-between">

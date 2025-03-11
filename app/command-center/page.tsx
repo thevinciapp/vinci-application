@@ -14,6 +14,23 @@ const CommandCenter = () => {
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [activeSpace, setActiveSpace] = useState<Space | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentProvider, setCurrentProvider] = useState<string | null>(null);
+  const [currentDialog, setCurrentDialog] = useState<{ type: string; data: any } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Initialize and update window.currentCommandType
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Initialize the window property if it doesn't exist
+      if (!(window as any).currentCommandType) {
+        (window as any).currentCommandType = null;
+      }
+      // Update when provider changes
+      if (currentProvider) {
+        (window as any).currentCommandType = currentProvider;
+      }
+    }
+  }, [currentProvider]);
 
   const fetchSpaces = async () => {
     try {
@@ -64,14 +81,12 @@ const CommandCenter = () => {
 
     initializeData();
   }, []);
-  
-  const [currentProvider, setCurrentProvider] = useState<string | null>(null);
-  const [currentDialog, setCurrentDialog] = useState<{ type: string; data: any } | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+
 
   useEffect(() => {
     const onSetCommandType = (event: any, commandType: string) => {
       if (providers[commandType]) {
+        // Update provider state which will trigger the effect to update window.currentCommandType
         setCurrentProvider(commandType);
         setCurrentDialog(null); // Close any dialog when switching providers
       } else {
@@ -113,7 +128,11 @@ const CommandCenter = () => {
     }
     
     return () => {
-      // Cleanup not implemented; add if supported by electronAPI
+      // Reset command type when component unmounts
+      if (typeof window !== 'undefined') {
+        (window as any).currentCommandType = null;
+      }
+      // Additional cleanup if needed
     };
   }, [spaces, isLoading, activeSpace]);
 
@@ -127,7 +146,15 @@ const CommandCenter = () => {
   };
 
   const handleSelect = (item: any) => {
-    (window as any).electronAPI?.closeCommandCenter?.();
+    // Only close the command center if it's a specific action that requires closing
+    // For regular provider items, we'll keep the command center open
+    if (item?.closeOnSelect === true) {
+      // Reset command type before closing
+      if (typeof window !== 'undefined') {
+        (window as any).currentCommandType = null;
+      }
+      (window as any).electronAPI?.closeCommandCenter?.();
+    }
   };
 
   const handleAction = async (action: string, data: any) => {

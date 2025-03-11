@@ -81,7 +81,7 @@ export function MessageSearchProvider({ searchQuery, onSelect }: ProviderCompone
             <CommandItem
               key={message.id}
               value={message.content}
-              onSelect={() => onSelect?.(message)}
+              onSelect={() => onSelect?.({...message, closeOnSelect: true})}
               className="flex items-start py-3"
             >
               <div className="flex items-start gap-2">

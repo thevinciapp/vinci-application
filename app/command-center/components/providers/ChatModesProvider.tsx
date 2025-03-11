@@ -47,7 +47,8 @@ export function ChatModesProvider({ searchQuery, onSelect, onAction }: ProviderC
   );
 
   const handleSelect = (mode: ChatMode) => {
-    if (onSelect) onSelect(mode);
+    // Add closeOnSelect property to close the command center after selecting a chat mode
+    if (onSelect) onSelect({...mode, closeOnSelect: true});
   };
 
   const handleSettings = (e: React.MouseEvent, mode: ChatMode) => {

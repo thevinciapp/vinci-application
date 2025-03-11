@@ -57,7 +57,8 @@ export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
     try {
       const result = await API.activeSpace.setActiveSpace(space.id);
       if (result.success) {
-        if (onSelect) onSelect(space);
+        // Add closeOnSelect: true property to indicate this should close the command center
+        if (onSelect) onSelect({...space, closeOnSelect: true});
       } else {
         console.error('Error setting active space:', result.error);
       }
