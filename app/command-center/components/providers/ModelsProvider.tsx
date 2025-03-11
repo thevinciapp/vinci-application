@@ -43,9 +43,6 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
         await refreshAppState();
         
         if (onSelect) onSelect({ ...model, provider, closeOnSelect: true });
-        
-        // Force a refresh of the page to ensure all components update
-        window.location.reload();
       } else {
         console.error('Error updating space model:', result.error);
       }

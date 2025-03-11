@@ -53,10 +53,11 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         throw new Error(freshState?.error || 'Failed to refresh app state');
       }
 
+      // Create new object references for all nested objects
       setAppState({
-        spaces: freshState.spaces || null,
-        activeSpace: freshState.activeSpace || null,
-        conversations: freshState.conversations || null,
+        spaces: freshState.spaces ? [...freshState.spaces] : null,
+        activeSpace: freshState.activeSpace ? { ...freshState.activeSpace } : null,
+        conversations: freshState.conversations ? [...freshState.conversations] : null,
         isLoading: false,
         error: null,
         lastFetched: freshState.lastFetched || Date.now(),
@@ -79,7 +80,17 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const updateAppState = (newState: Partial<AppState>) => {
     setAppState(prev => {
-      const updated = { ...prev, ...newState, error: null };
+      // Create a new state object with deep copies of nested objects
+      const updated = { 
+        ...prev,
+        ...newState,
+        // Ensure we create new references for these objects if they exist in newState
+        spaces: newState.spaces ? [...newState.spaces] : prev.spaces,
+        activeSpace: newState.activeSpace ? { ...newState.activeSpace } : prev.activeSpace,
+        conversations: newState.conversations ? [...newState.conversations] : prev.conversations,
+        error: null
+      };
+      
       window.electronAPI.syncAppState(updated).catch((error: Error) => {
         console.error('Error syncing app state:', error);
         toast({
@@ -88,6 +99,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           variant: "destructive"
         });
       });
+      
       return updated;
     });
   };
