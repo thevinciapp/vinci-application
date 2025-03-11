@@ -14,6 +14,8 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
   const router = useRouter();
   const { appState, refreshAppState } = useAppState();
   
+  console.log('[ModelsProvider] Initial render with activeSpace:', appState.activeSpace);
+  
   const activeSpace = appState.activeSpace;
   const modelsByProvider = Object.entries(AVAILABLE_MODELS).reduce((acc, [provider, models]) => {
     const filteredModels = models.filter(model =>
@@ -29,25 +31,41 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
   }, {} as Record<string, any[]>);
 
   const handleModelSelect = async (model: any, provider: string) => {
-    if (!activeSpace?.id) return;
+    if (!activeSpace?.id) {
+      console.error('[ModelsProvider] Cannot update model: No active space');
+      return;
+    }
 
     try {
-      console.log('Updating model to:', model.name, 'provider:', provider);
+      console.log('[ModelsProvider] Updating model to:', model.name, 'provider:', provider, 'for space:', activeSpace.id);
       
       const result = await API.spaces.updateSpace(activeSpace.id, {
         model: model.name,
         provider: provider
       });
       
+      console.log('[ModelsProvider] API update result:', result);
+      
       if (result.success) {
+        console.log('[ModelsProvider] Model updated successfully, refreshing app state...');
         await refreshAppState();
+        console.log('[ModelsProvider] App state refreshed after model update');
         
-        if (onSelect) onSelect({ ...model, provider, closeOnSelect: true });
+        if (onSelect) {
+          console.log('[ModelsProvider] Calling onSelect with model data');
+          onSelect({ ...model, provider, closeOnSelect: true });
+        }
+        
+        // Force a UI update by dispatching a custom event
+        console.log('[ModelsProvider] Dispatching modelUpdated event');
+        window.dispatchEvent(new CustomEvent('modelUpdated', { 
+          detail: { model: model.name, provider, spaceId: activeSpace.id }
+        }));
       } else {
-        console.error('Error updating space model:', result.error);
+        console.error('[ModelsProvider] Error updating space model:', result.error);
       }
     } catch (error) {
-      console.error('Error updating space model:', error);
+      console.error('[ModelsProvider] Error updating space model:', error);
     }
   };
 

@@ -44,32 +44,51 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     lastFetched: null,
   });
 
+  console.log('[AppStateProvider] Initial render');
+
   const refreshAppState = async () => {
+    console.log('[AppStateProvider] refreshAppState called');
     try {
-      setAppState(prev => ({ ...prev, isLoading: true, error: null }));
+      setAppState(prev => {
+        console.log('[AppStateProvider] Setting loading state');
+        return { ...prev, isLoading: true, error: null };
+      });
+      
+      console.log('[AppStateProvider] Calling refreshAppData API');
       const freshState = await window.electronAPI.refreshAppData();
+      console.log('[AppStateProvider] refreshAppData returned:', JSON.stringify(freshState, null, 2));
       
       if (!freshState || freshState.error) {
         throw new Error(freshState?.error || 'Failed to refresh app state');
       }
 
       // Create new object references for all nested objects
-      setAppState({
-        spaces: freshState.spaces ? [...freshState.spaces] : null,
-        activeSpace: freshState.activeSpace ? { ...freshState.activeSpace } : null,
-        conversations: freshState.conversations ? [...freshState.conversations] : null,
-        isLoading: false,
-        error: null,
-        lastFetched: freshState.lastFetched || Date.now(),
+      console.log('[AppStateProvider] Updating state with fresh data');
+      setAppState(prev => {
+        const newState = {
+          spaces: freshState.spaces ? [...freshState.spaces] : null,
+          activeSpace: freshState.activeSpace ? { ...freshState.activeSpace } : null,
+          conversations: freshState.conversations ? [...freshState.conversations] : null,
+          isLoading: false,
+          error: null,
+          lastFetched: freshState.lastFetched || Date.now(),
+        };
+        console.log('[AppStateProvider] Previous activeSpace:', JSON.stringify(prev.activeSpace, null, 2));
+        console.log('[AppStateProvider] New activeSpace:', JSON.stringify(newState.activeSpace, null, 2));
+        return newState;
       });
+      console.log('[AppStateProvider] State updated successfully');
     } catch (error) {
-      console.error('Error refreshing app state:', error);
+      console.error('[AppStateProvider] Error refreshing app state:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to refresh data';
-      setAppState(prev => ({ 
-        ...prev, 
-        isLoading: false,
-        error: errorMessage
-      }));
+      setAppState(prev => { 
+        console.log('[AppStateProvider] Setting error state');
+        return {
+          ...prev, 
+          isLoading: false,
+          error: errorMessage
+        };
+      });
       toast({
         title: "Error",
         description: errorMessage,
@@ -79,6 +98,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const updateAppState = (newState: Partial<AppState>) => {
+    console.log('[AppStateProvider] updateAppState called with:', JSON.stringify(newState, null, 2));
     setAppState(prev => {
       // Create a new state object with deep copies of nested objects
       const updated = { 
@@ -91,8 +111,11 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         error: null
       };
       
+      console.log('[AppStateProvider] Previous state:', JSON.stringify(prev, null, 2));
+      console.log('[AppStateProvider] Updated state:', JSON.stringify(updated, null, 2));
+      
       window.electronAPI.syncAppState(updated).catch((error: Error) => {
-        console.error('Error syncing app state:', error);
+        console.error('[AppStateProvider] Error syncing app state:', error);
         toast({
           title: "Error",
           description: "Failed to sync app state",
@@ -105,25 +128,47 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const clearError = () => {
+    console.log('[AppStateProvider] clearError called');
     setAppState(prev => ({ ...prev, error: null }));
   };
 
   useEffect(() => {
+    console.log('[AppStateProvider] Setting up modelUpdated event listener');
+    const handleModelUpdated = (event: CustomEvent) => {
+      console.log('[AppStateProvider] modelUpdated event received:', event.detail);
+      // Force a refresh of the app state
+      refreshAppState();
+    };
+
+    window.addEventListener('modelUpdated', handleModelUpdated as EventListener);
+    
+    return () => {
+      window.removeEventListener('modelUpdated', handleModelUpdated as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    console.log('[AppStateProvider] Setting up auth token sync');
     const syncAuthToken = async () => {
       try {
         const existingToken = await window.electronAPI.getAuthToken();
+        console.log('[AppStateProvider] Existing token found:', !!existingToken);
         if (existingToken) {
           const freshAppData = await window.electronAPI.refreshAppData();
+          console.log('[AppStateProvider] Fresh app data with existing token:', !!freshAppData);
           if (freshAppData && !freshAppData.error) {
-            setAppState(prev => ({
-              ...prev,
-              spaces: freshAppData.spaces || prev.spaces,
-              activeSpace: freshAppData.activeSpace || prev.activeSpace,
-              conversations: freshAppData.conversations || prev.conversations,
-              isLoading: false,
-              error: null,
-              lastFetched: freshAppData.lastFetched || Date.now()
-            }));
+            setAppState(prev => {
+              console.log('[AppStateProvider] Updating state with fresh data from existing token');
+              return {
+                ...prev,
+                spaces: freshAppData.spaces || prev.spaces,
+                activeSpace: freshAppData.activeSpace || prev.activeSpace,
+                conversations: freshAppData.conversations || prev.conversations,
+                isLoading: false,
+                error: null,
+                lastFetched: freshAppData.lastFetched || Date.now()
+              };
+            });
             return;
           }
         }
@@ -131,28 +176,34 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const response = await fetch('/api/auth/session');
         if (response.ok) {
           const data = await response.json();
+          console.log('[AppStateProvider] Session API response:', !!data?.data?.session?.access_token);
           if (data?.data?.session?.access_token) {
             const success = await window.electronAPI.setAuthToken(data.data.session.access_token);
+            console.log('[AppStateProvider] Set auth token result:', success);
             
             if (success) {
               await new Promise(resolve => setTimeout(resolve, 500));
               const freshAppData = await window.electronAPI.refreshAppData();
+              console.log('[AppStateProvider] Fresh app data after setting token:', !!freshAppData);
               if (freshAppData && !freshAppData.error) {
-                setAppState(prev => ({
-                  ...prev,
-                  spaces: freshAppData.spaces || prev.spaces,
-                  activeSpace: freshAppData.activeSpace || prev.activeSpace,
-                  conversations: freshAppData.conversations || prev.conversations,
-                  isLoading: false,
-                  error: null,
-                  lastFetched: freshAppData.lastFetched || Date.now()
-                }));
+                setAppState(prev => {
+                  console.log('[AppStateProvider] Updating state with fresh data after setting token');
+                  return {
+                    ...prev,
+                    spaces: freshAppData.spaces || prev.spaces,
+                    activeSpace: freshAppData.activeSpace || prev.activeSpace,
+                    conversations: freshAppData.conversations || prev.conversations,
+                    isLoading: false,
+                    error: null,
+                    lastFetched: freshAppData.lastFetched || Date.now()
+                  };
+                });
               }
             }
           }
         }
       } catch (error) {
-        console.error('Failed to sync auth token:', error);
+        console.error('[AppStateProvider] Failed to sync auth token:', error);
       }
     };
     
@@ -160,29 +211,39 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   useEffect(() => {
+    console.log('[AppStateProvider] Setting up initial state fetch');
     const getInitialState = async () => {
       try {
+        console.log('[AppStateProvider] Fetching initial app state');
         const initialState = await window.electronAPI.getAppState();
+        console.log('[AppStateProvider] Initial state received:', !!initialState);
+        
         if (!initialState || initialState.error) {
           throw new Error(initialState?.error || 'Failed to get initial app state');
         }
 
-        setAppState({
-          spaces: initialState.spaces || null,
-          activeSpace: initialState.activeSpace || null,
-          conversations: initialState.conversations || null,
-          isLoading: false,
-          error: null,
-          lastFetched: initialState.lastFetched || Date.now(),
+        setAppState(prev => {
+          console.log('[AppStateProvider] Setting initial state');
+          return {
+            spaces: initialState.spaces || null,
+            activeSpace: initialState.activeSpace || null,
+            conversations: initialState.conversations || null,
+            isLoading: false,
+            error: null,
+            lastFetched: initialState.lastFetched || Date.now(),
+          };
         });
       } catch (error) {
-        console.error('Error getting initial app state:', error);
+        console.error('[AppStateProvider] Error getting initial app state:', error);
         const errorMessage = error instanceof Error ? error.message : 'Failed to get initial app state';
-        setAppState(prev => ({ 
-          ...prev, 
-          isLoading: false,
-          error: errorMessage
-        }));
+        setAppState(prev => { 
+          console.log('[AppStateProvider] Setting error state for initial fetch');
+          return {
+            ...prev, 
+            isLoading: false,
+            error: errorMessage
+          };
+        });
         toast({
           title: "Error",
           description: errorMessage,
@@ -195,20 +256,27 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   useEffect(() => {
+    console.log('[AppStateProvider] Setting up app data update listener');
     const unsubscribe = window.electronAPI.onAppDataUpdated((event, updatedState) => {
+      console.log('[AppStateProvider] App data updated event received:', !!updatedState);
       if (updatedState) {
-        setAppState({
-          spaces: updatedState.spaces || null,
-          activeSpace: updatedState.activeSpace || null,
-          conversations: updatedState.conversations || null,
-          isLoading: false,
-          error: null,
-          lastFetched: updatedState.lastFetched || Date.now(),
+        setAppState(prev => {
+          console.log('[AppStateProvider] Previous activeSpace:', JSON.stringify(prev.activeSpace, null, 2));
+          console.log('[AppStateProvider] New activeSpace:', JSON.stringify(updatedState.activeSpace, null, 2));
+          return {
+            spaces: updatedState.spaces || null,
+            activeSpace: updatedState.activeSpace || null,
+            conversations: updatedState.conversations || null,
+            isLoading: false,
+            error: null,
+            lastFetched: updatedState.lastFetched || Date.now(),
+          };
         });
       }
     });
 
     return () => {
+      console.log('[AppStateProvider] Cleaning up app data update listener');
       if (unsubscribe) unsubscribe();
     };
   }, []);
