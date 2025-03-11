@@ -27,13 +27,21 @@ export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ search
 
   const handleSelect = async (conversation: Conversation) => {
     try {
-      const result = await API.activeSpace.setActiveSpace(conversation.space_id);
+      // First set the active space if needed
+      const spaceResult = await API.activeSpace.setActiveSpace(conversation.space_id);
       
-      if (result.success) {
-        await refreshAppState();
-        if (onSelect) onSelect({...conversation, closeOnSelect: true});
+      if (spaceResult.success) {
+        // Then set the active conversation
+        const convResult = await API.conversations.setActiveConversation(conversation.id);
+        
+        if (convResult.success) {
+          await refreshAppState();
+          if (onSelect) onSelect({...conversation, closeOnSelect: true});
+        } else {
+          console.error('Error setting active conversation:', convResult.error);
+        }
       } else {
-        console.error('Error setting active conversation:', result.error);
+        console.error('Error setting active space:', spaceResult.error);
       }
     } catch (error) {
       console.error('Error handling conversation selection:', error);

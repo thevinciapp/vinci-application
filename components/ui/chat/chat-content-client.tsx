@@ -55,8 +55,11 @@ export default function ClientChatContent({
   useEffect(() => {
     if (activeConversation) {
       setMessages([]);
+      setInput('');
     }
-  }, [activeConversation?.id]);
+  }, [activeConversation?.id, activeSpace?.provider, activeSpace?.model]);
+
+  const chatKey = `${activeConversation?.id || 'default'}-${activeSpace?.provider || ''}-${activeSpace?.model || ''}`;
 
   const {
     messages,
@@ -69,7 +72,8 @@ export default function ClientChatContent({
     data,
     setData,
   } = useChat({
-    id: `${activeConversation?.id || 'default'}-${activeSpace?.provider || ''}-${activeSpace?.model || ''}`,
+    id: chatKey,
+    key: chatKey, // Add key prop to force reset when these values change
     api: "/api/chat",
     initialMessages: [],
     body: {
