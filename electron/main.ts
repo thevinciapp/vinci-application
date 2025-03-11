@@ -23,7 +23,8 @@ if (IS_MAC) {
 const API_BASE_URL = 'http://localhost:3000';
 
 const STORAGE_DIR = join(app.getPath('userData'), 'secure');
-const STORAGE_TOKEN_PATH = join(STORAGE_DIR, 'auth_token.enc');
+const STORAGE_ACCESS_TOKEN_PATH = join(STORAGE_DIR, 'access_token.enc');
+const STORAGE_REFRESH_TOKEN_PATH = join(STORAGE_DIR, 'refresh_token.enc');
 
 if (!existsSync(STORAGE_DIR)) {
   mkdirSync(STORAGE_DIR, { recursive: true });
@@ -33,7 +34,9 @@ if (!existsSync(STORAGE_DIR)) {
 let mainWindow: BrowserWindow | null = null;
 let commandCenterWindow: BrowserWindow | null = null;
 let isDialogOpen = false;
-let authToken: string | null = null;
+let accessToken: string | null = null;
+let refreshToken: string | null = null;
+let tokenExpiryTime: number | null = null; // Store expiry time for access token
 
 // App state management
 const initialAppState: AppState = {
@@ -282,72 +285,204 @@ async function toggleCommandCenterWindow() {
 /**
  * Auth management with safeStorage
  */
-async function saveAuthData(token: string): Promise<void> {
+async function saveAuthData(access: string, refresh: string): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
       if (!safeStorage.isEncryptionAvailable()) {
         throw new Error('Encryption is not available');
       }
 
-      console.log('[ELECTRON] Saving auth token...');
-      const encryptedToken = safeStorage.encryptString(token);
+      console.log('[ELECTRON] Saving auth tokens...');
+      const encryptedAccessToken = safeStorage.encryptString(access);
+      const encryptedRefreshToken = safeStorage.encryptString(refresh);
 
-      writeFile(STORAGE_TOKEN_PATH, encryptedToken, (err) => {
+      // Save access token
+      writeFile(STORAGE_ACCESS_TOKEN_PATH, encryptedAccessToken, (err) => {
         if (err) {
-          console.error('[ELECTRON] Failed to write token file:', err);
+          console.error('[ELECTRON] Failed to write access token file:', err);
           reject(err);
           return;
         }
-        console.log('[ELECTRON] Token file written successfully');
-        console.log('[ELECTRON] Auth token encrypted and saved');
-        resolve();
+        
+        // Save refresh token
+        writeFile(STORAGE_REFRESH_TOKEN_PATH, encryptedRefreshToken, (err) => {
+          if (err) {
+            console.error('[ELECTRON] Failed to write refresh token file:', err);
+            reject(err);
+            return;
+          }
+          
+          console.log('[ELECTRON] Auth tokens encrypted and saved');
+          resolve();
+        });
       });
     } catch (error) {
-      console.error('[ELECTRON] Failed to save auth token:', error);
+      console.error('[ELECTRON] Failed to save auth tokens:', error);
       reject(error);
     }
   });
 }
 
-async function loadAuthData(): Promise<string | null> {
+async function loadAuthData(): Promise<{ accessToken: string | null, refreshToken: string | null }> {
   return new Promise((resolve) => {
     if (!safeStorage.isEncryptionAvailable()) {
       console.error('[ELECTRON] Encryption not available during load');
-      resolve(null);
+      resolve({ accessToken: null, refreshToken: null });
       return;
     }
 
-    console.log('[ELECTRON] Loading auth token...');
-    readFile(STORAGE_TOKEN_PATH, (err, encryptedToken) => {
+    console.log('[ELECTRON] Loading auth tokens...');
+    
+    // Load access token
+    readFile(STORAGE_ACCESS_TOKEN_PATH, (err, encryptedAccessToken) => {
       if (err) {
-        console.log('[ELECTRON] No token file found or error reading:', err);
-        resolve(null);
+        console.log('[ELECTRON] No access token file found or error reading:', err);
+        
+        // Even if access token fails, try to load refresh token
+        readFile(STORAGE_REFRESH_TOKEN_PATH, (err, encryptedRefreshToken) => {
+          if (err) {
+            console.log('[ELECTRON] No refresh token file found or error reading:', err);
+            resolve({ accessToken: null, refreshToken: null });
+            return;
+          }
+          
+          try {
+            const refreshToken = safeStorage.decryptString(encryptedRefreshToken);
+            console.log('[ELECTRON] Refresh token loaded successfully');
+            resolve({ accessToken: null, refreshToken });
+          } catch (decryptError) {
+            console.error('[ELECTRON] Failed to decrypt refresh token:', decryptError);
+            resolve({ accessToken: null, refreshToken: null });
+          }
+        });
+        
         return;
       }
+      
       try {
-        const token = safeStorage.decryptString(encryptedToken);
-        console.log('[ELECTRON] Auth token loaded successfully');
-        resolve(token);
+        const accessToken = safeStorage.decryptString(encryptedAccessToken);
+        
+        // Now load refresh token
+        readFile(STORAGE_REFRESH_TOKEN_PATH, (err, encryptedRefreshToken) => {
+          if (err) {
+            console.log('[ELECTRON] No refresh token file found or error reading:', err);
+            resolve({ accessToken, refreshToken: null });
+            return;
+          }
+          
+          try {
+            const refreshToken = safeStorage.decryptString(encryptedRefreshToken);
+            console.log('[ELECTRON] Both tokens loaded successfully');
+            resolve({ accessToken, refreshToken });
+          } catch (decryptError) {
+            console.error('[ELECTRON] Failed to decrypt refresh token:', decryptError);
+            resolve({ accessToken, refreshToken: null });
+          }
+        });
       } catch (decryptError) {
-        console.error('[ELECTRON] Failed to decrypt auth token:', decryptError);
-        resolve(null);
+        console.error('[ELECTRON] Failed to decrypt access token:', decryptError);
+        
+        // Try to load refresh token even if access token fails
+        readFile(STORAGE_REFRESH_TOKEN_PATH, (err, encryptedRefreshToken) => {
+          if (err) {
+            console.log('[ELECTRON] No refresh token file found or error reading:', err);
+            resolve({ accessToken: null, refreshToken: null });
+            return;
+          }
+          
+          try {
+            const refreshToken = safeStorage.decryptString(encryptedRefreshToken);
+            console.log('[ELECTRON] Only refresh token loaded successfully');
+            resolve({ accessToken: null, refreshToken });
+          } catch (decryptError) {
+            console.error('[ELECTRON] Failed to decrypt refresh token:', decryptError);
+            resolve({ accessToken: null, refreshToken: null });
+          }
+        });
       }
     });
   });
 }
 
 async function deleteAuthData(): Promise<boolean> {
+  let accessDeleted = false;
+  let refreshDeleted = false;
+  
   return new Promise((resolve) => {
-    unlink(STORAGE_TOKEN_PATH, (err) => {
+    // Delete access token
+    unlink(STORAGE_ACCESS_TOKEN_PATH, (err) => {
       if (err) {
-        console.error('[ELECTRON] Failed to delete auth token file:', err);
-        resolve(false);
+        console.error('[ELECTRON] Failed to delete access token file:', err);
       } else {
-        console.log('[ELECTRON] Auth token deleted');
-        resolve(true);
+        accessDeleted = true;
+        console.log('[ELECTRON] Access token deleted');
       }
+      
+      // Delete refresh token
+      unlink(STORAGE_REFRESH_TOKEN_PATH, (err) => {
+        if (err) {
+          console.error('[ELECTRON] Failed to delete refresh token file:', err);
+        } else {
+          refreshDeleted = true;
+          console.log('[ELECTRON] Refresh token deleted');
+        }
+        
+        // Return true if at least one token was deleted
+        resolve(accessDeleted || refreshDeleted);
+      });
     });
   });
+}
+
+/**
+ * Refresh tokens using the refresh token
+ */
+async function refreshTokens(): Promise<boolean> {
+  if (!refreshToken) {
+    console.log('[ELECTRON] No refresh token available');
+    return false;
+  }
+  
+  try {
+    console.log('[ELECTRON] Attempting to refresh tokens');
+    const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ refresh_token: refreshToken })
+    });
+    
+    if (!response.ok) {
+      console.error('[ELECTRON] Token refresh failed with status:', response.status);
+      return false;
+    }
+    
+    const data = await response.json();
+    
+    if (data.status !== 'success' || !data.data?.session?.access_token) {
+      console.error('[ELECTRON] Invalid response from refresh endpoint:', data);
+      return false;
+    }
+    
+    // Update tokens
+    accessToken = data.data.session.access_token;
+    if (data.data.session.refresh_token) {
+      refreshToken = data.data.session.refresh_token;
+    }
+    
+    // Set expiry time to 1 hour from now
+    tokenExpiryTime = Date.now() + (60 * 60 * 1000);
+    
+    // Save the new tokens
+    await saveAuthData(accessToken, refreshToken);
+    
+    console.log('[ELECTRON] Tokens refreshed successfully');
+    return true;
+  } catch (error) {
+    console.error('[ELECTRON] Error refreshing tokens:', error);
+    return false;
+  }
 }
 
 /**
@@ -373,40 +508,44 @@ async function waitForServer(maxAttempts = 10, delayMs = 1000): Promise<boolean>
 
 async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
   try {
-    // Get stored auth token
-    const token = await loadAuthData();
-    if (!token) {
-      throw new Error('No authentication token found');
+    // Check if access token is expired
+    const isTokenExpired = !tokenExpiryTime || Date.now() >= tokenExpiryTime;
+    
+    // If token is expired and we have a refresh token, try to refresh
+    if (isTokenExpired && refreshToken) {
+      const refreshed = await refreshTokens();
+      if (!refreshed) {
+        throw new Error('Failed to refresh authentication tokens');
+      }
+    }
+    
+    // If we still don't have a valid access token, fail
+    if (!accessToken) {
+      throw new Error('No authentication token available');
     }
 
     // Add auth header
     const headers = new Headers(options.headers);
-    headers.set('Authorization', `Bearer ${token}`);
+    headers.set('Authorization', `Bearer ${accessToken}`);
     
     // Make the request
     const response = await fetch(url, { ...options, headers });
     
-    if (response.status === 401) {
-      // Token might be expired, try to refresh
-      const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+    // If we get a 401, try to refresh the token once
+    if (response.status === 401 && refreshToken) {
+      console.log('[ELECTRON] Got 401, attempting token refresh');
+      const refreshed = await refreshTokens();
       
-      if (refreshResponse.ok) {
-        const { token: newToken } = await refreshResponse.json();
-        // Save new token
-        await saveAuthData(newToken);
-        
-        // Retry original request with new token
-        headers.set('Authorization', `Bearer ${newToken}`);
+      if (refreshed && accessToken) {
+        // Retry the request with the new token
+        headers.set('Authorization', `Bearer ${accessToken}`);
         return fetch(url, { ...options, headers });
       }
     }
     
     return response;
   } catch (error) {
-    console.error('Error in fetchWithAuth:', error);
+    console.error('[ELECTRON] Error in fetchWithAuth:', error);
     throw error;
   }
 }
@@ -505,14 +644,17 @@ async function refreshAppData(): Promise<AppStateResult> {
 ipcMain.handle('get-app-state', async () => appState);
 ipcMain.handle('refresh-app-data', refreshAppData);
 
-ipcMain.handle('set-auth-token', async (event, token) => {
-  if (!token) {
-    console.error('[ELECTRON] Empty token received');
+ipcMain.handle('set-auth-tokens', async (event, newAccessToken, newRefreshToken) => {
+  if (!newAccessToken || !newRefreshToken) {
+    console.error('[ELECTRON] Empty tokens received');
     return false;
   }
   
-  authToken = token;
-  console.log('[ELECTRON] Auth token received');
+  accessToken = newAccessToken;
+  refreshToken = newRefreshToken;
+  tokenExpiryTime = Date.now() + (60 * 60 * 1000); // 1 hour expiry
+  
+  console.log('[ELECTRON] Auth tokens received');
   
   try {
     // Add a longer delay to ensure Next.js has fully initialized
@@ -526,7 +668,7 @@ ipcMain.handle('set-auth-token', async (event, token) => {
       try {
         testRequest = await fetch('http://localhost:3000/api/spaces', {
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
           }
         });
@@ -552,18 +694,18 @@ ipcMain.handle('set-auth-token', async (event, token) => {
       throw new Error(`Auth validation failed after ${attempts} attempts`);
     }
     
-    console.log('[ELECTRON] Auth token validated successfully');
-    await saveAuthData(token);
+    console.log('[ELECTRON] Auth tokens validated successfully');
+    await saveAuthData(accessToken, refreshToken);
     
     try {
       const freshData = await fetchInitialAppData();
       if (!freshData.error) {
         appState = { ...freshData };
         broadcastAppState();
-        console.log('[ELECTRON] Data refreshed after receiving auth token');
+        console.log('[ELECTRON] Data refreshed after receiving auth tokens');
       }
     } catch (error) {
-      console.error('[ELECTRON] Failed to refresh data after receiving auth token:', error);
+      console.error('[ELECTRON] Failed to refresh data after receiving auth tokens:', error);
     }
     
     return true;
@@ -573,11 +715,49 @@ ipcMain.handle('set-auth-token', async (event, token) => {
   }
 });
 
-ipcMain.handle('get-auth-token', () => authToken);
+ipcMain.handle('get-auth-token', async () => {
+  // Check if token is expired
+  const isTokenExpired = !tokenExpiryTime || Date.now() >= tokenExpiryTime;
+  
+  // If token is valid, return it
+  if (accessToken && !isTokenExpired) {
+    return accessToken;
+  }
+  
+  // If token is expired and we have a refresh token, try to refresh
+  if (isTokenExpired && refreshToken) {
+    const refreshed = await refreshTokens();
+    if (refreshed && accessToken) {
+      return accessToken;
+    }
+  }
+  
+  // If we couldn't get a valid token
+  return null;
+});
+
+ipcMain.handle('refresh-auth-tokens', async () => {
+  if (!refreshToken) {
+    return { success: false, error: 'No refresh token available' };
+  }
+  
+  const refreshed = await refreshTokens();
+  if (refreshed && accessToken) {
+    return { 
+      success: true, 
+      accessToken,
+      expiresAt: tokenExpiryTime
+    };
+  }
+  
+  return { success: false, error: 'Failed to refresh tokens' };
+});
 
 ipcMain.handle('sign-out', async () => {
   try {
-    authToken = null;
+    accessToken = null;
+    refreshToken = null;
+    tokenExpiryTime = null;
     await deleteAuthData();
     appState = { ...initialAppState };
     broadcastAppState();
@@ -676,11 +856,35 @@ app.whenReady().then(async () => {
       return;
     }
 
-    const token = await loadAuthData();
-    if (token) {
-      authToken = token;
-      console.log('[ELECTRON] Auth token loaded from storage');
+    // Load both tokens
+    const { accessToken: savedAccessToken, refreshToken: savedRefreshToken } = await loadAuthData();
+    
+    // Set the tokens in memory
+    if (savedAccessToken) {
+      accessToken = savedAccessToken;
+      console.log('[ELECTRON] Access token loaded from storage');
+    }
+    
+    if (savedRefreshToken) {
+      refreshToken = savedRefreshToken;
+      console.log('[ELECTRON] Refresh token loaded from storage');
       
+      // If we have a refresh token but no access token, try to refresh
+      if (!accessToken) {
+        console.log('[ELECTRON] No access token, attempting refresh with saved refresh token');
+        const refreshed = await refreshTokens();
+        if (refreshed) {
+          console.log('[ELECTRON] Successfully refreshed tokens on startup');
+        } else {
+          console.log('[ELECTRON] Failed to refresh tokens on startup');
+          refreshToken = null;
+          await deleteAuthData();
+        }
+      }
+    }
+    
+    // If we have an access token, validate it
+    if (accessToken) {
       try {
         // Add a longer delay to ensure Next.js has fully initialized
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -691,11 +895,28 @@ app.whenReady().then(async () => {
         
         while (attempts < 3) {
           try {
-            testResponse = await fetchWithAuth(`${API_BASE_URL}/api/spaces`);
+            testResponse = await fetch('http://localhost:3000/api/spaces', {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              }
+            });
             
             if (testResponse.ok) {
-              console.log('[ELECTRON] Saved auth token is valid');
+              console.log('[ELECTRON] Saved access token is valid');
+              // Set expiry time to 1 hour from now as a precaution
+              tokenExpiryTime = Date.now() + (60 * 60 * 1000);
               break;
+            }
+            
+            // If we get a 401 and have a refresh token, try to refresh
+            if (testResponse.status === 401 && refreshToken) {
+              console.log('[ELECTRON] Access token expired, attempting refresh');
+              const refreshed = await refreshTokens();
+              if (refreshed) {
+                console.log('[ELECTRON] Successfully refreshed tokens after validation failure');
+                break;
+              }
             }
             
             const errorText = await testResponse.text();
@@ -712,8 +933,10 @@ app.whenReady().then(async () => {
         }
         
         if (!testResponse?.ok) {
-          console.log('[ELECTRON] Saved auth token is invalid or expired, clearing');
-          authToken = null;
+          console.log('[ELECTRON] Saved tokens are invalid or expired, clearing');
+          accessToken = null;
+          refreshToken = null;
+          tokenExpiryTime = null;
           await deleteAuthData();
           return;
         }
@@ -728,11 +951,13 @@ app.whenReady().then(async () => {
         }
       } catch (error) {
         console.error('[ELECTRON] Error during token validation:', error);
-        authToken = null;
+        accessToken = null;
+        refreshToken = null;
+        tokenExpiryTime = null;
         await deleteAuthData();
       }
     } else {
-      console.log('[ELECTRON] No saved auth token found');
+      console.log('[ELECTRON] No saved auth tokens found');
     }
     
     registerGlobalShortcuts();

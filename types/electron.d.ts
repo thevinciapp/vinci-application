@@ -6,17 +6,28 @@
 
 interface ElectronAPI {
   /**
-   * Set authentication token for Electron main process
+   * Set authentication tokens for Electron main process
    */
-  setAuthToken?: (token: string) => Promise<boolean>;
+  setAuthTokens?: (accessToken: string, refreshToken: string) => Promise<boolean>;
   
   /**
    * Get current authentication token from Electron main process
+   * Will automatically refresh if needed using the refresh token
    */
   getAuthToken?: () => Promise<string | null>;
   
   /**
-   * Sign out the current user and clear authentication
+   * Force refresh of authentication tokens
+   */
+  refreshAuthTokens?: () => Promise<{ 
+    success: boolean; 
+    accessToken?: string; 
+    expiresAt?: number;
+    error?: string;
+  }>;
+  
+  /**
+   * Sign out and clear all tokens
    */
   signOut?: () => Promise<boolean>;
   

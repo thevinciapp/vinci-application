@@ -2,9 +2,14 @@ import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("electronAPI", {
   // Auth management
-  setAuthToken: (token: string) => ipcRenderer.invoke('set-auth-token', token),
-  getAuthToken: () => ipcRenderer.invoke('get-auth-token'),
-  signOut: () => ipcRenderer.invoke('sign-out'),
+  setAuthTokens: (accessToken: string, refreshToken: string) => 
+    ipcRenderer.invoke('set-auth-tokens', accessToken, refreshToken),
+  getAuthToken: () => 
+    ipcRenderer.invoke('get-auth-token'),
+  refreshAuthTokens: () => 
+    ipcRenderer.invoke('refresh-auth-tokens'),
+  signOut: () => 
+    ipcRenderer.invoke('sign-out'),
   
   searchFiles: async (searchTerm: string) => {
     try {

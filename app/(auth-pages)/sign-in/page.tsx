@@ -81,22 +81,25 @@ export default function Login() {
                     variant: "success"
                   });
                   
-                  // Share auth token with Electron if in desktop context
+                  // Share auth tokens with Electron if in desktop context
                   if (typeof window !== 'undefined' && window.electronAPI) {
                     try {
-                      // Get session access token from response data
-                      const session = response.data as { session?: { access_token: string } };
-                      if (session?.session?.access_token) {
-                        // Send token to Electron main process
-                        const success = await window.electronAPI.setAuthToken(session.session.access_token);
+                      // Get session tokens from response data
+                      const session = response.data as { session?: { access_token: string, refresh_token: string } };
+                      if (session?.session?.access_token && session?.session?.refresh_token) {
+                        // Send both tokens to Electron main process
+                        const success = await window.electronAPI.setAuthTokens(
+                          session.session.access_token,
+                          session.session.refresh_token
+                        );
                         if (success) {
-                          console.log('Auth token and cookies passed to Electron successfully');
+                          console.log('Auth tokens passed to Electron successfully');
                         } else {
                           console.error('Failed to set up authentication in Electron');
                         }
                       }
                     } catch (error) {
-                      console.error('Failed to pass auth token to Electron:', error);
+                      console.error('Failed to pass auth tokens to Electron:', error);
                     }
                   }
                   
