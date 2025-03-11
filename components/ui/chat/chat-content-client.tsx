@@ -53,11 +53,19 @@ export default function ClientChatContent({
   }, []);
 
   useEffect(() => {
+    console.log('Chat content client updated with:', {
+      activeSpace,
+      activeConversation,
+      provider: activeSpace?.provider,
+      model: activeSpace?.model,
+      chatKey
+    });
+    
     if (activeConversation) {
       setMessages([]);
       setInput('');
     }
-  }, [activeConversation?.id, activeSpace?.provider, activeSpace?.model]);
+  }, [activeConversation?.id, activeSpace?.provider, activeSpace?.model, chatKey]);
 
   const chatKey = `${activeConversation?.id || 'default'}-${activeSpace?.provider || ''}-${activeSpace?.model || ''}`;
 
