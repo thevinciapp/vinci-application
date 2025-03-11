@@ -25,7 +25,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
     }
   },
   ping: () => "pong",
-  toggleCommandCenter: () => {
+  toggleCommandCenter: async () => {
+    // Pre-load data before toggling the command center
+    try {
+      // This will ensure data is fresh and already in the state when command center opens
+      await ipcRenderer.invoke('refresh-app-data'); 
+    } catch (error) {
+      console.error("Error preloading data for command center:", error);
+    }
+    
     ipcRenderer.send("toggle-command-center");
     ipcRenderer.send("sync-command-center-state", "toggle");
   },
@@ -33,7 +41,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.send("close-command-center");
     ipcRenderer.send("sync-command-center-state", "close");
   },
-  openCommandType: (commandType: string) => {
+  openCommandType: async (commandType: string) => {
+    // Pre-load data before showing the command center
+    try {
+      // This will ensure data is fresh and already in the state when command center opens
+      await ipcRenderer.invoke('refresh-app-data'); 
+    } catch (error) {
+      console.error("Error preloading data for command center:", error);
+    }
+    
+    // Then open the command center with data already loaded
     ipcRenderer.send("show-command-center");
     ipcRenderer.send("set-command-type", commandType);
     ipcRenderer.send("sync-command-center-state", "open", commandType);

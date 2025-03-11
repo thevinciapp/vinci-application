@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { COLUMNS, DB_TABLES } from "@/app/lib/db";
-import { getCachedSpaces, cacheSpaces, invalidateSpaceCache } from "@/app/lib/caching";
+import { redis, CACHE_KEYS, CACHE_TTL } from "@/app/lib/cache";
 import type { Space } from "@/types";
 
 /**
@@ -17,7 +17,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Try to get from cache first
-    const cachedSpaces = await getCachedSpaces(user.id);
+    const cacheKey = CACHE_KEYS.SPACES(user.id);
+    const cachedSpaces = await redis.get<Space[]>(cacheKey);
     if (cachedSpaces) {
       return NextResponse.json({ status: 'success', data: cachedSpaces });
     }
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     // Cache the result
     if (data) {
-      await cacheSpaces(user.id, data);
+      await redis.set(cacheKey, data, { ex: CACHE_TTL.SPACES });
     }
 
     return NextResponse.json({ 
@@ -144,7 +145,8 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Invalidate cache
-    await invalidateSpaceCache(user.id);
+    const cacheKey = CACHE_KEYS.SPACES(user.id);
+    await redis.del(cacheKey);
 
     const action = is_deleted ? 'deleted' : (is_archived ? 'archived' : 'updated');
 
@@ -232,8 +234,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Invalidate cache and notify clients
-    await invalidateSpaceCache(user.id);
+    // Invalidate cache
+    const cacheKey = CACHE_KEYS.SPACES(user.id);
+    await redis.del(cacheKey);
 
     // If this is the first space, set it as active
     if (!setActive) {

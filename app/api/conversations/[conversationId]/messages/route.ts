@@ -9,10 +9,12 @@ import { upsertChatMessage } from "@/utils/pinecone";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { conversationId: string } }
+  props: { params: Promise<{ conversationId: string }> }
 ) {
+  const params = await props.params;
   try {
-    const { conversationId } = params;
+    const conversationId = await Promise.resolve(params.conversationId);
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -20,14 +22,12 @@ export async function GET(
       return NextResponse.json({ status: 'error', error: 'User not authenticated' }, { status: 401 });
     }
 
-    // Try to get from cache first
     const cacheKey = CACHE_KEYS.MESSAGES(conversationId);
     const cachedMessages = await redis.get(cacheKey);
     if (cachedMessages) {
       return NextResponse.json({ status: 'success', data: cachedMessages });
     }
 
-    // First check if the user has access to this conversation via space ownership
     const { data: conversation, error: convError } = await supabase
       .from(DB_TABLES.CONVERSATIONS)
       .select(`
@@ -96,10 +96,20 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { conversationId: string } }
+  props: { params: Promise<{ conversationId: string }> }
 ) {
+  const params = await props.params;
   try {
-    const { conversationId } = params;
+    // Get conversationId from params
+    const conversationId = params.conversationId;
+    
+    // Validate conversationId exists
+    if (!conversationId) {
+      return NextResponse.json(
+        { status: 'error', error: 'Conversation ID is required' },
+        { status: 400 }
+      );
+    }
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -107,7 +117,15 @@ export async function POST(
       return NextResponse.json({ status: 'error', error: 'User not authenticated' }, { status: 401 });
     }
 
-    const messageData = await request.json();
+    let messageData;
+    try {
+      messageData = await request.json();
+    } catch (error) {
+      return NextResponse.json(
+        { status: 'error', error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
     
     if (!messageData.content || !messageData.role) {
       return NextResponse.json(

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { COLUMNS, DB_TABLES } from "@/app/lib/db";
 import { redis, CACHE_KEYS, CACHE_TTL } from "@/app/lib/cache";
-import { invalidateConversationCache } from "@/app/actions/utils/caching";
+
 import { deleteMessagesByConversationId } from "@/utils/pinecone";
 import type { Conversation } from "@/types";
 
@@ -11,12 +11,27 @@ import type { Conversation } from "@/types";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { conversationId: string } }
+  props: { params: Promise<{ conversationId: string }> }
 ) {
+  const params = await props.params;
   try {
-    const { conversationId } = params;
+    // Get conversationId from params
+    const conversationId = params.conversationId;
+    
+    // Validate conversationId exists
+    if (!conversationId) {
+      return NextResponse.json(
+        { status: 'error', error: 'Conversation ID is required' },
+        { status: 400 }
+      );
+    }
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError) {
+      console.error('Auth error:', authError);
+      return NextResponse.json({ status: 'error', error: 'Authentication failed' }, { status: 401 });
+    }
 
     if (!user) {
       return NextResponse.json({ status: 'error', error: 'User not authenticated' }, { status: 401 });
@@ -76,18 +91,43 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { conversationId: string } }
+  props: { params: Promise<{ conversationId: string }> }
 ) {
+  const params = await props.params;
   try {
-    const { conversationId } = params;
+    // Get conversationId from params
+    const conversationId = params.conversationId;
+    
+    // Validate conversationId exists
+    if (!conversationId) {
+      return NextResponse.json(
+        { status: 'error', error: 'Conversation ID is required' },
+        { status: 400 }
+      );
+    }
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError) {
+      console.error('Auth error:', authError);
+      return NextResponse.json({ status: 'error', error: 'Authentication failed' }, { status: 401 });
+    }
 
     if (!user) {
       return NextResponse.json({ status: 'error', error: 'User not authenticated' }, { status: 401 });
     }
 
-    const { title } = await request.json();
+    let requestData;
+    try {
+      requestData = await request.json();
+    } catch (error) {
+      return NextResponse.json(
+        { status: 'error', error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+    
+    const { title } = requestData;
     
     if (!title) {
       return NextResponse.json(
@@ -136,7 +176,8 @@ export async function PATCH(
     }
 
     // Invalidate cache
-    await invalidateConversationCache(conversation.space_id, conversationId);
+    const cacheKey = CACHE_KEYS.CONVERSATION(conversationId);
+    await redis.del(cacheKey);
 
     return NextResponse.json({
       status: 'success',
@@ -161,12 +202,27 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { conversationId: string } }
+  props: { params: Promise<{ conversationId: string }> }
 ) {
+  const params = await props.params;
   try {
-    const { conversationId } = params;
+    // Get conversationId from params
+    const conversationId = params.conversationId;
+    
+    // Validate conversationId exists
+    if (!conversationId) {
+      return NextResponse.json(
+        { status: 'error', error: 'Conversation ID is required' },
+        { status: 400 }
+      );
+    }
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError) {
+      console.error('Auth error:', authError);
+      return NextResponse.json({ status: 'error', error: 'Authentication failed' }, { status: 401 });
+    }
 
     if (!user) {
       return NextResponse.json({ status: 'error', error: 'User not authenticated' }, { status: 401 });
@@ -230,7 +286,8 @@ export async function DELETE(
     }
 
     // Invalidate cache
-    await invalidateConversationCache(conversation.space_id, conversationId);
+    const cacheKey = CACHE_KEYS.CONVERSATION(conversationId);
+    await redis.del(cacheKey);
 
     return NextResponse.json({
       status: 'success',

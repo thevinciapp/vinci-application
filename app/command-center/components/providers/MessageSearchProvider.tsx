@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Search, MessageSquare, Calendar } from 'lucide-react';
-import { CommandGroup, CommandItem, CommandList } from "vinci-ui";
+import { Command } from 'cmdk';
 import { ProviderComponentProps } from '../../types';
 import { API } from '@/lib/api-client';
 import { Message, Conversation } from '@/types';
@@ -48,13 +48,11 @@ export function MessageSearchProvider({ searchQuery, onSelect }: ProviderCompone
     fetchMessages();
   }, [searchQuery]);
 
-  // Filter messages based on search query
   const filteredMessages = messages.filter(message => 
     message.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
     message.conversationName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Format timestamp
   const formatTimestamp = (timestamp: number) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -67,41 +65,30 @@ export function MessageSearchProvider({ searchQuery, onSelect }: ProviderCompone
   };
 
   return (
-    <CommandList>
-      <CommandGroup heading="Message Search">
+    <Command.List>
+      <Command.Group heading="Message Search">
         {isLoading ? (
-          <div className="flex items-center justify-center p-4">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
-            <span className="ml-2 text-sm text-muted-foreground">Searching messages...</span>
-          </div>
+          <Command.Loading>Searching messages...</Command.Loading>
         ) : filteredMessages.length === 0 ? (
-          <p className="p-2 text-sm text-muted-foreground">No messages found</p>
+          <Command.Empty>No messages found</Command.Empty>
         ) : (
           filteredMessages.map(message => (
-            <CommandItem
+            <Command.Item
               key={message.id}
               value={message.content}
               onSelect={() => onSelect?.({...message, closeOnSelect: true})}
-              className="flex items-start py-3"
             >
-              <div className="flex items-start gap-2">
-                <MessageSquare className="h-4 w-4 text-primary mt-0.5" />
-                <div className="flex flex-col">
-                  <p className="font-medium">{message.content}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-muted-foreground">{message.conversationName}</span>
-                    <span className="text-xs text-muted-foreground">•</span>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Calendar className="h-3 w-3" />
-                      {formatTimestamp(message.timestamp)}
-                    </div>
-                  </div>
-                </div>
+              <MessageSquare size={16} />
+              <div>
+                {message.content}
+                <span className="cmdk-meta">
+                  {message.conversationName} • {formatTimestamp(message.timestamp)}
+                </span>
               </div>
-            </CommandItem>
+            </Command.Item>
           ))
         )}
-      </CommandGroup>
-    </CommandList>
+      </Command.Group>
+    </Command.List>
   );
 }

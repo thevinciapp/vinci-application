@@ -2,14 +2,12 @@ import { getModelName, type Provider } from '@/config/models'
 import { ProviderIcon } from './provider-icon'
 import React from 'react'
 import { BaseTab } from 'vinci-ui'
+import { useAppState } from '@/lib/app-state-context'
 
-export function ServerDrivenModelTab({ 
-  activeSpace,
-  onUpdateSpace 
-}: { 
-  activeSpace: any,
-  onUpdateSpace: (spaceId: string, updates: any) => Promise<any>
-}) {
+export function ServerDrivenModelTab() {
+  const { appState } = useAppState();
+  const activeSpace = appState.activeSpace;
+  
   const hasModel = !!(activeSpace?.provider && activeSpace?.model)
   
   // Get model name safely, handling undefined values
@@ -20,7 +18,7 @@ export function ServerDrivenModelTab({
   return (
     <BaseTab
       icon={hasModel ? (
-        <ProviderIcon className='mt-1' provider={activeSpace.provider as Provider} size={15} />
+        <ProviderIcon className='mt-1' provider={activeSpace?.provider as Provider} size={15} />
       ) : undefined}
       label={modelName}
       shortcut="M"

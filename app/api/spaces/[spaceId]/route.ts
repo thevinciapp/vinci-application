@@ -8,10 +8,8 @@ import type { Space } from "@/types";
 /**
  * GET - Get a specific space by ID
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { spaceId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ spaceId: string }> }) {
+  const params = await props.params;
   try {
     const { spaceId } = params;
     const supabase = await createClient();
@@ -69,10 +67,8 @@ export async function GET(
 /**
  * PATCH - Update a space by ID
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { spaceId: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ spaceId: string }> }) {
+  const params = await props.params;
   try {
     const { spaceId } = params;
     const supabase = await createClient();
@@ -136,10 +132,8 @@ export async function PATCH(
 /**
  * DELETE - Delete a space by ID (soft delete)
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { spaceId: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ spaceId: string }> }) {
+  const params = await props.params;
   try {
     const { spaceId } = params;
     const supabase = await createClient();

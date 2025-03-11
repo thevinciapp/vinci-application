@@ -9,7 +9,12 @@ import type { Conversation } from "@/types";
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError) {
+      console.error('Auth error:', authError);
+      return NextResponse.json({ status: 'error', error: 'Authentication failed' }, { status: 401 });
+    }
 
     if (!user) {
       return NextResponse.json({ status: 'error', error: 'User not authenticated' }, { status: 401 });
@@ -53,14 +58,30 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError) {
+      console.error('Auth error:', authError);
+      return NextResponse.json({ status: 'error', error: 'Authentication failed' }, { status: 401 });
+    }
 
     if (!user) {
       return NextResponse.json({ status: 'error', error: 'User not authenticated' }, { status: 401 });
     }
 
-    const { title, spaceId } = await request.json();
+    let requestData;
+    try {
+      requestData = await request.json();
+    } catch (error) {
+      return NextResponse.json(
+        { status: 'error', error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
     
+    const { title, spaceId } = requestData;
+    
+    // Validate spaceId exists
     if (!spaceId) {
       return NextResponse.json(
         { status: 'error', error: 'Space ID is required' },
@@ -110,14 +131,30 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError) {
+      console.error('Auth error:', authError);
+      return NextResponse.json({ status: 'error', error: 'Authentication failed' }, { status: 401 });
+    }
 
     if (!user) {
       return NextResponse.json({ status: 'error', error: 'User not authenticated' }, { status: 401 });
     }
 
-    const { id, title } = await request.json();
+    let requestData;
+    try {
+      requestData = await request.json();
+    } catch (error) {
+      return NextResponse.json(
+        { status: 'error', error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
     
+    const { id, title } = requestData;
+    
+    // Validate required fields
     if (!id || !title) {
       return NextResponse.json(
         { status: 'error', error: 'Conversation ID and title are required' },
@@ -165,16 +202,35 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError) {
+      console.error('Auth error:', authError);
+      return NextResponse.json({ status: 'error', error: 'Authentication failed' }, { status: 401 });
+    }
 
     if (!user) {
       return NextResponse.json({ status: 'error', error: 'User not authenticated' }, { status: 401 });
     }
 
-    const url = new URL(request.url);
+    let url;
+    try {
+      url = new URL(request.url);
+    } catch (error) {
+      return NextResponse.json(
+        { status: 'error', error: 'Invalid request URL' },
+        { status: 400 }
+      );
+    }
+    
     const id = url.searchParams.get('id');
+    
+    // Validate ID exists
     if (!id) {
-      return NextResponse.json({ status: 'error', error: 'Conversation ID is required' }, { status: 400 });
+      return NextResponse.json(
+        { status: 'error', error: 'Conversation ID is required' },
+        { status: 400 }
+      );
     }
     
     const timestamp = new Date().toISOString();

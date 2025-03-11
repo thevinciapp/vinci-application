@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Play, Settings, Command, FileText, FolderOpen } from 'lucide-react';
-import { CommandGroup, CommandItem, CommandList } from "vinci-ui";
+import { Command as Cmdk } from 'cmdk';
 import { ProviderComponentProps } from '../../types';
 
 interface Action {
@@ -15,13 +15,12 @@ interface Action {
 }
 
 export function ActionsProvider({ searchQuery, onSelect }: ProviderComponentProps) {
-  // Example actions - in real implementation, these would be dynamically registered
   const actions: Action[] = [
     {
       id: 'open-settings',
       name: 'Open Settings',
       description: 'Configure application settings',
-      icon: <Settings className="h-4 w-4" />,
+      icon: <Settings size={16} />,
       category: 'system',
       shortcut: '⌘,'
     },
@@ -29,7 +28,7 @@ export function ActionsProvider({ searchQuery, onSelect }: ProviderComponentProp
       id: 'open-command-center',
       name: 'Command Center',
       description: 'Open the command center',
-      icon: <Command className="h-4 w-4 text-primary" />,
+      icon: <Command size={16} />,
       category: 'system',
       shortcut: '⌘K'
     },
@@ -37,7 +36,7 @@ export function ActionsProvider({ searchQuery, onSelect }: ProviderComponentProp
       id: 'new-file',
       name: 'New File',
       description: 'Create a new file',
-      icon: <FileText className="h-4 w-4 text-green-500" />,
+      icon: <FileText size={16} className="text-green-500" />,
       category: 'file',
       shortcut: '⌘N'
     },
@@ -45,20 +44,18 @@ export function ActionsProvider({ searchQuery, onSelect }: ProviderComponentProp
       id: 'open-folder',
       name: 'Open Folder',
       description: 'Open a folder in the workspace',
-      icon: <FolderOpen className="h-4 w-4 text-amber-500" />,
+      icon: <FolderOpen size={16} className="text-amber-500" />,
       category: 'navigation',
       shortcut: '⌘O'
     }
   ];
 
-  // Filter actions based on search query
   const filteredActions = actions.filter(action => 
     action.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     action.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
     action.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Group actions by category
   const groupedActions = filteredActions.reduce((acc, action) => {
     const category = action.category;
     if (!acc[category]) {
@@ -68,49 +65,39 @@ export function ActionsProvider({ searchQuery, onSelect }: ProviderComponentProp
     return acc;
   }, {} as Record<string, Action[]>);
 
-  // If no actions match the search query
   if (Object.keys(groupedActions).length === 0) {
     return (
-      <CommandList>
-        <CommandGroup>
-          <p className="p-2 text-sm text-muted-foreground">No actions found</p>
-        </CommandGroup>
-      </CommandList>
+      <Cmdk.List>
+        <Cmdk.Empty>No actions found</Cmdk.Empty>
+      </Cmdk.List>
     );
   }
 
   return (
-    <CommandList>
+    <Cmdk.List>
       {Object.entries(groupedActions).map(([category, categoryActions]) => (
-        <CommandGroup 
+        <Cmdk.Group 
           key={category} 
           heading={category.charAt(0).toUpperCase() + category.slice(1)}
         >
           {categoryActions.map(action => (
-            <CommandItem
+            <Cmdk.Item
               key={action.id}
               value={action.name}
               onSelect={() => onSelect?.({...action, closeOnSelect: true})}
-              className="flex items-center justify-between py-3"
             >
-              <div className="flex items-center gap-2">
-                {action.icon}
-                <div>
-                  <p className="font-medium">{action.name}</p>
-                  {action.description && (
-                    <p className="text-xs text-muted-foreground">{action.description}</p>
-                  )}
-                </div>
+              {action.icon}
+              <div>
+                {action.name}
+                <span className="cmdk-meta">{action.description}</span>
               </div>
               {action.shortcut && (
-                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                  {action.shortcut}
-                </kbd>
+                <kbd className="cmdk-meta">{action.shortcut}</kbd>
               )}
-            </CommandItem>
+            </Cmdk.Item>
           ))}
-        </CommandGroup>
+        </Cmdk.Group>
       ))}
-    </CommandList>
+    </Cmdk.List>
   );
 }

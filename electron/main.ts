@@ -4,9 +4,6 @@ import { writeFile, readFile, unlink, mkdirSync } from 'fs';
 import { existsSync } from 'fs';
 import { API } from "../lib/api-client";
 
-// API base URL
-const API_BASE_URL = 'http://localhost:3000';
-
 import type { 
   CommandType,
   CommandCenterAction,
@@ -18,11 +15,16 @@ import type {
   AppStateResult
 } from "./types";
 
-// Storage configuration
+const IS_MAC = process.platform==='darwin'
+if (IS_MAC) {
+  app.dock.hide()                                    
+}
+
+const API_BASE_URL = 'http://localhost:3000';
+
 const STORAGE_DIR = join(app.getPath('userData'), 'secure');
 const STORAGE_TOKEN_PATH = join(STORAGE_DIR, 'auth_token.enc');
 
-// Ensure storage directory exists at startup
 if (!existsSync(STORAGE_DIR)) {
   mkdirSync(STORAGE_DIR, { recursive: true });
 }
@@ -71,6 +73,10 @@ async function createCommandCenterWindow() {
     resizable: true,
     fullscreenable: false,
     alwaysOnTop: true,
+    hasShadow: false,
+    titleBarStyle: 'customButtonsOnHover',
+    titleBarOverlay: false,
+    trafficLightPosition: { x: -100, y: -100 },
     vibrancy: "under-window",
     visualEffectState: "active",
     skipTaskbar: true,
@@ -80,6 +86,10 @@ async function createCommandCenterWindow() {
       contextIsolation: true,
     },
   });
+
+  commandCenterWindow.setAlwaysOnTop(true, 'screen-saver');
+  commandCenterWindow.setVisibleOnAllWorkspaces(true);
+  app.dock.show();
 
   commandCenterWindow.once("ready-to-show", () => {
     if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
@@ -185,9 +195,32 @@ function registerGlobalShortcuts() {
     "CommandOrControl+Option+E": "similarMessages",
   };
 
+  // Track last shortcut and time for toggle behavior
+  let lastUsedShortcut: string | null = null;
+  let lastUsedTime = 0;
+  const SHORTCUT_TOGGLE_TIMEOUT = 1500; // 1.5 seconds timeout for toggling with same shortcut
+
   Object.entries(commandTypeShortcuts).forEach(([shortcut, commandType]) => {
     globalShortcut.register(shortcut as ShortcutKey, () => {
-      console.log(`${shortcut} pressed - ${commandType || "general toggle"}`);
+      const now = Date.now();
+      const isSameShortcut = shortcut === lastUsedShortcut;
+      const isWithinToggleTime = (now - lastUsedTime) < SHORTCUT_TOGGLE_TIMEOUT;
+      const shouldToggleOff = isSameShortcut && isWithinToggleTime;
+      
+      // Update tracking
+      lastUsedShortcut = shortcut;
+      lastUsedTime = now;
+
+      console.log(`${shortcut} pressed - ${commandType || "general toggle"} (${shouldToggleOff ? 'toggle' : 'open/switch'})`);
+      
+      if (shouldToggleOff && commandCenterWindow?.isVisible()) {
+        // Toggle off when same shortcut is pressed within timeout window
+        console.log(`[ELECTRON] Closing command center (toggle with same shortcut: ${shortcut})`);
+        commandCenterWindow.hide();
+        broadcastAppState();
+        return;
+      }
+      
       if (commandCenterWindow?.isVisible()) {
         commandCenterWindow.webContents.executeJavaScript('window.currentCommandType').then((currentType: string | null) => {
           if (commandType && commandType !== currentType) {
@@ -339,20 +372,43 @@ async function waitForServer(maxAttempts = 10, delayMs = 1000): Promise<boolean>
 }
 
 async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
-  const headers: Record<string, string> = {
-    ...options.headers as Record<string, string>,
-    'Content-Type': 'application/json',
-  };
-  
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
+  try {
+    // Get stored auth token
+    const token = await loadAuthData();
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    // Add auth header
+    const headers = new Headers(options.headers);
+    headers.set('Authorization', `Bearer ${token}`);
+    
+    // Make the request
+    const response = await fetch(url, { ...options, headers });
+    
+    if (response.status === 401) {
+      // Token might be expired, try to refresh
+      const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (refreshResponse.ok) {
+        const { token: newToken } = await refreshResponse.json();
+        // Save new token
+        await saveAuthData(newToken);
+        
+        // Retry original request with new token
+        headers.set('Authorization', `Bearer ${newToken}`);
+        return fetch(url, { ...options, headers });
+      }
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('Error in fetchWithAuth:', error);
+    throw error;
   }
-  
-  return fetch(url, {
-    ...options,
-    headers,
-    credentials: 'include'
-  });
 }
 
 async function fetchInitialAppData(): Promise<AppStateResult> {
@@ -554,6 +610,53 @@ ipcMain.on("dialog-closed", () => {
   if (!commandCenterWindow?.isFocused()) {
     commandCenterWindow?.hide();
     broadcastAppState();
+  }
+});
+
+ipcMain.on("toggle-command-center", () => {
+  toggleCommandCenterWindow();
+});
+
+ipcMain.on("show-command-center", async () => {
+  await createCommandCenterWindow();
+  if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
+    commandCenterWindow.show();
+    commandCenterWindow.focus();
+  }
+});
+
+ipcMain.on("close-command-center", () => {
+  if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
+    commandCenterWindow.hide();
+    broadcastAppState();
+  }
+});
+
+ipcMain.on("set-command-type", (event, commandType: CommandType) => {
+  if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
+    commandCenterWindow.webContents.send("set-command-type", commandType);
+  }
+});
+
+ipcMain.on("sync-command-center-state", (event, action: CommandCenterAction, data?: any) => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    if (!window.isDestroyed() && window !== commandCenterWindow) {
+      window.webContents.send("sync-command-center-state", action, data);
+    }
+  });
+});
+
+ipcMain.on("refresh-command-center", () => {
+  refreshAppData().then(() => {
+    if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
+      commandCenterWindow.webContents.send("refresh-command-center");
+    }
+  });
+});
+
+ipcMain.on("command-type-check", (event, commandType: CommandType) => {
+  if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
+    commandCenterWindow.webContents.send("check-command-type", commandType);
   }
 });
 

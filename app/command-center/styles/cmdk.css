@@ -1,0 +1,163 @@
+.vinci {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  background: var(--background/95);
+  backdrop-filter: blur(16px);
+
+  [cmdk-root] {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    border-radius: 0;
+    padding: 0;
+    font-family: var(--font-sans);
+    box-shadow: none;
+    border: none;
+    position: relative;
+    outline: none;
+    display: flex;
+    flex-direction: column;
+  }
+
+  [cmdk-input] {
+    font-family: var(--font-sans);
+    border: none;
+    width: 100%;
+    font-size: 15px;
+    padding: 16px;
+    outline: none;
+    background: transparent;
+    color: var(--foreground);
+    border-bottom: 1px solid var(--border);
+
+    &::placeholder {
+      color: var(--muted-foreground);
+    }
+  }
+
+  [cmdk-list] {
+    padding: 16px;
+    flex: 1;
+    overflow: auto;
+    overscroll-behavior: contain;
+    transition: all 150ms ease;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  [cmdk-item] {
+    content-visibility: auto;
+    cursor: pointer;
+    height: 48px;
+    border-radius: 8px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 16px;
+    color: var(--foreground);
+    user-select: none;
+    will-change: background, color;
+    transition: all 150ms ease;
+    margin: 4px 0;
+    position: relative;
+    background: transparent;
+
+    &[data-selected='true'] {
+      background: var(--accent);
+      color: var(--accent-foreground);
+    }
+
+    &[data-disabled='true'] {
+      color: var(--muted-foreground);
+      cursor: not-allowed;
+    }
+
+    &:active {
+      background: var(--accent);
+      color: var(--accent-foreground);
+    }
+
+    svg {
+      width: 16px;
+      height: 16px;
+      color: var(--muted-foreground);
+    }
+  }
+
+  [cmdk-group] {
+    margin: 0;
+    padding: 0;
+  }
+
+  [cmdk-group-heading] {
+    user-select: none;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    margin-top: 8px;
+  }
+
+  [cmdk-empty] {
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 64px;
+    white-space: pre-wrap;
+    color: var(--muted-foreground);
+    padding: 0 16px;
+  }
+
+  [cmdk-separator] {
+    height: 1px;
+    width: 100%;
+    background: var(--border);
+    margin: 4px 0;
+  }
+
+  *:not([hidden]) + [cmdk-group] {
+    margin-top: 8px;
+  }
+
+  .cmdk-actions {
+    position: absolute;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .cmdk-meta {
+    margin-left: auto;
+    color: var(--muted-foreground);
+    font-size: 12px;
+  }
+
+  .dialog {
+    background: var(--background/95);
+    border-radius: 8px;
+    padding: 24px;
+    width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(16px);
+  }
+}
+
+@media (max-width: 640px) {
+  .vinci {
+    [cmdk-input] {
+      font-size: 16px;
+    }
+  }
+}

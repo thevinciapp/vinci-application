@@ -10,7 +10,12 @@ import type { Space } from "@/types";
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError) {
+      console.error('Auth error:', authError);
+      return NextResponse.json({ status: 'error', error: 'Authentication failed' }, { status: 401 });
+    }
 
     if (!user) {
       return NextResponse.json({ status: 'error', error: 'User not authenticated' }, { status: 401 });
@@ -84,13 +89,28 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError) {
+      console.error('Auth error:', authError);
+      return NextResponse.json({ status: 'error', error: 'Authentication failed' }, { status: 401 });
+    }
 
     if (!user) {
       return NextResponse.json({ status: 'error', error: 'User not authenticated' }, { status: 401 });
     }
 
-    const { spaceId } = await request.json();
+    let requestData;
+    try {
+      requestData = await request.json();
+    } catch (error) {
+      return NextResponse.json(
+        { status: 'error', error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+    
+    const { spaceId } = requestData;
     if (!spaceId) {
       return NextResponse.json(
         { status: 'error', error: 'Space ID is required' },

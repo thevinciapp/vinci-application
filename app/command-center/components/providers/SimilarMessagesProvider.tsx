@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { MessageSquare, Sparkles, Calendar } from 'lucide-react';
-import { CommandGroup, CommandItem, CommandList } from "vinci-ui";
+import { Command } from 'cmdk';
 import { ProviderComponentProps } from '../../types';
 
 interface SimilarMessage {
@@ -15,7 +15,6 @@ interface SimilarMessage {
 }
 
 export function SimilarMessagesProvider({ searchQuery, onSelect }: ProviderComponentProps) {
-  // Example similar messages - in real implementation, this would be fetched based on current context
   const similarMessages: SimilarMessage[] = [
     {
       id: '1',
@@ -35,13 +34,11 @@ export function SimilarMessagesProvider({ searchQuery, onSelect }: ProviderCompo
     }
   ];
 
-  // Filter messages based on search query
   const filteredMessages = similarMessages.filter(message => 
     message.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
     message.conversationName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Format timestamp
   const formatTimestamp = (timestamp: number) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -56,40 +53,28 @@ export function SimilarMessagesProvider({ searchQuery, onSelect }: ProviderCompo
   };
 
   return (
-    <CommandList>
-      <CommandGroup heading="Similar Messages">
+    <Command.List>
+      <Command.Group heading="Similar Messages">
         {filteredMessages.length === 0 ? (
-          <p className="p-2 text-sm text-muted-foreground">No similar messages found</p>
+          <Command.Empty>No similar messages found</Command.Empty>
         ) : (
           filteredMessages.map(message => (
-            <CommandItem
+            <Command.Item
               key={message.id}
               value={message.content}
               onSelect={() => onSelect?.({...message, closeOnSelect: true})}
-              className="flex items-start justify-between py-3"
             >
-              <div className="flex items-start gap-2">
-                <MessageSquare className="h-4 w-4 text-purple-500 mt-0.5" />
-                <div className="flex flex-col">
-                  <p className="font-medium">{message.content}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-muted-foreground">{message.conversationName}</span>
-                    <span className="text-xs text-muted-foreground">•</span>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Calendar className="h-3 w-3" />
-                      {formatTimestamp(message.timestamp)}
-                    </div>
-                  </div>
-                </div>
+              <MessageSquare size={16} className="text-purple-500" />
+              <div>
+                {message.content}
+                <span className="cmdk-meta">
+                  {message.conversationName} • {formatTimestamp(message.timestamp)} • {Math.round(message.similarity * 100)}% similar
+                </span>
               </div>
-              
-              <div className="px-1.5 py-0.5 text-xs font-medium rounded bg-purple-500/20 text-purple-500 border border-purple-500/30">
-                {Math.round(message.similarity * 100)}% similar
-              </div>
-            </CommandItem>
+            </Command.Item>
           ))
         )}
-      </CommandGroup>
-    </CommandList>
+      </Command.Group>
+    </Command.List>
   );
 }

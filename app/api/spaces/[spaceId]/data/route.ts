@@ -7,10 +7,8 @@ import type { Space, Conversation } from "@/types";
 /**
  * GET - Get comprehensive data for a space
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { spaceId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ spaceId: string }> }) {
+  const params = await props.params;
   try {
     const { spaceId } = params;
     const supabase = await createClient();
