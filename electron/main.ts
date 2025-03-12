@@ -624,6 +624,179 @@ async function fetchInitialAppData(): Promise<AppStateResult> {
   }
 }
 
+/**
+ * Fetch conversations for a specific space
+ */
+async function fetchSpaceConversations(spaceId: string): Promise<Conversation[]> {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}/conversations`);
+    const data = await response.json();
+    
+    if (data.status !== 'success') {
+      throw new Error(data.error || 'Failed to fetch conversations');
+    }
+    
+    return data.data || [];
+  } catch (error) {
+    console.error(`[ELECTRON] Error fetching conversations for space ${spaceId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch messages for a specific conversation
+ */
+async function fetchConversationMessages(conversationId: string) {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/conversations/${conversationId}/messages`);
+    const data = await response.json();
+    
+    if (data.status !== 'success') {
+      throw new Error(data.error || 'Failed to fetch messages');
+    }
+    
+    return data.data || [];
+  } catch (error) {
+    console.error(`[ELECTRON] Error fetching messages for conversation ${conversationId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Update a space with new data
+ */
+async function updateSpace(spaceId: string, spaceData: Partial<Space>): Promise<Space> {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(spaceData)
+    });
+    
+    const data = await response.json();
+    
+    if (data.status !== 'success') {
+      throw new Error(data.error || 'Failed to update space');
+    }
+    
+    // Update the space in our local state
+    if (appState.spaces) {
+      const spaceIndex = appState.spaces.findIndex(s => s.id === spaceId);
+      if (spaceIndex >= 0) {
+        appState.spaces[spaceIndex] = {
+          ...appState.spaces[spaceIndex],
+          ...data.data
+        };
+        
+        // If this is the active space, update that too
+        if (appState.activeSpace && appState.activeSpace.id === spaceId) {
+          appState.activeSpace = {
+            ...appState.activeSpace,
+            ...data.data
+          };
+        }
+        
+        broadcastAppState();
+      }
+    }
+    
+    return data.data;
+  } catch (error) {
+    console.error(`[ELECTRON] Error updating space ${spaceId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Update the active space model
+ */
+async function updateSpaceModel(spaceId: string, model: string, provider: string): Promise<boolean> {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}/model`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ model, provider })
+    });
+    
+    const data = await response.json();
+    
+    if (data.status !== 'success') {
+      throw new Error(data.error || 'Failed to update space model');
+    }
+    
+    // Update the space in our local state
+    if (appState.spaces) {
+      const spaceIndex = appState.spaces.findIndex(s => s.id === spaceId);
+      if (spaceIndex >= 0) {
+        appState.spaces[spaceIndex] = {
+          ...appState.spaces[spaceIndex],
+          model,
+          provider
+        };
+        
+        // If this is the active space, update that too
+        if (appState.activeSpace && appState.activeSpace.id === spaceId) {
+          appState.activeSpace = {
+            ...appState.activeSpace,
+            model,
+            provider
+          };
+        }
+        
+        broadcastAppState();
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error(`[ELECTRON] Error updating model for space ${spaceId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Set the active space
+ */
+async function setActiveSpace(spaceId: string) {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/active-space`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ space_id: spaceId })
+    });
+    
+    const data = await response.json();
+    
+    if (data.status !== 'success') {
+      throw new Error(data.error || 'Failed to set active space');
+    }
+    
+    // Find the space in our spaces array
+    const space = appState.spaces?.find(s => s.id === spaceId);
+    if (space) {
+      // Update the active space in our state
+      appState.activeSpace = space;
+      
+      // Also fetch the conversations for this space
+      const conversations = await fetchSpaceConversations(spaceId);
+      appState.conversations = conversations;
+      
+      broadcastAppState();
+    }
+    
+    return data.data;
+  } catch (error) {
+    console.error(`[ELECTRON] Error setting active space ${spaceId}:`, error);
+    throw error;
+  }
+}
+
 async function refreshAppData(): Promise<AppStateResult> {
   try {
     const freshData = await fetchInitialAppData();
@@ -770,6 +943,63 @@ ipcMain.handle('sign-out', async () => {
   } catch (error) {
     console.error('[ELECTRON] Sign out failed:', error);
     return false;
+  }
+});
+
+ipcMain.handle('get-space-conversations', async (event, spaceId: string) => {
+  try {
+    const conversations = await fetchSpaceConversations(spaceId);
+    
+    // Update app state with the new conversations if this is the active space
+    if (appState.activeSpace && appState.activeSpace.id === spaceId) {
+      appState.conversations = conversations;
+      broadcastAppState();
+    }
+    
+    return { success: true, data: conversations };
+  } catch (error) {
+    console.error('[ELECTRON] Error in get-space-conversations handler:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('get-conversation-messages', async (event, conversationId: string) => {
+  try {
+    const messages = await fetchConversationMessages(conversationId);
+    return { success: true, data: messages };
+  } catch (error) {
+    console.error('[ELECTRON] Error in get-conversation-messages handler:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('update-space', async (event, spaceId: string, spaceData: Partial<Space>) => {
+  try {
+    const updatedSpace = await updateSpace(spaceId, spaceData);
+    return { success: true, data: updatedSpace };
+  } catch (error) {
+    console.error('[ELECTRON] Error in update-space handler:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('update-space-model', async (event, spaceId: string, model: string, provider: string) => {
+  try {
+    await updateSpaceModel(spaceId, model, provider);
+    return { success: true };
+  } catch (error) {
+    console.error('[ELECTRON] Error in update-space-model handler:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('set-active-space', async (event, spaceId: string) => {
+  try {
+    const result = await setActiveSpace(spaceId);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('[ELECTRON] Error in set-active-space handler:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });
 

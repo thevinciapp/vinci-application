@@ -123,6 +123,26 @@ contextBridge.exposeInMainWorld("electronAPI", {
     }
   },
   
+  getSpaceConversations: async (spaceId: string) => {
+    return await ipcRenderer.invoke('get-space-conversations', spaceId);
+  },
+
+  getConversationMessages: async (conversationId: string) => {
+    return await ipcRenderer.invoke('get-conversation-messages', conversationId);
+  },
+
+  updateSpace: async (spaceId: string, spaceData: any) => {
+    return await ipcRenderer.invoke('update-space', spaceId, spaceData);
+  },
+
+  updateSpaceModel: async (spaceId: string, model: string, provider: string) => {
+    return await ipcRenderer.invoke('update-space-model', spaceId, model, provider);
+  },
+
+  setActiveSpace: async (spaceId: string) => {
+    return await ipcRenderer.invoke('set-active-space', spaceId);
+  },
+  
   syncAppState: (newState: any) => {
     ipcRenderer.send('sync-app-state', newState);
   },

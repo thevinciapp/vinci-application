@@ -54,6 +54,50 @@ interface ElectronAPI {
   }>;
 
   /**
+   * Get conversations for a specific space
+   */
+  getSpaceConversations?: (spaceId: string) => Promise<{
+    success: boolean;
+    data?: any[];
+    error?: string;
+  }>;
+
+  /**
+   * Get messages for a specific conversation
+   */
+  getConversationMessages?: (conversationId: string) => Promise<{
+    success: boolean;
+    data?: any[];
+    error?: string;
+  }>;
+
+  /**
+   * Update a space with new data
+   */
+  updateSpace?: (spaceId: string, spaceData: any) => Promise<{
+    success: boolean;
+    data?: any;
+    error?: string;
+  }>;
+
+  /**
+   * Update a space's model and provider
+   */
+  updateSpaceModel?: (spaceId: string, model: string, provider: string) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+
+  /**
+   * Set the active space
+   */
+  setActiveSpace?: (spaceId: string) => Promise<{
+    success: boolean;
+    data?: any;
+    error?: string;
+  }>;
+
+  /**
    * Sync application state changes to other windows
    */
   syncAppState?: (newState: any) => void;
