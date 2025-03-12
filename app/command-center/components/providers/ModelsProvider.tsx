@@ -41,7 +41,7 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
         const result = await window.electronAPI.updateSpaceModel(activeSpace.id, model.name, provider);
         
         if (result.success) {
-          await refreshAppState();
+          // No need to call refreshAppState() since the main process already updates and broadcasts the state
           if (onSelect) {
             console.log('[ModelsProvider] Calling onSelect with model data');
             onSelect({ ...model, provider, closeOnSelect: true });
