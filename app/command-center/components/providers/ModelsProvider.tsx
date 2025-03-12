@@ -41,6 +41,7 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
         const result = await window.electronAPI.updateSpaceModel(activeSpace.id, model.name, provider);
         
         if (result.success) {
+          await refreshAppState();
           if (onSelect) {
             console.log('[ModelsProvider] Calling onSelect with model data');
             onSelect({ ...model, provider, closeOnSelect: true });
@@ -49,7 +50,17 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
           console.error('[ModelsProvider] Error updating space model:', result.error);
         }
       } else {
-        console.error('[ModelsProvider] updateSpaceModel function not available in electronAPI');
+        // Fallback to direct API call if electron API is not available
+        const result = await API.spaces.updateSpaceModel(activeSpace.id, model.name, provider);
+        if (result.success) {
+          await refreshAppState();
+          if (onSelect) {
+            console.log('[ModelsProvider] Calling onSelect with model data');
+            onSelect({ ...model, provider, closeOnSelect: true });
+          }
+        } else {
+          console.error('[ModelsProvider] Error updating space model via API:', result.error);
+        }
       }
     } catch (error) {
       console.error('[ModelsProvider] Error updating space model:', error);
