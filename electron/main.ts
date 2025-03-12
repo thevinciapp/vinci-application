@@ -714,8 +714,9 @@ async function updateSpace(spaceId: string, spaceData: Partial<Space>): Promise<
  */
 async function updateSpaceModel(spaceId: string, model: string, provider: string): Promise<boolean> {
   try {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}/model`, {
-      method: 'PUT',
+    // Use the standard space update endpoint instead of a dedicated model endpoint
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}`, {
+      method: 'PATCH', // Use PATCH instead of PUT to match the existing API
       headers: {
         'Content-Type': 'application/json'
       },
