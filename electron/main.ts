@@ -90,6 +90,8 @@ async function createCommandCenterWindow() {
     },
   });
 
+  commandCenterWindow.webContents.openDevTools();
+
   commandCenterWindow.setAlwaysOnTop(true, 'screen-saver');
   commandCenterWindow.setVisibleOnAllWorkspaces(true);
   app.dock.show();
@@ -154,6 +156,8 @@ function createWindow() {
       contextIsolation: true,
     },
   });
+
+  mainWindow.webContents.openDevTools();
 
   mainWindow.once("ready-to-show", () => {
     if (mainWindow) mainWindow.show();

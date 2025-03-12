@@ -11,10 +11,8 @@ import { useAppState } from '@/lib/app-state-context';
 import { ProviderComponentProps } from "../../types";
 
 export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect, onAction }) => {
-  const router = useRouter();
   const { appState, refreshAppState } = useAppState();
   const spaces = appState.spaces || [];
-  const isLoading = false;
 
   const filteredSpaces = spaces.filter(space => 
     space.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
