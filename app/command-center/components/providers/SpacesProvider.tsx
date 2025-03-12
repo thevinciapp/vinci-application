@@ -32,13 +32,13 @@ export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
       // Use the electron API directly to set the active space
       if (window.electronAPI?.setActiveSpace) {
         const result = await window.electronAPI.setActiveSpace(space.id);
+        console.log('[SpacesProvider] Electron API result:', result);
         if (result.success) {
           if (onSelect) onSelect({...space, closeOnSelect: true});
         } else {
           console.error('[SpacesProvider] Error setting active space:', result.error);
         }
       } else {
-        // If electron API is not available, use the regular API
         const result = await API.activeSpace.setActiveSpace(space.id);
         if (result.success) {
           await refreshAppState();
