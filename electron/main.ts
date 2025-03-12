@@ -145,7 +145,7 @@ async function createCommandCenterWindow() {
 /**
  * Create the main application window
  */
-function createWindow() {
+function createWindow(): BrowserWindow {
   const preloadPath = join(__dirname, "preload.js");
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -184,6 +184,8 @@ function createWindow() {
   });
   
   mainWindow.on("closed", () => (mainWindow = null));
+  
+  return mainWindow;
 }
 
 /**
@@ -1262,7 +1264,12 @@ app.whenReady().then(async () => {
     }
     
     registerGlobalShortcuts();
-    createWindow();
+    const mainWindow = createWindow();
+    
+    // Redirect to sign-in if no auth tokens
+    if (!accessToken && !refreshToken) {
+      mainWindow.loadURL('http://localhost:3000/sign-in');
+    }
   } catch (error) {
     console.error('[ELECTRON] Startup failed:', error);
     app.quit();
