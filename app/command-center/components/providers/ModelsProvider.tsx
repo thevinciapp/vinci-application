@@ -36,14 +36,10 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
     try {
       console.log('[ModelsProvider] Updating model to:', model.name, 'provider:', provider, 'for space:', activeSpace.id);
       
-      const result = await API.spaces.updateSpace(activeSpace.id, {
-        model: model.name,
-        provider: provider
-      });
+      // Use the electron API directly
+      const result = await window.electronAPI.updateSpaceModel(activeSpace.id, model.name, provider);
       
       if (result.success) {
-        await refreshAppState();
-        
         if (onSelect) {
           console.log('[ModelsProvider] Calling onSelect with model data');
           onSelect({ ...model, provider, closeOnSelect: true });

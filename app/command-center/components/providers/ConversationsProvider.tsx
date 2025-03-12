@@ -27,18 +27,17 @@ export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ search
 
   const handleSelect = async (conversation: Conversation) => {
     try {
-      // First set the active space if needed
-      const spaceResult = await API.activeSpace.setActiveSpace(conversation.space_id);
+      // First set the active space
+      const spaceResult = await window.electronAPI.setActiveSpace(conversation.space_id);
       
       if (spaceResult.success) {
-        // Then set the active conversation
-        const convResult = await API.conversations.setActiveConversation(conversation.id);
+        // Then get the conversation messages
+        const messagesResult = await window.electronAPI.getConversationMessages(conversation.id);
         
-        if (convResult.success) {
-          await refreshAppState();
+        if (messagesResult.success) {
           if (onSelect) onSelect({...conversation, closeOnSelect: true});
         } else {
-          console.error('Error setting active conversation:', convResult.error);
+          console.error('Error getting conversation messages:', messagesResult.error);
         }
       } else {
         console.error('Error setting active space:', spaceResult.error);
