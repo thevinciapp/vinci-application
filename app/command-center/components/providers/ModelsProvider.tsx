@@ -1,17 +1,14 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
 import { Command } from 'cmdk';
 import { AVAILABLE_MODELS } from "@/config/models";
 import { ProviderIcon } from "@lobehub/icons";
 import { API } from '@/lib/api-client';
-import { Space } from '@/types';
 import { useAppState } from '@/lib/app-state-context';
 import { ProviderComponentProps } from "../../types";
 
 export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect }) => {
-  const router = useRouter();
   const { appState, refreshAppState } = useAppState();
   
   console.log('[ModelsProvider] Initial render with activeSpace:', appState.activeSpace);
@@ -44,23 +41,13 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
         provider: provider
       });
       
-      console.log('[ModelsProvider] API update result:', result);
-      
       if (result.success) {
-        console.log('[ModelsProvider] Model updated successfully, refreshing app state...');
         await refreshAppState();
-        console.log('[ModelsProvider] App state refreshed after model update');
         
         if (onSelect) {
           console.log('[ModelsProvider] Calling onSelect with model data');
           onSelect({ ...model, provider, closeOnSelect: true });
         }
-        
-        // Force a UI update by dispatching a custom event
-        console.log('[ModelsProvider] Dispatching modelUpdated event');
-        window.dispatchEvent(new CustomEvent('modelUpdated', { 
-          detail: { model: model.name, provider, spaceId: activeSpace.id }
-        }));
       } else {
         console.error('[ModelsProvider] Error updating space model:', result.error);
       }
