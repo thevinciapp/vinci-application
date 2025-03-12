@@ -51,9 +51,10 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
         }
       } else {
         // Fallback to direct API call if electron API is not available
+        console.error('[ModelsProvider] updateSpaceModel function not available in electronAPI');
         const result = await API.spaces.updateSpaceModel(activeSpace.id, model.name, provider);
         if (result.success) {
-          await refreshAppState();
+          await refreshAppState(); // Still need to refresh when using direct API
           if (onSelect) {
             console.log('[ModelsProvider] Calling onSelect with model data');
             onSelect({ ...model, provider, closeOnSelect: true });
