@@ -764,6 +764,13 @@ async function updateSpaceModel(spaceId: string, model: string, provider: string
  */
 async function setActiveSpace(spaceId: string) {
   try {
+    // Validate space ID
+    if (!spaceId) {
+      throw new Error('Space ID is required');
+    }
+
+    console.log(`[ELECTRON] Setting active space: ${spaceId}`);
+    
     const response = await fetchWithAuth(`${API_BASE_URL}/api/active-space`, {
       method: 'POST',
       headers: {
@@ -789,6 +796,8 @@ async function setActiveSpace(spaceId: string) {
       appState.conversations = conversations;
       
       broadcastAppState();
+    } else {
+      console.warn(`[ELECTRON] Space with ID ${spaceId} not found in app state`);
     }
     
     return data.data;

@@ -27,6 +27,14 @@ export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ search
 
   const handleSelect = async (conversation: Conversation) => {
     try {
+      // Validate conversation and space_id
+      if (!conversation || !conversation.space_id) {
+        console.error('[ConversationsProvider] Cannot select conversation: Invalid space_id', conversation);
+        return;
+      }
+
+      console.log('[ConversationsProvider] Selecting conversation:', conversation.id, 'in space:', conversation.space_id);
+      
       // First set the active space
       const spaceResult = await window.electronAPI.setActiveSpace(conversation.space_id);
       
@@ -37,13 +45,13 @@ export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ search
         if (messagesResult.success) {
           if (onSelect) onSelect({...conversation, closeOnSelect: true});
         } else {
-          console.error('Error getting conversation messages:', messagesResult.error);
+          console.error('[ConversationsProvider] Error getting conversation messages:', messagesResult.error);
         }
       } else {
-        console.error('Error setting active space:', spaceResult.error);
+        console.error('[ConversationsProvider] Error setting active space:', spaceResult.error);
       }
     } catch (error) {
-      console.error('Error handling conversation selection:', error);
+      console.error('[ConversationsProvider] Error handling conversation selection:', error);
     }
   };
 

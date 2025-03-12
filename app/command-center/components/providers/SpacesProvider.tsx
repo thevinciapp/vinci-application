@@ -21,13 +21,21 @@ export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
 
   const handleSelect = async (space: Space) => {
     try {
+      // Validate space object and ID
+      if (!space || !space.id) {
+        console.error('[SpacesProvider] Cannot select space: Invalid space or missing ID', space);
+        return;
+      }
+
+      console.log('[SpacesProvider] Selecting space:', space.id, space.name);
+      
       // Use the electron API directly to set the active space
       if (window.electronAPI?.setActiveSpace) {
         const result = await window.electronAPI.setActiveSpace(space.id);
         if (result.success) {
           if (onSelect) onSelect({...space, closeOnSelect: true});
         } else {
-          console.error('Error setting active space:', result.error);
+          console.error('[SpacesProvider] Error setting active space:', result.error);
         }
       } else {
         // If electron API is not available, use the regular API
@@ -36,11 +44,11 @@ export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
           await refreshAppState();
           if (onSelect) onSelect({...space, closeOnSelect: true});
         } else {
-          console.error('Error setting active space:', result.error);
+          console.error('[SpacesProvider] Error setting active space:', result.error);
         }
       }
     } catch (error) {
-      console.error('Error handling space selection:', error);
+      console.error('[SpacesProvider] Error handling space selection:', error);
     }
   };
 
