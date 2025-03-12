@@ -43,6 +43,7 @@ const initialAppState: AppState = {
   spaces: [],
   activeSpace: null,
   conversations: [],
+  messages: [], // Add messages array to initial state
   initialDataLoaded: false,
   lastFetched: null
 };
@@ -598,12 +599,26 @@ async function fetchInitialAppData(): Promise<AppStateResult> {
     };
     
     let conversations: Conversation[] = [];
+    let messages: any[] = [];
+    
     if (activeSpaceResult.data?.activeSpace) {
       const convResponse = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${activeSpaceResult.data.activeSpace.id}/conversations`);
       const convData = await convResponse.json();
       
       if (convData.status === 'success') {
         conversations = convData.data || [];
+        
+        // If we have conversations, fetch messages for the most recent one
+        if (conversations.length > 0) {
+          const mostRecentConversation = conversations[0];
+          try {
+            console.log(`[ELECTRON] Fetching messages for conversation ${mostRecentConversation.id}`);
+            messages = await fetchConversationMessages(mostRecentConversation.id);
+            console.log(`[ELECTRON] Fetched ${messages.length} messages for conversation ${mostRecentConversation.id}`);
+          } catch (error) {
+            console.error('[ELECTRON] Error fetching messages for most recent conversation:', error);
+          }
+        }
       }
     }
 
@@ -611,6 +626,7 @@ async function fetchInitialAppData(): Promise<AppStateResult> {
       spaces: spacesResult.data || [],
       activeSpace: activeSpaceResult.data?.activeSpace || null,
       conversations,
+      messages, // Include messages in the returned state
       initialDataLoaded: true,
       lastFetched: Date.now()
     };
@@ -805,6 +821,19 @@ async function setActiveSpace(spaceId: string) {
       // Also fetch the conversations for this space
       const conversations = await fetchSpaceConversations(spaceId);
       appState.conversations = conversations;
+      
+      // If we have conversations, fetch messages for the most recent one
+      if (conversations.length > 0) {
+        try {
+          const messages = await fetchConversationMessages(conversations[0].id);
+          appState.messages = messages;
+        } catch (error) {
+          console.error(`[ELECTRON] Error fetching messages for conversation ${conversations[0].id}:`, error);
+          appState.messages = [];
+        }
+      } else {
+        appState.messages = [];
+      }
       
       broadcastAppState();
     } else {

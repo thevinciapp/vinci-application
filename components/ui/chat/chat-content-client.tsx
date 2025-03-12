@@ -45,7 +45,7 @@ export default function ClientChatContent({
   }, [fileReferences]);
 
   const { appState, refreshAppState, clearError } = useAppState();
-  const { activeSpace, conversations, isLoading: isAppLoading, error: appError } = appState;
+  const { activeSpace, conversations, messages: initialMessages, isLoading: isAppLoading, error: appError } = appState;
   const activeConversation = conversations?.[0] || null;
 
   const chatKey = `${activeConversation?.id || 'default'}-${activeSpace?.provider || ''}-${activeSpace?.model || ''}`;
@@ -63,7 +63,7 @@ export default function ClientChatContent({
   } = useChat({
     id: chatKey,
     api: "/api/chat",
-    initialMessages: [],
+    initialMessages: initialMessages || [], // Use initialMessages from appState
     body: {
       spaceId: activeSpace?.id || "",
       conversationId: activeConversation?.id || null,
@@ -79,6 +79,14 @@ export default function ClientChatContent({
       clearFileReferences();
     },
   });
+
+  // Update messages when initialMessages changes or when the conversation changes
+  useEffect(() => {
+    if (initialMessages && initialMessages.length > 0) {
+      console.log('Setting initial messages from app state:', initialMessages.length);
+      setMessages(initialMessages);
+    }
+  }, [initialMessages, setMessages, activeConversation?.id]);
 
   const handleStickToBottomChange = useCallback((isAtBottom: boolean) => {
     setIsStickToBottom(isAtBottom);

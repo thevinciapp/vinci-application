@@ -71,6 +71,7 @@ export interface AppState {
   spaces: Space[];
   activeSpace: Space | null;
   conversations: Conversation[];
+  messages?: any[]; // Store messages for the active conversation
   initialDataLoaded: boolean;
   lastFetched: number | null;
 }
