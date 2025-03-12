@@ -113,8 +113,11 @@ function extractTagsFromText(text: string): string[] {
 }
 
 async function validateUser(supabase: any) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error(JSON.stringify(ERROR_MESSAGES.UNAUTHORIZED));
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) {
+    console.error('[AUTH] User validation failed:', error?.message || 'No user found');
+    throw new Error('User not authenticated');
+  }
   return user;
 }
 
@@ -247,77 +250,98 @@ function getDaySuffix(day: number): string {
 
 export async function POST(req: Request) {
   const supabase = await createClient();
-
-  const [user, { messages, spaceId, conversationId, provider, model, chatMode, chatModeConfig, files }] = await Promise.all([
-    validateUser(supabase),
-    req.json(),
-  ]);
-
-  if (!spaceId) throw new Error(JSON.stringify(ERROR_MESSAGES.MISSING_SPACE_ID));
-  if (!conversationId) throw new Error(JSON.stringify(ERROR_MESSAGES.MISSING_CONVERSATION_ID));
   
-  // Process any files that were attached
-  let filesContent = "";
-  if (files && Object.keys(files).length > 0) {
-    // Log files being processed
-    console.log(`Processing ${Object.keys(files).length} attached files`);
-    
-    filesContent = Object.entries(files).map(([id, file]: [string, any]) => {
-      console.log(`Processing file: ${file.path}, content size: ${file.content?.length || 0} bytes, type: ${file.type}`);
-      
-      // For files with content, include the content directly
-      if (file.content && file.content.length > 0) {
-        // Try to detect file type from extension
-        const ext = file.path.split('.').pop()?.toLowerCase();
-        const isCode = [
-          'js', 'ts', 'jsx', 'tsx', 'py', 'rb', 'java', 'c', 'cpp', 'h', 'go', 
-          'rs', 'php', 'cs', 'swift', 'kt', 'scala', 'hs', 'sql', 'html', 'css', 
-          'scss', 'sass', 'less'
-        ].includes(ext);
-        
-        // Use code block with language if it's code
-        const codeBlockSyntax = isCode ? `\`\`\`${ext}\n` : '```\n';
-        
-        return `### File: ${file.path}\n${codeBlockSyntax}${file.content}\n\`\`\`\n\n`;
-      } else {
-        // For binary files or files without content, just mention that they were attached
-        return `### File: ${file.path} (unable to read content)\n\n`;
-      }
-    }).join('\n');
+  // Validate user authentication first
+  const user = await validateUser(supabase);
+  if (!user) {
+    return NextResponse.json(
+      { error: 'User not authenticated' },
+      { status: 401 }
+    );
   }
 
+  // Parse request body
+  const { 
+    messages, 
+    spaceId, 
+    conversationId, 
+    provider, 
+    model, 
+    chatMode, 
+    chatModeConfig, 
+    files 
+  } = await req.json();
+
+  if (!messages || !conversationId || !provider || !model) {
+    return NextResponse.json(
+      { error: 'Missing required fields' },
+      { status: 400 }
+    );
+  }
+
+  console.log(`[CHAT] Starting chat request for space: ${spaceId}, conversation: ${conversationId}`);
+  console.log(`[CHAT] Using model: ${model} from provider: ${provider}`);
+  console.log(`[CHAT] Chat mode: ${chatMode || 'default'}`);
+  
   return createDataStreamResponse({
     execute: async (dataStream) => {
       try {
         const userMessage = messages[messages.length - 1];
-        
-        // Create a copy of the user message with file content for the AI model
-        // but keep the display message unchanged for the user interface
-        const originalUserContent = userMessage.content;
+        console.log(`[CHAT] Processing user message of length: ${userMessage.content.length}`);
         
         // If there are files attached, add their content to the message sent to the AI
         // but not to what's displayed in the UI
-        if (filesContent) {
+        if (files && Object.keys(files).length > 0) {
+          console.log(`[CHAT] Processing ${Object.keys(files).length} attached files`);
+          let filesContent = "";
+          Object.entries(files).map(([id, file]: [string, any]) => {
+            console.log(`Processing file: ${file.path}, content size: ${file.content?.length || 0} bytes, type: ${file.type}`);
+            
+            // For files with content, include the content directly
+            if (file.content && file.content.length > 0) {
+              // Try to detect file type from extension
+              const ext = file.path.split('.').pop()?.toLowerCase();
+              const isCode = [
+                'js', 'ts', 'jsx', 'tsx', 'py', 'rb', 'java', 'c', 'cpp', 'h', 'go', 
+                'rs', 'php', 'cs', 'swift', 'kt', 'scala', 'hs', 'sql', 'html', 'css', 
+                'scss', 'sass', 'less'
+              ].includes(ext);
+              
+              // Use code block with language if it's code
+              const codeBlockSyntax = isCode ? `\`\`\`${ext}\n` : '```\n';
+              
+              filesContent += `### File: ${file.path}\n${codeBlockSyntax}${file.content}\n\`\`\`\n\n`;
+            } else {
+              // For binary files or files without content, just mention that they were attached
+              filesContent += `### File: ${file.path} (unable to read content)\n\n`;
+            }
+          });
+          console.log(`[CHAT] Adding file content of length: ${filesContent.length} to message`);
           userMessage.content = `${userMessage.content}\n\n${filesContent}`;
         }
         
         const conversationContext = messages.slice(0, -1)
           .map((msg: { role: string; content: string }) => `${msg.role.toUpperCase()}: ${msg.content}`)
           .join('\n');
+        console.log(`[CHAT] Built conversation context from ${messages.length - 1} previous messages`);
 
         const numberOfMessages = 15;
-
+        console.log('[CHAT] Searching for similar messages...');
         dataStream.writeData('Searching for similar messages');
         const userTags = await generateTags(userMessage.content, conversationContext);
+        console.log(`[CHAT] Generated ${userTags.length} tags for user message`);
         const similarMessages = await searchSimilarMessages(userMessage.content, numberOfMessages, userTags);
-        console.log('Similar messages found:', similarMessages.length);
+        console.log(`[CHAT] Found ${similarMessages.length} similar messages`);
 
+        console.log('[CHAT] Building context string...');
         dataStream.writeData('Building context');
         const contextString = buildContextString(similarMessages.map((result) => result.message));
+        console.log(`[CHAT] Built context string of length: ${contextString.length}`);
 
         // Build chat mode system prompt based on the selected mode
         let chatModePrompt = "";
         if (chatMode) {
+          console.log(`[CHAT] Configuring chat mode: ${chatMode}`);
           switch (chatMode) {
             case "ask":
               // Default mode, no additional instructions
@@ -379,10 +403,16 @@ export async function POST(req: Request) {
           : `${systemPrompt}${chatModePrompt}${toolsPrompt}`;
 
         const createModel = providers[provider as Provider];
-        if (!createModel) throw new Error(JSON.stringify(ERROR_MESSAGES.INVALID_PROVIDER));
+        if (!createModel) {
+          console.error(`[CHAT] Invalid provider: ${provider}`);
+          throw new Error(JSON.stringify(ERROR_MESSAGES.INVALID_PROVIDER));
+        }
+        
+        console.log(`[CHAT] Initializing model instance for ${model}`);
         const modelInstance = createModel(model);
         const wrappedLanguageModel = wrapLanguageModel({ model: modelInstance, middleware });
 
+        console.log('[CHAT] Starting response generation...');
         dataStream.writeData('Generating response');
         
         const result = streamText({
@@ -392,8 +422,14 @@ export async function POST(req: Request) {
           experimental_transform: smoothStream(),
           onChunk: (() => {
             let isFirstChunk = true;
+            let chunkCount = 0;
             return () => {
+              chunkCount++;
+              if (chunkCount % 10 === 0) {
+                console.log(`[CHAT] Streamed ${chunkCount} chunks so far`);
+              }
               if (isFirstChunk) {
+                console.log('[CHAT] Received first chunk, writing message annotations');
                 dataStream.writeMessageAnnotation({
                   id: generateId(),
                   [COLUMNS.MODEL_USED]: model,
@@ -421,115 +457,85 @@ export async function POST(req: Request) {
         result.mergeIntoDataStream(dataStream);
         
         result.text.then(async (text) => {
-          console.log('[API] Processing response text and saving messages');
-          const userTags = await generateTags(userMessage.content, conversationContext);
-          const assistantTags = await generateTags(text, conversationContext);
+          console.log('[CHAT] Stream completed, final response length:', text.length);
+          console.log('[CHAT] Processing response text and saving messages');
           
-          // Save the user message with the original content (without file details)
-          // This ensures the UI shows the clean message with just the file tags
-          console.log('[API] Saving user message with content:', originalUserContent.substring(0, 50) + '...');
-          const dbUserMessage = await saveMessage({
-            content: originalUserContent,
-            role: 'user',
-            model,
-            provider,
-            spaceId,
-            conversationId,
-            tags: userTags,
-            chatMode,
-            chatModeConfig,
-            similarMessages: similarMessages.map(result => ({
-              id: result.message.id,
-              content: result.message.content,
-              role: result.message.role,
-              createdAt: result.message.createdAt,
-              score: result.score ?? 0,
-              conversationId: result.message.conversationId,
-              metadata: result.message.metadata || {}
-            }))
-          });
-          console.log('[API] User message saved with ID:', dbUserMessage.id);
-
-          console.log('[API] Saving assistant message with content:', text.substring(0, 50) + '...');
-          await saveMessage({
-            content: text,
-            role: 'assistant',
-            model,
-            provider,
-            spaceId,
-            conversationId,
-            parentId: dbUserMessage.id,
-            tags: assistantTags,
-            chatMode,
-            chatModeConfig,
-            similarMessages: similarMessages.map(result => ({
-              id: result.message.id,
-              content: result.message.content,
-              role: result.message.role,
-              createdAt: result.message.createdAt,
-              score: result.score ?? 0,
-              conversationId: result.message.conversationId, 
-              metadata: result.message.metadata || {}
-            })),
-          });
-
-          // Get all messages for title generation
-          const { success, data: allMessages, error: messagesError } = await MessagesAPI.getMessages(conversationId);
-          if (!success || !allMessages) {
-            console.error('Failed to fetch messages for title generation:', messagesError);
-            return;
-          }
-          
-          if (allMessages && allMessages.length >= 3) {
-            const titleSystemPrompt = `
-              You are a title generator. Generate a concise title (2-4 words) capturing the conversation's main topic. Return only the title.
-              Example: Python Learning Path
-            `;
-            const fastModel = providers['groq']('llama-3.1-8b-instant');
-            const messageTexts = allMessages.map((m) => m.content).join('\n');
-            const { text: newTitle } = await generateText({
-              model: fastModel,
-              system: titleSystemPrompt,
-              prompt: messageTexts,
-              temperature: 0.3,
-              maxTokens: 20,
-            });
-            
-            // Update conversation title using API
-            const { success: updateSuccess, error: updateError } = await ConversationsAPI.updateConversation(conversationId, newTitle);
-            
-            if (!updateSuccess) {
-              console.error('Failed to update conversation title:', updateError);
-            }
-          }
-          
-        }).catch((error) => {
-        });
-      } catch (error) {
-        let errorMessage;
-        if (error instanceof Error) {
           try {
-            errorMessage = JSON.parse(error.message);
-          } catch {
-            errorMessage = ERROR_MESSAGES.SERVER_ERROR(error.message);
+            const userTags = await generateTags(userMessage.content, conversationContext);
+            console.log(`[CHAT] Generated ${userTags.length} tags for user message`);
+            
+            const assistantTags = await generateTags(text, conversationContext);
+            console.log(`[CHAT] Generated ${assistantTags.length} tags for assistant response`);
+            
+            // Save the user message with the original content (without file details)
+            console.log('[CHAT] Saving user message...');
+            const dbUserMessage = await saveMessage({
+              content: userMessage.content,
+              role: 'user',
+              model,
+              provider,
+              spaceId,
+              conversationId,
+              tags: userTags,
+              chatMode,
+              chatModeConfig,
+              similarMessages: similarMessages.map(result => ({
+                id: result.message.id,
+                content: result.message.content,
+                role: result.message.role,
+                createdAt: result.message.createdAt,
+                score: result.score ?? 0,
+                conversationId: result.message.conversationId, 
+                metadata: result.message.metadata || {}
+              })),
+            });
+            console.log('[CHAT] User message saved successfully');
+            
+            // Save the assistant's response
+            console.log('[CHAT] Saving assistant message...');
+            const dbAssistantMessage = await saveMessage({
+              content: text,
+              role: 'assistant',
+              model,
+              provider,
+              spaceId,
+              conversationId,
+              parentId: dbUserMessage.id,
+              tags: assistantTags,
+              chatMode,
+              chatModeConfig,
+              similarMessages: similarMessages.map(result => ({
+                id: result.message.id,
+                content: result.message.content,
+                role: result.message.role,
+                createdAt: result.message.createdAt,
+                score: result.score ?? 0,
+                conversationId: result.message.conversationId, 
+                metadata: result.message.metadata || {}
+              })),
+            });
+            console.log('[CHAT] Assistant message saved successfully');
+            
+            // Update conversation
+            console.log('[CHAT] Updating conversation...');
+            await ConversationsAPI.updateConversation(conversationId, "");
+            console.log('[CHAT] Conversation updated successfully');
+            
+          } catch (error) {
+            console.error('[CHAT] Error in post-stream processing:', error);
+            throw error;
           }
-        } else {
-          errorMessage = ERROR_MESSAGES.SERVER_ERROR("Error processing request");
-        }
+        });
+
+      } catch (error) {
+        console.error('[CHAT] Error in chat execution:', error);
+        throw error;
       }
     },
     onError: (error) => {
-      let errorMessage;
-      if (error instanceof Error) {
-        try {
-          errorMessage = JSON.parse(error.message);
-        } catch {
-          errorMessage = ERROR_MESSAGES.SERVER_ERROR(error.message);
-        }
-      } else {
-        errorMessage = ERROR_MESSAGES.SERVER_ERROR("Error processing request");
-      }
-      return errorMessage.message || String(errorMessage);
+      console.error('[CHAT] Stream error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      return JSON.stringify(ERROR_MESSAGES.SERVER_ERROR(errorMessage));
     },
   });
 }

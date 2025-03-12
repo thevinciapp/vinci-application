@@ -151,7 +151,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
 
   setActiveSpace: async (spaceId: string) => {
-    return await ipcRenderer.invoke('set-active-space', spaceId);
+    try {
+      console.log('[ELECTRON PRELOAD] setActiveSpace called with:', spaceId);
+      const result = await ipcRenderer.invoke('set-active-space', spaceId);
+      console.log('[ELECTRON PRELOAD] setActiveSpace result:', result);
+      return result;
+    } catch (error) {
+      console.error('[ELECTRON PRELOAD] setActiveSpace error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
   },
   
   syncAppState: (newState: any) => {

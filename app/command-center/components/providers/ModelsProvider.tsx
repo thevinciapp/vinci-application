@@ -34,14 +34,11 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
     }
 
     try {
-      console.log('[ModelsProvider] Updating model to:', model.name, 'provider:', provider, 'for space:', activeSpace.id);
+      console.log('[ModelsProvider] Updating model to:', model.id, 'provider:', provider, 'for space:', activeSpace.id);
       
-      // Check if the function exists before calling it
-      if (window.electronAPI?.updateSpaceModel) {
-        const result = await window.electronAPI.updateSpaceModel(activeSpace.id, model.name, provider);
+        const result = await window.electronAPI.updateSpaceModel(activeSpace.id, model.id, provider);
         
         if (result.success) {
-          // No need to call refreshAppState() since the main process already updates and broadcasts the state
           if (onSelect) {
             console.log('[ModelsProvider] Calling onSelect with model data');
             onSelect({ ...model, provider, closeOnSelect: true });
@@ -49,20 +46,6 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
         } else {
           console.error('[ModelsProvider] Error updating space model:', result.error);
         }
-      } else {
-        // Fallback to direct API call if electron API is not available
-        console.error('[ModelsProvider] updateSpaceModel function not available in electronAPI');
-        const result = await API.spaces.updateSpaceModel(activeSpace.id, model.name, provider);
-        if (result.success) {
-          await refreshAppState(); // Still need to refresh when using direct API
-          if (onSelect) {
-            console.log('[ModelsProvider] Calling onSelect with model data');
-            onSelect({ ...model, provider, closeOnSelect: true });
-          }
-        } else {
-          console.error('[ModelsProvider] Error updating space model via API:', result.error);
-        }
-      }
     } catch (error) {
       console.error('[ModelsProvider] Error updating space model:', error);
     }
@@ -84,7 +67,7 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
             {models.map((model, idx) => (
               <Command.Item
                 key={`${provider}-${idx}`}
-                value={model.name}
+                value={model.id}
                 onSelect={() => handleModelSelect(model, provider)}
               >
                 <ProviderIcon type="color" provider={model.provider} size={18} />

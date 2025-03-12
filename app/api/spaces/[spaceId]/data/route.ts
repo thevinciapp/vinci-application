@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { COLUMNS, DB_TABLES } from "@/constants";
-import { redis, CACHE_KEYS, CACHE_TTL } from "@/app/lib/cache";
 import type { Space, Conversation } from "@/types";
 
 /**
@@ -16,13 +15,6 @@ export async function GET(request: NextRequest, props: { params: Promise<{ space
 
     if (!user) {
       return NextResponse.json({ status: 'error', error: 'User not authenticated' }, { status: 401 });
-    }
-
-    // Try to get from cache first
-    const cacheKey = CACHE_KEYS.SPACE_DATA(spaceId);
-    const cachedSpaceData = await redis.get(cacheKey);
-    if (cachedSpaceData) {
-      return NextResponse.json({ status: 'success', data: cachedSpaceData });
     }
 
     // Get space data
@@ -82,9 +74,6 @@ export async function GET(request: NextRequest, props: { params: Promise<{ space
       messages: [], // Messages will be loaded separately when needed
       activeConversation: activeConversation?.conversations || null
     };
-
-    // Cache the result
-    await redis.set(cacheKey, spaceData, { ex: CACHE_TTL.SPACE_DATA });
 
     return NextResponse.json({ status: 'success', data: spaceData });
   } catch (error) {

@@ -6,11 +6,10 @@ import { useAppState } from '@/lib/app-state-context'
 
 export function ServerDrivenModelTab() {
   const { appState } = useAppState();
-  const activeSpace = appState.activeSpace;
   
+  const activeSpace = appState.activeSpace;
   const hasModel = !!(activeSpace?.provider && activeSpace?.model)
   
-  // Get model name safely, handling undefined values
   const modelName = hasModel && activeSpace?.model 
     ? getModelName(activeSpace.provider as Provider, activeSpace.model) 
     : 'No Model Selected';

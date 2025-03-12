@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { COLUMNS, DB_TABLES } from "@/constants";
-import { redis, CACHE_KEYS, CACHE_TTL } from "@/app/lib/cache";
-import type { Space } from "@/types";
 
 /**
  * GET - Get the active space for the current user
@@ -21,14 +19,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ status: 'error', error: 'User not authenticated' }, { status: 401 });
     }
 
-    // Try to get from cache first
-    const cacheKey = CACHE_KEYS.ACTIVE_SPACE(user.id);
-    const cachedActiveSpace = await redis.get<Space>(cacheKey);
-    if (cachedActiveSpace) {
-      return NextResponse.json({ status: 'success', data: { activeSpace: cachedActiveSpace } });
-    }
-
-    // If not in cache, get the active space ID from DB
     const { data: activeSpaceEntry, error: activeSpaceError } = await supabase
       .from(DB_TABLES.ACTIVE_SPACES)
       .select('space_id')
@@ -67,12 +57,7 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    // Cache the result
-    if (activeSpace) {
-      await redis.set(cacheKey, activeSpace, { ex: CACHE_TTL.ACTIVE_SPACE });
-    }
-
+    
     return NextResponse.json({ status: 'success', data: { activeSpace } });
   } catch (error) {
     console.error('Server error in GET /api/active-space:', error);
@@ -152,10 +137,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    // Update cache
-    const cacheKey = CACHE_KEYS.ACTIVE_SPACE(user.id);
-    await redis.set(cacheKey, space, { ex: CACHE_TTL.ACTIVE_SPACE });
 
     // Also update the space's updated_at timestamp
     const { error: updateError } = await supabase

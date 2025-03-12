@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { COLUMNS, DB_TABLES } from "@/app/lib/db";
-import { redis, CACHE_KEYS, CACHE_TTL } from "@/app/lib/cache";
-
 import { deleteMessagesByConversationId } from "@/utils/pinecone";
 import type { Conversation } from "@/types";
 
@@ -37,12 +35,6 @@ export async function GET(
       return NextResponse.json({ status: 'error', error: 'User not authenticated' }, { status: 401 });
     }
 
-    const cacheKey = CACHE_KEYS.CONVERSATION(conversationId);
-    const cachedConversation = await redis.get<Conversation>(cacheKey);
-    if (cachedConversation) {
-      return NextResponse.json({ status: 'success', data: cachedConversation });
-    }
-
     // First check if the user has access to this conversation via space ownership
     const { data: conversation, error: convError } = await supabase
       .from(DB_TABLES.CONVERSATIONS)
@@ -72,9 +64,6 @@ export async function GET(
       [DB_TABLES.SPACES]: undefined
     };
     delete conversationData[DB_TABLES.SPACES];
-
-    // Cache the result
-    await redis.set(cacheKey, conversationData, { ex: CACHE_TTL.CONVERSATION });
 
     return NextResponse.json({ status: 'success', data: conversationData });
   } catch (error) {
@@ -175,10 +164,6 @@ export async function PATCH(
       );
     }
 
-    // Invalidate cache
-    const cacheKey = CACHE_KEYS.CONVERSATION(conversationId);
-    await redis.del(cacheKey);
-
     return NextResponse.json({
       status: 'success',
       data,
@@ -251,49 +236,38 @@ export async function DELETE(
       );
     }
 
+    const spaceId = conversation.space_id;
+
     // Soft delete the conversation
-    const { data, error: deleteError } = await supabase
+    const { error: updateError } = await supabase
       .from(DB_TABLES.CONVERSATIONS)
       .update({
         is_deleted: true,
         updated_at: new Date().toISOString()
       })
-      .eq(COLUMNS.ID, conversationId)
-      .select();
+      .eq(COLUMNS.ID, conversationId);
 
-    if (deleteError) {
-      console.error("Error deleting conversation:", deleteError);
+    if (updateError) {
+      console.error("Error deleting conversation:", updateError);
       return NextResponse.json(
-        { status: 'error', error: `Failed to delete conversation: ${deleteError.message}` },
+        { status: 'error', error: `Error deleting conversation: ${updateError.message}` },
         { status: 500 }
       );
     }
 
-    if (!data || data.length === 0) {
-      console.error('No rows updated - RLS or data issue persists');
-      return NextResponse.json(
-        { status: 'error', error: 'No rows updated' },
-        { status: 500 }
-      );
-    }
-
-    // Delete the messages from Pinecone as well
+    // Delete vector embeddings from Pinecone
     try {
       await deleteMessagesByConversationId(conversationId);
     } catch (pineconeError) {
-      console.error('Error deleting messages from Pinecone:', pineconeError);
-      // Not failing the operation if Pinecone deletion fails
+      console.error('Error deleting conversation vectors:', pineconeError);
+      // Continue with the operation even if vector deletion fails
     }
-
-    // Invalidate cache
-    const cacheKey = CACHE_KEYS.CONVERSATION(conversationId);
-    await redis.del(cacheKey);
 
     return NextResponse.json({
       status: 'success',
       toast: {
         title: 'Conversation Deleted',
-        description: 'The conversation has been deleted successfully',
+        description: 'Conversation deleted successfully',
         variant: 'success'
       }
     });

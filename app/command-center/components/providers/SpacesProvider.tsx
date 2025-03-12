@@ -29,29 +29,22 @@ export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
 
       console.log('[SpacesProvider] Selecting space:', space.id, space.name);
       
-      // Use the electron API directly to set the active space
-      if (window.electronAPI?.setActiveSpace) {
-        console.log('[SpacesProvider] Calling setActiveSpace with ID:', space.id);
-        const result = await window.electronAPI.setActiveSpace(space.id);
+      console.log('[SpacesProvider] Calling setActiveSpace with ID:', space.id);
+        
+      // Ensure space.id is a string and not null/undefined
+      const spaceId = String(space.id);
+      console.log('[SpacesProvider] Formatted spaceId:', spaceId);
+      
+      try {
+        const result = await window.electronAPI.setActiveSpace(spaceId);
         console.log('[SpacesProvider] Electron API result:', result);
         if (result.success) {
           if (onSelect) onSelect({...space, closeOnSelect: true});
         } else {
           console.error('[SpacesProvider] Error setting active space:', result.error);
-          toast({
-            title: "Error",
-            description: `Failed to set active space: ${result.error || 'Unknown error'}`,
-            variant: "destructive"
-          });
         }
-      } else {
-        const result = await API.activeSpace.setActiveSpace(space.id);
-        if (result.success) {
-          await refreshAppState();
-          if (onSelect) onSelect({...space, closeOnSelect: true});
-        } else {
-          console.error('[SpacesProvider] Error setting active space:', result.error);
-        }
+      } catch (error) {
+        console.error('[SpacesProvider] Exception setting active space:', error);
       }
     } catch (error) {
       console.error('[SpacesProvider] Error handling space selection:', error);

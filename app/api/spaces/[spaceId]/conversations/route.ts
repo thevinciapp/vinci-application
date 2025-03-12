@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { COLUMNS, DB_TABLES, DEFAULTS } from "@/constants";
-import { redis, CACHE_KEYS, CACHE_TTL } from "@/app/lib/cache";
+import { COLUMNS, DB_TABLES } from "@/constants";
 import type { Conversation } from "@/types";
 
 /**
@@ -71,34 +70,16 @@ export async function GET(
       );
     }
 
-    // Try to get from cache first
-    const cacheKey = CACHE_KEYS.CONVERSATIONS(spaceId);
-    const cachedConversations = await redis.get<Conversation[]>(cacheKey);
-    if (cachedConversations) {
-      // Apply pagination to cached data
-      const start = (page - 1) * limit;
-      const end = start + limit;
-      const paginatedData = cachedConversations.slice(start, end);
-      return NextResponse.json({
-        status: 'success',
-        data: paginatedData,
-        pagination: {
-          page,
-          limit,
-          total: cachedConversations.length,
-          hasMore: end < cachedConversations.length
-        }
-      });
-    }
-
-    // If not in cache, get from DB with pagination
-    const { data, error, count } = await supabase
+    let query = supabase
       .from(DB_TABLES.CONVERSATIONS)
-      .select("*", { count: 'exact' })
+      .select("*")
       .eq(COLUMNS.SPACE_ID, spaceId)
       .eq(COLUMNS.IS_DELETED, false)
-      .order(COLUMNS.UPDATED_AT, { ascending: false })
-      .range((page - 1) * limit, page * limit - 1);
+      .order(COLUMNS.UPDATED_AT, { ascending: false });
+
+    query = query.range((page - 1) * limit, page * limit - 1);
+
+    const { data, error, count } = await query;
 
     if (error) {
       console.error("Error fetching conversations:", error);
@@ -106,20 +87,6 @@ export async function GET(
         { status: 'error', error: `Error fetching conversations: ${error.message}` },
         { status: 500 }
       );
-    }
-
-    // Cache all conversations for future pagination
-    if (data) {
-      const { data: allData } = await supabase
-        .from(DB_TABLES.CONVERSATIONS)
-        .select("*")
-        .eq(COLUMNS.SPACE_ID, spaceId)
-        .eq(COLUMNS.IS_DELETED, false)
-        .order(COLUMNS.UPDATED_AT, { ascending: false });
-
-      if (allData) {
-        await redis.set(cacheKey, allData, { ex: CACHE_TTL.CONVERSATIONS });
-      }
     }
 
     return NextResponse.json({
@@ -214,11 +181,15 @@ export async function POST(
       .from(DB_TABLES.CONVERSATIONS)
       .insert([{
         space_id: spaceId,
-        title: title || DEFAULTS.CONVERSATION_TITLE,
+        title: title || 'New Conversation',
         user_id: user.id,
         created_at: timestamp,
         updated_at: timestamp,
-        is_deleted: false
+        is_deleted: false,
+        model: requestData.model || 'gpt-4-turbo',
+        temperature: requestData.temperature || 0.7,
+        system_prompt: requestData.system_prompt || '',
+        max_tokens: requestData.max_tokens || 4096
       }])
       .select()
       .single();
@@ -231,19 +202,14 @@ export async function POST(
       );
     }
 
-    // Invalidate cache by deleting the key
-    const cacheKey = CACHE_KEYS.CONVERSATIONS(spaceId);
-    await redis.del(cacheKey);
-
     return NextResponse.json({
       status: 'success',
       data,
       toast: {
         title: 'Conversation Created',
-        description: 'Start chatting now!',
+        description: 'Your new conversation is ready',
         variant: 'success'
-      },
-      redirectTo: `/protected/spaces/${spaceId}/conversations/${data.id}`
+      }
     });
   } catch (error) {
     console.error('Server error in POST /api/spaces/[spaceId]/conversations:', error);

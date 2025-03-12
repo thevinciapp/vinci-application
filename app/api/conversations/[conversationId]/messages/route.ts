@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { COLUMNS, DB_TABLES } from "@/app/lib/db";
-import { redis, CACHE_KEYS, CACHE_TTL } from "@/app/lib/cache";
 import { upsertChatMessage } from "@/utils/pinecone";
 
 /**
@@ -22,25 +21,12 @@ export async function GET(
       return NextResponse.json({ status: 'error', error: 'User not authenticated' }, { status: 401 });
     }
 
-    const cacheKey = CACHE_KEYS.MESSAGES(conversationId);
-    const cachedMessages = await redis.get(cacheKey);
-    if (cachedMessages) {
-      return NextResponse.json({ status: 'success', data: cachedMessages });
-    }
-
+    // Get conversation - RLS will handle access control
     const { data: conversation, error: convError } = await supabase
       .from(DB_TABLES.CONVERSATIONS)
-      .select(`
-        ${COLUMNS.ID}, 
-        ${COLUMNS.SPACE_ID},
-        ${DB_TABLES.SPACES}!inner(
-          ${COLUMNS.ID},
-          ${COLUMNS.USER_ID}
-        )
-      `)
-      .eq(`${DB_TABLES.CONVERSATIONS}.${COLUMNS.ID}`, conversationId)
-      .eq(`${DB_TABLES.CONVERSATIONS}.${COLUMNS.IS_DELETED}`, false)
-      .eq(`${DB_TABLES.SPACES}.${COLUMNS.USER_ID}`, user.id)
+      .select()
+      .eq(COLUMNS.ID, conversationId)
+      .eq(COLUMNS.IS_DELETED, false)
       .single();
 
     if (convError || !conversation) {
@@ -51,7 +37,7 @@ export async function GET(
       );
     }
 
-    // Get messages
+    // Get messages - RLS will ensure we only get messages from conversations in spaces owned by the user
     const { data, error } = await supabase
       .from(DB_TABLES.MESSAGES)
       .select(`
@@ -74,11 +60,6 @@ export async function GET(
         { status: 'error', error: error.message },
         { status: 500 }
       );
-    }
-
-    // Cache the messages
-    if (data) {
-      await redis.set(cacheKey, data, { ex: CACHE_TTL.MESSAGES });
     }
 
     return NextResponse.json({ status: 'success', data: data || [] });
@@ -134,31 +115,23 @@ export async function POST(
       );
     }
 
-    // First check if the user has access to this conversation via space ownership
+    // Get conversation - RLS will handle access control
     const { data: conversation, error: convError } = await supabase
       .from(DB_TABLES.CONVERSATIONS)
-      .select(`
-        ${COLUMNS.ID}, 
-        ${COLUMNS.SPACE_ID},
-        ${DB_TABLES.SPACES}!inner(
-          ${COLUMNS.ID},
-          ${COLUMNS.USER_ID}
-        )
-      `)
-      .eq(`${DB_TABLES.CONVERSATIONS}.${COLUMNS.ID}`, conversationId)
-      .eq(`${DB_TABLES.CONVERSATIONS}.${COLUMNS.IS_DELETED}`, false)
-      .eq(`${DB_TABLES.SPACES}.${COLUMNS.USER_ID}`, user.id)
+      .select()
+      .eq(COLUMNS.ID, conversationId)
+      .eq(COLUMNS.IS_DELETED, false)
       .single();
 
     if (convError || !conversation) {
-      console.error("Error accessing conversation:", convError?.message || 'Conversation not found');
+      console.error("Error fetching conversation:", convError?.message || 'Conversation not found');
       return NextResponse.json(
         { status: 'error', error: 'Conversation not found or access denied' },
         { status: 404 }
       );
     }
 
-    // Create the message
+    // Create message - RLS will ensure we can only create messages in conversations in spaces owned by the user
     const { data, error } = await supabase
       .from(DB_TABLES.MESSAGES)
       .insert({
@@ -196,23 +169,19 @@ export async function POST(
           content: data.content,
           role: data.role,
           createdAt: Date.now(),
-          spaceId: conversation.space_id,
+          spaceId: conversation[COLUMNS.SPACE_ID],
           conversationId,
           metadata: {
-            model: messageData.annotations?.[0]?.[COLUMNS.MODEL_USED],
-            provider: messageData.annotations?.[0]?.[COLUMNS.PROVIDER],
-            tags: messageData.tags || []
+            userId: user.id,
+            messageId: data.id,
+            conversationId
           }
         });
       } catch (pineconeError) {
-        console.error('Error storing message in Pinecone:', pineconeError);
-        // Don't fail the operation because of Pinecone indexing issues
+        console.warn('Non-critical error upserting message to vector DB:', pineconeError);
+        // Not failing the API call if Pinecone indexing fails
       }
     }
-
-    // Invalidate cache
-    const messagesCacheKey = CACHE_KEYS.MESSAGES(conversationId);
-    await redis.del(messagesCacheKey);
 
     return NextResponse.json({ status: 'success', data });
   } catch (error) {

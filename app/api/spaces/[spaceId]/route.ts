@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { COLUMNS, DB_TABLES } from "@/constants";
-import { redis, CACHE_KEYS, CACHE_TTL } from "@/app/lib/cache";
-import { invalidateSpaceCache } from "@/app/actions/utils/caching";
 import type { Space } from "@/types";
 
 /**
@@ -19,14 +17,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ space
       return NextResponse.json({ status: 'error', error: 'User not authenticated' }, { status: 401 });
     }
 
-    // Try to get from cache first
-    const cacheKey = CACHE_KEYS.SPACE(spaceId);
-    const cachedSpace = await redis.get<Space>(cacheKey);
-    if (cachedSpace) {
-      return NextResponse.json({ status: 'success', data: cachedSpace });
-    }
-
-    // If not in cache, get from DB
+    // Get from DB
     const { data, error } = await supabase
       .from(DB_TABLES.SPACES)
       .select("*")
@@ -47,11 +38,6 @@ export async function GET(request: NextRequest, props: { params: Promise<{ space
         { status: 'error', error: `Error fetching space: ${error.message}` },
         { status: 500 }
       );
-    }
-
-    // Cache the result
-    if (data) {
-      await redis.set(cacheKey, data, { ex: CACHE_TTL.SPACE });
     }
 
     return NextResponse.json({ status: 'success', data });
@@ -107,9 +93,6 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ spa
         { status: 500 }
       );
     }
-
-    // Invalidate cache
-    await invalidateSpaceCache(user.id, spaceId);
 
     return NextResponse.json({
       status: 'success',
@@ -203,16 +186,14 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ sp
           .eq(COLUMNS.USER_ID, user.id);
 
         if (deleteActiveError) {
-          console.error("Error deleting active space record:", deleteActiveError);
+          console.error("Error deleting active space:", deleteActiveError);
         }
       }
     }
 
-    // Invalidate caches
-    await invalidateSpaceCache(user.id, spaceId);
-
     return NextResponse.json({
       status: 'success',
+      data,
       toast: {
         title: 'Space Deleted',
         description: 'Your space has been deleted successfully',

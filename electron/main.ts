@@ -17,7 +17,7 @@ import type {
 
 const IS_MAC = process.platform==='darwin'
 if (IS_MAC) {
-  app.dock.hide()                                    
+  app.dock.hide()                                    // Hide dock icon
 }
 
 const API_BASE_URL = 'http://localhost:3000';
@@ -728,15 +728,17 @@ async function updateSpace(spaceId: string, spaceData: Partial<Space>): Promise<
 /**
  * Update the active space model
  */
-async function updateSpaceModel(spaceId: string, model: string, provider: string): Promise<boolean> {
+async function updateSpaceModel(spaceId: string, modelId: string, provider: string): Promise<boolean> {
   try {
+    console.log(`[ELECTRON] Updating space ${spaceId} with model ID: ${modelId}, provider: ${provider}`);
+    
     // Use the standard space update endpoint instead of a dedicated model endpoint
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}`, {
-      method: 'PATCH', // Use PATCH instead of PUT to match the existing API
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ model, provider })
+      body: JSON.stringify({ model: modelId, provider })
     });
     
     const data = await response.json();
@@ -751,7 +753,7 @@ async function updateSpaceModel(spaceId: string, model: string, provider: string
       if (spaceIndex >= 0) {
         appState.spaces[spaceIndex] = {
           ...appState.spaces[spaceIndex],
-          model,
+          model: modelId,
           provider
         };
         
@@ -759,7 +761,7 @@ async function updateSpaceModel(spaceId: string, model: string, provider: string
         if (appState.activeSpace && appState.activeSpace.id === spaceId) {
           appState.activeSpace = {
             ...appState.activeSpace,
-            model,
+            model: modelId,
             provider
           };
         }
@@ -1033,9 +1035,9 @@ ipcMain.handle('update-space', async (event, spaceId: string, spaceData: Partial
   }
 });
 
-ipcMain.handle('update-space-model', async (event, spaceId: string, model: string, provider: string) => {
+ipcMain.handle('update-space-model', async (event, spaceId: string, modelId: string, provider: string) => {
   try {
-    await updateSpaceModel(spaceId, model, provider);
+    await updateSpaceModel(spaceId, modelId, provider);
     return { success: true };
   } catch (error) {
     console.error('[ELECTRON] Error in update-space-model handler:', error);
