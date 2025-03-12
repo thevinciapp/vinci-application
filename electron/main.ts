@@ -776,7 +776,7 @@ async function setActiveSpace(spaceId: string) {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ spaceId: spaceId })
+      body: JSON.stringify({ spaceId })
     });
     
     const responseText = await response.text();
@@ -1014,9 +1014,24 @@ ipcMain.handle('update-space-model', async (event, spaceId: string, model: strin
   }
 });
 
-ipcMain.handle('set-active-space', async (event, spaceId: string) => {
+ipcMain.handle('set-active-space', async (event, spaceId) => {
   try {
-    const result = await setActiveSpace(spaceId);
+    // Log the raw input from renderer
+    console.log('[ELECTRON] set-active-space handler received raw input:', spaceId);
+    
+    // Ensure spaceId is a string
+    const spaceIdStr = String(spaceId || '').trim();
+    
+    // Additional validation to ensure spaceId is provided and valid
+    if (!spaceIdStr) {
+      console.error('[ELECTRON] Invalid space ID in set-active-space handler after conversion:', spaceIdStr);
+      return { success: false, error: 'Space ID is required' };
+    }
+    
+    console.log('[ELECTRON] set-active-space handler calling setActiveSpace with ID:', spaceIdStr);
+    
+    const result = await setActiveSpace(spaceIdStr);
+    console.log('[ELECTRON] setActiveSpace result:', result);
     return { success: true, data: result };
   } catch (error) {
     console.error('[ELECTRON] Error in set-active-space handler:', error);
