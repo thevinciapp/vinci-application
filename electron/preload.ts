@@ -1,5 +1,8 @@
 import { contextBridge, ipcRenderer } from "electron";
 
+// Debug logging for preload script
+console.log('[ELECTRON PRELOAD] Initializing preload script');
+
 contextBridge.exposeInMainWorld("electronAPI", {
   // Auth management
   setAuthTokens: (accessToken: string, refreshToken: string) => 
@@ -136,7 +139,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
 
   updateSpaceModel: async (spaceId: string, model: string, provider: string) => {
-    return await ipcRenderer.invoke('update-space-model', spaceId, model, provider);
+    console.log('[ELECTRON PRELOAD] Calling updateSpaceModel:', spaceId, model, provider);
+    try {
+      const result = await ipcRenderer.invoke('update-space-model', spaceId, model, provider);
+      console.log('[ELECTRON PRELOAD] updateSpaceModel result:', result);
+      return result;
+    } catch (error) {
+      console.error('[ELECTRON PRELOAD] updateSpaceModel error:', error);
+      throw error;
+    }
   },
 
   setActiveSpace: async (spaceId: string) => {
