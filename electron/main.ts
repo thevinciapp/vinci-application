@@ -776,12 +776,23 @@ async function setActiveSpace(spaceId: string) {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ space_id: spaceId })
+      body: JSON.stringify({ spaceId: spaceId })
     });
     
-    const data = await response.json();
+    const responseText = await response.text();
+    console.log(`[ELECTRON] Active space API response status: ${response.status}`);
+    console.log(`[ELECTRON] Active space API response body: ${responseText}`);
+    
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      console.error('[ELECTRON] Failed to parse response as JSON:', e);
+      throw new Error('Invalid response from server');
+    }
     
     if (data.status !== 'success') {
+      console.error('[ELECTRON] API error response:', data);
       throw new Error(data.error || 'Failed to set active space');
     }
     
