@@ -1,4 +1,5 @@
-// Command Center Types
+import { User } from '@supabase/supabase-js';
+
 export type CommandType = 
   | 'spaces'
   | 'conversations'
@@ -66,14 +67,23 @@ export interface Conversation {
   updated_at: string;
 }
 
-// Application State Types
+export interface Message {
+  id: string;
+  content: string;
+  role: 'user' | 'assistant' | 'system';
+  conversation_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AppState {
   spaces: Space[];
   activeSpace: Space | null;
   conversations: Conversation[];
-  messages?: any[]; // Store messages for the active conversation
+  messages: Message[];
   initialDataLoaded: boolean;
   lastFetched: number | null;
+  user: User | null;
 }
 
 export interface AppStateResult extends AppState {

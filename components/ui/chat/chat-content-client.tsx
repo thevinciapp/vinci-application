@@ -17,13 +17,26 @@ import { ConversationsAPI } from "@/lib/api-client";
 import { useAppState } from "@/lib/app-state-context";
 import { toast } from "@/components/ui/use-toast";
 
-interface ClientChatContentProps {
-  user: User;
-}
+export default function ClientChatContent() {
+  const [user, setUser] = useState<User | null>(null);
 
-export default function ClientChatContent({
-  user,
-}: ClientChatContentProps) {
+  useEffect(() => {
+    const handleAppDataUpdate = (event: any, data: { user: User | null }) => {
+      setUser(data.user);
+    };
+
+    // Listen for app state updates from the main process
+    window.electron.on('app-data-updated', handleAppDataUpdate);
+
+    // Initial state check
+    window.electron.invoke('get-app-state').then((state: any) => {
+      setUser(state.user);
+    });
+
+    return () => {
+      window.electron.removeListener('app-data-updated', handleAppDataUpdate);
+    };
+  }, []);
   const router = useRouter();
   const [isStickToBottom, setIsStickToBottom] = useState(true);
   const [searchMode, setSearchMode] = useState<"chat" | "search" | "semantic" | "hybrid">("chat");
@@ -103,11 +116,11 @@ export default function ClientChatContent({
     scrollToBottomHandler.current = callback;
   }, []);
 
-  const handleCreateConversation = async () => {
+  const handleCreateConversation = async (title: string) => {
     if (!activeSpace) return;
     
     try {
-      const { success, data: newConversation } = await ConversationsAPI.createConversation(activeSpace.id);
+      const { success, data: newConversation } = await ConversationsAPI.createConversation(activeSpace.id, title);
       if (success && newConversation) {
         router.push(`/chat/${newConversation.id}`);
       }
@@ -139,15 +152,13 @@ export default function ClientChatContent({
         >
           <div className="flex items-center divide-x divide-white/[0.08]">
             <div className="px-1 first:pl-1 last:pr-1">
-              {/* @ts-ignore */}
               <ServerDrivenSpaceTab 
                 activeSpace={activeSpace}
+                isLoading={isAppLoading}
               />
             </div>
             <div className="px-1 first:pl-1 last:pr-1">
-              <ServerDrivenModelTab 
-                activeSpace={activeSpace}
-              />
+              <ServerDrivenModelTab />
             </div>
             <div className="px-1 first:pl-1 last:pr-1">
               <ChatModeTab chatMode={activeSpace?.chat_mode} />
@@ -195,9 +206,8 @@ export default function ClientChatContent({
             >
               <div className="flex items-center divide-x divide-white/[0.05] bg-white/[0.03] border-t border-l border-r border-white/[0.05] rounded-t-2xl overflow-hidden backdrop-blur-xl w-full shadow-[0_-4px_20px_rgba(62,207,255,0.03)]">
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
-                  {/* @ts-ignore */}
                   <ServerDrivenQuickActionsTab 
-                    onCreateConversation={(handleCreateConversation)}
+                    onCreateConversation={handleCreateConversation}
                   />
                 </div>
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
@@ -216,7 +226,6 @@ export default function ClientChatContent({
                 </div>
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
                   <ServerDrivenConversationTab
-                    activeConversation={activeConversation}
                     onCreateConversation={handleCreateConversation}
                   />
                 </div>

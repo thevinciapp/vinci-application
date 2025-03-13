@@ -3,6 +3,7 @@ import { join } from "path";
 import { writeFile, readFile, unlink, mkdirSync } from 'fs';
 import { existsSync } from 'fs';
 import { API } from "../lib/api-client";
+import { User } from '@supabase/supabase-js';
 
 import type { 
   CommandType,
@@ -21,6 +22,7 @@ if (IS_MAC) {
 }
 
 const API_BASE_URL = 'http://localhost:3001';
+const APP_BASE_URL = 'http://localhost:3000';
 
 const STORAGE_DIR = join(app.getPath('userData'), 'secure');
 const STORAGE_ACCESS_TOKEN_PATH = join(STORAGE_DIR, 'access_token.enc');
@@ -45,7 +47,8 @@ const initialAppState: AppState = {
   conversations: [],
   messages: [], // Add messages array to initial state
   initialDataLoaded: false,
-  lastFetched: null
+  lastFetched: null,
+  user: null
 };
 
 let appState: AppState = { ...initialAppState };
@@ -108,13 +111,7 @@ async function createCommandCenterWindow() {
     }
   });
 
-  // Check auth status before loading command center
-  if (!accessToken && !refreshToken) {
-    commandCenterWindow.hide();
-    mainWindow?.loadURL(`${API_BASE_URL}/sign-in`);
-    return;
-  }
-  await commandCenterWindow.loadURL(`${API_BASE_URL}/command-center`);
+  await commandCenterWindow.loadURL("http://localhost:3000/command-center");
   
   commandCenterWindow.webContents.once('did-finish-load', async () => {
     if (!commandCenterWindow || commandCenterWindow.isDestroyed()) return;
@@ -151,7 +148,7 @@ async function createCommandCenterWindow() {
 /**
  * Create the main application window
  */
-function createWindow(): BrowserWindow {
+async function createMainWindow(): Promise<BrowserWindow> {
   const preloadPath = join(__dirname, "preload.js");
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -170,12 +167,7 @@ function createWindow(): BrowserWindow {
     if (mainWindow) mainWindow.show();
   });
   
-  // Check auth status and redirect if needed
-  if (!accessToken && !refreshToken) {
-    mainWindow.loadURL(`${API_BASE_URL}/sign-in`);
-  } else {
-    mainWindow.loadURL(API_BASE_URL);
-  }
+  mainWindow.loadURL("http://localhost:3000");
   
   mainWindow.webContents.once('did-finish-load', async () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -453,6 +445,37 @@ async function deleteAuthData(): Promise<boolean> {
 }
 
 /**
+ * Redirect to sign-in page
+ */
+async function redirectToSignIn() {
+  console.log('[ELECTRON] Redirecting to sign-in page');
+  
+  // Clear current tokens
+  accessToken = null;
+  refreshToken = null;
+  tokenExpiryTime = null;
+  
+  // Reset app state
+  appState = { ...initialAppState };
+  broadcastAppState();
+  
+  // Delete stored tokens
+  await deleteAuthData();
+  
+  // Redirect all windows to sign-in
+  BrowserWindow.getAllWindows().forEach((window) => {
+    if (!window.isDestroyed()) {
+      window.loadURL(`${APP_BASE_URL}/sign-in`);
+    }
+  });
+  
+  // Hide command center if open
+  if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
+    commandCenterWindow.hide();
+  }
+}
+
+/**
  * Refresh tokens using the refresh token
  */
 async function refreshTokens(): Promise<boolean> {
@@ -473,6 +496,10 @@ async function refreshTokens(): Promise<boolean> {
     
     if (!response.ok) {
       console.error('[ELECTRON] Token refresh failed with status:', response.status);
+      // If refresh explicitly fails with 401/403, redirect to sign-in
+      if (response.status === 401 || response.status === 403) {
+        await redirectToSignIn();
+      }
       return false;
     }
     
@@ -480,6 +507,10 @@ async function refreshTokens(): Promise<boolean> {
     
     if (data.status !== 'success' || !data.data?.session?.access_token) {
       console.error('[ELECTRON] Invalid response from refresh endpoint:', data);
+      // If refresh explicitly returns error status, redirect to sign-in
+      if (data.status === 'error' && data.error?.includes('token')) {
+        await redirectToSignIn();
+      }
       return false;
     }
     
@@ -493,7 +524,12 @@ async function refreshTokens(): Promise<boolean> {
     tokenExpiryTime = Date.now() + (60 * 60 * 1000);
     
     // Save the new tokens
-    await saveAuthData(accessToken, refreshToken);
+    if (accessToken && refreshToken) {
+      await saveAuthData(accessToken, refreshToken);
+    } else {
+      console.error('[ELECTRON] Cannot save tokens: One or both tokens are null');
+      return false;
+    }
     
     console.log('[ELECTRON] Tokens refreshed successfully');
     return true;
@@ -533,12 +569,16 @@ async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Re
     if (isTokenExpired && refreshToken) {
       const refreshed = await refreshTokens();
       if (!refreshed) {
+        console.error('[ELECTRON] Failed to refresh tokens and no valid token available');
+        await redirectToSignIn();
         throw new Error('Failed to refresh authentication tokens');
       }
     }
     
-    // If we still don't have a valid access token, fail
+    // If we still don't have a valid access token, redirect and fail
     if (!accessToken) {
+      console.error('[ELECTRON] No authentication token available');
+      await redirectToSignIn();
       throw new Error('No authentication token available');
     }
 
@@ -549,16 +589,26 @@ async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Re
     // Make the request
     const response = await fetch(url, { ...options, headers });
     
-    // If we get a 401, try to refresh the token once
-    if (response.status === 401 && refreshToken) {
-      console.log('[ELECTRON] Got 401, attempting token refresh');
+    // If we get a 401 or 403, try to refresh the token once
+    if ((response.status === 401 || response.status === 403) && refreshToken) {
+      console.log(`[ELECTRON] Got ${response.status}, attempting token refresh`);
       const refreshed = await refreshTokens();
       
       if (refreshed && accessToken) {
         // Retry the request with the new token
         headers.set('Authorization', `Bearer ${accessToken}`);
         return fetch(url, { ...options, headers });
+      } else {
+        // If refresh failed and we got 401/403, redirect to sign-in
+        console.error('[ELECTRON] Token refresh failed after auth error');
+        await redirectToSignIn();
       }
+    }
+    
+    // Handle other auth-related errors in the response
+    if (response.status === 401 || response.status === 403) {
+      console.error(`[ELECTRON] Authentication failed with status: ${response.status}`);
+      await redirectToSignIn();
     }
     
     return response;
@@ -569,12 +619,121 @@ async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Re
 }
 
 async function fetchInitialAppData(): Promise<AppStateResult> {
+  console.log('[ELECTRON] Fetching initial app data...');
+  
+  // First check if we have tokens in memory
+  if (!accessToken && !refreshToken) {
+    console.log('[ELECTRON] No tokens in memory, attempting to load from storage');
+    // Try to load tokens from secure storage
+    const storedTokens = await loadAuthData();
+    if (storedTokens.accessToken) {
+      accessToken = storedTokens.accessToken;
+      console.log('[ELECTRON] Loaded access token from storage');
+    }
+    if (storedTokens.refreshToken) {
+      refreshToken = storedTokens.refreshToken;
+      console.log('[ELECTRON] Loaded refresh token from storage');
+    }
+    
+    // Set expiry time to prompt a refresh soon
+    tokenExpiryTime = Date.now() + (60 * 5 * 1000); // 5 minutes expiry to prompt refresh
+  }
+  
+  // Fetch user session first
+  try {
+    let sessionResponse;
+    
+    // Use our tokens if available 
+    if (accessToken) {
+      console.log('[ELECTRON] Using stored access token to fetch session');
+      sessionResponse = await fetch(`${API_BASE_URL}/api/auth/session`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+    } else {
+      // Fall back to cookie-based auth for web context
+      console.log('[ELECTRON] No access token available, using cookie-based auth');
+      sessionResponse = await fetch('http://localhost:3000/api/auth/session', {
+        credentials: 'include'
+      });
+    }
+    
+    // Handle non-200 responses explicitly
+    if (!sessionResponse.ok) {
+      console.error(`[ELECTRON] Session fetch failed with status: ${sessionResponse.status}`);
+      
+      // If we have a 401/403 and a refresh token, try to refresh the tokens
+      if ((sessionResponse.status === 401 || sessionResponse.status === 403) && refreshToken) {
+        console.log('[ELECTRON] Auth error, attempting token refresh');
+        const refreshed = await refreshTokens();
+        if (refreshed) {
+          return fetchInitialAppData(); // Retry after refresh
+        }
+      }
+      
+      return {
+        spaces: [],
+        activeSpace: null,
+        conversations: [],
+        messages: [],
+        initialDataLoaded: false,
+        lastFetched: Date.now(),
+        user: null,
+        error: `Session fetch failed with status: ${sessionResponse.status}`
+      };
+    }
+    
+    const responseData = await sessionResponse.json();
+    const { status, data } = responseData;
+    
+    if (status === 'success' && data?.session?.user) {
+      console.log('[ELECTRON] Session found, user is authenticated');
+      appState.user = data.session.user as User;
+      
+      // If the response includes tokens, store them
+      if (data.session.access_token && data.session.refresh_token) {
+        accessToken = data.session.access_token;
+        refreshToken = data.session.refresh_token;
+        tokenExpiryTime = Date.now() + (60 * 60 * 1000); // 1 hour
+        // Ensure tokens are non-null before saving
+        if (accessToken && refreshToken) {
+          await saveAuthData(accessToken, refreshToken);
+        }
+      }
+    } else {
+      console.log('[ELECTRON] No active session found');
+      return {
+        spaces: [],
+        activeSpace: null,
+        conversations: [],
+        messages: [],
+        initialDataLoaded: false,
+        lastFetched: Date.now(),
+        user: null,
+        error: 'No active session'
+      };
+    }
+  } catch (error) {
+    console.error('[ELECTRON] Failed to fetch user session:', error);
+    return {
+      spaces: [],
+      activeSpace: null,
+      conversations: [],
+      messages: [],
+      initialDataLoaded: false,
+      lastFetched: Date.now(),
+      user: null,
+      error: 'Failed to fetch user session'
+    };
+  }
   try {
     if (!await checkServerAvailable()) {
       return {
         ...initialAppState,
         error: 'Server not available',
-        lastFetched: Date.now()
+        lastFetched: Date.now(),
+        user: null
       };
     }
     
@@ -583,7 +742,8 @@ async function fetchInitialAppData(): Promise<AppStateResult> {
       return {
         ...initialAppState,
         error: 'Authentication required',
-        lastFetched: Date.now()
+        lastFetched: Date.now(),
+        user: null
       };
     }
 
@@ -641,7 +801,8 @@ async function fetchInitialAppData(): Promise<AppStateResult> {
       conversations,
       messages, // Include messages in the returned state
       initialDataLoaded: true,
-      lastFetched: Date.now()
+      lastFetched: Date.now(),
+      user: appState.user
     };
   } catch (error) {
     console.error('[ELECTRON] Fetch initial data failed:', error);
@@ -677,7 +838,7 @@ async function fetchSpaceConversations(spaceId: string): Promise<Conversation[]>
  */
 async function fetchConversationMessages(conversationId: string) {
   try {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${appState.activeSpace?.id}/conversations/${conversationId}/messages`);
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/conversations/${conversationId}/messages`);
     const data = await response.json();
     
     if (data.status !== 'success') {
@@ -998,55 +1159,54 @@ ipcMain.handle('set-auth-tokens', async (event, newAccessToken, newRefreshToken)
   console.log('[ELECTRON] Auth tokens received');
   
   try {
-    // Add a longer delay to ensure Next.js has fully initialized
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Try multiple times to validate the token
-    let attempts = 0;
-    let testRequest;
-    
-    while (attempts < 3) {
-      try {
-        testRequest = await fetch(`${API_BASE_URL}/api/spaces`, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (testRequest.ok) {
-          break;
-        }
-        
-        const errorText = await testRequest.text();
-        console.warn(`[ELECTRON] Auth validation attempt ${attempts + 1} failed: ${testRequest.status}`, errorText);
-        
-        // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        attempts++;
-      } catch (error) {
-        console.error(`[ELECTRON] Auth validation attempt ${attempts + 1} error:`, error);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        attempts++;
-      }
-    }
-    
-    if (!testRequest?.ok) {
-      throw new Error(`Auth validation failed after ${attempts} attempts`);
-    }
-    
-    console.log('[ELECTRON] Auth tokens validated successfully');
+    // First, save the auth data to secure storage
     await saveAuthData(accessToken, refreshToken);
+    console.log('[ELECTRON] Auth tokens saved to secure storage');
     
+    // Validate the tokens by making a test API call
     try {
+      const validationResponse = await fetch(`${API_BASE_URL}/api/auth/session`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+      
+      if (!validationResponse.ok) {
+        console.error('[ELECTRON] Token validation failed with status:', validationResponse.status);
+        return false;
+      }
+      
+      const validationData = await validationResponse.json();
+      if (validationData.status !== 'success') {
+        console.error('[ELECTRON] Token validation returned error status:', validationData);
+        return false;
+      }
+      
+      console.log('[ELECTRON] Tokens validated successfully');
+      
+      // Update app state with user info if available
+      if (validationData.data?.session?.user) {
+        appState.user = validationData.data.session.user;
+      }
+    } catch (validationError) {
+      console.error('[ELECTRON] Error validating tokens:', validationError);
+      // Don't return false yet, still try to load app data
+    }
+    
+    // Fetch initial app data with the new tokens
+    try {
+      console.log('[ELECTRON] Fetching initial app data with new tokens...');
       const freshData = await fetchInitialAppData();
       if (!freshData.error) {
         appState = { ...freshData };
         broadcastAppState();
         console.log('[ELECTRON] Data refreshed after receiving auth tokens');
+      } else {
+        console.warn('[ELECTRON] Received error when fetching initial app data:', freshData.error);
       }
-    } catch (error) {
-      console.error('[ELECTRON] Failed to refresh data after receiving auth tokens:', error);
+    } catch (dataError) {
+      console.error('[ELECTRON] Failed to refresh data after receiving auth tokens:', dataError);
+      // Continue despite this error, authentication itself succeeded
     }
     
     return true;
@@ -1096,12 +1256,7 @@ ipcMain.handle('refresh-auth-tokens', async () => {
 
 ipcMain.handle('sign-out', async () => {
   try {
-    accessToken = null;
-    refreshToken = null;
-    tokenExpiryTime = null;
-    await deleteAuthData();
-    appState = { ...initialAppState };
-    broadcastAppState();
+    await redirectToSignIn();
     console.log('[ELECTRON] User signed out successfully');
     return true;
   } catch (error) {
@@ -1256,81 +1411,12 @@ ipcMain.on("command-type-check", (event, commandType: CommandType) => {
 /**
  * App initialization
  */
-/**
- * Initialize the application with auth checks
- */
-async function initializeApp() {
-  if (!await waitForServer()) {
-    console.error('[ELECTRON] Server not available');
-    return false;
-  }
-
-  // Load both tokens
-  const { accessToken: savedAccessToken, refreshToken: savedRefreshToken } = await loadAuthData();
-  
-  // Set the tokens in memory
-  if (savedAccessToken) {
-    accessToken = savedAccessToken;
-    console.log('[ELECTRON] Access token loaded from storage');
-  }
-  
-  if (savedRefreshToken) {
-    refreshToken = savedRefreshToken;
-    console.log('[ELECTRON] Refresh token loaded from storage');
-    
-    // If we have a refresh token but no access token, try to refresh
-    if (!accessToken) {
-      console.log('[ELECTRON] No access token, attempting refresh with saved refresh token');
-      const refreshed = await refreshTokens();
-      if (!refreshed) {
-        console.log('[ELECTRON] Failed to refresh tokens on startup');
-        refreshToken = null;
-        await deleteAuthData();
-        return false;
-      }
-      console.log('[ELECTRON] Successfully refreshed tokens on startup');
-    }
-  } else if (!accessToken) {
-    // No tokens at all
-    console.log('[ELECTRON] No auth tokens found');
-    return false;
-  }
-
-  // If we have an access token, validate it
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/spaces`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
-      }
-    });
-    
-    if (!response.ok) {
-      console.error('[ELECTRON] Token validation failed');
-      accessToken = null;
-      refreshToken = null;
-      await deleteAuthData();
-      return false;
-    }
-  } catch (error) {
-    console.error('[ELECTRON] Error validating token:', error);
-    return false;
-  }
-
-  return true;
-}
-
 app.whenReady().then(async () => {
   try {
     if (process.platform !== "darwin") {
       app.quit();
       return;
     }
-
-    // Create the main window
-    mainWindow = createWindow();
-
-    // Initialize app and check auth
-    const isAuthenticated = await initializeApp();
 
     if (!await waitForServer()) {
       console.error('[ELECTRON] Server not available');
@@ -1341,7 +1427,6 @@ app.whenReady().then(async () => {
     // Load both tokens
     const { accessToken: savedAccessToken, refreshToken: savedRefreshToken } = await loadAuthData();
     
-    // Set the tokens in memory
     if (savedAccessToken) {
       accessToken = savedAccessToken;
       console.log('[ELECTRON] Access token loaded from storage');
@@ -1361,102 +1446,39 @@ app.whenReady().then(async () => {
           console.log('[ELECTRON] Failed to refresh tokens on startup');
           refreshToken = null;
           await deleteAuthData();
-          // Redirect to sign-in if refresh failed
-          mainWindow?.loadURL(`${API_BASE_URL}/auth/sign-in`);
-          return;
         }
       }
-    } else if (!accessToken) {
-      // No tokens at all, redirect to sign-in
-      console.log('[ELECTRON] No auth tokens found, redirecting to sign-in');
-      mainWindow?.loadURL(`${API_BASE_URL}/auth/sign-in`);
-      return;
     }
-    
-    // If we have an access token, validate it
-    if (accessToken) {
+
+    const mainWindow = await createMainWindow();
+
+    if (!accessToken && !refreshToken) {
+      console.log('[ELECTRON] No auth tokens available, redirecting to sign-in');
+      mainWindow.loadURL(`${APP_BASE_URL}/sign-in`);
+    } else {
+      // Validate token by attempting to load data
       try {
-        // Add a longer delay to ensure Next.js has fully initialized
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Try multiple times to validate the token
-        let attempts = 0;
-        let testResponse;
-        
-        while (attempts < 3) {
-          try {
-            testResponse = await fetch(`${API_BASE_URL}/api/spaces`, {
-              headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-              }
-            });
-            
-            if (testResponse.ok) {
-              console.log('[ELECTRON] Saved access token is valid');
-              // Set expiry time to 1 hour from now as a precaution
-              tokenExpiryTime = Date.now() + (60 * 60 * 1000);
-              break;
-            }
-            
-            // If we get a 401 and have a refresh token, try to refresh
-            if (testResponse.status === 401 && refreshToken) {
-              console.log('[ELECTRON] Access token expired, attempting refresh');
-              const refreshed = await refreshTokens();
-              if (refreshed) {
-                console.log('[ELECTRON] Successfully refreshed tokens after validation failure');
-                break;
-              }
-            }
-            
-            const errorText = await testResponse.text();
-            console.warn(`[ELECTRON] Auth validation attempt ${attempts + 1} failed: ${testResponse.status}`, errorText);
-            
-            // Wait before retrying
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            attempts++;
-          } catch (error) {
-            console.error(`[ELECTRON] Auth validation attempt ${attempts + 1} error:`, error);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            attempts++;
-          }
-        }
-        
-        if (!testResponse?.ok) {
-          console.log('[ELECTRON] Saved tokens are invalid or expired, clearing');
-          accessToken = null;
-          refreshToken = null;
-          tokenExpiryTime = null;
-          await deleteAuthData();
-          return;
-        }
-        
-        // Token is valid, try to load initial data
         const freshData = await fetchInitialAppData();
         if (!freshData.error) {
           appState = { ...freshData };
           console.log('[ELECTRON] Initial data loaded with saved auth token');
         } else {
-          console.log('[ELECTRON] Failed to load initial data:', freshData.error);
+          console.error('[ELECTRON] Failed to load initial data:', freshData.error);
+          // Check if it's an auth error
+          if (freshData.error.includes('Authentication') || 
+              freshData.error.includes('auth') || 
+              freshData.error.includes('token')) {
+            console.log('[ELECTRON] Auth error detected, redirecting to sign-in');
+            await redirectToSignIn();
+          }
         }
       } catch (error) {
         console.error('[ELECTRON] Error during token validation:', error);
-        accessToken = null;
-        refreshToken = null;
-        tokenExpiryTime = null;
-        await deleteAuthData();
+        await redirectToSignIn();
       }
-    } else {
-      console.log('[ELECTRON] No saved auth tokens found');
     }
     
     registerGlobalShortcuts();
-    const mainWindow = createWindow();
-    
-    // Redirect to sign-in if no auth tokens
-    if (!accessToken && !refreshToken) {
-      mainWindow.loadURL(`${API_BASE_URL}/sign-in`);
-    }
   } catch (error) {
     console.error('[ELECTRON] Startup failed:', error);
     app.quit();
@@ -1468,5 +1490,5 @@ app.on("window-all-closed", () => {
 });
 
 app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
 });

@@ -87,6 +87,7 @@ export default function Login() {
                       // Get session tokens from response data
                       const session = response.data as { session?: { access_token: string, refresh_token: string } };
                       if (session?.session?.access_token && session?.session?.refresh_token) {
+                        console.log('Passing auth tokens to Electron main process...');
                         // Send both tokens to Electron main process
                         const success = await window.electronAPI.setAuthTokens(
                           session.session.access_token,
@@ -94,12 +95,29 @@ export default function Login() {
                         );
                         if (success) {
                           console.log('Auth tokens passed to Electron successfully');
+                          // Wait for Electron to finish setting up auth before redirecting
+                          await new Promise(resolve => setTimeout(resolve, 500));
                         } else {
                           console.error('Failed to set up authentication in Electron');
+                          // Show error to user
+                          toast({
+                            title: "Warning",
+                            description: "Authentication succeeded, but desktop sync failed. Some features may be limited.",
+                            variant: "destructive"
+                          });
                         }
+                      } else {
+                        console.error('Missing access or refresh token in sign-in response');
+                        console.debug('Response data:', JSON.stringify(response.data));
                       }
                     } catch (error) {
                       console.error('Failed to pass auth tokens to Electron:', error);
+                      // Don't block sign-in if electron communication fails
+                      toast({
+                        title: "Warning",
+                        description: "Authentication succeeded, but desktop sync failed. Some features may be limited.",
+                        variant: "destructive"
+                      });
                     }
                   }
                   

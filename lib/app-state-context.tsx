@@ -3,11 +3,23 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { toast } from '@/components/ui/use-toast';
 import type { Space, Conversation } from '@/types';
+import { Message } from '@/electron/types';
+
+declare global {
+  interface Window {
+    electron: {
+      invoke: (channel: string, ...args: any[]) => Promise<any>;
+      on: (channel: string, callback: (event: any, ...args: any[]) => void) => void;
+      removeListener: (channel: string, callback: (event: any, ...args: any[]) => void) => void;
+    };
+  }
+}
 
 export interface AppState {
   spaces: Space[] | null;
   activeSpace: Space | null;
   conversations: Conversation[] | null;
+  messages: Message[];
   isLoading: boolean;
   error: string | null;
   lastFetched: number | null;
@@ -23,6 +35,7 @@ const AppStateContext = createContext<{
     spaces: null,
     activeSpace: null,
     conversations: null,
+    messages: [],
     isLoading: false,
     error: null,
     lastFetched: null,
@@ -39,6 +52,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     spaces: null,
     activeSpace: null,
     conversations: null,
+    messages: [],
     isLoading: true,
     error: null,
     lastFetched: null,
@@ -51,11 +65,11 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       setAppState(prev => {
         console.log('[AppStateProvider] Setting loading state');
-        return { ...prev, isLoading: true, error: null };
+        return { ...prev, isLoading: true, error: null, messages: prev.messages };
       });
       
       console.log('[AppStateProvider] Calling refreshAppData API');
-      const freshState = await window.electronAPI.refreshAppData();
+      const freshState = await window.electron.invoke('refresh-app-data');
       console.log('[AppStateProvider] refreshAppData returned:', JSON.stringify(freshState, null, 2));
       
       if (!freshState || freshState.error) {
@@ -69,6 +83,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           spaces: freshState.spaces ? [...freshState.spaces] : null,
           activeSpace: freshState.activeSpace ? { ...freshState.activeSpace } : null,
           conversations: freshState.conversations ? [...freshState.conversations] : null,
+          messages: freshState.messages || [],
           isLoading: false,
           error: null,
           lastFetched: freshState.lastFetched || Date.now(),
@@ -86,7 +101,8 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return {
           ...prev, 
           isLoading: false,
-          error: errorMessage
+          error: errorMessage,
+          messages: prev.messages
         };
       });
       toast({
@@ -114,7 +130,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.log('[AppStateProvider] Previous state:', JSON.stringify(prev, null, 2));
       console.log('[AppStateProvider] Updated state:', JSON.stringify(updated, null, 2));
       
-      window.electronAPI.syncAppState(updated).catch((error: Error) => {
+      window.electron.invoke('sync-app-state', updated).catch((error: Error) => {
         console.error('[AppStateProvider] Error syncing app state:', error);
         toast({
           title: "Error",
@@ -151,7 +167,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     console.log('[AppStateProvider] Setting up auth token sync');
     const syncAuthToken = async () => {
       try {
-        const existingToken = await window.electronAPI.getAuthToken();
+        const existingToken = await window.electron.invoke('get-auth-token');
         console.log('[AppStateProvider] Existing token found:', !!existingToken);
         if (existingToken) {
           const freshAppData = await window.electronAPI.refreshAppData();
@@ -164,6 +180,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 spaces: freshAppData.spaces || prev.spaces,
                 activeSpace: freshAppData.activeSpace || prev.activeSpace,
                 conversations: freshAppData.conversations || prev.conversations,
+                messages: freshAppData.messages || prev.messages,
                 isLoading: false,
                 error: null,
                 lastFetched: freshAppData.lastFetched || Date.now()
@@ -178,7 +195,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const data = await response.json();
           console.log('[AppStateProvider] Session API response:', !!data?.data?.session?.access_token);
           if (data?.data?.session?.access_token) {
-            const success = await window.electronAPI.setAuthToken(data.data.session.access_token);
+            const success = await window.electron.invoke('set-auth-token', data.data.session.access_token);
             console.log('[AppStateProvider] Set auth token result:', success);
             
             if (success) {

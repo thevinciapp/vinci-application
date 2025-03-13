@@ -1,50 +1,47 @@
-import { hasEnvVars } from "@/utils/supabase/check-env-vars";
 import Link from "next/link";
 import { Badge, Button } from "vinci-ui";
-import { createClient } from "@/utils/supabase/server";
 import { UserProfileDropdown } from "./user-profile-dropdown";
+import { useState, useEffect } from "react";
+import {User } from "@supabase/supabase-js"
 
-export default async function AuthButton() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!hasEnvVars) {
-    return (
-      <>
-        <div className="flex gap-4 items-center">
-          <div>
-            <Badge
-              variant={"default"}
-              className="font-normal pointer-events-none"
-            >
-              Please update .env.local file with anon key and url
-            </Badge>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant={"ghost"}
-              disabled
-              className="opacity-75 cursor-none pointer-events-none"
-            >
-              <Link href="/sign-in">Sign in</Link>
-            </Button>
-            <Button
-              size="sm"
-              variant={"default"}
-              disabled
-              className="opacity-75 cursor-none pointer-events-none"
-            >
-              <Link href="/sign-up">Sign up</Link>
-            </Button>
-          </div>
-        </div>
-      </>
-    );
+declare global {
+  interface Window {
+    electron: {
+      on: (channel: string, callback: (event: any, data: any) => void) => void;
+      invoke: (channel: string) => Promise<any>;
+      removeListener: (channel: string, callback: (event: any, data: any) => void) => void;
+    };
   }
+}
+
+export default function AuthButton() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const handleAppDataUpdate = (event: any, data: { user: User | null }) => {
+      setUser(data.user);
+      setLoading(false);
+    };
+
+    // Listen for app state updates from the main process
+    window.electron.on('app-data-updated', handleAppDataUpdate);
+
+    // Initial state check
+    window.electron.invoke('get-app-state').then((state: any) => {
+      setUser(state.user);
+      setLoading(false);
+    });
+
+    return () => {
+      window.electron.removeListener('app-data-updated', handleAppDataUpdate);
+    };
+  }, []);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
   return user ? (
     <UserProfileDropdown user={user} />
   ) : (

@@ -3,7 +3,8 @@
 import React, { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { File, Loader2, MessageSquare, X } from 'lucide-react';
-import { Button, cn, Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "vinci-ui";
+import { Button, cn } from "vinci-ui";
+import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from 'cmdk';
 
 
 type FileTag = {

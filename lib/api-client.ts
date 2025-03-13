@@ -6,7 +6,7 @@
 import type { Space, Conversation, SpaceData } from '@/types';
 
 // Base URL for API requests
-const API_BASE_URL = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+const API_BASE_URL = typeof window !== 'undefined' && process.env.NEXT_PUBLIC_API_BASE_URL !== undefined ? process.env.NEXT_PUBLIC_API_BASE_URL : 'http://localhost:3001';
 
 // Helper to get full API URL
 function getApiUrl(path: string): string {
