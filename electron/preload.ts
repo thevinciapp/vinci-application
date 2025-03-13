@@ -13,6 +13,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke('refresh-auth-tokens'),
   signOut: () => 
     ipcRenderer.invoke('sign-out'),
+  resetPassword: (email: string) =>
+    ipcRenderer.invoke('reset-password', email),
+  signUp: (email: string, password: string) =>
+    ipcRenderer.invoke('sign-up', email, password),
+  getSession: () =>
+    ipcRenderer.invoke('get-session'),
   
   searchFiles: async (searchTerm: string) => {
     try {
@@ -132,6 +138,24 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   getConversationMessages: async (conversationId: string) => {
     return await ipcRenderer.invoke('get-conversation-messages', conversationId);
+  },
+
+  // Search functionality
+  searchMessages: async (query: string) => {
+    return await ipcRenderer.invoke('search-messages', query);
+  },
+
+  // Chat functionality
+  sendChatMessage: async (conversationId: string, message: string) => {
+    return await ipcRenderer.invoke('send-chat-message', conversationId, message);
+  },
+
+  // Message operations
+  deleteMessage: async (conversationId: string, messageId: string) => {
+    return await ipcRenderer.invoke('delete-message', conversationId, messageId);
+  },
+  updateMessage: async (conversationId: string, messageId: string, content: string) => {
+    return await ipcRenderer.invoke('update-message', conversationId, messageId, content);
   },
 
   updateSpace: async (spaceId: string, spaceData: any) => {

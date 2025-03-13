@@ -20,7 +20,7 @@ if (IS_MAC) {
   app.dock.hide()                                    // Hide dock icon
 }
 
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = 'http://localhost:3001';
 
 const STORAGE_DIR = join(app.getPath('userData'), 'secure');
 const STORAGE_ACCESS_TOKEN_PATH = join(STORAGE_DIR, 'access_token.enc');
@@ -108,7 +108,13 @@ async function createCommandCenterWindow() {
     }
   });
 
-  await commandCenterWindow.loadURL("http://localhost:3000/command-center");
+  // Check auth status before loading command center
+  if (!accessToken && !refreshToken) {
+    commandCenterWindow.hide();
+    mainWindow?.loadURL(`${API_BASE_URL}/sign-in`);
+    return;
+  }
+  await commandCenterWindow.loadURL(`${API_BASE_URL}/command-center`);
   
   commandCenterWindow.webContents.once('did-finish-load', async () => {
     if (!commandCenterWindow || commandCenterWindow.isDestroyed()) return;
@@ -164,7 +170,12 @@ function createWindow(): BrowserWindow {
     if (mainWindow) mainWindow.show();
   });
   
-  mainWindow.loadURL("http://localhost:3000");
+  // Check auth status and redirect if needed
+  if (!accessToken && !refreshToken) {
+    mainWindow.loadURL(`${API_BASE_URL}/sign-in`);
+  } else {
+    mainWindow.loadURL(API_BASE_URL);
+  }
   
   mainWindow.webContents.once('did-finish-load', async () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -497,7 +508,7 @@ async function refreshTokens(): Promise<boolean> {
  */
 async function checkServerAvailable(): Promise<boolean> {
   try {
-    const response = await fetch('http://localhost:3000/api/health');
+    const response = await fetch(`${API_BASE_URL}/api/health`);
     return response.ok;
   } catch (error) {
     console.error('[ELECTRON] Server check failed:', error);
@@ -666,7 +677,7 @@ async function fetchSpaceConversations(spaceId: string): Promise<Conversation[]>
  */
 async function fetchConversationMessages(conversationId: string) {
   try {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/conversations/${conversationId}/messages`);
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${appState.activeSpace?.id}/conversations/${conversationId}/messages`);
     const data = await response.json();
     
     if (data.status !== 'success') {
@@ -872,7 +883,106 @@ async function refreshAppData(): Promise<AppStateResult> {
 /**
  * IPC Handlers
  */
+// App State
 ipcMain.handle('get-app-state', async () => appState);
+
+// Auth Routes
+ipcMain.handle('get-session', async () => {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/auth/session`);
+    return await response.json();
+  } catch (error) {
+    console.error('Error getting session:', error);
+    return { error: 'Failed to get session' };
+  }
+});
+
+ipcMain.handle('sign-up', async (_, email: string, password: string) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/sign-up`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Error signing up:', error);
+    return { error: 'Failed to sign up' };
+  }
+});
+
+ipcMain.handle('reset-password', async (_, email: string) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    return { error: 'Failed to reset password' };
+  }
+});
+
+// Search Routes
+ipcMain.handle('search-messages', async (_, query: string) => {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/search/messages?q=${encodeURIComponent(query)}`);
+    return await response.json();
+  } catch (error) {
+    console.error('Error searching messages:', error);
+    return { error: 'Failed to search messages' };
+  }
+});
+
+// Message Routes
+ipcMain.handle('send-chat-message', async (_, conversationId: string, message: string) => {
+  try {
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/api/spaces/${appState.activeSpace?.id}/conversations/${conversationId}/chat`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: message })
+      }
+    );
+    return await response.json();
+  } catch (error) {
+    console.error('Error sending chat message:', error);
+    return { error: 'Failed to send message' };
+  }
+});
+
+ipcMain.handle('delete-message', async (_, conversationId: string, messageId: string) => {
+  try {
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/api/spaces/${appState.activeSpace?.id}/conversations/${conversationId}/messages/${messageId}`,
+      { method: 'DELETE' }
+    );
+    return await response.json();
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    return { error: 'Failed to delete message' };
+  }
+});
+
+ipcMain.handle('update-message', async (_, conversationId: string, messageId: string, content: string) => {
+  try {
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/api/spaces/${appState.activeSpace?.id}/conversations/${conversationId}/messages/${messageId}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+      }
+    );
+    return await response.json();
+  } catch (error) {
+    console.error('Error updating message:', error);
+    return { error: 'Failed to update message' };
+  }
+});
 ipcMain.handle('refresh-app-data', refreshAppData);
 
 ipcMain.handle('set-auth-tokens', async (event, newAccessToken, newRefreshToken) => {
@@ -897,7 +1007,7 @@ ipcMain.handle('set-auth-tokens', async (event, newAccessToken, newRefreshToken)
     
     while (attempts < 3) {
       try {
-        testRequest = await fetch('http://localhost:3000/api/spaces', {
+        testRequest = await fetch(`${API_BASE_URL}/api/spaces`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
@@ -1146,12 +1256,81 @@ ipcMain.on("command-type-check", (event, commandType: CommandType) => {
 /**
  * App initialization
  */
+/**
+ * Initialize the application with auth checks
+ */
+async function initializeApp() {
+  if (!await waitForServer()) {
+    console.error('[ELECTRON] Server not available');
+    return false;
+  }
+
+  // Load both tokens
+  const { accessToken: savedAccessToken, refreshToken: savedRefreshToken } = await loadAuthData();
+  
+  // Set the tokens in memory
+  if (savedAccessToken) {
+    accessToken = savedAccessToken;
+    console.log('[ELECTRON] Access token loaded from storage');
+  }
+  
+  if (savedRefreshToken) {
+    refreshToken = savedRefreshToken;
+    console.log('[ELECTRON] Refresh token loaded from storage');
+    
+    // If we have a refresh token but no access token, try to refresh
+    if (!accessToken) {
+      console.log('[ELECTRON] No access token, attempting refresh with saved refresh token');
+      const refreshed = await refreshTokens();
+      if (!refreshed) {
+        console.log('[ELECTRON] Failed to refresh tokens on startup');
+        refreshToken = null;
+        await deleteAuthData();
+        return false;
+      }
+      console.log('[ELECTRON] Successfully refreshed tokens on startup');
+    }
+  } else if (!accessToken) {
+    // No tokens at all
+    console.log('[ELECTRON] No auth tokens found');
+    return false;
+  }
+
+  // If we have an access token, validate it
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/spaces`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+    
+    if (!response.ok) {
+      console.error('[ELECTRON] Token validation failed');
+      accessToken = null;
+      refreshToken = null;
+      await deleteAuthData();
+      return false;
+    }
+  } catch (error) {
+    console.error('[ELECTRON] Error validating token:', error);
+    return false;
+  }
+
+  return true;
+}
+
 app.whenReady().then(async () => {
   try {
     if (process.platform !== "darwin") {
       app.quit();
       return;
     }
+
+    // Create the main window
+    mainWindow = createWindow();
+
+    // Initialize app and check auth
+    const isAuthenticated = await initializeApp();
 
     if (!await waitForServer()) {
       console.error('[ELECTRON] Server not available');
@@ -1182,8 +1361,16 @@ app.whenReady().then(async () => {
           console.log('[ELECTRON] Failed to refresh tokens on startup');
           refreshToken = null;
           await deleteAuthData();
+          // Redirect to sign-in if refresh failed
+          mainWindow?.loadURL(`${API_BASE_URL}/auth/sign-in`);
+          return;
         }
       }
+    } else if (!accessToken) {
+      // No tokens at all, redirect to sign-in
+      console.log('[ELECTRON] No auth tokens found, redirecting to sign-in');
+      mainWindow?.loadURL(`${API_BASE_URL}/auth/sign-in`);
+      return;
     }
     
     // If we have an access token, validate it
@@ -1198,7 +1385,7 @@ app.whenReady().then(async () => {
         
         while (attempts < 3) {
           try {
-            testResponse = await fetch('http://localhost:3000/api/spaces', {
+            testResponse = await fetch(`${API_BASE_URL}/api/spaces`, {
               headers: {
                 'Authorization': `Bearer ${accessToken}`,
                 'Content-Type': 'application/json'
@@ -1268,7 +1455,7 @@ app.whenReady().then(async () => {
     
     // Redirect to sign-in if no auth tokens
     if (!accessToken && !refreshToken) {
-      mainWindow.loadURL('http://localhost:3000/sign-in');
+      mainWindow.loadURL(`${API_BASE_URL}/sign-in`);
     }
   } catch (error) {
     console.error('[ELECTRON] Startup failed:', error);
