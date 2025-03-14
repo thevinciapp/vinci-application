@@ -13,10 +13,16 @@
     "noEmit": false,
     "baseUrl": "../",
     "paths": {
-      "@lib/*": ["lib/*"],
+      "@app/*": ["app/*"],
+      "@/lib/*": ["app/lib/*"],
+      "@lib/*": ["app/lib/*"],
       "@/*": ["*"]
     }
   },
-  "include": ["./**/*", "../types/electron.d.ts", "../lib/**/*.ts"],
-  "exclude": ["../lib/**/*.tsx"]
+  "include": [
+    "./**/*", 
+    "../src/types/electron.d.ts", 
+    "../src/lib/**/*.ts"
+, "../src/core", "../src/services", "../src/store", "../src/utils"  ],
+  "exclude": ["../src/lib/**/*.tsx"]
 }

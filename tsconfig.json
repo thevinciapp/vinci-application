@@ -23,6 +23,6 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["next-env.d.ts", "electron/**/*", "types/**/*.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "../vinci-api/src/utils/server.ts", "../vinci-api/pinecone.ts"],
+  "include": ["next-env.d.ts", "electron/**/*", "types/**/*.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "../vinci-api/src/utils/server.ts", "../vinci-api/pinecone.ts", "src/core", "src/services", "src/store", "src/utils"],
   "exclude": ["node_modules"]
 }

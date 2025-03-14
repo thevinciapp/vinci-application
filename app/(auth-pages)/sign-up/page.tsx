@@ -2,12 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useToast, type ToastVariant } from "@/components/ui/use-toast";
-import { SubmitButton } from "@/components/ui/auth/submit-button";
+import { useToast, type ToastVariant } from "vinci-ui";
+import { SubmitButton } from "@/src/components/auth/submit-button";
 import { Input, Label } from "vinci-ui";
 import Link from "next/link";
 import { SmtpMessage } from "../smtp-message";
-import { AuthAPI } from "@/lib/api-client";
 
 export default function Signup() {
   const router = useRouter();

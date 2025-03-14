@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Command } from 'cmdk';
-import { useAppState } from '@/lib/app-state-context';
-import { providers } from "./registry/providers";
-import { dialogs } from "./registry/dialogs";
-import './styles/cmdk.css';
+import { useAppState } from '@/src/types/app-state-context';
+import { providers } from "@/src/registry/providers";
+import { dialogs } from "@/src/registry/dialogs";
+import '@/src/styles/cmdk.css';
 
 const CommandCenter = () => {
   const router = useRouter();

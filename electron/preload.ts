@@ -1,9 +1,17 @@
 import { contextBridge, ipcRenderer } from "electron";
+import { replayActionRenderer } from 'electron-redux';
 
-// Debug logging for preload script
 console.log('[ELECTRON PRELOAD] Initializing preload script');
 
+replayActionRenderer(ipcRenderer);
+
 contextBridge.exposeInMainWorld("electronAPI", {
+  // Redux integration
+  dispatchReduxAction: (action: any) => {
+    console.log('[ELECTRON PRELOAD] Dispatching Redux action:', action);
+    ipcRenderer.send('redux-action', action);
+  },
+  
   // Auth management
   setAuthTokens: (accessToken: string, refreshToken: string) => 
     ipcRenderer.invoke('set-auth-tokens', accessToken, refreshToken),

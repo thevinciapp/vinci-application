@@ -1,6 +1,5 @@
-import { forgotPasswordAction } from "@actions/app/auth";
-import { FormMessage, Message } from "@/components/ui/auth/form-message";
-import { SubmitButton } from "@/components/ui/auth/submit-button";
+import { FormMessage, Message } from "@/src/components/auth/form-message";
+import { SubmitButton } from "@/src/components/auth/submit-button";
 import { Input, Label } from "vinci-ui";
 import Link from "next/link";
 import { SmtpMessage } from "../smtp-message";
@@ -33,7 +32,6 @@ export default async function ForgotPassword(props: {
               />
             </div>
             <SubmitButton 
-              formAction={forgotPasswordAction} 
               pendingText="Sending reset link..."
               variant="cyan"
             >
