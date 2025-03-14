@@ -70,6 +70,15 @@ export const SearchEvents = {
 /**
  * App state-related IPC events
  */
+export const UserEvents = {
+  GET_PROFILE: 'get-profile',
+  UPDATE_PROFILE: 'update-profile',
+  UPDATE_PASSWORD: 'update-password',
+  UPDATE_EMAIL_PREFERENCES: 'update-email-preferences',
+  GET_SETTINGS: 'get-settings',
+  UPDATE_SETTINGS: 'update-settings'
+} as const;
+
 export const AppStateEvents = {
   SYNC_STATE: 'sync-app-state',
   GET_STATE: 'get-app-state',
@@ -84,4 +93,5 @@ export type IpcEvent =
   | typeof SpaceEvents[keyof typeof SpaceEvents]
   | typeof MessageEvents[keyof typeof MessageEvents]
   | typeof SearchEvents[keyof typeof SearchEvents]
+  | typeof UserEvents[keyof typeof UserEvents]
   | typeof AppStateEvents[keyof typeof AppStateEvents];

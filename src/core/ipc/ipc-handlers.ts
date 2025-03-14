@@ -4,6 +4,7 @@ import { registerSpaceHandlers } from './handlers/space-handlers';
 import { registerAppStateHandlers } from './handlers/app-state-handlers';
 import { registerConversationHandlers } from './handlers/conversation-handlers';
 import { registerCommandCenterHandlers } from './handlers/command-center-handlers';
+import { registerProfileHandlers } from './handlers/profile-handlers';
 
 /**
  * Register all IPC handlers for the application
@@ -16,4 +17,5 @@ export function registerIpcHandlers(): void {
   registerAppStateHandlers();
   registerConversationHandlers();
   registerCommandCenterHandlers();
+  registerProfileHandlers();
 }

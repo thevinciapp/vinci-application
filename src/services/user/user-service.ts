@@ -1,28 +1,47 @@
 import { API_BASE_URL } from '@/src/core/auth/auth-service';
-import { User } from '@supabase/supabase-js';
 import { fetchWithAuth } from '@/src/services/api/api-service';
 import { useStore } from '@/src/store';
+
+export interface UserProfile {
+  full_name: string;
+  avatar_url: string;
+  website: string;
+  bio: string;
+  email: string;
+}
+
+export interface UserUpdateData {
+  full_name?: string;
+  avatar_url?: string;
+  website?: string;
+  bio?: string;
+}
+
+export interface PasswordUpdateData {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface EmailPreferences {
+  [key: string]: boolean;
+}
 
 /**
  * Fetch current user profile
  */
-export async function fetchUserProfile(): Promise<User | null> {
+export async function fetchUserProfile(): Promise<UserProfile> {
   try {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/auth/session`);
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/users/profile`);
     const data = await response.json();
     
     if (data.status !== 'success') {
       throw new Error(data.error || 'Failed to fetch user profile');
     }
-    
-    const user = data.data?.session?.user || null;
-    
-    // Update user in Zustand store if found
-    if (user) {
-      useStore.getState().setUser(user);
-    }
-    
-    return user;
+
+    const profile = data.data;
+    useStore.getState().setUser(profile);
+
+    return profile;
   } catch (error) {
     console.error('[ELECTRON] Error fetching user profile:', error);
     throw error;
@@ -32,26 +51,26 @@ export async function fetchUserProfile(): Promise<User | null> {
 /**
  * Update user profile
  */
-export async function updateUserProfile(profileData: Partial<User>): Promise<User> {
+export async function updateUserProfile(data: UserUpdateData): Promise<UserProfile> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/users/profile`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(profileData)
+      body: JSON.stringify(data)
     });
     
-    const data = await response.json();
+    const responseData = await response.json();
     
-    if (data.status !== 'success') {
-      throw new Error(data.error || 'Failed to update user profile');
+    if (responseData.status !== 'success') {
+      throw new Error(responseData.error || 'Failed to update user profile');
     }
-    
-    // Update user in Zustand store
-    useStore.getState().setUser(data.data);
-    
-    return data.data;
+
+    const profile = responseData.data;
+    useStore.getState().setUser(profile);
+
+    return profile;
   } catch (error) {
     console.error('[ELECTRON] Error updating user profile:', error);
     throw error;
@@ -135,6 +154,56 @@ export async function updateUserSettings(settings: any): Promise<any> {
     return data.data;
   } catch (error) {
     console.error('[ELECTRON] Error updating user settings:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update user password
+ */
+export async function updateUserPassword(data: PasswordUpdateData): Promise<void> {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/users/password`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+
+    const responseData = await response.json();
+    
+    if (responseData.status !== 'success') {
+      throw new Error(responseData.error || 'Failed to update password');
+    }
+  } catch (error) {
+    console.error('[ELECTRON] Error updating password:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update user email preferences
+ */
+export async function updateUserEmailPreferences(preferences: EmailPreferences): Promise<void> {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/users/email-preferences`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ preferences })
+    });
+
+    const data = await response.json();
+    
+    if (data.status !== 'success') {
+      throw new Error(data.error || 'Failed to update email preferences');
+    }
+
+    useStore.getState().setUser(data.data);
+  } catch (error) {
+    console.error('[ELECTRON] Error updating email preferences:', error);
     throw error;
   }
 }

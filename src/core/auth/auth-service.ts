@@ -363,6 +363,13 @@ export async function signIn(email: string, password: string): Promise<{ success
   }
 }
 
+// Get current auth data
+export async function getAuthData() {
+  const store = useStore.getState();
+  const { accessToken, refreshToken } = store;
+  return { accessToken, refreshToken };
+}
+
 // Export token expiry time
 export { tokenExpiryTime };
 

@@ -1,75 +1,38 @@
-import { redirect } from 'next/navigation'
+'use client';
+
 import { Button, Input, Label } from 'vinci-ui'
 import { Avatar, AvatarFallback, AvatarImage } from 'vinci-ui'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from 'vinci-ui'
 import { ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
-import { User } from '@supabase/supabase-js'
-import { createClient } from '@/utils/supabase/server'
+import { useUser } from '@/src/hooks/use-user'
+import { useAuth } from '@/src/hooks/use-auth'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
-interface Profile {
-  full_name: string
-  avatar_url: string
-  website: string
-  bio: string
-}
+export default function ProfilePage() {
+  const router = useRouter();
+  const { session } = useAuth();
+  const { 
+    profile, 
+    isLoading, 
+    updateProfile, 
+    updatePassword,
+    updateEmailPreferences 
+  } = useUser();
 
-interface PageProps {
-  user: User | null
-  initialProfile: Profile
-  error?: string
-}
-
-async function getProfile() {
-  const supabase = await createClient()
-
-  try {
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return {
-        user: null,
-        initialProfile: {
-          full_name: '',
-          avatar_url: '',
-          website: '',
-          bio: ''
-        },
-        error: 'Not authenticated'
-      }
+  useEffect(() => {
+    if (!session) {
+      router.push('/auth/login');
     }
+  }, [session, router]);
 
-    const profile = {
-      full_name: user.user_metadata?.full_name || '',
-      avatar_url: user.user_metadata?.avatar_url || '',
-      website: user.user_metadata?.website || '',
-      bio: user.user_metadata?.bio || ''
-    }
-
-    return {
-      user,
-      initialProfile: profile,
-    } as PageProps      
-  } catch (error) {
-    console.error('Error fetching profile:', error)
-    return {
-      user: null,
-      initialProfile: {
-        full_name: '',
-        avatar_url: '',
-        website: '',
-        bio: ''
-      },
-      error: 'Error loading user data'
-    }
-  }
-}
-
-export default async function ProfilePage() {
-  const { user, initialProfile, error } = await getProfile()
-  
-  if (error === 'Not authenticated') {
-    redirect('/auth/login')
+  if (!profile || isLoading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-white/60">Loading...</div>
+      </div>
+    );
   }
   
   return (
@@ -93,23 +56,32 @@ export default async function ProfilePage() {
           <CardHeader>
             <div className="flex items-center space-x-4">
               <Avatar className="h-20 w-20">
-                <AvatarImage src={initialProfile.avatar_url} />
+                <AvatarImage src={profile.avatar_url} />
                 <AvatarFallback className="text-white/60">
-                  {initialProfile.full_name?.substring(0, 2).toUpperCase() || user?.email?.substring(0, 2).toUpperCase()}
+                  {profile.full_name?.substring(0, 2).toUpperCase() || profile.email?.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div>
                 <CardTitle className="text-2xl font-medium text-white/90">
-                  {initialProfile.full_name || 'Your Profile'}
+                  {profile.full_name || 'Your Profile'}
                 </CardTitle>
                 <CardDescription className="text-white/50">
-                  {user?.email}
+                  {profile.email}
                 </CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            <form action="/api/update-profile" method="POST" className="space-y-4">
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              await updateProfile({
+                full_name: formData.get('full_name') as string,
+                avatar_url: formData.get('avatar_url') as string,
+                website: formData.get('website') as string,
+                bio: formData.get('bio') as string
+              });
+            }} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="full_name">
                   Full Name
@@ -118,7 +90,7 @@ export default async function ProfilePage() {
                   id="full_name"
                   name="full_name"
                   type="text"
-                  defaultValue={initialProfile.full_name}
+                  defaultValue={profile.full_name}
                   className="bg-white/[0.03] border-white/[0.05] text-white/90 focus:border-[#3ecfff]/40 focus:ring-[#3ecfff]/20 placeholder-white/20"
                 />
               </div>
@@ -131,7 +103,7 @@ export default async function ProfilePage() {
                   id="avatar_url"
                   name="avatar_url"
                   type="url"
-                  defaultValue={initialProfile.avatar_url}
+                  defaultValue={profile.avatar_url}
                   className="bg-white/[0.03] border-white/[0.05] text-white/90 focus:border-[#3ecfff]/40 focus:ring-[#3ecfff]/20 placeholder-white/20"
                 />
               </div>
@@ -144,7 +116,7 @@ export default async function ProfilePage() {
                   id="website"
                   name="website"
                   type="url"
-                  defaultValue={initialProfile.website}
+                  defaultValue={profile.website}
                   className="bg-white/[0.03] border-white/[0.05] text-white/90 focus:border-[#3ecfff]/40 focus:ring-[#3ecfff]/20 placeholder-white/20"
                 />
               </div>
@@ -157,7 +129,7 @@ export default async function ProfilePage() {
                   id="bio"
                   name="bio"
                   type="text"
-                  defaultValue={initialProfile.bio}
+                  defaultValue={profile.bio}
                   className="bg-white/[0.03] border-white/[0.05] text-white/90 focus:border-[#3ecfff]/40 focus:ring-[#3ecfff]/20 placeholder-white/20"
                 />
               </div>
@@ -189,8 +161,12 @@ export default async function ProfilePage() {
                 <h3 className="text-sm font-medium text-white/90">Email Notifications</h3>
                 <p className="text-sm text-white/50">Receive email notifications about your account</p>
               </div>
-              <Button variant="cyan">
-                Configure
+              <Button 
+                variant="cyan"
+                onClick={() => updateEmailPreferences({ notifications: true })}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Configuring...' : 'Configure'}
               </Button>
             </div>
             <div className="flex items-center justify-between">
@@ -198,8 +174,15 @@ export default async function ProfilePage() {
                 <h3 className="text-sm font-medium text-white/90">Password</h3>
                 <p className="text-sm text-white/50">Change your password</p>
               </div>
-              <Button variant="cyan">
-                Change
+              <Button 
+                variant="cyan"
+                onClick={() => {
+                  // For demonstration, you might want to show a modal here
+                  updatePassword('current-password', 'new-password');
+                }}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Changing...' : 'Change'}
               </Button>
             </div>
           </CardContent>
