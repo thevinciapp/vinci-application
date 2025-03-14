@@ -23,6 +23,6 @@
     "./**/*", 
     "../src/types/electron.d.ts", 
     "../src/lib/**/*.ts"
-, "../src/core", "../src/services", "../src/store", "../src/utils"  ],
+, "../src/core", "../src/services", "../src/store", "../src/lib/utils"  ],
   "exclude": ["../src/lib/**/*.tsx"]
 }

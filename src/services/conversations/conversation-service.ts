@@ -1,7 +1,6 @@
-import { API_BASE_URL } from '@/src/core/auth/auth-service';
+import { API_BASE_URL } from '@/src/config/api';
 import { Conversation } from '@/src/types';
-import { store } from '@/src/store';
-import { updateConversations } from '@/src/store/actions';
+import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/services/api/api-service';
 
 /**
@@ -18,8 +17,7 @@ export async function fetchConversations(spaceId: string): Promise<Conversation[
     
     const conversations = data.data || [];
     
-    // Update conversations in Redux store
-    store.dispatch(updateConversations(conversations));
+    useStore.getState().updateConversations(conversations);
     
     return conversations;
   } catch (error) {
@@ -47,10 +45,10 @@ export async function createConversation(spaceId: string, title: string): Promis
       throw new Error(data.error || 'Failed to create conversation');
     }
     
-    // Update conversations in Redux store
-    const state = store.getState();
-    const conversations = [data.data, ...state.conversations];
-    store.dispatch(updateConversations(conversations));
+    // Update conversations in Zustand store
+    const store = useStore.getState();
+    const conversations = [data.data, ...store.conversations];
+    store.updateConversations(conversations);
     
     return data.data;
   } catch (error) {
@@ -78,12 +76,12 @@ export async function updateConversation(spaceId: string, conversationId: string
       throw new Error(data.error || 'Failed to update conversation');
     }
     
-    // Update conversations in Redux store
-    const state = store.getState();
-    const conversations = state.conversations.map(c => 
+    // Update conversations in Zustand store
+    const store = useStore.getState();
+    const conversations = store.conversations.map(c => 
       c.id === conversationId ? { ...c, title } : c
     );
-    store.dispatch(updateConversations(conversations));
+    store.updateConversations(conversations);
     
     return data.data;
   } catch (error) {
@@ -107,10 +105,10 @@ export async function deleteConversation(spaceId: string, conversationId: string
       throw new Error(data.error || 'Failed to delete conversation');
     }
     
-    // Update conversations in Redux store
-    const state = store.getState();
-    const conversations = state.conversations.filter(c => c.id !== conversationId);
-    store.dispatch(updateConversations(conversations));
+    // Update conversations in Zustand store
+    const store = useStore.getState();
+    const conversations = store.conversations.filter(c => c.id !== conversationId);
+    store.updateConversations(conversations);
     
     return true;
   } catch (error) {

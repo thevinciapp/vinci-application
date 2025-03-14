@@ -1,5 +1,5 @@
 import { API_BASE_URL, refreshTokens, redirectToSignIn, tokenExpiryTime } from '@/src/core/auth/auth-service';
-import { store } from '@/src/store';
+import { useStore } from '@/src/store';
 
 /**
  * Core service for authenticated API requests
@@ -12,13 +12,13 @@ import { store } from '@/src/store';
 export async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
   try {
     // Get current state 
-    const state = store.getState();
+    const store = useStore.getState();
     
     // Check if access token is expired
     const isTokenExpired = !tokenExpiryTime || Date.now() >= tokenExpiryTime;
     
     // If token is expired and we have a refresh token, try to refresh
-    if (isTokenExpired && state.refreshToken) {
+    if (isTokenExpired && store.refreshToken) {
       const refreshed = await refreshTokens();
       if (!refreshed) {
         console.error('[ELECTRON] Failed to refresh tokens and no valid token available');
@@ -28,10 +28,10 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}): Pro
     }
     
     // Get updated state after possible refresh
-    const updatedState = store.getState();
+    const updatedStore = useStore.getState();
     
     // If we still don't have a valid access token, redirect and fail
-    if (!updatedState.accessToken) {
+    if (!updatedStore.accessToken) {
       console.error('[ELECTRON] No authentication token available');
       await redirectToSignIn();
       throw new Error('No authentication token available');
@@ -39,22 +39,22 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}): Pro
 
     // Add auth header
     const headers = new Headers(options.headers);
-    headers.set('Authorization', `Bearer ${updatedState.accessToken}`);
+    headers.set('Authorization', `Bearer ${updatedStore.accessToken}`);
     
     // Make the request
     const response = await fetch(url, { ...options, headers });
     
     // If we get a 401 or 403, try to refresh the token once
-    if ((response.status === 401 || response.status === 403) && updatedState.refreshToken) {
+    if ((response.status === 401 || response.status === 403) && updatedStore.refreshToken) {
       console.log(`[ELECTRON] Got ${response.status}, attempting token refresh`);
       const refreshed = await refreshTokens();
       
       // Get the latest state after refresh attempt
-      const refreshedState = store.getState();
+      const refreshedStore = useStore.getState();
       
-      if (refreshed && refreshedState.accessToken) {
+      if (refreshed && refreshedStore.accessToken) {
         // Retry the request with the new token
-        headers.set('Authorization', `Bearer ${refreshedState.accessToken}`);
+        headers.set('Authorization', `Bearer ${refreshedStore.accessToken}`);
         return fetch(url, { ...options, headers });
       } else {
         // If refresh failed and we got 401/403, redirect to sign-in

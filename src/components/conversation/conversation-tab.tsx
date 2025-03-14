@@ -6,9 +6,9 @@ import {
   TooltipTrigger,
   BaseTab
 } from "vinci-ui"
-import { cn } from '@/src/types/utils'
+import { cn } from '@/src/lib/utils/utils'
 import { useState } from 'react'
-import { useAppState } from '@/src/types/app-state-context'
+import { useStore } from '@/src/store'
 
 export function ServerDrivenConversationTab({
   onCreateConversation,
@@ -16,9 +16,7 @@ export function ServerDrivenConversationTab({
   onCreateConversation: (title: string) => Promise<void>;
 }) {
   const [isCreating, setIsCreating] = useState(false);
-  const { appState } = useAppState();
-  const activeSpace = appState.activeSpace;
-  const conversations = appState.conversations || [];
+  const { activeSpace, conversations } = useStore();
   const activeConversation = conversations.find(conv => conv.space_id === activeSpace?.id) || null;
 
   const handleNewConversation = async () => {

@@ -1,7 +1,5 @@
 import { AppStateResult } from '@/src/types';
-import { store } from '@/src/store';
-import { setAppState } from '@/src/store/actions';
-import { initialState } from '@/src/store';
+import { useStore } from '@/src/store';
 import { fetchSpaces, fetchActiveSpace } from '@/src/services/spaces/space-service';
 import { fetchConversations } from '@/src/services/conversations/conversation-service';
 import { fetchMessages } from '@/src/services/messages/message-service';
@@ -15,7 +13,7 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
   console.log('[ELECTRON] Fetching initial app data...');
   
   // Get current token state
-  const state = store.getState();
+  const store = useStore.getState();
   
   try {
     // First fetch user profile to validate session 
@@ -23,7 +21,7 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
       const user = await fetchUserProfile();
       if (!user) {
         return {
-          ...initialState,
+          ...useStore.getState(),
           error: 'No active session',
           lastFetched: Date.now(),
           user: null
@@ -32,7 +30,7 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
     } catch (error) {
       console.error('[ELECTRON] Failed to fetch user session:', error);
       return {
-        ...initialState,
+        ...useStore.getState(),
         error: 'Failed to fetch user session',
         lastFetched: Date.now(),
         user: null
@@ -42,7 +40,7 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
     // Check if server is available
     if (!await checkServerHealth()) {
       return {
-        ...initialState,
+        ...useStore.getState(),
         error: 'Server not available',
         lastFetched: Date.now(),
         user: null
@@ -50,10 +48,10 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
     }
     
     // Check if we have an access token
-    if (!state.accessToken) {
+    if (!store.accessToken) {
       console.log('[ELECTRON] No auth token available, deferring data fetch');
       return {
-        ...initialState,
+        ...useStore.getState(),
         error: 'Authentication required',
         lastFetched: Date.now(),
         user: null
@@ -93,14 +91,14 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
       messages,
       initialDataLoaded: true,
       lastFetched: Date.now(),
-      user: store.getState().user,
-      accessToken: store.getState().accessToken,
-      refreshToken: store.getState().refreshToken
+      user: store.user,
+      accessToken: store.accessToken,
+      refreshToken: store.refreshToken
     };
   } catch (error) {
     console.error('[ELECTRON] Fetch initial data failed:', error);
     return {
-      ...initialState,
+      ...useStore.getState(),
       error: error instanceof Error ? error.message : 'Unknown error',
       lastFetched: Date.now()
     };
@@ -114,14 +112,14 @@ export async function refreshAppData(): Promise<AppStateResult> {
   try {
     const freshData = await fetchInitialAppData();
     if (!freshData.error) {
-      store.dispatch(setAppState(freshData));
-      // State is automatically synchronized with electron-redux
+      const store = useStore.getState();
+      store.setAppState(freshData);
     }
     return freshData;
   } catch (error) {
     console.error('[ELECTRON] Refresh failed:', error);
     return {
-      ...store.getState(),
+      ...useStore.getState(),
       error: error instanceof Error ? error.message : 'Unknown error',
       lastFetched: Date.now()
     };

@@ -1,8 +1,9 @@
 import { BrowserWindow, screen, app } from 'electron';
 import { join } from 'path';
-import { store } from '../../store';
+import { useStore } from '@/src/store';
 import { CommandType } from '../../../electron/types';
 import { APP_BASE_URL } from '../auth/auth-service';
+import { CommandCenterEvents } from '../ipc/constants';
 
 // Global window references
 let mainWindow: BrowserWindow | null = null;
@@ -66,7 +67,8 @@ export async function createCommandCenterWindow() {
     if (!commandCenterWindow || commandCenterWindow.isDestroyed()) return;
     console.log('[ELECTRON] Sending app state to command center');
     try {
-      commandCenterWindow.webContents.send('init-app-state', store.getState());
+      const state = useStore.getState();
+      commandCenterWindow.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: state });
     } catch (error) {
       console.error('Error sending initial app state to command center:', error);
     }
@@ -120,7 +122,8 @@ export async function createMainWindow(): Promise<BrowserWindow> {
     if (mainWindow && !mainWindow.isDestroyed()) {
       console.log('[ELECTRON] Sending initial app state to main window');
       try {
-        mainWindow.webContents.send('init-app-state', store.getState());
+        const state = useStore.getState();
+      mainWindow.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: state });
       } catch (error) {
         console.error('Error sending initial app state to main window:', error);
       }
@@ -142,7 +145,8 @@ export async function toggleCommandCenterWindow() {
     await createCommandCenterWindow();
     if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
       console.log('[ELECTRON] Sending app state to command center on toggle');
-      commandCenterWindow.webContents.send('init-app-state', store.getState());
+      const state = useStore.getState();
+      commandCenterWindow.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: state });
       commandCenterWindow.show();
       commandCenterWindow.focus();
     }
@@ -183,7 +187,7 @@ export function getDialogState(): boolean {
  */
 export function setCommandType(commandType: CommandType): void {
   if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
-    commandCenterWindow.webContents.send("set-command-type", commandType);
+    commandCenterWindow.webContents.send(CommandCenterEvents.SET_TYPE, { success: true, data: { type: commandType } });
     commandCenterWindow.focus();
   }
 }

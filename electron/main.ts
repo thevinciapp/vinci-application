@@ -3,7 +3,7 @@ import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
 // Import utilities
-import { isMac } from '@/src/utils/env-utils';
+import { isMac } from '@/src/lib/utils/env-utils';
 
 // Import core modules
 import { registerIpcHandlers } from '@/src/core/ipc/ipc-handlers';
@@ -20,9 +20,8 @@ import {
   fetchInitialAppData
 } from '@/src/services/app-data/app-data-service';
 
-// Import Redux store
-import { store } from '@/src/store';
-import { setAppState, setAccessToken, setRefreshToken } from '@/src/store/actions';
+// Import Zustand store
+import { useStore } from '@/src/store';
 
 // Check for secure storage directory
 const STORAGE_DIR = join(app.getPath('userData'), 'secure');
@@ -60,17 +59,17 @@ async function initialize() {
     registerGlobalShortcuts();
 
     // Check token state
-    const state = store.getState();
+    const store = useStore.getState();
     
     // If no auth tokens, redirect to sign-in
-    if (!state.accessToken && !state.refreshToken) {
+    if (!store.accessToken && !store.refreshToken) {
       console.log('[ELECTRON] No auth tokens available, redirecting to sign-in');
       mainWindow.loadURL('http://localhost:3000/sign-in');
     } else {
       // Try to load data with saved token
       try {
         // If we have a refresh token but no access token, try to refresh
-        if (!state.accessToken && state.refreshToken) {
+        if (!store.accessToken && store.refreshToken) {
           console.log('[ELECTRON] No access token, attempting refresh with saved refresh token');
           const refreshed = await refreshTokens();
           if (!refreshed) {
@@ -84,7 +83,7 @@ async function initialize() {
         // Load initial app data
         const freshData = await fetchInitialAppData();
         if (!freshData.error) {
-          store.dispatch(setAppState(freshData));
+          store.setAppState(freshData);
           console.log('[ELECTRON] Initial data loaded with saved auth token');
         } else {
           console.error('[ELECTRON] Failed to load initial data:', freshData.error);

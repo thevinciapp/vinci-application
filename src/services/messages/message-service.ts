@@ -1,7 +1,6 @@
 import { API_BASE_URL } from '@/src/core/auth/auth-service';
 import { Message } from '@/src/types';
-import { store } from '@/src/store';
-import { updateMessages } from '@/src/store/actions';
+import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/services/api/api-service';
 
 /**
@@ -18,8 +17,8 @@ export async function fetchMessages(conversationId: string): Promise<Message[]> 
     
     const messages = data.data || [];
     
-    // Update messages in Redux store
-    store.dispatch(updateMessages(messages));
+    // Update messages in Zustand store
+    useStore.getState().updateMessages(messages);
     
     return messages;
   } catch (error) {
@@ -33,13 +32,13 @@ export async function fetchMessages(conversationId: string): Promise<Message[]> 
  */
 export async function sendChatMessage(conversationId: string, content: string): Promise<Message> {
   try {
-    const state = store.getState();
-    if (!state.activeSpace) {
+    const store = useStore.getState();
+    if (!store.activeSpace) {
       throw new Error('No active space found');
     }
     
     const response = await fetchWithAuth(
-      `${API_BASE_URL}/api/spaces/${state.activeSpace.id}/conversations/${conversationId}/chat`,
+      `${API_BASE_URL}/api/spaces/${store.activeSpace.id}/conversations/${conversationId}/chat`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -53,9 +52,9 @@ export async function sendChatMessage(conversationId: string, content: string): 
       throw new Error(data.error || 'Failed to send message');
     }
     
-    // Update messages in Redux store
-    const messages = [...state.messages, data.data];
-    store.dispatch(updateMessages(messages));
+    // Update messages in Zustand store
+    const messages = [...store.messages, data.data];
+    store.updateMessages(messages);
     
     return data.data;
   } catch (error) {
@@ -69,13 +68,13 @@ export async function sendChatMessage(conversationId: string, content: string): 
  */
 export async function deleteMessage(conversationId: string, messageId: string): Promise<boolean> {
   try {
-    const state = store.getState();
-    if (!state.activeSpace) {
+    const store = useStore.getState();
+    if (!store.activeSpace) {
       throw new Error('No active space found');
     }
     
     const response = await fetchWithAuth(
-      `${API_BASE_URL}/api/spaces/${state.activeSpace.id}/conversations/${conversationId}/messages/${messageId}`,
+      `${API_BASE_URL}/api/spaces/${store.activeSpace.id}/conversations/${conversationId}/messages/${messageId}`,
       { method: 'DELETE' }
     );
     
@@ -85,9 +84,9 @@ export async function deleteMessage(conversationId: string, messageId: string): 
       throw new Error(data.error || 'Failed to delete message');
     }
     
-    // Update messages in Redux store
-    const messages = state.messages.filter(m => m.id !== messageId);
-    store.dispatch(updateMessages(messages));
+    // Update messages in Zustand store
+    const messages = store.messages.filter(m => m.id !== messageId);
+    store.updateMessages(messages);
     
     return true;
   } catch (error) {
@@ -101,13 +100,13 @@ export async function deleteMessage(conversationId: string, messageId: string): 
  */
 export async function updateMessage(conversationId: string, messageId: string, content: string): Promise<Message> {
   try {
-    const state = store.getState();
-    if (!state.activeSpace) {
+    const store = useStore.getState();
+    if (!store.activeSpace) {
       throw new Error('No active space found');
     }
     
     const response = await fetchWithAuth(
-      `${API_BASE_URL}/api/spaces/${state.activeSpace.id}/conversations/${conversationId}/messages/${messageId}`,
+      `${API_BASE_URL}/api/spaces/${store.activeSpace.id}/conversations/${conversationId}/messages/${messageId}`,
       {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -121,9 +120,9 @@ export async function updateMessage(conversationId: string, messageId: string, c
       throw new Error(data.error || 'Failed to update message');
     }
     
-    // Update messages in Redux store
-    const messages = state.messages.map(m => m.id === messageId ? { ...m, content } : m);
-    store.dispatch(updateMessages(messages));
+    // Update messages in Zustand store
+    const messages = store.messages.map(m => m.id === messageId ? { ...m, content } : m);
+    store.updateMessages(messages);
     
     return data.data;
   } catch (error) {

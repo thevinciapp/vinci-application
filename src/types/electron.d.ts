@@ -2,24 +2,82 @@
 /**
  * TypeScript definitions for Electron API
  * This file defines types for the APIs exposed through the preload script
+ * and augments the Window interface to include our IPC communication types
  */
 
+import { AuthEvents, AppStateEvents, CommandCenterEvents, SpaceEvents, MessageEvents } from '@/src/core/ipc/constants';
+import { IpcResponse, IpcStateResponse } from '.';
+
+// Types for API responses
+type ApiResponse<T = any> = {
+  success: boolean;
+  data?: T;
+  error?: string;
+};
+
+// Types for auth-related responses
+type AuthTokenResponse = {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: number;
+};
+
+// Types for space-related data
+type Space = {
+  id: string;
+  name: string;
+  description?: string;
+  model?: string;
+  provider?: string;
+  conversations?: Conversation[];
+};
+
+// Types for conversation-related data
+type Conversation = {
+  id: string;
+  spaceId: string;
+  title: string;
+  messages: Message[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+// Types for message-related data
+type Message = {
+  id: string;
+  conversationId: string;
+  content: string;
+  role: 'user' | 'assistant' | 'system';
+  createdAt: string;
+};
+
+// Types for command center data
+type CommandCenterState = {
+  isOpen: boolean;
+  activeCommand?: string;
+  dialogType?: string;
+  dialogData?: any;
+};
+
+/**
+ * Main ElectronAPI interface that defines all available IPC methods
+ */
 interface ElectronAPI {
   /**
    * Set authentication tokens for Electron main process
    */
-  setAuthTokens?: (accessToken: string, refreshToken: string) => Promise<boolean>;
+  [AuthEvents.SET_AUTH_TOKENS]?: (accessToken: string, refreshToken: string) => Promise<boolean>;
   
   /**
    * Get current authentication token from Electron main process
    * Will automatically refresh if needed using the refresh token
    */
-  getAuthToken?: () => Promise<string | null>;
+  [AuthEvents.GET_SESSION]?: () => Promise<string | null>;
   
   /**
    * Force refresh of authentication tokens
    */
-  refreshAuthTokens?: () => Promise<{ 
+  [AuthEvents.REFRESH_TOKEN]?: () => Promise<{ 
     success: boolean; 
     accessToken?: string; 
     expiresAt?: number;
@@ -29,34 +87,30 @@ interface ElectronAPI {
   /**
    * Sign out and clear all tokens
    */
-  signOut?: () => Promise<boolean>;
+  [AuthEvents.SIGN_OUT]?: () => Promise<boolean>;
   
   /**
    * Get the current application state
    */
-  getAppState?: () => Promise<{
-    spaces: any[];
-    activeSpace: any | null;
-    conversations: any[];
-    initialDataLoaded: boolean;
-    lastFetched: number | null;
+  [AppStateEvents.GET_STATE]?: () => Promise<{
+    success: boolean;
+    data?: AppState;
+    error?: string;
   }>;
 
   /**
    * Refresh the application data from the server
    */
-  refreshAppData?: () => Promise<{
-    spaces: any[];
-    activeSpace: any | null;
-    conversations: any[];
-    initialDataLoaded: boolean;
-    lastFetched: number;
+  [AppStateEvents.REFRESH_DATA]?: () => Promise<{
+    success: boolean;
+    data?: AppState;
+    error?: string;
   }>;
 
   /**
    * Get conversations for a specific space
    */
-  getSpaceConversations?: (spaceId: string) => Promise<{
+  [SpaceEvents.GET_CONVERSATIONS]?: (spaceId: string) => Promise<{
     success: boolean;
     data?: any[];
     error?: string;
@@ -65,7 +119,7 @@ interface ElectronAPI {
   /**
    * Get messages for a specific conversation
    */
-  getConversationMessages?: (conversationId: string) => Promise<{
+  [MessageEvents.GET_MESSAGES]?: (conversationId: string) => Promise<{
     success: boolean;
     data?: any[];
     error?: string;
@@ -74,7 +128,7 @@ interface ElectronAPI {
   /**
    * Update a space with new data
    */
-  updateSpace?: (spaceId: string, spaceData: any) => Promise<{
+  [SpaceEvents.UPDATE_SPACE]?: (spaceId: string, spaceData: any) => Promise<{
     success: boolean;
     data?: any;
     error?: string;
@@ -83,7 +137,7 @@ interface ElectronAPI {
   /**
    * Update a space's model and provider
    */
-  updateSpaceModel?: (spaceId: string, model: string, provider: string) => Promise<{
+  [SpaceEvents.UPDATE_MODEL]?: (spaceId: string, model: string, provider: string) => Promise<{
     success: boolean;
     error?: string;
   }>;
@@ -91,7 +145,7 @@ interface ElectronAPI {
   /**
    * Set the active space
    */
-  setActiveSpace?: (spaceId: string) => Promise<{
+  [SpaceEvents.SET_ACTIVE]?: (spaceId: string) => Promise<{
     success: boolean;
     data?: any;
     error?: string;
@@ -100,91 +154,98 @@ interface ElectronAPI {
   /**
    * Sync application state changes to other windows
    */
-  syncAppState?: (newState: any) => void;
+  [AppStateEvents.SYNC_STATE]?: (newState: any) => void;
 
   /**
    * Listen for initialization of app state
    */
-  onInitAppState?: (callback: (event: any, state: any) => void) => () => void;
+  [AppStateEvents.GET_STATE]?: (callback: (event: any, state: any) => void) => () => void;
 
   /**
    * Listen for app data updates
    */
-  onAppDataUpdated?: (callback: (event: any, state: any) => void) => () => void;
+  [AppStateEvents.STATE_UPDATED]?: (callback: (event: Electron.IpcRendererEvent, update: {
+    success: boolean;
+    data?: AppState;
+    error?: string;
+  }) => void) => () => void;
   /**
    * Open a specific command type
    */
-  openCommandType?: (commandType: string) => void;
+  [CommandCenterEvents.OPEN]?: (commandType: string) => void;
 
   /**
    * Close the command center window
    */
-  closeCommandCenter?: () => void;
+  [CommandCenterEvents.CLOSE]?: () => void;
 
   /**
    * Refresh command center data
    */
-  refreshCommandCenter?: () => void;
+  [CommandCenterEvents.REFRESH]?: () => void;
 
   /**
    * Register listener for command center toggle events
    */
-  onToggleCommandCenter?: (callback: () => void) => () => void;
+  [CommandCenterEvents.TOGGLE]?: (callback: () => void) => () => void;
 
   /**
    * Register listener for refreshing command center
    */
-  onRefreshCommandCenter?: (callback: () => void) => () => void;
+  [CommandCenterEvents.REFRESH]?: (callback: () => void) => () => void;
 
   /**
    * Register listener for synced command center state across all windows
    */
-  onSyncCommandCenterState?: (callback: (event: any, action: string, data?: any) => void) => () => void;
+  [CommandCenterEvents.SYNC_STATE]?: (callback: (event: any, action: string, data?: any) => void) => () => void;
 
   /**
    * Open a dialog with a specific type and data
    */
-  openDialog?: (dialogType: string, data: any) => void;
+  /**
+   * Open a dialog with a specific type and data
+   */
+  [CommandCenterEvents.OPEN_DIALOG]?: (dialogType: string, data: any) => void;
 
   /**
    * Notify the main process that a dialog has opened
    */
-  notifyDialogOpened?: () => void;
+  [CommandCenterEvents.DIALOG_OPENED]?: () => void;
 
   /**
    * Notify the main process that a dialog has closed
    */
-  notifyDialogClosed?: () => void;
+  [CommandCenterEvents.DIALOG_CLOSED]?: () => void;
 
   /**
    * Register listener for opening dialogs
    */
-  onOpenDialog?: (callback: (event: any, dialogType: string, data: any) => void) => () => void;
+  [CommandCenterEvents.ON_DIALOG_OPEN]?: (callback: (event: any, dialogType: string, data: any) => void) => () => void;
 
   /**
    * Check if a command type is active
    */
-  checkCommandType?: (commandType: string) => void;
+  [CommandCenterEvents.CHECK_TYPE]?: (commandType: string) => void;
 
   /**
    * Register listener for checking command type
    */
-  onCheckCommandType?: (callback: (event: any, commandType: string) => void) => () => void;
+  [CommandCenterEvents.ON_CHECK_TYPE]?: (callback: (event: any, commandType: string) => void) => () => void;
 
   /**
    * Window resize listener
    */
-  onWindowResize?: (callback: (event: any, dimensions: { width: number; height: number }) => void) => () => void;
+  [CommandCenterEvents.ON_RESIZE]?: (callback: (event: any, dimensions: { width: number; height: number }) => void) => () => void;
 
   /**
    * Remove window resize listener
    */
-  removeWindowResizeListener?: () => void;
+  [CommandCenterEvents.REMOVE_RESIZE_LISTENER]?: () => void;
 
   /**
    * Search for files based on a search term
    */
-  searchFiles: (searchTerm: string) => Promise<Array<{
+  [CommandCenterEvents.SEARCH_FILES]?: (searchTerm: string) => Promise<Array<{
     path: string;
     name: string;
     type: string;
@@ -195,7 +256,7 @@ interface ElectronAPI {
   /**
    * Read file content using IPC
    */
-  readFile: (filePath: string) => Promise<{
+  [CommandCenterEvents.READ_FILE]?: (filePath: string) => Promise<{
     content: string;
     metadata?: any;
   }>;
@@ -203,24 +264,66 @@ interface ElectronAPI {
   /**
    * Test function to check if Electron API is available
    */
-  ping: () => string;
+  [CommandCenterEvents.PING]?: () => string;
 
   /**
    * Toggle command center visibility
    */
-  toggleCommandCenter: () => void;
+  [CommandCenterEvents.TOGGLE]?: () => void;
 
   /**
    * Register listener for setting command type
    */
-  onSetCommandType: (callback: (event: any, commandType: string) => void) => () => void;
+  [CommandCenterEvents.ON_SET_TYPE]?: (callback: (event: any, commandType: string) => void) => () => void;
 }
 
 /**
- * Augment the global Window interface to include electronAPI
+ * Augment the global Window interface to include electronAPI and IPC events
  */
 declare global {
   interface Window {
     electronAPI: ElectronAPI;
+    
+    /**
+     * Application-specific global properties
+     */
+    __SPATIAL_APP_VERSION__: string;
+    __SPATIAL_ENV__: 'development' | 'production' | 'test';
+    __SPATIAL_PLATFORM__: 'darwin' | 'win32' | 'linux';
+    
+    /**
+     * IPC Event Handlers
+     * These are injected by the preload script
+     */
+    ipcRenderer: {
+      // Standard IPC methods
+      invoke<T = any>(channel: string, ...args: any[]): Promise<T>;
+      send(channel: string, ...args: any[]): void;
+      on(channel: string, listener: (event: any, ...args: any[]) => void): void;
+      once(channel: string, listener: (event: any, ...args: any[]) => void): void;
+      removeListener(channel: string, listener: Function): void;
+      removeAllListeners(channel: string): void;
+      
+      // Typed event handlers for our IPC events
+      on(event: typeof AuthEvents[keyof typeof AuthEvents], listener: (event: any, ...args: any[]) => void): void;
+      on(event: typeof AppStateEvents[keyof typeof AppStateEvents], listener: (event: any, state: AppState) => void): void;
+      on(event: typeof CommandCenterEvents[keyof typeof CommandCenterEvents], listener: (event: any, ...args: any[]) => void): void;
+      on(event: typeof SpaceEvents[keyof typeof SpaceEvents], listener: (event: any, ...args: any[]) => void): void;
+      on(event: typeof MessageEvents[keyof typeof MessageEvents], listener: (event: any, ...args: any[]) => void): void;
+    };
   }
 }
+
+// Initialize electronAPI
+window.electronAPI = {} as ElectronAPI;
+
+// Export types for use in other files
+export type {
+  ApiResponse,
+  AuthTokenResponse,
+  Space,
+  Conversation,
+  Message,
+  CommandCenterState,
+  ElectronAPI
+};

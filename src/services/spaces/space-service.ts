@@ -1,7 +1,6 @@
 import { API_BASE_URL } from '@/src/core/auth/auth-service';
 import { Space } from '@/src/types';
-import { store } from '@/src/store';
-import { updateSpaces, setActiveSpace } from '@/src/store/actions';
+import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/services/api/api-service';
 import { fetchConversations } from '@/src/services/conversations/conversation-service';
 import { fetchMessages } from '@/src/services/messages/message-service';
@@ -18,8 +17,8 @@ export async function fetchSpaces(): Promise<Space[]> {
       throw new Error(data.error || 'Failed to fetch spaces');
     }
     
-    // Update spaces in Redux store
-    store.dispatch(updateSpaces(data.data || []));
+    // Update spaces in Zustand store
+    useStore.getState().updateSpaces(data.data || []);
     
     return data.data || [];
   } catch (error) {
@@ -42,9 +41,9 @@ export async function fetchActiveSpace(): Promise<Space | null> {
     
     const activeSpace = data.data?.activeSpace || null;
     
-    // Update active space in Redux store
+    // Update active space in Zustand store
     if (activeSpace) {
-      store.dispatch(setActiveSpace(activeSpace));
+      useStore.getState().setActiveSpace(activeSpace);
     }
     
     return activeSpace;
@@ -73,16 +72,16 @@ export async function updateSpace(spaceId: string, spaceData: Partial<Space>): P
       throw new Error(data.error || 'Failed to update space');
     }
     
-    // Update Redux store
-    const state = store.getState();
-    const spaces = state.spaces.map(s => s.id === spaceId ? { ...s, ...data.data } : s);
-    store.dispatch(updateSpaces(spaces));
+    // Update Zustand store
+    const store = useStore.getState();
+    const spaces = store.spaces.map(s => s.id === spaceId ? { ...s, ...data.data } : s);
+    store.updateSpaces(spaces);
     
     // If this is the active space, update that too
-    if (state.activeSpace && state.activeSpace.id === spaceId) {
+    if (store.activeSpace && store.activeSpace.id === spaceId) {
       const updatedSpace = spaces.find(s => s.id === spaceId);
       if (updatedSpace) {
-        store.dispatch(setActiveSpace(updatedSpace));
+        store.setActiveSpace(updatedSpace);
       }
     }
     
@@ -112,10 +111,10 @@ export async function createSpace(spaceData: Partial<Space>): Promise<Space> {
       throw new Error(data.error || 'Failed to create space');
     }
     
-    // Update Redux store - add new space to list
-    const state = store.getState();
-    const spaces = [...state.spaces, data.data];
-    store.dispatch(updateSpaces(spaces));
+    // Update Zustand store - add new space to list
+    const store = useStore.getState();
+    const spaces = [...store.spaces, data.data];
+    store.updateSpaces(spaces);
     
     return data.data;
   } catch (error) {
@@ -139,14 +138,14 @@ export async function deleteSpace(spaceId: string): Promise<boolean> {
       throw new Error(data.error || 'Failed to delete space');
     }
     
-    // Update Redux store - remove deleted space
-    const state = store.getState();
-    const spaces = state.spaces.filter(s => s.id !== spaceId);
-    store.dispatch(updateSpaces(spaces));
+    // Update Zustand store - remove deleted space
+    const store = useStore.getState();
+    const spaces = store.spaces.filter(s => s.id !== spaceId);
+    store.updateSpaces(spaces);
     
     // If this was the active space, clear it
-    if (state.activeSpace && state.activeSpace.id === spaceId) {
-      store.dispatch(setActiveSpace(null));
+    if (store.activeSpace && store.activeSpace.id === spaceId) {
+      store.setActiveSpace(null);
     }
     
     return true;
@@ -178,22 +177,22 @@ export async function updateSpaceModel(spaceId: string, modelId: string, provide
       throw new Error(data.error || 'Failed to update space model');
     }
     
-    // Update the space in our Redux store
-    const state = store.getState();
-    if (state.spaces) {
+    // Update the space in our Zustand store
+    const store = useStore.getState();
+    if (store.spaces) {
       // Update spaces array
-      const spaces = state.spaces.map(space => 
+      const spaces = store.spaces.map(space => 
         space.id === spaceId ? { ...space, model: modelId, provider } : space
       );
-      store.dispatch(updateSpaces(spaces));
+      store.updateSpaces(spaces);
       
       // Update active space if needed
-      if (state.activeSpace && state.activeSpace.id === spaceId) {
-        store.dispatch(setActiveSpace({
-          ...state.activeSpace,
+      if (store.activeSpace && store.activeSpace.id === spaceId) {
+        store.setActiveSpace({
+          ...store.activeSpace,
           model: modelId,
           provider
-        }));
+        });
       }
     }
     
@@ -240,13 +239,13 @@ export async function setActiveSpaceInAPI(spaceId: string) {
       throw new Error(data.error || 'Failed to set active space');
     }
     
-    // Find the space in our spaces array from Redux store
-    const state = store.getState();
-    const space = state.spaces?.find(s => s.id === spaceId);
+    // Find the space in our spaces array from Zustand store
+    const store = useStore.getState();
+    const space = store.spaces?.find(s => s.id === spaceId);
     
     if (space) {
-      // Update the active space in our Redux store
-      store.dispatch(setActiveSpace(space));
+      // Update the active space in our Zustand store
+      store.setActiveSpace(space);
       
       // Also fetch the conversations for this space
       const conversations = await fetchConversations(spaceId);
@@ -260,9 +259,9 @@ export async function setActiveSpaceInAPI(spaceId: string) {
         }
       }
       
-      // State is automatically synchronized with electron-redux
+      // State is automatically synchronized with Zustand
     } else {
-      console.warn(`[ELECTRON] Space with ID ${spaceId} not found in Redux store`);
+      console.warn(`[ELECTRON] Space with ID ${spaceId} not found in Zustand store`);
     }
     
     return data.data;

@@ -1,7 +1,30 @@
 import { User } from '@supabase/supabase-js';
 import { FC } from 'react';
+import { AuthEvents, AppStateEvents, CommandCenterEvents, SpaceEvents, MessageEvents } from '@/src/core/ipc/constants';
 
-// Core Models
+export type AuthEventType = typeof AuthEvents[keyof typeof AuthEvents];
+export type AppStateEventType = typeof AppStateEvents[keyof typeof AppStateEvents];
+export type CommandCenterEventType = typeof CommandCenterEvents[keyof typeof CommandCenterEvents];
+export type SpaceEventType = typeof SpaceEvents[keyof typeof SpaceEvents];
+export type MessageEventType = typeof MessageEvents[keyof typeof MessageEvents];
+
+// IPC Response Types
+export interface IpcResponse {
+  success: boolean;
+  data?: any;
+  error?: string;
+}
+
+export interface IpcStateResponse extends IpcResponse {
+  data?: {
+    spaces: Space[];
+    activeSpace: Space | null;
+    conversations: Conversation[];
+    initialDataLoaded: boolean;
+    lastFetched: number | null;
+  };
+}
+
 export interface Space {
   id: string;
   name: string;
@@ -230,10 +253,3 @@ export const PROVIDER_NAMES: Record<Provider, string> = {
   togetherai: 'Together AI',
   perplexity: 'Perplexity'
 };
-
-// Add to global Window interface
-declare global {
-  interface Window {
-    openSimilarMessages?: (messages: SimilarMessage[]) => void;
-  }
-}

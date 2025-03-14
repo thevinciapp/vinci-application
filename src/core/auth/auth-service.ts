@@ -1,22 +1,25 @@
 import { BrowserWindow } from 'electron';
 import { join } from 'path';
 import { writeFile, readFile, unlink } from 'fs';
-import { existsSync } from 'fs';
-import { store } from '../../store';
-import { setUser, setAppState, setAccessToken, setRefreshToken } from '../../store/actions';
-import { User } from '@supabase/supabase-js';
-import { AppStateResult } from '../../../electron/types';
-import { fetchWithAuth } from '../../services/api/api-service';
-import { initialState } from '../../store';
+import { useStore } from '@/src/store';
+import { APP_BASE_URL, API_BASE_URL } from '@/src/config/api';
 
-// Constants
-const APP_BASE_URL = 'http://localhost:3000';
-const API_BASE_URL = 'http://localhost:3001';
+interface SignInResponse {
+  status: string;
+  data?: {
+    session?: {
+      access_token: string;
+      refresh_token: string;
+      user?: any;
+    };
+  };
+  error?: string;
+}
+
 const STORAGE_DIR = join(process.env.userData || '', 'secure');
 const STORAGE_ACCESS_TOKEN_PATH = join(STORAGE_DIR, 'access_token.enc');
 const STORAGE_REFRESH_TOKEN_PATH = join(STORAGE_DIR, 'refresh_token.enc');
 
-// Token expiry time, not in store
 let tokenExpiryTime: number | null = null;
 
 /**
@@ -65,7 +68,7 @@ export async function saveAuthData(access: string, refresh: string, safeStorage:
  */
 export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{ accessToken: string | null, refreshToken: string | null }> {
   // Get current token state
-  const state = store.getState();
+  const store = useStore.getState();
   return new Promise((resolve) => {
     if (!safeStorage.isEncryptionAvailable()) {
       console.error('[ELECTRON] Encryption not available during load');
@@ -91,7 +94,7 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
           try {
             const refreshToken = safeStorage.decryptString(encryptedRefreshToken);
             console.log('[ELECTRON] Refresh token loaded successfully');
-            store.dispatch(setRefreshToken(refreshToken));
+            store.setRefreshToken(refreshToken);
             resolve({ accessToken: null, refreshToken });
           } catch (decryptError) {
             console.error('[ELECTRON] Failed to decrypt refresh token:', decryptError);
@@ -104,7 +107,7 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
       
       try {
         const accessToken = safeStorage.decryptString(encryptedAccessToken);
-        store.dispatch(setAccessToken(accessToken));
+        store.setAccessToken(accessToken);
         
         // Now load refresh token
         readFile(STORAGE_REFRESH_TOKEN_PATH, (err, encryptedRefreshToken) => {
@@ -117,7 +120,7 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
           try {
             const refreshToken = safeStorage.decryptString(encryptedRefreshToken);
             console.log('[ELECTRON] Both tokens loaded successfully');
-            store.dispatch(setRefreshToken(refreshToken));
+            store.setRefreshToken(refreshToken);
             resolve({ accessToken, refreshToken });
           } catch (decryptError) {
             console.error('[ELECTRON] Failed to decrypt refresh token:', decryptError);
@@ -138,7 +141,7 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
           try {
             const refreshToken = safeStorage.decryptString(encryptedRefreshToken);
             console.log('[ELECTRON] Only refresh token loaded successfully');
-            store.dispatch(setRefreshToken(refreshToken));
+            store.setRefreshToken(refreshToken);
             resolve({ accessToken: null, refreshToken });
           } catch (decryptError) {
             console.error('[ELECTRON] Failed to decrypt refresh token:', decryptError);
@@ -153,7 +156,7 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
 /**
  * Delete authentication data
  */
-export async function deleteAuthData(): Promise<boolean> {
+export async function clearAuthData(): Promise<boolean> {
   let accessDeleted = false;
   let refreshDeleted = false;
   
@@ -189,13 +192,14 @@ export async function deleteAuthData(): Promise<boolean> {
 export async function redirectToSignIn(): Promise<void> {
   console.log('[ELECTRON] Redirecting to sign-in page');
   
-  // Clear tokens in Redux store
-  store.dispatch(setAccessToken(null));
-  store.dispatch(setRefreshToken(null));
+  // Clear tokens in Zustand store
+  const store = useStore.getState();
+  store.setAccessToken(null);
+  store.setRefreshToken(null);
   tokenExpiryTime = null;
   
-  // Reset app state using Redux
-  store.dispatch(setAppState({ 
+  // Reset app state using Zustand
+  store.setAppState({ 
     spaces: [],
     activeSpace: null,
     conversations: [],
@@ -203,10 +207,10 @@ export async function redirectToSignIn(): Promise<void> {
     initialDataLoaded: false,
     lastFetched: null,
     user: null
-  }));
+  });
   
   // Delete stored tokens
-  await deleteAuthData();
+  await clearAuthData();
   
   // Redirect all windows to sign-in
   BrowserWindow.getAllWindows().forEach((window) => {
@@ -228,8 +232,10 @@ export async function redirectToSignIn(): Promise<void> {
  * Refresh authentication tokens
  */
 export async function refreshTokens(): Promise<boolean> {
-  const state = store.getState();
-  if (!state.refreshToken) {
+  const store = useStore.getState();
+  const refreshToken = store.refreshToken;
+  
+  if (!refreshToken) {
     console.log('[ELECTRON] No refresh token available');
     return false;
   }
@@ -241,7 +247,7 @@ export async function refreshTokens(): Promise<boolean> {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ refresh_token: state.refreshToken })
+      body: JSON.stringify({ refresh_token: refreshToken })
     });
     
     if (!response.ok) {
@@ -264,17 +270,18 @@ export async function refreshTokens(): Promise<boolean> {
       return false;
     }
     
-    // Update tokens in Redux store
-    store.dispatch(setAccessToken(data.data.session.access_token));
+    // Update tokens in Zustand store
+    const store = useStore.getState();
+    store.setAccessToken(data.data.session.access_token);
     if (data.data.session.refresh_token) {
-      store.dispatch(setRefreshToken(data.data.session.refresh_token));
+      store.setRefreshToken(data.data.session.refresh_token);
     }
     
     // Set expiry time to 1 hour from now
     tokenExpiryTime = Date.now() + (60 * 60 * 1000);
     
     // Save the new tokens
-    const newState = store.getState();
+    const newState = useStore.getState();
     if (newState.accessToken && newState.refreshToken) {
       // We need safeStorage from main process
       // This would be passed from the caller
@@ -316,6 +323,44 @@ export async function waitForServer(maxAttempts = 10, delayMs = 1000): Promise<b
     await new Promise(resolve => setTimeout(resolve, delayMs));
   }
   return false;
+}
+
+/**
+ * Sign in user and get auth tokens
+ */
+export async function signIn(email: string, password: string): Promise<{ success: boolean; error?: string; data?: any }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/sign-in`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data: SignInResponse = await response.json();
+
+    if (data.status !== 'success' || !data.data?.session?.access_token || !data.data?.session?.refresh_token) {
+      return { 
+        success: false, 
+        error: data.error || 'Invalid credentials'
+      };
+    }
+
+    // Update store with user data if available
+    if (data.data.session.user) {
+      useStore.getState().setUser(data.data.session.user);
+    }
+
+    return {
+      success: true,
+      data: data.data
+    };
+  } catch (error) {
+    console.error('[ELECTRON] Sign in error:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to sign in'
+    };
+  }
 }
 
 // Export token expiry time

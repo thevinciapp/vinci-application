@@ -1,17 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { useToast } from "vinci-ui";
 import { SubmitButton } from "@/src/components/auth/submit-button";
 import { Input, Label } from "vinci-ui";
 import Link from "next/link";
+import { useAuth } from "@/src/hooks/use-auth";
 
 export default function Login() {
   const router = useRouter();
-  const { toast } = useToast();
-  const [error, setError] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
+  const { signIn, isLoading, error } = useAuth();
   
   return (
     <form className="flex flex-col w-full">
@@ -59,76 +56,11 @@ export default function Login() {
           <SubmitButton 
             pendingText="Signing In..." 
             formAction={async (formData: FormData) => {
-              try {
-                setError("");
-                setIsLoading(true);
-
-                const email = formData.get('email') as string;
-                const password = formData.get('password') as string;
-
-                if (!email || !password) {
-                  setError("Please fill in all fields");
-                  return;
-                }
-
-                const response = await AuthAPI.signIn({ email, password });
-                
-                if (response.success) {
-                  toast({
-                    title: "Success",
-                    description: "Successfully signed in",
-                    variant: "success"
-                  });
-                  
-                  // Share auth tokens with Electron if in desktop context
-                  if (typeof window !== 'undefined' && window.electronAPI) {
-                    try {
-                      // Get session tokens from response data
-                      const session = response.data as { session?: { access_token: string, refresh_token: string } };
-                      if (session?.session?.access_token && session?.session?.refresh_token) {
-                        console.log('Passing auth tokens to Electron main process...');
-                        // Send both tokens to Electron main process
-                        const success = await window.electronAPI.setAuthTokens(
-                          session.session.access_token,
-                          session.session.refresh_token
-                        );
-                        if (success) {
-                          console.log('Auth tokens passed to Electron successfully');
-                          // Wait for Electron to finish setting up auth before redirecting
-                          await new Promise(resolve => setTimeout(resolve, 500));
-                        } else {
-                          console.error('Failed to set up authentication in Electron');
-                          // Show error to user
-                          toast({
-                            title: "Warning",
-                            description: "Authentication succeeded, but desktop sync failed. Some features may be limited.",
-                            variant: "destructive"
-                          });
-                        }
-                      } else {
-                        console.error('Missing access or refresh token in sign-in response');
-                        console.debug('Response data:', JSON.stringify(response.data));
-                      }
-                    } catch (error) {
-                      console.error('Failed to pass auth tokens to Electron:', error);
-                      // Don't block sign-in if electron communication fails
-                      toast({
-                        title: "Warning",
-                        description: "Authentication succeeded, but desktop sync failed. Some features may be limited.",
-                        variant: "destructive"
-                      });
-                    }
-                  }
-                  
-                  router.push('/protected');
-                } else {
-                  setError(response.error || 'Failed to sign in');
-                }
-              } catch (error) {
-                setError('An unexpected error occurred');
-                console.error('Sign in error:', error);
-              } finally {
-                setIsLoading(false);
+              const email = formData.get('email') as string;
+              const password = formData.get('password') as string;
+              const success = await signIn({ email, password });
+              if (success) {
+                router.push('/protected');
               }
             }}
             variant="cyan"

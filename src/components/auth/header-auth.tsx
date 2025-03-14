@@ -1,41 +1,58 @@
 "use client";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "vinci-ui";
 import { UserProfileDropdown } from "@/src/components/auth/user-profile-dropdown";
-import { useState, useEffect } from "react";
-import {User } from "@supabase/supabase-js"
+import { User } from "@supabase/supabase-js";
+import { AppStateEvents } from "@/src/core/ipc/constants";
+import { IpcRendererEvent } from 'electron';
 
 declare global {
   interface Window {
     electron: {
-      on: (channel: string, callback: (event: any, data: any) => void) => void;
-      invoke: (channel: string) => Promise<any>;
-      removeListener: (channel: string, callback: (event: any, data: any) => void) => void;
+      invoke: (channel: string, ...args: any[]) => Promise<any>;
+      on: (channel: string, listener: (event: IpcRendererEvent, ...args: any[]) => void) => void;
+      off: (channel: string, listener: (event: IpcRendererEvent, ...args: any[]) => void) => void;
     };
   }
 }
+
+type AppState = {
+  user: User | null;
+  isLoading?: boolean;
+  [key: string]: any;
+};
+
+type IpcResponse<T> = {
+  success: boolean;
+  data?: T;
+  error?: string;
+};
 
 export default function AuthButton() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const handleAppDataUpdate = (event: any, data: { user: User | null }) => {
-      setUser(data.user);
-      setLoading(false);
+    const handleAppDataUpdate = (event: IpcRendererEvent, response: IpcResponse<AppState>) => {
+      if (response.success && response.data) {
+        setUser(response.data.user);
+        setLoading(false);
+      }
     };
 
-    // Listen for app state updates from the main process
-    window.electron.on('app-data-updated', handleAppDataUpdate);
+    window.electron.on(AppStateEvents.STATE_UPDATED, handleAppDataUpdate);
 
     // Initial state check
-    window.electron.invoke('get-app-state').then((state: any) => {
-      setUser(state.user);
-      setLoading(false);
+    window.electron.invoke(AppStateEvents.GET_STATE).then((response: IpcResponse<AppState>) => {
+      if (response.success && response.data) {
+        setUser(response.data.user);
+        setLoading(false);
+      }
     });
 
     return () => {
-      window.electron.removeListener('app-data-updated', handleAppDataUpdate);
+      window.electron.off(AppStateEvents.STATE_UPDATED, handleAppDataUpdate);
     };
   }, []);
 

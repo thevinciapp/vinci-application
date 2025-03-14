@@ -5,7 +5,8 @@ import {
   getCommandCenterWindow,
   setCommandType
 } from './window-service';
-import { store } from '../../store';
+import { useStore } from '@/src/store';
+import { CommandCenterEvents } from '../ipc/constants';
 
 /**
  * Register global shortcuts
@@ -54,11 +55,13 @@ export function registerGlobalShortcuts() {
         getCommandCenterWindow()?.webContents.executeJavaScript('window.currentCommandType').then((currentType: string | null) => {
           if (commandType && commandType !== currentType) {
             console.log(`[ELECTRON] Switching command type from ${currentType} to ${commandType}`);
-            setCommandType(commandType);
+            const window = getCommandCenterWindow();
+            if (window && !window.isDestroyed()) {
+              window.webContents.send(CommandCenterEvents.SET_TYPE, { success: true, data: { type: commandType } });
+            }
           } else {
             console.log(`[ELECTRON] Closing command center (same type: ${commandType})`);
             getCommandCenterWindow()?.hide();
-            // State is automatically synchronized with electron-redux
           }
         }).catch((error) => {
           console.error('[ELECTRON] Error getting current command type:', error);
@@ -76,11 +79,12 @@ export function registerGlobalShortcuts() {
           if (window && !window.isDestroyed()) {
             console.log(`[ELECTRON] Opening command center with type: ${commandType || 'default'}`);
             if (commandType) {
-              window.webContents.send("set-command-type", commandType);
+              window.webContents.send(CommandCenterEvents.SET_TYPE, { success: true, data: { type: commandType } });
             }
             window.show();
             window.focus();
-            window.webContents.send('init-app-state', store.getState());
+            const state = useStore.getState();
+            window.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: state });
           }
         });
       }

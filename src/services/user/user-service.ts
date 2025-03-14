@@ -1,8 +1,7 @@
 import { API_BASE_URL } from '@/src/core/auth/auth-service';
 import { User } from '@supabase/supabase-js';
 import { fetchWithAuth } from '@/src/services/api/api-service';
-import { store } from '@/src/store';
-import { setUser } from '@/src/store/actions';
+import { useStore } from '@/src/store';
 
 /**
  * Fetch current user profile
@@ -18,9 +17,9 @@ export async function fetchUserProfile(): Promise<User | null> {
     
     const user = data.data?.session?.user || null;
     
-    // Update user in Redux store if found
+    // Update user in Zustand store if found
     if (user) {
-      store.dispatch(setUser(user));
+      useStore.getState().setUser(user);
     }
     
     return user;
@@ -49,8 +48,8 @@ export async function updateUserProfile(profileData: Partial<User>): Promise<Use
       throw new Error(data.error || 'Failed to update user profile');
     }
     
-    // Update user in Redux store
-    store.dispatch(setUser(data.data));
+    // Update user in Zustand store
+    useStore.getState().setUser(data.data);
     
     return data.data;
   } catch (error) {
