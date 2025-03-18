@@ -4,6 +4,7 @@ import { CommandType } from '../../../electron/types';
 import { APP_BASE_URL } from '../auth/auth-service';
 import { CommandCenterEvents } from '../ipc/constants';
 import { useStore } from '../../store';
+import { sanitizeStateForIpc } from '../utils/state-utils';
 
 // Global window references
 let mainWindow: BrowserWindow | null = null;
@@ -18,7 +19,7 @@ export async function createCommandCenterWindow() {
     return commandCenterWindow;
   }
 
-  const preloadPath = join(app.getAppPath(), "build/electron/preload.js");
+  const preloadPath = join(app.getAppPath(), "preload.js");
   commandCenterWindow = new BrowserWindow({
     width: 680,
     height: 600,
@@ -68,7 +69,9 @@ export async function createCommandCenterWindow() {
     console.log('[ELECTRON] Sending app state to command center');
     try {
       const state = useStore.getState();
-      commandCenterWindow.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: state });
+      // Create a sanitized copy of the state for IPC (removing non-serializable fields)
+      const sanitizedState = sanitizeStateForIpc(state);
+      commandCenterWindow.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: sanitizedState });
     } catch (error) {
       console.error('Error sending initial app state to command center:', error);
     }
@@ -96,7 +99,7 @@ export async function createCommandCenterWindow() {
  * Create the main application window
  */
 export async function createMainWindow(): Promise<BrowserWindow> {
-  const preloadPath = join(app.getAppPath(), "build/electron/preload.js");
+  const preloadPath = join(app.getAppPath(), "preload.js");
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -123,7 +126,9 @@ export async function createMainWindow(): Promise<BrowserWindow> {
       console.log('[ELECTRON] Sending initial app state to main window');
       try {
         const state = useStore.getState();
-      mainWindow.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: state });
+        // Create a sanitized copy of the state for IPC (removing non-serializable fields)
+        const sanitizedState = sanitizeStateForIpc(state);
+        mainWindow.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: sanitizedState });
       } catch (error) {
         console.error('Error sending initial app state to main window:', error);
       }
@@ -146,7 +151,9 @@ export async function toggleCommandCenterWindow() {
     if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
       console.log('[ELECTRON] Sending app state to command center on toggle');
       const state = useStore.getState();
-      commandCenterWindow.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: state });
+      // Create a sanitized copy of the state for IPC (removing non-serializable fields)
+      const sanitizedState = sanitizeStateForIpc(state);
+      commandCenterWindow.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: sanitizedState });
       commandCenterWindow.show();
       commandCenterWindow.focus();
     }

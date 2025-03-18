@@ -5,6 +5,7 @@ import {
   refreshAppData
 } from '../../../services/app-data/app-data-service';
 import { AppStateEvents } from '../constants';
+import { sanitizeStateForIpc } from '../../utils/state-utils';
 
 interface AppStateResponse {
   success: boolean;
@@ -37,11 +38,11 @@ export function registerAppStateHandlers() {
         const freshData = await fetchInitialAppData();
         if (!freshData.error) {
           useStore.getState().setAppState({ ...freshData, initialDataLoaded: true });
-          return { success: true, data: getStoreState() };
+          return { success: true, data: sanitizeStateForIpc(getStoreState()) };
         }
         return { success: false, error: freshData.error };
       }
-      return { success: true, data: state };
+      return { success: true, data: sanitizeStateForIpc(state) };
     } catch (error) {
       console.error('[ELECTRON] Error getting app state:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -51,7 +52,7 @@ export function registerAppStateHandlers() {
   ipcMain.handle(AppStateEvents.REFRESH_DATA, async (_event: IpcMainInvokeEvent): Promise<AppStateResponse> => {
     try {
       const result = await refreshAppData();
-      return { success: true, data: result };
+      return { success: true, data: sanitizeStateForIpc(result) };
     } catch (error) {
       console.error('[ELECTRON] Error refreshing app data:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

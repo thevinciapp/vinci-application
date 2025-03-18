@@ -1,6 +1,8 @@
 {
+  "name": "vinci",
+  "version": "0.0.1",
   "private": true,
-  "main": "build/main.js",
+  "main": "build/electron/main.js",
   "scripts": {
     "next:dev": "next dev",
     "next:build": "next build",
@@ -8,7 +10,11 @@
     "electron:build_watch": "tsc -p electron/tsconfig.json --watch",
     "electron:watch": "cross-env NODE_ENV='development' nodemon -r ./register.js --exec electron ./build/electron/main.js",
     "electron:dev": "npm-run-all --parallel electron:build_watch electron:watch",
-    "dev": "npm-run-all --parallel electron:dev next:dev"
+    "dev": "npm-run-all --parallel electron:dev next:dev",
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "publish": "electron-forge publish"
   },
   "dependencies": {
     "@agentic/ai-sdk": "^7.3.1",
@@ -59,6 +65,7 @@
     "cmdk": "^1.0.4",
     "developer-icons": "^5.2.9",
     "electron-redux": "^2.0.0",
+    "electron-squirrel-startup": "^1.0.1",
     "emoji-picker-react": "^4.12.0",
     "framer-motion": "^12.0.6",
     "get-port-please": "^3.1.2",
@@ -99,6 +106,10 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@electron-forge/cli": "^7.7.0",
+    "@electron-forge/maker-deb": "^7.7.0",
+    "@electron-forge/maker-squirrel": "^7.7.0",
+    "@electron-forge/maker-zip": "^7.7.0",
     "@swc/core": "^1.10.12",
     "@swc/helpers": "^0.5.15",
     "@tailwindcss/postcss": "^4.0.12",
@@ -109,7 +120,6 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "cross-env": "^7.0.3",
     "electron": "^34.0.2",
-    "electron-builder": "^25.1.8",
     "nodemon": "^3.1.9",
     "npm-run-all": "^4.1.5",
     "postcss": "8.4.49",
@@ -133,6 +143,33 @@
     "mac": {
       "entitlements": "entitlements.plist",
       "entitlementsInherit": "entitlements.plist"
+    }
+  },
+  "config": {
+    "forge": {
+      "packagerConfig": {},
+      "makers": [
+        {
+          "name": "@electron-forge/maker-squirrel",
+          "config": {
+            "name": "electron_quick_start"
+          }
+        },
+        {
+          "name": "@electron-forge/maker-zip",
+          "platforms": [
+            "darwin"
+          ]
+        },
+        {
+          "name": "@electron-forge/maker-deb",
+          "config": {}
+        },
+        {
+          "name": "@electron-forge/maker-rpm",
+          "config": {}
+        }
+      ]
     }
   }
 }

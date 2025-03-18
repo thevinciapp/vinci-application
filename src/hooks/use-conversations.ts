@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { ConversationEvents } from '@/src/core/ipc/constants';
-import { isElectronAvailable, requireElectron } from '@/src/lib/utils/utils';
 
 interface Conversation {
   id: string;
@@ -17,12 +16,6 @@ export function useConversations() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Skip if Electron is not available (e.g., in SSR or non-Electron environment)
-    if (!isElectronAvailable()) {
-      setIsLoading(false);
-      return;
-    }
-
     const handleConversationsUpdate = (event: any, data: { conversations: Conversation[] }) => {
       setConversations(data.conversations);
       setActiveConversation(data.conversations[0] || null);
@@ -43,15 +36,12 @@ export function useConversations() {
       });
 
     return () => {
-      if (isElectronAvailable()) {
-        window.electron.off(ConversationEvents.CONVERSATIONS_UPDATED, handleConversationsUpdate);
-      }
+      window.electron.off(ConversationEvents.CONVERSATIONS_UPDATED, handleConversationsUpdate);
     };
   }, []);
 
   const createConversation = async (spaceId: string, title: string): Promise<boolean> => {
     try {
-      requireElectron();
       const result = await window.electron.invoke(ConversationEvents.CREATE_CONVERSATION, { spaceId, title });
       return result.success;
     } catch (error) {
@@ -62,7 +52,6 @@ export function useConversations() {
 
   const updateConversation = async (spaceId: string, conversationId: string, title: string): Promise<boolean> => {
     try {
-      requireElectron();
       const result = await window.electron.invoke(ConversationEvents.UPDATE_CONVERSATION, { 
         spaceId, 
         id: conversationId, 
@@ -77,7 +66,6 @@ export function useConversations() {
 
   const deleteConversation = async (spaceId: string, conversationId: string): Promise<boolean> => {
     try {
-      requireElectron();
       const result = await window.electron.invoke(ConversationEvents.DELETE_CONVERSATION, { spaceId, conversationId });
       return result.success;
     } catch (error) {

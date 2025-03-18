@@ -315,17 +315,6 @@ export async function checkServerAvailable(): Promise<boolean> {
 }
 
 /**
- * Wait for server to become available
- */
-export async function waitForServer(maxAttempts = 10, delayMs = 1000): Promise<boolean> {
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    if (await checkServerAvailable()) return true;
-    await new Promise(resolve => setTimeout(resolve, delayMs));
-  }
-  return false;
-}
-
-/**
  * Sign in user and get auth tokens
  */
 export async function signIn(email: string, password: string): Promise<{ success: boolean; error?: string; data?: any }> {

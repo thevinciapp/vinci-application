@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { SpaceEvents } from '@/src/core/ipc/constants';
 import { Space } from '@/src/types';
-import { isElectronAvailable, requireElectron } from '@/src/lib/utils/utils';
 
 export function useSpaces() {
   const [activeSpace, setActiveSpace] = useState<Space | null>(null);
@@ -11,10 +10,6 @@ export function useSpaces() {
   
   const fetchSpaces = async (): Promise<Space[]> => {
     try {
-      if (!isElectronAvailable()) {
-        return [];
-      }
-      
       const response = await window.electron.invoke(SpaceEvents.GET_SPACES);
       if (response && response.success) {
         setSpaces(response.data);
@@ -28,12 +23,6 @@ export function useSpaces() {
   };
 
   useEffect(() => {
-    // Skip if Electron is not available
-    if (!isElectronAvailable()) {
-      setIsLoading(false);
-      return;
-    }
-
     const handleSpaceUpdate = (event: any, data: { space: Space | null }) => {
       setActiveSpace(data.space);
       setIsLoading(false);
@@ -61,15 +50,12 @@ export function useSpaces() {
     fetchSpaces();
 
     return () => {
-      if (isElectronAvailable()) {
-        window.electron.off(SpaceEvents.SPACE_UPDATED, handleSpaceUpdate);
-      }
+      window.electron.off(SpaceEvents.SPACE_UPDATED, handleSpaceUpdate);
     };
   }, []);
 
   const setActiveSpaceById = async (spaceId: string): Promise<boolean> => {
     try {
-      requireElectron();
       const result = await window.electron.invoke(SpaceEvents.SET_ACTIVE_SPACE, spaceId);
       return result.success;
     } catch (error) {
@@ -80,7 +66,6 @@ export function useSpaces() {
 
   const createSpace = async (spaceData: Partial<Space>): Promise<boolean> => {
     try {
-      requireElectron();
       const result = await window.electron.invoke(SpaceEvents.CREATE_SPACE, spaceData);
       return result.success;
     } catch (error) {
@@ -91,7 +76,6 @@ export function useSpaces() {
 
   const deleteSpace = async (spaceId: string): Promise<boolean> => {
     try {
-      requireElectron();
       const result = await window.electron.invoke(SpaceEvents.DELETE_SPACE, spaceId);
       return result.success;
     } catch (error) {
@@ -102,7 +86,6 @@ export function useSpaces() {
 
   const updateSpace = async (spaceId: string, spaceData: Partial<Space>): Promise<boolean> => {
     try {
-      requireElectron();
       const result = await window.electron.invoke(SpaceEvents.UPDATE_SPACE, spaceId, spaceData);
       return result.success;
     } catch (error) {
@@ -113,7 +96,6 @@ export function useSpaces() {
 
   const updateSpaceModel = async (spaceId: string, modelId: string, provider: string): Promise<boolean> => {
     try {
-      requireElectron();
       const result = await window.electron.invoke(SpaceEvents.UPDATE_SPACE_MODEL, spaceId, modelId, provider);
       return result.success;
     } catch (error) {

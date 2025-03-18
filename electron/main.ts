@@ -10,7 +10,6 @@ import { registerIpcHandlers } from '../src/core/ipc/ipc-handlers';
 import { createMainWindow } from '../src/core/window/window-service';
 import { registerGlobalShortcuts } from '../src/core/window/shortcuts';
 import { 
-  waitForServer, 
   loadAuthData, 
   refreshTokens, 
   redirectToSignIn
@@ -39,17 +38,8 @@ if (isMac()) {
  */
 async function initialize() {
   try {
-    // Check that server is available
-    if (!await waitForServer()) {
-      console.error('[ELECTRON] Server not available');
-      app.quit();
-      return;
-    }
-
-    // Register IPC handlers
     registerIpcHandlers();
 
-    // Load authentication tokens
     await loadAuthData(safeStorage);
     
     // Create the main window
