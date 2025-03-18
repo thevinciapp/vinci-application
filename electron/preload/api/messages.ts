@@ -1,6 +1,5 @@
 import { ipcRenderer } from 'electron';
-import { MessageEvents, SearchEvents } from '@/src/core/ipc/constants';
-import { IpcResponse } from '@/src/types';
+import { MessageEvents, SearchEvents } from '@/core/ipc/constants';
 
 export const messageApi = {
   getConversationMessages: async (conversationId: string) => {

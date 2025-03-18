@@ -6,10 +6,10 @@ import {
   TooltipTrigger,
   BaseTab
 } from "vinci-ui"
-import { cn } from '@/src/lib/utils/utils'
+import { cn } from '@/lib/utils/utils'
 import { useState } from 'react'
-import { useSpaces } from '@/src/hooks/use-spaces';
-import { useConversations } from '@/src/hooks/use-conversations';
+import { useSpaces } from '@/hooks/use-spaces';
+import { useConversations } from '@/hooks/use-conversations';
 
 export function ServerDrivenConversationTab({
   onCreateConversation,

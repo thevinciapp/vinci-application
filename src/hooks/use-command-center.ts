@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { CommandCenterEvents } from '@/src/core/ipc/constants';
-import { CommandCenterState } from '@/src/types/electron';
+import { CommandCenterEvents } from '@/core/ipc/constants';
+import { CommandCenterState } from '@/types/electron';
 
 /**
  * Custom hook for managing command center state and IPC communication

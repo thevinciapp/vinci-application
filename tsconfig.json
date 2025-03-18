@@ -12,17 +12,12 @@
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "electron/**/*", "types/**/*.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "../vinci-api/src/utils/server.ts", "../vinci-api/pinecone.ts", "src/core", "src/services", "src/store", "src/lib/utils"],
+  "include": ["electron/**/*", "types/**/*.d.ts", "**/*.ts", "**/*.tsx", "src/**/*"],
   "exclude": ["node_modules"]
 }

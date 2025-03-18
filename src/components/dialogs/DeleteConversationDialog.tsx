@@ -1,11 +1,11 @@
-"use client";
+
 
 import React from "react";
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "vinci-ui";
 import { toast } from 'sonner';
-import { useConversations } from "@/src/hooks/use-conversations";
-import { useCommandCenter } from "@/src/hooks/use-command-center";
-import { DialogComponentProps } from "@/src/types";
+import { useConversations } from "@/hooks/use-conversations";
+import { useCommandCenter } from "@/hooks/use-command-center";
+import { DialogComponentProps } from "@/types";
 
 export const DeleteConversationDialog: React.FC<DialogComponentProps> = ({ data, onClose, onConfirm }) => {
   const { deleteConversation, isLoading: isDeleting } = useConversations();
@@ -33,8 +33,13 @@ export const DeleteConversationDialog: React.FC<DialogComponentProps> = ({ data,
     }
   };
 
+  // Don't show the dialog if there's no data or ID
+  if (!data || !data.id) {
+    return null;
+  }
+
   return (
-    <Dialog open onOpenChange={onClose}>
+    <Dialog open={!!data.id} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Delete Conversation</DialogTitle>

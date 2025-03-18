@@ -1,10 +1,10 @@
-"use client";
+
 
 import React, { useState } from "react";
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea, toast } from "vinci-ui";
-import { DialogComponentProps, Space } from "@/src/types";
-import { useSpaces } from "@/src/hooks/use-spaces";
-import { useCommandCenter } from "@/src/hooks/use-command-center";
+import { DialogComponentProps, Space } from "@/types";
+import { useSpaces } from "@/hooks/use-spaces";
+import { useCommandCenter } from "@/hooks/use-command-center";
 
 export const EditSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose }) => {
   const space = data as Space;
@@ -53,8 +53,13 @@ export const EditSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose 
     }
   };
 
+  // Don't render if no space data provided
+  if (!space || !space.id) {
+    return null;
+  }
+
   return (
-    <Dialog open onOpenChange={onClose}>
+    <Dialog open={!!space.id} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit Space</DialogTitle>

@@ -5,7 +5,7 @@
  * and augments the Window interface to include our IPC communication types
  */
 
-import { AuthEvents, AppStateEvents, CommandCenterEvents, SpaceEvents, MessageEvents, NotificationEvents, ConversationEvents } from '@/src/core/ipc/constants';
+import { AuthEvents, AppStateEvents, CommandCenterEvents, SpaceEvents, MessageEvents, NotificationEvents, ConversationEvents } from '@/core/ipc/constants';
 import { IpcResponse, IpcStateResponse } from '.';
 
 // Types for API responses

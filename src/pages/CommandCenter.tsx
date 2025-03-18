@@ -1,11 +1,10 @@
-"use client";
-
 import React, { useState, useEffect } from "react";
 import { Command } from 'cmdk';
-import { providers } from "@/src/registry/providers";
-import { dialogs } from "@/src/registry/dialogs";
-import { useCommandCenter } from '@/src/hooks/use-command-center';
-import '@/src/styles/cmdk.css';
+import { providers } from "@/registry/providers";
+import { dialogs } from "@/registry/dialogs";
+import { useCommandCenter } from '@/hooks/use-command-center';
+import { useAuth } from '@/hooks/use-auth';
+import '@/styles/cmdk.css';
 
 const CommandCenter = () => {
   const {
@@ -16,13 +15,46 @@ const CommandCenter = () => {
     closeDialog,
     close
   } = useCommandCenter();
+  const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
 
+  // When component mounts, check if we need a default provider
   useEffect(() => {
-    if (!currentProvider) {
+    if (!currentProvider && isAuthenticated) {
       updateState({ activeCommand: 'spaces' });
     }
-  }, [currentProvider, updateState]);
+  }, [currentProvider, updateState, isAuthenticated]);
+  
+  // Special case for unauthenticated users
+  if (!isAuthenticated) {
+    // Close the window after a short delay
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        if (window?.electron?.closeCommandCenterFromUnauthenticated) {
+          window.electron.closeCommandCenterFromUnauthenticated();
+        }
+      }, 2000);
+      
+      return () => clearTimeout(timer);
+    }, []);
+    
+    return (
+      <div className="vinci">
+        <Command shouldFilter={false} loop autoFocus>
+          <Command.Input 
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+            placeholder="Please sign in to use the command center..."
+            disabled={true}
+          />
+          <div className="flex-1 flex justify-center items-center text-white/60 text-center p-8">
+            <p>You must be signed in to use the command center.<br/>
+            The command center window will close in a moment.</p>
+          </div>
+        </Command>
+      </div>
+    );
+  }
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);

@@ -1,9 +1,9 @@
-"use client";
+
 
 import React from 'react';
 import { Play, Settings, Command, FileText, FolderOpen } from 'lucide-react';
 import { Command as Cmdk } from 'cmdk';
-import { ProviderComponentProps } from '@/src/types';
+import { ProviderComponentProps } from '@/types';
 
 interface Action {
   id: string;
@@ -14,7 +14,7 @@ interface Action {
   shortcut?: string;
 }
 
-export function ActionsProvider({ searchQuery, onSelect }: ProviderComponentProps) {
+export function ActionsProvider({ searchQuery = '', onSelect }: ProviderComponentProps) {
   const actions: Action[] = [
     {
       id: 'open-settings',

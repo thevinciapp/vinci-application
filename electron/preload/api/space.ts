@@ -1,6 +1,5 @@
 import { ipcRenderer } from 'electron';
-import { SpaceEvents } from '@/src/core/ipc/constants';
-import { IpcResponse } from '@/src/types';
+import { SpaceEvents } from '@/core/ipc/constants';
 
 export const spaceApi = {
   getSpaces: async () => {

@@ -1,10 +1,10 @@
-"use client";
+
 
 import React, { useEffect, useState } from 'react';
 import { MessageSquare } from 'lucide-react';
 import { Command } from 'cmdk';
-import { Message, Conversation, ProviderComponentProps } from '@/src/types';
-import { MessageEvents } from '@/src/core/ipc/constants';
+import { Message, Conversation, ProviderComponentProps } from '@/types';
+import { MessageEvents } from '@/core/ipc/constants';
 
 interface MessageWithConversation extends Message {
   timestamp: number;

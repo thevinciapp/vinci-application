@@ -1,10 +1,10 @@
-'use client';
 
-import { getModelName, type Provider } from '@/src/config/models';
+
+import { getModelName, type Provider } from '@/config/models';
 import { ProviderIcon } from './provider-icon';
 import React from 'react';
 import { BaseTab } from 'vinci-ui';
-import { useSpaces } from '@/src/hooks/use-spaces';
+import { useSpaces } from '@/hooks/use-spaces';
 import { Cpu } from 'lucide-react';
 
 export function ModelTab() {

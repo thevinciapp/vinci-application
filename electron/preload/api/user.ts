@@ -1,6 +1,6 @@
 import { ipcRenderer } from 'electron';
-import { UserEvents } from '@/src/core/ipc/constants';
-import { IpcResponse } from '@/src/types';
+import { UserEvents } from '@/core/ipc/constants';
+import { IpcResponse } from '@/types';
 
 export const userApi = {
   getProfile: async () => {

@@ -1,10 +1,10 @@
-"use client";
+
 
 import React from 'react';
 import { MessageSquare, Plus, Settings, Check, Trash, PencilLine } from 'lucide-react';
 import { Command } from 'cmdk';
 import { Button } from "vinci-ui";
-import { ProviderComponentProps } from '@/src/types';
+import { ProviderComponentProps } from '@/types';
 
 interface ChatMode {
   id: string;

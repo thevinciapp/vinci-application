@@ -63,6 +63,15 @@ export function registerCommandCenterHandlers(): void {
       commandCenterWindow.hide();
     }
   });
+  
+  // Add a handler for closing the command center from unauthenticated state
+  ipcMain.handle('close-command-center', () => {
+    const commandCenterWindow = getCommandCenterWindow();
+    if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
+      commandCenterWindow.hide();
+    }
+    return { success: true };
+  });
 
   ipcMain.on(CommandCenterEvents.SET_TYPE, (_event: IpcMainInvokeEvent, commandType: CommandType) => {
     setCommandType(commandType);

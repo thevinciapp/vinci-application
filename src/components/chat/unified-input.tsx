@@ -1,4 +1,4 @@
-"use client";
+
 
 import React, { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -6,7 +6,7 @@ import { File, Loader2, MessageSquare, X } from 'lucide-react';
 import { Button, cn } from "vinci-ui";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from 'cmdk';
 import path from 'path';
-import { CommandCenterEvents, SearchEvents, MessageEvents } from '@/src/core/ipc/constants';
+import { CommandCenterEvents, SearchEvents, MessageEvents } from '@/core/ipc/constants';
 
 
 type FileTag = {

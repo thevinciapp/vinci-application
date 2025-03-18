@@ -1,11 +1,11 @@
-"use client";
+
 
 import React from "react";
 import { Command } from 'cmdk';
 import { ProviderIcon } from "@lobehub/icons";
-import { useSpaces } from "@/src/hooks/use-spaces";
-import { toast } from "@/src/components/chat/ui/toast";
-import { Model, ModelsByProvider, Provider, AVAILABLE_MODELS, ProviderComponentProps } from "@/src/types";
+import { useSpaces } from "@/hooks/use-spaces";
+import { toast } from "@/components/chat/ui/toast";
+import { Model, ModelsByProvider, Provider, AVAILABLE_MODELS, ProviderComponentProps } from "@/types";
 
 export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect }) => {
   const { activeSpace, updateSpaceModel } = useSpaces();

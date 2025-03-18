@@ -1,4 +1,4 @@
-'use client';
+
 
 import { ChatContainer, useAutoScroll } from '@/components/ui/chat-container';
 import { useEffect, forwardRef, useRef, memo, useMemo } from 'react';

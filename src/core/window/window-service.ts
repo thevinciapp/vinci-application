@@ -62,7 +62,12 @@ export async function createCommandCenterWindow() {
     }
   });
 
-  await commandCenterWindow.loadURL(`${APP_BASE_URL}/command-center`);
+  // Use the correct URL format based on environment
+  if (process.env.NODE_ENV === 'development') {
+    await commandCenterWindow.loadURL('http://localhost:5173/#/command-center');
+  } else {
+    await commandCenterWindow.loadURL(`file://${join(__dirname, '../renderer/index.html')}#/command-center`);
+  }
   
   commandCenterWindow.webContents.once('did-finish-load', async () => {
     if (!commandCenterWindow || commandCenterWindow.isDestroyed()) return;

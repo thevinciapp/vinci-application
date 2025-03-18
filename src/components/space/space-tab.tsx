@@ -1,5 +1,3 @@
-'use client'
-
 import { BaseTab } from 'vinci-ui'
 import DotSphere from './planet-icon'
 

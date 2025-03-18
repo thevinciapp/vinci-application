@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useToast } from 'vinci-ui';
-import { AuthEvents, AppStateEvents } from '@/src/core/ipc/constants';
+import { AuthEvents, AppStateEvents } from '@/core/ipc/constants';
 
 interface AuthSession {
   access_token: string;
@@ -180,10 +180,14 @@ export function useAuth() {
     }
   };
 
+  // Helper property to check if user is authenticated
+  const isAuthenticated = !!session?.access_token;
+
   return {
     isLoading,
     error,
     session,
+    isAuthenticated,
     signIn,
     signUp,
     resetPassword

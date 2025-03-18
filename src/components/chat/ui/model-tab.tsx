@@ -1,8 +1,8 @@
-'use client';
+
 
 import { BaseTab } from 'vinci-ui';
 import { Cpu } from 'lucide-react';
-import { useSpaces } from '@/src/hooks/use-spaces';
+import { useSpaces } from '@/hooks/use-spaces';
 
 export function ModelTab() {
   const { activeSpace } = useSpaces();

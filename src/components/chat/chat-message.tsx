@@ -1,6 +1,6 @@
 import { User, MessageSquareIcon, Sparkles, FileText, File } from 'lucide-react';
 import { memo, useMemo } from 'react';
-import { getModelName, type Provider } from '@/src/config/models';
+import { getModelName, type Provider } from '@/config/models';
 import { ProviderIcon } from './provider-icon';
 import { JSONValue, Message } from 'ai';
 import { Avatar, AvatarFallback, AvatarImage } from 'vinci-ui';
@@ -8,8 +8,8 @@ import { StreamStatus } from './stream-status';
 import { Markdown } from './markdown';
 import DotSphere from '@/components/ui/space/planet-icon';
 
-import { getChatModeConfig } from '@/src/config/chat-modes';
-import { SimilarMessage } from '@/src/types';
+import { getChatModeConfig } from '@/config/chat-modes';
+import { SimilarMessage } from '@/types';
 
 // Component for rendering user messages with file mentions
 const UserMessageWithMentions = memo(({ id, content }: { id: string, content: string }) => {

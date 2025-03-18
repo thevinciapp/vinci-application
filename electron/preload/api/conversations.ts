@@ -1,6 +1,5 @@
 import { ipcRenderer } from 'electron';
-import { ConversationEvents } from '@/src/core/ipc/constants';
-import { IpcResponse } from '@/src/types';
+import { ConversationEvents } from '@/core/ipc/constants';
 
 export const conversationApi = {
   getConversations: async () => {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ConversationEvents } from '@/src/core/ipc/constants';
+import { ConversationEvents } from '@/core/ipc/constants';
 
 interface Conversation {
   id: string;

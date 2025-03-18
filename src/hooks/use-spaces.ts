@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { SpaceEvents } from '@/src/core/ipc/constants';
-import { Space } from '@/src/types';
+import { SpaceEvents } from '@/core/ipc/constants';
+import { Space } from '@/types';
 
 export function useSpaces() {
   const [activeSpace, setActiveSpace] = useState<Space | null>(null);

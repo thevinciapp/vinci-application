@@ -1,4 +1,4 @@
-'use client';
+
 
 import { BaseTab } from 'vinci-ui';
 import { MessageSquare } from 'lucide-react';

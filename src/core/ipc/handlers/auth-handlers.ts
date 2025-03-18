@@ -158,4 +158,57 @@ export function registerAuthHandlers() {
       return { success: false, error: error instanceof Error ? error.message : 'Error clearing auth data' };
     }
   });
+
+  // Handle token refresh
+  ipcMain.handle(AuthEvents.REFRESH_AUTH_TOKENS, async (_event: IpcMainInvokeEvent): Promise<AuthResponse> => {
+    try {
+      console.log('[ELECTRON] Refresh tokens handler called');
+      const refreshed = await refreshTokens(safeStorage);
+      
+      if (!refreshed) {
+        console.log('[ELECTRON] Failed to refresh tokens');
+        return { success: false, error: 'Failed to refresh tokens' };
+      }
+      
+      const store = useStore.getState();
+      return { 
+        success: true, 
+        data: {
+          accessToken: store.accessToken,
+          refreshToken: store.refreshToken
+        }
+      };
+    } catch (error) {
+      console.error('[ELECTRON] Error refreshing tokens:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Error refreshing tokens' };
+    }
+  });
+
+  // Handle getting auth token
+  ipcMain.handle(AuthEvents.GET_AUTH_TOKEN, async (_event: IpcMainInvokeEvent): Promise<AuthResponse> => {
+    try {
+      const store = useStore.getState();
+      return { 
+        success: true, 
+        data: {
+          accessToken: store.accessToken,
+          refreshToken: store.refreshToken
+        }
+      };
+    } catch (error) {
+      console.error('[ELECTRON] Error getting auth token:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Error getting auth token' };
+    }
+  });
+
+  // Handle sign out
+  ipcMain.handle(AuthEvents.SIGN_OUT, async (_event: IpcMainInvokeEvent): Promise<AuthResponse> => {
+    try {
+      await redirectToSignIn();
+      return { success: true };
+    } catch (error) {
+      console.error('[ELECTRON] Error signing out:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Error signing out' };
+    }
+  });
 }

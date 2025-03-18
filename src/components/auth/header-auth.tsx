@@ -1,10 +1,10 @@
-"use client";
+
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 import { Button } from "vinci-ui";
-import { UserProfileDropdown } from "@/src/components/auth/user-profile-dropdown";
+import { UserProfileDropdown } from "@/components/auth/user-profile-dropdown";
 import { User } from "@supabase/supabase-js";
-import { AppStateEvents } from "@/src/core/ipc/constants";
+import { AppStateEvents } from "@/core/ipc/constants";
 import { IpcRendererEvent } from 'electron';
 
 declare global {
@@ -65,10 +65,10 @@ export default function AuthButton() {
   ) : (
     <div className="flex gap-2">
       <Button size="sm" variant={"ghost"}>
-        <Link href="/sign-in">Sign in</Link>
+        <Link to="/sign-in">Sign in</Link>
       </Button>
       <Button size="sm" variant={"ghost"}>
-        <Link href="/sign-up">Sign up</Link>
+        <Link to="/sign-up">Sign up</Link>
       </Button>
     </div>
   );

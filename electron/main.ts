@@ -1,36 +1,68 @@
-import { app, safeStorage } from 'electron';
-import { existsSync, mkdirSync } from 'fs';
+import { app, safeStorage, BrowserWindow } from 'electron';
 import { join } from 'path';
 
 // Import utilities
-import { isMac } from '../src/lib/utils/env-utils';
+import { isMac } from '@/lib/utils/env-utils';
 
 // Import core modules
-import { registerIpcHandlers } from '../src/core/ipc/ipc-handlers';
-import { createMainWindow } from '../src/core/window/window-service';
-import { registerGlobalShortcuts } from '../src/core/window/shortcuts';
+import { registerIpcHandlers } from '@/core/ipc/ipc-handlers';
+import { registerGlobalShortcuts } from '@/core/window/shortcuts';
 import { 
   loadAuthData, 
   refreshTokens, 
   redirectToSignIn
-} from '../src/core/auth/auth-service';
+} from '@/core/auth/auth-service';
 
 import {
   fetchInitialAppData
-} from '../src/services/app-data/app-data-service';
-
-// Import Zustand store
-import { useStore } from '../src/store';
-
-// Check for secure storage directory
-const STORAGE_DIR = join(app.getPath('userData'), 'secure');
-if (!existsSync(STORAGE_DIR)) {
-  mkdirSync(STORAGE_DIR, { recursive: true });
-}
+} from '@/services/app-data/app-data-service';
+import { useStore } from '@/store';
 
 // Hide dock icon on macOS
 if (isMac()) {
   app.dock.hide();
+}
+
+let mainWindow: BrowserWindow | null = null;
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+  
+  // Log for debugging
+  console.log('[ELECTRON] Preload path:', join(__dirname, '../preload/index.js'));
+
+  // Determine which URL to load based on environment
+  // Add error handlers for better debugging
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('[ELECTRON] Page failed to load:', errorDescription, '(error code:', errorCode, ')');
+  });
+
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('[ELECTRON] Renderer process crashed or killed:', details.reason);
+  });
+
+  mainWindow.webContents.on('unresponsive', () => {
+    console.error('[ELECTRON] Renderer process has become unresponsive');
+  });
+
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.loadURL('http://localhost:5173'); // Vite dev server port
+    // Open DevTools automatically in development mode
+    mainWindow.webContents.openDevTools();
+    console.log('[ELECTRON] DevTools opened automatically in development mode');
+  } else {
+    mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
+  }
+
+  return mainWindow;
 }
 
 /**
@@ -38,12 +70,17 @@ if (isMac()) {
  */
 async function initialize() {
   try {
+    console.log('[ELECTRON] Starting application in', 
+      process.env.NODE_ENV === 'development' ? 'DEVELOPMENT' : 'PRODUCTION', 
+      'mode');
+    console.log('[ELECTRON] Working directory:', process.cwd());
+    
     registerIpcHandlers();
 
     await loadAuthData(safeStorage);
     
     // Create the main window
-    const mainWindow = await createMainWindow();
+    mainWindow = createWindow();
 
     // Register global shortcuts
     registerGlobalShortcuts();
@@ -54,14 +91,18 @@ async function initialize() {
     // If no auth tokens, redirect to sign-in
     if (!store.accessToken && !store.refreshToken) {
       console.log('[ELECTRON] No auth tokens available, redirecting to sign-in');
-      mainWindow.loadURL('http://localhost:3000/sign-in');
+      mainWindow.loadURL(
+        process.env.NODE_ENV === 'development' 
+          ? 'http://localhost:5173/#/sign-in' 
+          : `file://${join(__dirname, '../renderer/index.html')}#/sign-in`
+      );
     } else {
       // Try to load data with saved token
       try {
         // If we have a refresh token but no access token, try to refresh
         if (!store.accessToken && store.refreshToken) {
           console.log('[ELECTRON] No access token, attempting refresh with saved refresh token');
-          const refreshed = await refreshTokens();
+          const refreshed = await refreshTokens(safeStorage);
           if (!refreshed) {
             console.log('[ELECTRON] Failed to refresh tokens on startup');
             await redirectToSignIn();
@@ -110,7 +151,7 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   // On macOS it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
-  if (!createMainWindow()) {
-    createMainWindow();
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
   }
 });

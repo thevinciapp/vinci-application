@@ -9,7 +9,7 @@ import {
   UserEvents,
   NotificationEvents,
   ConversationEvents
-} from '@/src/core/ipc/constants';
+} from '@/core/ipc/constants';
 
 export type AuthEventType = typeof AuthEvents[keyof typeof AuthEvents];
 export type AppStateEventType = typeof AppStateEvents[keyof typeof AppStateEvents];

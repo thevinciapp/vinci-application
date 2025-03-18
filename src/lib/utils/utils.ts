@@ -1,20 +1,20 @@
-import { redirect } from "next/navigation";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 /**
- * Redirects to a specified path with an encoded message as a query parameter.
+ * Builds a URL with an encoded message as a query parameter.
+ * For use with React Router's navigate function.
  * @param {('error' | 'success')} type - The type of message, either 'error' or 'success'.
  * @param {string} path - The path to redirect to.
  * @param {string} message - The message to be encoded and added as a query parameter.
- * @returns {never} This function doesn't return as it triggers a redirect.
+ * @returns {string} The URL with query parameter
  */
-export function encodedRedirect(
+export function buildRedirectUrl(
   type: "error" | "success",
   path: string,
   message: string,
-) {
-  return redirect(`${path}?${type}=${encodeURIComponent(message)}`);
+): string {
+  return `${path}?${type}=${encodeURIComponent(message)}`;
 }
 
 /**

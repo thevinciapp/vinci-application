@@ -1,12 +1,12 @@
-"use client";
+
 
 import React from "react";
 import { PencilLine, Trash, Globe, Plus } from "lucide-react";
 import { Command } from 'cmdk';
 import { Button } from "vinci-ui";
-import { Space } from '@/src/types';
+import { Space } from '@/types';
 import { ProviderComponentProps } from "../../types";
-import { useSpaces } from '@/src/hooks/use-spaces';
+import { useSpaces } from '@/hooks/use-spaces';
 
 export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect, onAction }) => {
   const { spaces, setActiveSpaceById } = useSpaces();

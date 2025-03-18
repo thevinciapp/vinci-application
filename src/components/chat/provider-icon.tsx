@@ -10,7 +10,7 @@ import {
   Perplexity, 
   Groq 
 } from '@lobehub/icons';
-import { Provider } from '@/src/config/models';
+import { Provider } from '@/config/models';
 
 interface ProviderIconProps {
   provider: Provider;

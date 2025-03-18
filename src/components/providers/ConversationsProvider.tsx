@@ -1,15 +1,15 @@
-"use client";
+
 
 import React from "react";
 import { PencilLine, Trash, MessageSquare, Plus } from "lucide-react";
 import { Command } from 'cmdk';
 import { Button } from "vinci-ui";
 
-import { Conversation } from '@/src/types';
+import { Conversation } from '@/types';
 import { ProviderComponentProps } from "../../types";
-import { useSpaces } from '@/src/hooks/use-spaces';
-import { useConversations } from '@/src/hooks/use-conversations';
-import { useMessages } from '@/src/hooks/use-messages';
+import { useSpaces } from '@/hooks/use-spaces';
+import { useConversations } from '@/hooks/use-conversations';
+import { useMessages } from '@/hooks/use-messages';
 
 export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect, onAction }) => {
   const { activeSpace, setActiveSpaceById } = useSpaces();

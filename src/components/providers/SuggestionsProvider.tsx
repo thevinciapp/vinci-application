@@ -1,4 +1,4 @@
-"use client";
+
 
 import React, { useState, useEffect } from 'react';
 import { Lightbulb, Check, X, Plus } from 'lucide-react';
@@ -16,7 +16,7 @@ interface Suggestion {
   accepted?: boolean;
 }
 
-export function SuggestionsProvider({ searchQuery, onSelect, onAction }: ProviderComponentProps) {
+export function SuggestionsProvider({ searchQuery = '', onSelect, onAction }: ProviderComponentProps) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([
     {
       id: 'suggestion-1',

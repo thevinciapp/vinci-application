@@ -1,10 +1,10 @@
-"use client";
+
 
 import React, { useState } from "react";
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea, toast } from "vinci-ui";
-import { useSpaces } from "@/src/hooks/use-spaces";
-import { useCommandCenter } from "@/src/hooks/use-command-center";
-import { DialogComponentProps } from "@/src/types";
+import { useSpaces } from "@/hooks/use-spaces";
+import { useCommandCenter } from "@/hooks/use-command-center";
+import { DialogComponentProps } from "@/types";
 
 export const CreateSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose, onConfirm }) => {
   const [name, setName] = useState("");
@@ -62,8 +62,13 @@ export const CreateSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClos
     }
   };
 
+  // Don't render if no data provided
+  if (!data) {
+    return null;
+  }
+
   return (
-    <Dialog open onOpenChange={onClose}>
+    <Dialog open={true} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create New Space</DialogTitle>

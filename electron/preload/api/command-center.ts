@@ -1,6 +1,5 @@
 import { ipcRenderer } from 'electron';
-import { CommandCenterEvents, AppStateEvents } from '@/src/core/ipc/constants';
-import { IpcResponse } from '@/src/types';
+import { CommandCenterEvents, AppStateEvents } from '@/core/ipc/constants';
 
 export const commandCenterApi = {
   searchFiles: async (searchTerm: string) => {
@@ -25,6 +24,16 @@ export const commandCenterApi = {
   },
 
   ping: () => ({ success: true, data: "pong" }),
+  
+  // Add method to close command center from unauthenticated state
+  closeCommandCenterFromUnauthenticated: async () => {
+    try {
+      return await ipcRenderer.invoke('close-command-center');
+    } catch (error) {
+      console.error("Error closing command center:", error);
+      return { success: false, error };
+    }
+  },
 
   toggleCommandCenter: async () => {
     try {

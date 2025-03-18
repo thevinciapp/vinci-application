@@ -1,9 +1,9 @@
-"use client";
+
 
 import React from 'react';
 import { MessageSquare } from 'lucide-react';
 import { Command } from 'cmdk';
-import { ProviderComponentProps } from '@/src/types';
+import { ProviderComponentProps } from '@/types';
 
 interface SimilarMessage {
   id: string;

@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 import { Command, File, X } from "lucide-react"
 import { CommandList, CommandInput, CommandEmpty, CommandGroup, CommandItem } from "cmdk"

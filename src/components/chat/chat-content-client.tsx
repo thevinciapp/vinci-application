@@ -1,22 +1,22 @@
-"use client";
+
 
 import { useChat } from '@ai-sdk/react';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import { useCallback, useRef, useState } from 'react';
 
 import { ArrowDown, Search } from 'lucide-react';
 import { BaseTab } from 'vinci-ui';
-import { useUser } from '@/src/hooks/use-user';
-import { useSpaces } from '@/src/hooks/use-spaces';
-import { useConversations } from '@/src/hooks/use-conversations';
-import { useMessages } from '@/src/hooks/use-messages';
+import { useUser } from '@/hooks/use-user';
+import { useSpaces } from '@/hooks/use-spaces';
+import { useConversations } from '@/hooks/use-conversations';
+import { useMessages } from '@/hooks/use-messages';
 import { UnifiedInput } from './unified-input';
 import { ChatMessages } from './chat-messages';
-import { UserProfileDropdown } from '@/src/components/chat/ui/user-profile-dropdown';
-import { SpaceTab } from '@/src/components/chat/ui/space-tab';
-import { ModelTab } from '@/src/components/chat/ui/model-tab';
-import { ChatModeTab } from '@/src/components/chat/ui/chat-mode-tab';
-import { toast } from '@/src/components/chat/ui/toast';
+import { UserProfileDropdown } from '@/components/chat/ui/user-profile-dropdown';
+import { SpaceTab } from '@/components/chat/ui/space-tab';
+import { ModelTab } from '@/components/chat/ui/model-tab';
+import { ChatModeTab } from '@/components/chat/ui/chat-mode-tab';
+import { toast } from '@/components/chat/ui/toast';
 import { ServerDrivenConversationTab } from '../conversation/conversation-tab';
 import { ServerDrivenQuickActionsTab, ServerDrivenBackgroundTasksTab, ServerDrivenSuggestionsTab } from './quick-actions-tab';
 
@@ -24,7 +24,7 @@ export default function ClientChatContent() {
   const { profile } = useUser();
   const { activeSpace, isLoading: isSpaceLoading } = useSpaces();
   const { conversations, activeConversation, createConversation } = useConversations();
-  const router = useRouter();
+  const navigate = useNavigate();
 
   const [isStickToBottom, setIsStickToBottom] = useState(true);
   const [searchMode, setSearchMode] = useState<'chat' | 'search' | 'semantic' | 'hybrid'>('chat');

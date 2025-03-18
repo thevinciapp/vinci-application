@@ -1,8 +1,6 @@
-'use client'
-
 import React from 'react'
 import { BaseTab } from 'vinci-ui'
-import { getChatModeConfig } from '@/src/config/chat-modes'
+import { getChatModeConfig } from '@/config/chat-modes'
 interface ChatModeTabProps {
   chatMode?: string;
 }

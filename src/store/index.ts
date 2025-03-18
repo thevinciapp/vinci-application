@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AppState } from '@/src/types';
+import { AppState } from '@/types';
 
 const initialState: AppState = {
   spaces: [],

@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { NotificationEvents } from '@/src/core/ipc/constants';
+import { NotificationEvents } from '@/core/ipc/constants';
 import type { 
   Notification, 
   NotificationResponse, 
   MarkNotificationResponse, 
   MarkAllNotificationsResponse 
-} from '@/src/services/notification/notification-service';
+} from '@/services/notification/notification-service';
 
 /**
  * Hook to manage user notifications

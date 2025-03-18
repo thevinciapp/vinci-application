@@ -1,4 +1,4 @@
-"use client";
+
 
 import { Button } from "vinci-ui";
 import { type ComponentProps } from "react";

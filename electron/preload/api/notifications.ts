@@ -1,6 +1,5 @@
 import { ipcRenderer } from 'electron';
-import { NotificationEvents } from '@/src/core/ipc/constants';
-import { IpcResponse } from '@/src/types';
+import { NotificationEvents } from '@/core/ipc/constants';
 
 export const notificationApi = {
   getNotifications: async () => {

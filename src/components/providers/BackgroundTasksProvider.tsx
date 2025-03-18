@@ -1,10 +1,10 @@
-"use client";
+
 
 import React, { useState, useEffect } from 'react';
 import { Activity, Clock, Check, X } from 'lucide-react';
 import { Command } from 'cmdk';
 import { Progress } from "vinci-ui";
-import { ProviderComponentProps } from '@/src/types';
+import { ProviderComponentProps } from '@/types';
 
 interface BackgroundTask {
   id: string;

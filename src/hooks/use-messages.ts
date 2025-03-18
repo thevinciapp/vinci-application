@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { MessageEvents } from '@/src/core/ipc/constants';
+import { MessageEvents } from '@/core/ipc/constants';
 
 export interface Message {
   id: string;

@@ -1,8 +1,8 @@
-'use client';
+
 
 import { BaseTab } from 'vinci-ui';
 import { Sparkles } from 'lucide-react';
-import { Space } from '@/src/types';
+import { Space } from '@/types';
 
 interface SpaceTabProps {
   activeSpace: Space | null;

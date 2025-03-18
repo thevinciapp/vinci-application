@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useToast } from 'vinci-ui';
-import { UserEvents, AppStateEvents, AuthEvents } from '@/src/core/ipc/constants';
-import { UserProfile, UserUpdateData, EmailPreferences } from '@/src/services/user/user-service';
+import { UserEvents, AppStateEvents, AuthEvents } from '@/core/ipc/constants';
+import { UserProfile, UserUpdateData, EmailPreferences } from '@/services/user/user-service';
 
 export function useUser() {
   const [isLoading, setIsLoading] = useState(false);

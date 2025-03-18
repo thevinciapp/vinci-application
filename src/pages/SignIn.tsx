@@ -1,13 +1,11 @@
-"use client";
+import { useNavigate } from 'react-router-dom';
+import { SubmitButton } from '@/components/auth/submit-button';
+import { Input, Label } from 'vinci-ui';
+import { Link } from 'react-router-dom';
+import { useAuth } from '@/hooks/use-auth';
 
-import { useRouter } from "next/navigation";
-import { SubmitButton } from "@/src/components/auth/submit-button";
-import { Input, Label } from "vinci-ui";
-import Link from "next/link";
-import { useAuth } from "@/src/hooks/use-auth";
-
-export default function Login() {
-  const router = useRouter();
+export default function SignIn() {
+  const navigate = useNavigate();
   const { signIn, isLoading, error } = useAuth();
   
   return (
@@ -17,7 +15,7 @@ export default function Login() {
           <h1 className="text-2xl font-medium text-white/90">Sign in</h1>
           <p className="text-sm text-white/60">
             Don't have an account?{" "}
-            <Link className="text-[#3ecfff]/80 hover:text-[#3ecfff] transition-colors" href="/sign-up">
+            <Link className="text-[#3ecfff]/80 hover:text-[#3ecfff] transition-colors" to="/sign-up">
               Sign up
             </Link>
           </p>
@@ -37,7 +35,7 @@ export default function Login() {
               <Label htmlFor="password" className="text-white/60">Password</Label>
               <Link
                 className="text-xs text-[#3ecfff]/60 hover:text-[#3ecfff]/80 transition-colors"
-                href="/forgot-password"
+                to="/forgot-password"
               >
                 Forgot Password?
               </Link>
@@ -60,7 +58,7 @@ export default function Login() {
               const password = formData.get('password') as string;
               const success = await signIn({ email, password });
               if (success) {
-                router.push('/protected');
+                navigate('/protected');
               }
             }}
             variant="cyan"

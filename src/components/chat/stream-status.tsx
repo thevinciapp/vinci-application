@@ -1,4 +1,4 @@
-'use client';
+
 
 import { useEffect, useState, useRef, memo, useCallback } from 'react';
 import { JSONValue } from 'ai';

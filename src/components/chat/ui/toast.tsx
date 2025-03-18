@@ -1,4 +1,4 @@
-'use client';
+
 
 interface ToastProps {
   title: string;

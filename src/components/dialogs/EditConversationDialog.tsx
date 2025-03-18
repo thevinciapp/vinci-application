@@ -1,11 +1,11 @@
-"use client";
+
 
 import React, { useState } from "react";
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label } from "vinci-ui";
 import { toast } from 'sonner';
-import { useConversations } from "@/src/hooks/use-conversations";
-import { useCommandCenter } from "@/src/hooks/use-command-center";
-import { DialogComponentProps } from "@/src/types";
+import { useConversations } from "@/hooks/use-conversations";
+import { useCommandCenter } from "@/hooks/use-command-center";
+import { DialogComponentProps } from "@/types";
 
 export const EditConversationDialog: React.FC<DialogComponentProps> = ({ data, onClose, onConfirm }) => {
   const [title, setTitle] = useState(data.title || "");
@@ -43,8 +43,13 @@ export const EditConversationDialog: React.FC<DialogComponentProps> = ({ data, o
     }
   };
 
+  // Don't render if no data or ID provided
+  if (!data || !data.id) {
+    return null;
+  }
+
   return (
-    <Dialog open onOpenChange={onClose}>
+    <Dialog open={!!data.id} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit Conversation</DialogTitle>

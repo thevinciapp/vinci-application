@@ -1,6 +1,6 @@
-import { BrowserWindow } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import { join } from 'path';
-import { writeFile, readFile, unlink } from 'fs';
+import { writeFile, readFile, unlink, mkdirSync, existsSync } from 'fs';
 import { useStore } from '../../store';
 import { APP_BASE_URL, API_BASE_URL } from '../../config/api';
 
@@ -16,9 +16,20 @@ interface SignInResponse {
   error?: string;
 }
 
-const STORAGE_DIR = join(process.env.userData || '', 'secure');
+// Use app.getPath('userData') to get the correct user data directory
+const STORAGE_DIR = join(app.getPath('userData'), 'secure');
 const STORAGE_ACCESS_TOKEN_PATH = join(STORAGE_DIR, 'access_token.enc');
 const STORAGE_REFRESH_TOKEN_PATH = join(STORAGE_DIR, 'refresh_token.enc');
+
+// Ensure the secure directory exists
+if (!existsSync(STORAGE_DIR)) {
+  try {
+    mkdirSync(STORAGE_DIR, { recursive: true });
+    console.log('[ELECTRON] Created secure storage directory:', STORAGE_DIR);
+  } catch (error) {
+    console.error('[ELECTRON] Failed to create secure storage directory:', error);
+  }
+}
 
 let tokenExpiryTime: number | null = null;
 
@@ -32,7 +43,19 @@ export async function saveAuthData(access: string, refresh: string, safeStorage:
         throw new Error('Encryption is not available');
       }
 
-      console.log('[ELECTRON] Saving auth tokens...');
+      // Ensure the secure directory exists before writing
+      if (!existsSync(STORAGE_DIR)) {
+        try {
+          mkdirSync(STORAGE_DIR, { recursive: true });
+          console.log('[ELECTRON] Created secure storage directory:', STORAGE_DIR);
+        } catch (dirError) {
+          console.error('[ELECTRON] Failed to create secure storage directory:', dirError);
+          reject(dirError);
+          return;
+        }
+      }
+
+      console.log('[ELECTRON] Saving auth tokens to:', STORAGE_DIR);
       const encryptedAccessToken = safeStorage.encryptString(access);
       const encryptedRefreshToken = safeStorage.encryptString(refresh);
 
@@ -44,6 +67,8 @@ export async function saveAuthData(access: string, refresh: string, safeStorage:
           return;
         }
         
+        console.log('[ELECTRON] Access token saved to:', STORAGE_ACCESS_TOKEN_PATH);
+        
         // Save refresh token
         writeFile(STORAGE_REFRESH_TOKEN_PATH, encryptedRefreshToken, (err) => {
           if (err) {
@@ -52,6 +77,7 @@ export async function saveAuthData(access: string, refresh: string, safeStorage:
             return;
           }
           
+          console.log('[ELECTRON] Refresh token saved to:', STORAGE_REFRESH_TOKEN_PATH);
           console.log('[ELECTRON] Auth tokens encrypted and saved');
           resolve();
         });
@@ -76,80 +102,134 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
       return;
     }
 
-    console.log('[ELECTRON] Loading auth tokens...');
+    // Check if the storage directory exists
+    if (!existsSync(STORAGE_DIR)) {
+      console.log('[ELECTRON] Secure storage directory does not exist:', STORAGE_DIR);
+      resolve({ accessToken: null, refreshToken: null });
+      return;
+    }
+
+    console.log('[ELECTRON] Loading auth tokens from:', STORAGE_DIR);
     
-    // Load access token
-    readFile(STORAGE_ACCESS_TOKEN_PATH, (err, encryptedAccessToken) => {
-      if (err) {
-        console.log('[ELECTRON] No access token file found or error reading:', err);
-        
-        // Even if access token fails, try to load refresh token
-        readFile(STORAGE_REFRESH_TOKEN_PATH, (err, encryptedRefreshToken) => {
-          if (err) {
-            console.log('[ELECTRON] No refresh token file found or error reading:', err);
+    // Check if access token file exists
+    const accessTokenExists = existsSync(STORAGE_ACCESS_TOKEN_PATH);
+    const refreshTokenExists = existsSync(STORAGE_REFRESH_TOKEN_PATH);
+    
+    if (!accessTokenExists && !refreshTokenExists) {
+      console.log('[ELECTRON] No token files found in storage directory');
+      resolve({ accessToken: null, refreshToken: null });
+      return;
+    }
+
+    // Load access token if it exists
+    if (accessTokenExists) {
+      readFile(STORAGE_ACCESS_TOKEN_PATH, (err, encryptedAccessToken) => {
+        if (err) {
+          console.log('[ELECTRON] Error reading access token file:', err);
+          
+          // Even if access token fails, try to load refresh token
+          if (refreshTokenExists) {
+            readFile(STORAGE_REFRESH_TOKEN_PATH, (err, encryptedRefreshToken) => {
+              if (err) {
+                console.log('[ELECTRON] Error reading refresh token file:', err);
+                resolve({ accessToken: null, refreshToken: null });
+                return;
+              }
+              
+              try {
+                const refreshToken = safeStorage.decryptString(encryptedRefreshToken);
+                console.log('[ELECTRON] Refresh token loaded successfully');
+                store.setRefreshToken(refreshToken);
+                resolve({ accessToken: null, refreshToken });
+              } catch (decryptError) {
+                console.error('[ELECTRON] Failed to decrypt refresh token:', decryptError);
+                resolve({ accessToken: null, refreshToken: null });
+              }
+            });
+          } else {
             resolve({ accessToken: null, refreshToken: null });
-            return;
           }
           
-          try {
-            const refreshToken = safeStorage.decryptString(encryptedRefreshToken);
-            console.log('[ELECTRON] Refresh token loaded successfully');
-            store.setRefreshToken(refreshToken);
-            resolve({ accessToken: null, refreshToken });
-          } catch (decryptError) {
-            console.error('[ELECTRON] Failed to decrypt refresh token:', decryptError);
-            resolve({ accessToken: null, refreshToken: null });
-          }
-        });
+          return;
+        }
         
-        return;
-      }
-      
-      try {
-        const accessToken = safeStorage.decryptString(encryptedAccessToken);
-        store.setAccessToken(accessToken);
-        
-        // Now load refresh token
-        readFile(STORAGE_REFRESH_TOKEN_PATH, (err, encryptedRefreshToken) => {
-          if (err) {
-            console.log('[ELECTRON] No refresh token file found or error reading:', err);
+        try {
+          const accessToken = safeStorage.decryptString(encryptedAccessToken);
+          store.setAccessToken(accessToken);
+          console.log('[ELECTRON] Access token loaded successfully');
+          
+          // Now load refresh token if it exists
+          if (refreshTokenExists) {
+            readFile(STORAGE_REFRESH_TOKEN_PATH, (err, encryptedRefreshToken) => {
+              if (err) {
+                console.log('[ELECTRON] Error reading refresh token file:', err);
+                resolve({ accessToken, refreshToken: null });
+                return;
+              }
+              
+              try {
+                const refreshToken = safeStorage.decryptString(encryptedRefreshToken);
+                console.log('[ELECTRON] Both tokens loaded successfully');
+                store.setRefreshToken(refreshToken);
+                resolve({ accessToken, refreshToken });
+              } catch (decryptError) {
+                console.error('[ELECTRON] Failed to decrypt refresh token:', decryptError);
+                resolve({ accessToken, refreshToken: null });
+              }
+            });
+          } else {
             resolve({ accessToken, refreshToken: null });
-            return;
           }
+        } catch (decryptError) {
+          console.error('[ELECTRON] Failed to decrypt access token:', decryptError);
           
-          try {
-            const refreshToken = safeStorage.decryptString(encryptedRefreshToken);
-            console.log('[ELECTRON] Both tokens loaded successfully');
-            store.setRefreshToken(refreshToken);
-            resolve({ accessToken, refreshToken });
-          } catch (decryptError) {
-            console.error('[ELECTRON] Failed to decrypt refresh token:', decryptError);
-            resolve({ accessToken, refreshToken: null });
+          // Try to load refresh token even if access token fails
+          if (refreshTokenExists) {
+            readFile(STORAGE_REFRESH_TOKEN_PATH, (err, encryptedRefreshToken) => {
+              if (err) {
+                console.log('[ELECTRON] Error reading refresh token file:', err);
+                resolve({ accessToken: null, refreshToken: null });
+                return;
+              }
+              
+              try {
+                const refreshToken = safeStorage.decryptString(encryptedRefreshToken);
+                console.log('[ELECTRON] Only refresh token loaded successfully');
+                store.setRefreshToken(refreshToken);
+                resolve({ accessToken: null, refreshToken });
+              } catch (decryptError) {
+                console.error('[ELECTRON] Failed to decrypt refresh token:', decryptError);
+                resolve({ accessToken: null, refreshToken: null });
+              }
+            });
+          } else {
+            resolve({ accessToken: null, refreshToken: null });
           }
-        });
-      } catch (decryptError) {
-        console.error('[ELECTRON] Failed to decrypt access token:', decryptError);
+        }
+      });
+    } else if (refreshTokenExists) {
+      // Only refresh token exists
+      readFile(STORAGE_REFRESH_TOKEN_PATH, (err, encryptedRefreshToken) => {
+        if (err) {
+          console.log('[ELECTRON] Error reading refresh token file:', err);
+          resolve({ accessToken: null, refreshToken: null });
+          return;
+        }
         
-        // Try to load refresh token even if access token fails
-        readFile(STORAGE_REFRESH_TOKEN_PATH, (err, encryptedRefreshToken) => {
-          if (err) {
-            console.log('[ELECTRON] No refresh token file found or error reading:', err);
-            resolve({ accessToken: null, refreshToken: null });
-            return;
-          }
-          
-          try {
-            const refreshToken = safeStorage.decryptString(encryptedRefreshToken);
-            console.log('[ELECTRON] Only refresh token loaded successfully');
-            store.setRefreshToken(refreshToken);
-            resolve({ accessToken: null, refreshToken });
-          } catch (decryptError) {
-            console.error('[ELECTRON] Failed to decrypt refresh token:', decryptError);
-            resolve({ accessToken: null, refreshToken: null });
-          }
-        });
-      }
-    });
+        try {
+          const refreshToken = safeStorage.decryptString(encryptedRefreshToken);
+          console.log('[ELECTRON] Only refresh token loaded successfully');
+          store.setRefreshToken(refreshToken);
+          resolve({ accessToken: null, refreshToken });
+        } catch (decryptError) {
+          console.error('[ELECTRON] Failed to decrypt refresh token:', decryptError);
+          resolve({ accessToken: null, refreshToken: null });
+        }
+      });
+    } else {
+      // This should never happen (we already checked if both don't exist)
+      resolve({ accessToken: null, refreshToken: null });
+    }
   });
 }
 
@@ -161,16 +241,31 @@ export async function clearAuthData(): Promise<boolean> {
   let refreshDeleted = false;
   
   return new Promise((resolve) => {
-    // Delete access token
-    unlink(STORAGE_ACCESS_TOKEN_PATH, (err) => {
-      if (err) {
-        console.error('[ELECTRON] Failed to delete access token file:', err);
-      } else {
-        accessDeleted = true;
-        console.log('[ELECTRON] Access token deleted');
+    // Check if storage directory exists
+    if (!existsSync(STORAGE_DIR)) {
+      console.log('[ELECTRON] Secure storage directory does not exist:', STORAGE_DIR);
+      resolve(false);
+      return;
+    }
+    
+    // Check if access token file exists
+    const accessTokenExists = existsSync(STORAGE_ACCESS_TOKEN_PATH);
+    const refreshTokenExists = existsSync(STORAGE_REFRESH_TOKEN_PATH);
+    
+    if (!accessTokenExists && !refreshTokenExists) {
+      console.log('[ELECTRON] No token files found to delete');
+      resolve(false);
+      return;
+    }
+    
+    // Function to delete the refresh token file
+    const deleteRefreshToken = () => {
+      if (!refreshTokenExists) {
+        console.log('[ELECTRON] Refresh token file does not exist, nothing to delete');
+        resolve(accessDeleted); // Return based on whether access token was deleted
+        return;
       }
       
-      // Delete refresh token
       unlink(STORAGE_REFRESH_TOKEN_PATH, (err) => {
         if (err) {
           console.error('[ELECTRON] Failed to delete refresh token file:', err);
@@ -182,7 +277,25 @@ export async function clearAuthData(): Promise<boolean> {
         // Return true if at least one token was deleted
         resolve(accessDeleted || refreshDeleted);
       });
-    });
+    };
+    
+    // Delete access token if it exists
+    if (accessTokenExists) {
+      unlink(STORAGE_ACCESS_TOKEN_PATH, (err) => {
+        if (err) {
+          console.error('[ELECTRON] Failed to delete access token file:', err);
+        } else {
+          accessDeleted = true;
+          console.log('[ELECTRON] Access token deleted');
+        }
+        
+        // Then delete refresh token
+        deleteRefreshToken();
+      });
+    } else {
+      // Only delete refresh token
+      deleteRefreshToken();
+    }
   });
 }
 
@@ -215,7 +328,14 @@ export async function redirectToSignIn(): Promise<void> {
   // Redirect all windows to sign-in
   BrowserWindow.getAllWindows().forEach((window) => {
     if (!window.isDestroyed()) {
-      window.loadURL(`${APP_BASE_URL}/sign-in`);
+      // Use hash-based routing for Vite/React Router
+      if (process.env.NODE_ENV === 'development') {
+        window.loadURL(`http://localhost:5173/#/sign-in`);
+      } else {
+        // For production build
+        const basePath = join(__dirname, '../renderer/index.html');
+        window.loadURL(`file://${basePath}#/sign-in`);
+      }
     }
   });
   
@@ -231,7 +351,7 @@ export async function redirectToSignIn(): Promise<void> {
 /**
  * Refresh authentication tokens
  */
-export async function refreshTokens(): Promise<boolean> {
+export async function refreshTokens(safeStor?: Electron.SafeStorage): Promise<boolean> {
   const store = useStore.getState();
   const refreshToken = store.refreshToken;
   
@@ -271,8 +391,9 @@ export async function refreshTokens(): Promise<boolean> {
     }
     
     // Update tokens in Zustand store
-    const store = useStore.getState();
     store.setAccessToken(data.data.session.access_token);
+    
+    // If a new refresh token was provided, update it too
     if (data.data.session.refresh_token) {
       store.setRefreshToken(data.data.session.refresh_token);
     }
@@ -280,15 +401,25 @@ export async function refreshTokens(): Promise<boolean> {
     // Set expiry time to 1 hour from now
     tokenExpiryTime = Date.now() + (60 * 60 * 1000);
     
-    // Save the new tokens
+    // Save the new tokens to disk if safeStorage is provided
     const newState = useStore.getState();
-    if (newState.accessToken && newState.refreshToken) {
-      // We need safeStorage from main process
-      // This would be passed from the caller
-      // await saveAuthData(newState.accessToken, newState.refreshToken);
+    if (newState.accessToken && newState.refreshToken && safeStor) {
+      try {
+        await saveAuthData(
+          newState.accessToken, 
+          newState.refreshToken,
+          safeStor
+        );
+        console.log('[ELECTRON] Refreshed tokens saved to disk');
+      } catch (saveError) {
+        console.error('[ELECTRON] Error saving refreshed tokens:', saveError);
+        // Even if saving fails, we still have the tokens in memory, so continue
+      }
+    } else if (!safeStor) {
+      console.log('[ELECTRON] SafeStorage not provided, skipping token save to disk');
     } else {
       console.error('[ELECTRON] Cannot save tokens: One or both tokens are null');
-      return false;
+      // This is a recoverable error - we still have tokens in memory
     }
     
     console.log('[ELECTRON] Tokens refreshed successfully');
@@ -325,6 +456,13 @@ export async function signIn(email: string, password: string): Promise<{ success
       body: JSON.stringify({ email, password })
     });
 
+    if (!response.ok) {
+      return { 
+        success: false, 
+        error: `Server error: ${response.status} ${response.statusText}`
+      };
+    }
+
     const data: SignInResponse = await response.json();
 
     if (data.status !== 'success' || !data.data?.session?.access_token || !data.data?.session?.refresh_token) {
@@ -334,10 +472,18 @@ export async function signIn(email: string, password: string): Promise<{ success
       };
     }
 
+    // Update store with tokens
+    const store = useStore.getState();
+    store.setAccessToken(data.data.session.access_token);
+    store.setRefreshToken(data.data.session.refresh_token);
+    
     // Update store with user data if available
     if (data.data.session.user) {
-      useStore.getState().setUser(data.data.session.user);
+      store.setUser(data.data.session.user);
     }
+
+    // Note: We don't need to save tokens to disk here - the auth-handlers.ts
+    // handles that when calling this method
 
     return {
       success: true,

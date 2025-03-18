@@ -1,10 +1,10 @@
-"use client";
+
 
 import React from "react";
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, toast } from "vinci-ui";
-import { DialogComponentProps, Space } from "@/src/types";
-import { useSpaces } from "@/src/hooks/use-spaces";
-import { useCommandCenter } from "@/src/hooks/use-command-center";
+import { DialogComponentProps, Space } from "@/types";
+import { useSpaces } from "@/hooks/use-spaces";
+import { useCommandCenter } from "@/hooks/use-command-center";
 
 export const DeleteSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose }) => {
   const space = data as Space;
@@ -46,13 +46,18 @@ export const DeleteSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClos
     }
   };
 
+  // Don't render if no space data provided
+  if (!space || !space.id) {
+    return null;
+  }
+
   return (
-    <Dialog open onOpenChange={onClose}>
+    <Dialog open={!!space.id} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Delete Space</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete <strong>{space?.name}</strong>? 
+            Are you sure you want to delete <strong>{space.name}</strong>? 
             This action cannot be undone and will delete all conversations within this space.
           </DialogDescription>
         </DialogHeader>

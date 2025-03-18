@@ -1,8 +1,5 @@
-'use client'
-
 import React, { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Link, useNavigate } from "react-router-dom";
 import { Bell, LogOut, User as UserIcon, Settings } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "vinci-ui";
 import { Button } from "vinci-ui";
@@ -15,18 +12,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "vinci-ui";
-import { cn } from "@/src/lib/utils/utils";
+import { cn } from "@/lib/utils/utils";
 import { User } from '@supabase/supabase-js';
-import { useUser } from '@/src/hooks/use-user';
-import { useNotifications } from '@/src/hooks/use-notifications';
-import { UserProfile } from '@/src/services/user/user-service';
+import { useUser } from '@/hooks/use-user';
+import { useNotifications } from '@/hooks/use-notifications';
+import { UserProfile } from '@/services/user/user-service';
 
 interface UserProfileDropdownProps {
   user: User | UserProfile;
 }
 
 export function UserProfileDropdown({ user }: UserProfileDropdownProps) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const { signOut } = useUser();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
@@ -39,7 +36,7 @@ export function UserProfileDropdown({ user }: UserProfileDropdownProps) {
   const handleLogout = async () => {
     try {
       await signOut();
-      router.push('/login');
+      navigate('/sign-in');
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -148,13 +145,13 @@ export function UserProfileDropdown({ user }: UserProfileDropdownProps) {
               </div>
             </>
           )}
-          <Link href="/protected/profile">
+          <Link to="/protected/profile">
             <DropdownMenuItem>
               <UserIcon className="mr-2 h-4 w-4" />
               <span>Profile</span>
             </DropdownMenuItem>
           </Link>
-          <Link href="/protected/settings">
+          <Link to="/protected/settings">
             <DropdownMenuItem>
               <Settings className="mr-2 h-4 w-4" />
               <span>Settings</span>

@@ -1,11 +1,9 @@
-"use client";
-
-import { DialogRegistry } from "@/src/types";
-import { DeleteSpaceDialog } from "@/src/components/dialogs/DeleteSpaceDialog";
-import { EditSpaceDialog } from "@/src/components/dialogs/EditSpaceDialog";
-import { CreateSpaceDialog } from "@/src/components/dialogs/CreateSpaceDialog";
-import { EditConversationDialog } from "@/src/components/dialogs/EditConversationDialog";
-import { DeleteConversationDialog } from "@/src/components/dialogs/DeleteConversationDialog";
+import { DialogRegistry } from "@/types";
+import { DeleteSpaceDialog } from "@/components/dialogs/DeleteSpaceDialog";
+import { EditSpaceDialog } from "@/components/dialogs/EditSpaceDialog";
+import { CreateSpaceDialog } from "@/components/dialogs/CreateSpaceDialog";
+import { EditConversationDialog } from "@/components/dialogs/EditConversationDialog";
+import { DeleteConversationDialog } from "@/components/dialogs/DeleteConversationDialog";
 
 export const dialogs: DialogRegistry = {
   deleteSpace: DeleteSpaceDialog,

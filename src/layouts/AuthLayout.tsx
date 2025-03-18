@@ -1,8 +1,7 @@
-export default async function Layout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+import { ReactNode } from 'react';
+import { Outlet } from 'react-router-dom';
+
+export default function AuthLayout() {
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-black text-white relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-screen pointer-events-none">
@@ -11,7 +10,7 @@ export default async function Layout({
         <div className="absolute bottom-[10%] left-[30%] w-[600px] h-[600px] bg-[#3ecfff]/[0.01] blur-[130px] rounded-full" />
       </div>
       <div className="relative z-10 w-full max-w-md p-6">
-        {children}
+        <Outlet />
       </div>
     </div>
   );
