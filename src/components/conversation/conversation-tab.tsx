@@ -8,7 +8,8 @@ import {
 } from "vinci-ui"
 import { cn } from '@/src/lib/utils/utils'
 import { useState } from 'react'
-import { useStore } from '@/src/store'
+import { useSpaces } from '@/src/hooks/use-spaces';
+import { useConversations } from '@/src/hooks/use-conversations';
 
 export function ServerDrivenConversationTab({
   onCreateConversation,
@@ -16,8 +17,8 @@ export function ServerDrivenConversationTab({
   onCreateConversation: (title: string) => Promise<void>;
 }) {
   const [isCreating, setIsCreating] = useState(false);
-  const { activeSpace, conversations } = useStore();
-  const activeConversation = conversations.find(conv => conv.space_id === activeSpace?.id) || null;
+  const { activeSpace } = useSpaces();
+  const { conversations, activeConversation } = useConversations();
 
   const handleNewConversation = async () => {
     if (!activeSpace?.id) return;

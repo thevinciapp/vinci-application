@@ -5,15 +5,21 @@ import {
   AppStateEventType,
   CommandCenterEventType,
   SpaceEventType,
-  MessageEventType 
-} from '@/src/types';
+  MessageEventType,
+  UserEventType,
+  NotificationEventType,
+  ConversationEventType
+} from '../../../src/types';
 
 export type IpcEventType = 
   | AuthEventType 
   | AppStateEventType 
   | CommandCenterEventType 
   | SpaceEventType 
-  | MessageEventType;
+  | MessageEventType
+  | UserEventType
+  | NotificationEventType
+  | ConversationEventType;
 
 export type EventCallback = (event: IpcRendererEvent, response: IpcResponse) => void;
 

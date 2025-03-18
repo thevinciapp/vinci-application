@@ -3,25 +3,25 @@ import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
 // Import utilities
-import { isMac } from '@/src/lib/utils/env-utils';
+import { isMac } from '../src/lib/utils/env-utils';
 
 // Import core modules
-import { registerIpcHandlers } from '@/src/core/ipc/ipc-handlers';
-import { createMainWindow } from '@/src/core/window/window-service';
-import { registerGlobalShortcuts } from '@/src/core/window/shortcuts';
+import { registerIpcHandlers } from '../src/core/ipc/ipc-handlers';
+import { createMainWindow } from '../src/core/window/window-service';
+import { registerGlobalShortcuts } from '../src/core/window/shortcuts';
 import { 
   waitForServer, 
   loadAuthData, 
   refreshTokens, 
   redirectToSignIn
-} from '@/src/core/auth/auth-service';
+} from '../src/core/auth/auth-service';
 
 import {
   fetchInitialAppData
-} from '@/src/services/app-data/app-data-service';
+} from '../src/services/app-data/app-data-service';
 
 // Import Zustand store
-import { useStore } from '@/src/store';
+import { useStore } from '../src/store';
 
 // Check for secure storage directory
 const STORAGE_DIR = join(app.getPath('userData'), 'secure');

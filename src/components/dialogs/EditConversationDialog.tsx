@@ -3,12 +3,14 @@
 import React, { useState } from "react";
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label } from "vinci-ui";
 import { toast } from 'sonner';
-import { DialogComponentProps } from "../../types";
-import { API } from '@/src/types/api-client';
+import { useConversations } from "@/src/hooks/use-conversations";
+import { useCommandCenter } from "@/src/hooks/use-command-center";
+import { DialogComponentProps } from "@/src/types";
 
 export const EditConversationDialog: React.FC<DialogComponentProps> = ({ data, onClose, onConfirm }) => {
   const [title, setTitle] = useState(data.title || "");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { updateConversation, isLoading: isSubmitting } = useConversations();
+  const { refreshCommandCenter } = useCommandCenter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,22 +22,24 @@ export const EditConversationDialog: React.FC<DialogComponentProps> = ({ data, o
       return;
     }
 
-    setIsSubmitting(true);
     try {
-      const result = await API.conversations.updateConversation(data.id, trimmedTitle);
-      if (result.success) {
+      const success = await updateConversation(data.spaceId, data.id, trimmedTitle);
+      
+      if (success) {
         toast.success('Conversation updated successfully');
+        
+        // Refresh command center
+        refreshCommandCenter();
+        
         // Pass updated data with new title
         onConfirm?.({ ...data, title: trimmedTitle });
         onClose();
       } else {
-        toast.error(result.error || 'Failed to update conversation');
+        toast.error('Failed to update conversation');
       }
     } catch (error) {
       console.error('Error updating conversation:', error);
-      toast.error('An unexpected error occurred');
-    } finally {
-      setIsSubmitting(false);
+      toast.error(error instanceof Error ? error.message : 'An unexpected error occurred');
     }
   };
 

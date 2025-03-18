@@ -2,6 +2,10 @@ import { registerAuthHandlers } from './auth-handlers';
 import { registerMessageHandlers } from './message-handlers';
 import { registerSpaceHandlers } from './space-handlers';
 import { registerAppStateHandlers } from './app-state-handlers';
+import { registerCommandCenterHandlers } from './command-center-handlers';
+import { registerConversationHandlers } from './conversation-handlers';
+import { registerUserHandlers } from './user-handlers';
+import { registerNotificationHandlers } from './notification-handlers';
 
 // Common response interface for all handlers
 export interface IpcResponse {
@@ -22,6 +26,10 @@ export type AuthResponse = IpcResponse;
 export type MessageResponse = IpcResponse;
 export type SpaceResponse = IpcResponse;
 export type AppStateResponse = IpcResponse;
+export type CommandCenterResponse = IpcResponse;
+export type ConversationResponse = IpcResponse;
+export type UserResponse = IpcResponse;
+export type NotificationResponse = IpcResponse;
 
 /**
  * Register all IPC handlers for the application
@@ -32,4 +40,8 @@ export function registerAllHandlers() {
   registerMessageHandlers();
   registerSpaceHandlers();
   registerAppStateHandlers();
+  registerCommandCenterHandlers();
+  registerConversationHandlers();
+  registerUserHandlers();
+  registerNotificationHandlers();
 }

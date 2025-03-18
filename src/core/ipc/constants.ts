@@ -45,7 +45,12 @@ export const SpaceEvents = {
   GET_SPACE_CONVERSATIONS: 'get-space-conversations',
   UPDATE_SPACE: 'update-space',
   UPDATE_SPACE_MODEL: 'update-space-model',
-  SET_ACTIVE_SPACE: 'set-active-space'
+  SET_ACTIVE_SPACE: 'set-active-space',
+  GET_ACTIVE_SPACE: 'get-active-space',
+  GET_SPACES: 'get-spaces',
+  SPACE_UPDATED: 'space-updated',
+  CREATE_SPACE: 'create-space',
+  DELETE_SPACE: 'delete-space'
 } as const;
 
 /**
@@ -79,11 +84,32 @@ export const UserEvents = {
   UPDATE_SETTINGS: 'update-settings'
 } as const;
 
+/**
+ * Conversation-related IPC events
+ */
+export const ConversationEvents = {
+  GET_CONVERSATIONS: 'get-conversations',
+  CREATE_CONVERSATION: 'create-conversation',
+  UPDATE_CONVERSATION: 'update-conversation',
+  DELETE_CONVERSATION: 'delete-conversation',
+  CONVERSATIONS_UPDATED: 'conversations-updated'
+} as const;
+
 export const AppStateEvents = {
   SYNC_STATE: 'sync-app-state',
   GET_STATE: 'get-app-state',
   REFRESH_DATA: 'refresh-app-data',
   STATE_UPDATED: 'state-updated'
+} as const;
+
+/**
+ * Notification-related IPC events
+ */
+export const NotificationEvents = {
+  GET_NOTIFICATIONS: 'get-notifications',
+  MARK_AS_READ: 'mark-notification-as-read',
+  MARK_ALL_AS_READ: 'mark-all-notifications-as-read',
+  NOTIFICATION_RECEIVED: 'notification-received'
 } as const;
 
 // Type for all IPC events
@@ -94,4 +120,6 @@ export type IpcEvent =
   | typeof MessageEvents[keyof typeof MessageEvents]
   | typeof SearchEvents[keyof typeof SearchEvents]
   | typeof UserEvents[keyof typeof UserEvents]
-  | typeof AppStateEvents[keyof typeof AppStateEvents];
+  | typeof ConversationEvents[keyof typeof ConversationEvents]
+  | typeof AppStateEvents[keyof typeof AppStateEvents]
+  | typeof NotificationEvents[keyof typeof NotificationEvents];

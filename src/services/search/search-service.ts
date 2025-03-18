@@ -1,6 +1,6 @@
-import { API_BASE_URL } from '@/src/core/auth/auth-service';
-import { Message } from '@/src/types';
-import { fetchWithAuth } from '@/src/services/api/api-service';
+import { API_BASE_URL } from '../../core/auth/auth-service';
+import { Message } from '../../types';
+import { fetchWithAuth } from '../api/api-service';
 
 /**
  * Search for messages across all conversations

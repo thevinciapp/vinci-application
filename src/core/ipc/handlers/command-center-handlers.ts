@@ -1,6 +1,6 @@
 import { ipcMain, IpcMainInvokeEvent, BrowserWindow } from 'electron';
-import { useStore } from '@/src/store';
-import { fetchInitialAppData } from '@/src/services/app-data/app-data-service';
+import { useStore } from '../../../store';
+import { fetchInitialAppData } from '../../../services/app-data/app-data-service';
 import { 
   getCommandCenterWindow,
   createCommandCenterWindow,
@@ -8,7 +8,7 @@ import {
   setDialogState,
   setCommandType
 } from '../../windows/command-center';
-import { CommandType } from '@/src/types';
+import { CommandType } from '../../../types';
 import { IpcResponse } from './index';
 import { CommandCenterEvents } from '../constants';
 

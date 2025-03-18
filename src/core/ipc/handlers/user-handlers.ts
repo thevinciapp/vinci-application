@@ -1,34 +1,14 @@
 import { ipcMain } from 'electron';
 import { UserEvents } from '../constants';
 import { 
-  fetchUserProfile, 
-  updateUserProfile, 
   updateUserPassword, 
   updateUserEmailPreferences,
-  updateUserSettings,
-  getUserSettings
-} from '@/src/services/user/user-service';
+  getUserSettings,
+  updateUserSettings
+} from '../../../services/user/user-service';
 
 export function registerUserHandlers() {
-  ipcMain.handle(UserEvents.GET_PROFILE, async () => {
-    try {
-      const profile = await fetchUserProfile();
-      return { success: true, data: { profile } };
-    } catch (error) {
-      console.error('Error in GET_PROFILE:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Failed to fetch profile' };
-    }
-  });
-
-  ipcMain.handle(UserEvents.UPDATE_PROFILE, async (_, data) => {
-    try {
-      const profile = await updateUserProfile(data);
-      return { success: true, data: { profile } };
-    } catch (error) {
-      console.error('Error in UPDATE_PROFILE:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Failed to update profile' };
-    }
-  });
+  // Note: GET_PROFILE and UPDATE_PROFILE are handled in profile-handlers.ts
 
   ipcMain.handle(UserEvents.UPDATE_PASSWORD, async (_, data) => {
     try {
@@ -60,13 +40,5 @@ export function registerUserHandlers() {
     }
   });
 
-  ipcMain.handle(UserEvents.UPDATE_SETTINGS, async (_, settings) => {
-    try {
-      const updatedSettings = await updateUserSettings(settings);
-      return { success: true, data: { settings: updatedSettings } };
-    } catch (error) {
-      console.error('Error in UPDATE_SETTINGS:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Failed to update settings' };
-    }
-  });
+  // Note: UPDATE_SETTINGS is handled in profile-handlers.ts
 }

@@ -1,7 +1,7 @@
-import { API_BASE_URL } from '@/src/core/auth/auth-service';
-import { Message } from '@/src/types';
-import { useStore } from '@/src/store';
-import { fetchWithAuth } from '@/src/services/api/api-service';
+import { API_BASE_URL } from '../../core/auth/auth-service';
+import { Message } from '../../types';
+import { useStore } from '../../store';
+import { fetchWithAuth } from '../api/api-service';
 
 /**
  * Fetch messages for a specific conversation

@@ -6,7 +6,7 @@
     "next:build": "next build",
     "electron:build": "tsc -p electron/tsconfig.json",
     "electron:build_watch": "tsc -p electron/tsconfig.json --watch",
-    "electron:watch": "cross-env NODE_ENV='development' nodemon -r tsconfig-paths/register --exec electron ./build/electron/main.js",
+    "electron:watch": "cross-env NODE_ENV='development' nodemon -r ./register.js --exec electron ./build/electron/main.js",
     "electron:dev": "npm-run-all --parallel electron:build_watch electron:watch",
     "dev": "npm-run-all --parallel electron:dev next:dev"
   },

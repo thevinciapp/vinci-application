@@ -1,51 +1,49 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
 import { PencilLine, Trash, MessageSquare, Plus } from "lucide-react";
 import { Command } from 'cmdk';
 import { Button } from "vinci-ui";
 
-import { API } from '@/src/types/api-client';
-import { Space, Conversation } from '@/src/types';
-import { useAppState } from '@/src/types/app-state-context';
+import { Conversation } from '@/src/types';
 import { ProviderComponentProps } from "../../types";
+import { useSpaces } from '@/src/hooks/use-spaces';
+import { useConversations } from '@/src/hooks/use-conversations';
+import { useMessages } from '@/src/hooks/use-messages';
 
 export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect, onAction }) => {
-  const router = useRouter();
-  const { appState, refreshAppState } = useAppState();
-  
-  const activeSpace = appState.activeSpace;
-  const conversations = appState.conversations || [];
-  const isLoading = false;
+  const { activeSpace, setActiveSpaceById } = useSpaces();
+  const { conversations, isLoading } = useConversations();
+  const { fetchMessages } = useMessages(null);
 
   const filteredConversations = conversations
-    .filter(conv => conv.space_id === activeSpace?.id)
+    .filter(conv => conv.spaceId === activeSpace?.id)
     .filter(conv =>
       (conv.title || 'Untitled').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
   const handleSelect = async (conversation: Conversation) => {
     try {
-      if (!conversation || !conversation.space_id) {
-        console.error('[ConversationsProvider] Cannot select conversation: Invalid space_id', conversation);
+      if (!conversation || !conversation.spaceId) {
+        console.error('[ConversationsProvider] Cannot select conversation: Invalid spaceId', conversation);
         return;
       }
 
-      console.log('[ConversationsProvider] Selecting conversation:', conversation.id, 'in space:', conversation.space_id);
+      console.log('[ConversationsProvider] Selecting conversation:', conversation.id, 'in space:', conversation.spaceId);
       
-      const spaceResult = await window.electronAPI.setActiveSpace(conversation.space_id);
+      // First set active space
+      const spaceSuccess = await setActiveSpaceById(conversation.spaceId);
       
-      if (spaceResult.success) {
-        const messagesResult = await window.electronAPI.getConversationMessages(conversation.id);
+      if (spaceSuccess) {
+        // Then fetch messages for the conversation
+        await fetchMessages(conversation.id);
         
-        if (messagesResult.success) {
-          if (onSelect) onSelect({...conversation, closeOnSelect: true});
-        } else {
-          console.error('[ConversationsProvider] Error getting conversation messages:', messagesResult.error);
+        // Return the conversation to the caller
+        if (onSelect) {
+          onSelect({...conversation, closeOnSelect: true});
         }
       } else {
-        console.error('[ConversationsProvider] Error setting active space:', spaceResult.error);
+        console.error('[ConversationsProvider] Error setting active space');
       }
     } catch (error) {
       console.error('[ConversationsProvider] Error handling conversation selection:', error);

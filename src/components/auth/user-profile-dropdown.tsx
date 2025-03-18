@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, LogOut, User as UserIcon, Settings } from "lucide-react";
@@ -15,65 +15,43 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "vinci-ui";
-import { cn } from "@/src/lib/utils";
+import { cn } from "@/src/lib/utils/utils";
 import { User } from '@supabase/supabase-js';
-import { AuthEvents } from '@/src/core/ipc/constants';
+import { useUser } from '@/src/hooks/use-user';
+import { useNotifications } from '@/src/hooks/use-notifications';
+import { UserProfile } from '@/src/services/user/user-service';
 
 interface UserProfileDropdownProps {
-  user: User;
-  initialNotifications?: any[];
+  user: User | UserProfile;
 }
 
-export function UserProfileDropdown({ user, initialNotifications = [] }: UserProfileDropdownProps) {
-  const [unreadCount, setUnreadCount] = useState(0);
+export function UserProfileDropdown({ user }: UserProfileDropdownProps) {
+  const router = useRouter();
+  const { signOut } = useUser();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>(initialNotifications);
-
-  useEffect(() => {
-    if (notifications) {
-      const unreadNotifications = notifications.filter(
-        (notification) => !notification.is_read
-      );
-      setUnreadCount(unreadNotifications.length);
-    }
-  }, [notifications]);
   
-  const handleMarkAsRead = async (notificationId: string) => {
-    await NotificationsAPI.markAsRead(notificationId);
-    const notificationsResponse = await NotificationsAPI.getNotifications();
-    if (notificationsResponse.success) { 
-      setNotifications(notificationsResponse.data || []);
-    }
-  };
-
-  const handleMarkAllAsRead = async () => {
-    await NotificationsAPI.markAllAsRead();
-    const notificationsResponse = await NotificationsAPI.getNotifications();
-    if (notificationsResponse.success) {
-      setNotifications(notificationsResponse.data || []);
-    }
-  };
-  
-  const router = useRouter();
   const userInitials = user.email
     ? user.email.substring(0, 2).toUpperCase()
     : '??';
 
   const handleLogout = async () => {
-    // Clear Electron auth data if in desktop app
-    if (typeof window !== 'undefined' && window.electron?.invoke) {
-      try {
-        await window.electron.invoke(AuthEvents.SIGN_OUT);
-        console.log('Signed out from Electron app');
-      } catch (error) {
-        console.error('Error signing out from Electron:', error);
-      }
+    try {
+      await signOut();
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
     }
-    
-    router.push('/sign-in');
+  };
+  
+  const handleMarkAsRead = async (notificationId: string) => {
+    await markAsRead(notificationId);
   };
 
+  const handleMarkAllAsRead = async () => {
+    await markAllAsRead();
+  };
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
@@ -89,7 +67,7 @@ export function UserProfileDropdown({ user, initialNotifications = [] }: UserPro
             </span>
           )}
           <Avatar>
-            <AvatarImage src={user.user_metadata.avatar_url} alt={user.email || ''} />
+            <AvatarImage src={('user_metadata' in user) ? user.user_metadata?.avatar_url : undefined} alt={user.email || ''} />
             <AvatarFallback>{userInitials}</AvatarFallback>
           </Avatar>
         </Button>
@@ -98,7 +76,7 @@ export function UserProfileDropdown({ user, initialNotifications = [] }: UserPro
         <DropdownMenuLabel>
           <div className="flex flex-col space-y-1.5">
             <p className="text-sm font-medium leading-none text-white/90 truncate max-w-[200px]">
-              {user.user_metadata.full_name || user.email}
+              {('user_metadata' in user) ? user.user_metadata?.full_name || user.email : user.email}
             </p>
             <p className="text-xs leading-none text-white/40 truncate max-w-[200px]">
               {user.email}

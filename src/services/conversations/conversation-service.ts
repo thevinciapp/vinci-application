@@ -1,7 +1,7 @@
-import { API_BASE_URL } from '@/src/config/api';
-import { Conversation } from '@/src/types';
-import { useStore } from '@/src/store';
-import { fetchWithAuth } from '@/src/services/api/api-service';
+import { API_BASE_URL } from '../../config/api';
+import { Conversation } from '../../types';
+import { useStore } from '../../store';
+import { fetchWithAuth } from '../api/api-service';
 
 /**
  * Fetch conversations for a specific space

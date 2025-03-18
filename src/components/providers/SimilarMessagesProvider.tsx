@@ -1,9 +1,9 @@
 "use client";
 
 import React from 'react';
-import { MessageSquare, Sparkles, Calendar } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import { Command } from 'cmdk';
-import { ProviderComponentProps } from '../../types';
+import { ProviderComponentProps } from '@/src/types';
 
 interface SimilarMessage {
   id: string;

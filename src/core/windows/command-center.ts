@@ -1,6 +1,6 @@
 import { BrowserWindow } from 'electron';
-import { CommandType } from '@/src/types';
-import { useStore } from '@/src/store';
+import { CommandType } from '../../../electron/types';
+import { useStore } from '../../store';
 import { CommandCenterEvents } from '../ipc/constants';
 import { join } from 'path';
 

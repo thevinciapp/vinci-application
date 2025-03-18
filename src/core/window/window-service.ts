@@ -1,9 +1,9 @@
 import { BrowserWindow, screen, app } from 'electron';
 import { join } from 'path';
-import { useStore } from '@/src/store';
 import { CommandType } from '../../../electron/types';
 import { APP_BASE_URL } from '../auth/auth-service';
 import { CommandCenterEvents } from '../ipc/constants';
+import { useStore } from '../../store';
 
 // Global window references
 let mainWindow: BrowserWindow | null = null;
@@ -18,7 +18,7 @@ export async function createCommandCenterWindow() {
     return commandCenterWindow;
   }
 
-  const preloadPath = join(__dirname, "preload.js");
+  const preloadPath = join(app.getAppPath(), "build/electron/preload.js");
   commandCenterWindow = new BrowserWindow({
     width: 680,
     height: 600,
@@ -96,7 +96,7 @@ export async function createCommandCenterWindow() {
  * Create the main application window
  */
 export async function createMainWindow(): Promise<BrowserWindow> {
-  const preloadPath = join(__dirname, "preload.js");
+  const preloadPath = join(app.getAppPath(), "build/electron/preload.js");
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,

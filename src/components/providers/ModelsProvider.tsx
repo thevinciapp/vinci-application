@@ -2,19 +2,15 @@
 
 import React from "react";
 import { Command } from 'cmdk';
-import { AVAILABLE_MODELS } from "@/src/config/models";
 import { ProviderIcon } from "@lobehub/icons";
-import { API } from '@/src/types/api-client';
-import { useAppState } from '@/src/types/app-state-context';
-import { ProviderComponentProps } from "../../types";
+import { useSpaces } from "@/src/hooks/use-spaces";
+import { toast } from "@/src/components/chat/ui/toast";
+import { Model, ModelsByProvider, Provider, AVAILABLE_MODELS, ProviderComponentProps } from "@/src/types";
 
 export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect }) => {
-  const { appState, refreshAppState } = useAppState();
+  const { activeSpace, updateSpaceModel } = useSpaces();
   
-  console.log('[ModelsProvider] Initial render with activeSpace:', appState.activeSpace);
-  
-  const activeSpace = appState.activeSpace;
-  const modelsByProvider = Object.entries(AVAILABLE_MODELS).reduce((acc, [provider, models]) => {
+  const modelsByProvider = Object.entries(AVAILABLE_MODELS).reduce<Record<string, Model[]>>((acc, [provider, models]) => {
     const filteredModels = models.filter(model =>
       model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       model.description?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -25,29 +21,48 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
     }
     
     return acc;
-  }, {} as Record<string, any[]>);
+  }, {});
 
-  const handleModelSelect = async (model: any, provider: string) => {
+  const handleModelSelect = async (model: Model, provider: Provider) => {
     if (!activeSpace?.id) {
       console.error('[ModelsProvider] Cannot update model: No active space');
+      toast({
+        title: "Error",
+        description: "No active space selected",
+        variant: "destructive",
+      });
       return;
     }
 
     try {
       console.log('[ModelsProvider] Updating model to:', model.id, 'provider:', provider, 'for space:', activeSpace.id);
       
-        const result = await window.electronAPI.updateSpaceModel(activeSpace.id, model.id, provider);
+      const success = await updateSpaceModel(activeSpace.id, model.id, provider);
+      
+      if (success) {
+        toast({
+          title: "Success",
+          description: `Model updated to ${model.name}`,
+          variant: "default",
+        });
         
-        if (result.success) {
-          if (onSelect) {
-            console.log('[ModelsProvider] Calling onSelect with model data');
-            onSelect({ ...model, provider, closeOnSelect: true });
-          }
-        } else {
-          console.error('[ModelsProvider] Error updating space model:', result.error);
+        if (onSelect) {
+          onSelect({ ...model, provider, closeOnSelect: true });
         }
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to update model",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error('[ModelsProvider] Error updating space model:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
     }
   };
 
@@ -68,7 +83,7 @@ export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
               <Command.Item
                 key={`${provider}-${idx}`}
                 value={model.id}
-                onSelect={() => handleModelSelect(model, provider)}
+                onSelect={() => handleModelSelect(model, provider as Provider)}
               >
                 <ProviderIcon type="color" provider={model.provider} size={18} />
                 <div>

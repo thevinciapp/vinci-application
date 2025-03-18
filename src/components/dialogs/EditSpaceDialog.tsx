@@ -1,40 +1,55 @@
 "use client";
 
 import React, { useState } from "react";
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea } from "vinci-ui";
-import { DialogComponentProps } from "../../types";
-import { API } from "@/src/types/api-client";
-import { Space } from "@/src/types";
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea, toast } from "vinci-ui";
+import { DialogComponentProps, Space } from "@/src/types";
+import { useSpaces } from "@/src/hooks/use-spaces";
+import { useCommandCenter } from "@/src/hooks/use-command-center";
 
 export const EditSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose }) => {
   const space = data as Space;
   const [name, setName] = useState(space?.name || "");
   const [description, setDescription] = useState(space?.description || "");
-  const [isLoading, setIsLoading] = useState(false);
+  const { updateSpace, isLoading } = useSpaces();
+  const { refreshCommandCenter } = useCommandCenter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!space || !space.id) return;
     
-    setIsLoading(true);
     try {
-      const result = await API.spaces.updateSpace(space.id, {
+      const success = await updateSpace(space.id, {
         name,
         description
       });
       
-      if (result.success) {
+      if (success) {
         // Refresh command center
-        window.electronAPI?.refreshCommandCenter?.();
+        refreshCommandCenter();
+        
+        // Show success toast
+        toast({
+          title: "Success",
+          description: "Space updated successfully",
+          variant: "success",
+        });
+        
         onClose();
       } else {
-        throw new Error(result.error);
+        toast({
+          title: "Error",
+          description: "Failed to update space",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error updating space:', error);
-    } finally {
-      setIsLoading(false);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
     }
   };
 

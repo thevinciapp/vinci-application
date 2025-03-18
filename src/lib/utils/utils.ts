@@ -43,6 +43,26 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Safely check if window.electron is available
+ * 
+ * @returns {boolean} True if window.electron is available, false otherwise
+ */
+export const isElectronAvailable = (): boolean => {
+  return typeof window !== 'undefined' && !!window.electron;
+};
+
+/**
+ * Throws an error if window.electron is not available
+ * 
+ * @throws {Error} If window.electron is not available
+ */
+export const requireElectron = (): void => {
+  if (!isElectronAvailable()) {
+    throw new Error('Electron API not available');
+  }
+};
+
 // Utility types
 export type WithRequired<T, K extends keyof T> = T & { [P in K]-?: T[P] };
 export type Nullable<T> = T | null;

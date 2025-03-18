@@ -33,6 +33,12 @@ export function useAuth() {
   const { toast } = useToast();
 
   useEffect(() => {
+    // Only run in browser environment where Electron is available
+    if (typeof window === 'undefined' || !window.electron) {
+      console.log('Electron API not available');
+      return;
+    }
+    
     // Set up listener for state updates
     const cleanup = window.electron.on(AppStateEvents.STATE_UPDATED, (event, response) => {
       if (response.success && response.data?.session) {
@@ -46,6 +52,9 @@ export function useAuth() {
         if (response.success && response.data?.session) {
           setSession(response.data.session);
         }
+      })
+      .catch(err => {
+        console.error('Error getting session:', err);
       });
 
     return cleanup;
@@ -79,6 +88,11 @@ export function useAuth() {
 
       if (!email || !password) {
         throw new Error("Please fill in all fields");
+      }
+
+      // Check if Electron API is available
+      if (typeof window === 'undefined' || !window.electron) {
+        throw new Error("Electron API not available");
       }
 
       const response = await window.electron.invoke(AuthEvents.SIGN_IN, email, password);
@@ -116,6 +130,11 @@ export function useAuth() {
         throw new Error("Password must be at least 6 characters");
       }
 
+      // Check if Electron API is available
+      if (typeof window === 'undefined' || !window.electron) {
+        throw new Error("Electron API not available");
+      }
+
       const response = await window.electron.invoke(AuthEvents.SIGN_UP, { email, password });
 
       if (!response.success) {
@@ -140,6 +159,11 @@ export function useAuth() {
 
       if (!email) {
         throw new Error("Please provide an email address");
+      }
+
+      // Check if Electron API is available
+      if (typeof window === 'undefined' || !window.electron) {
+        throw new Error("Electron API not available");
       }
 
       const response = await window.electron.invoke(AuthEvents.RESET_PASSWORD, { email });

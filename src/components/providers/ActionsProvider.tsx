@@ -3,7 +3,7 @@
 import React from 'react';
 import { Play, Settings, Command, FileText, FolderOpen } from 'lucide-react';
 import { Command as Cmdk } from 'cmdk';
-import { ProviderComponentProps } from '../../types';
+import { ProviderComponentProps } from '@/src/types';
 
 interface Action {
   id: string;

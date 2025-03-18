@@ -1,5 +1,5 @@
-import { API_BASE_URL, refreshTokens, redirectToSignIn, tokenExpiryTime } from '@/src/core/auth/auth-service';
-import { useStore } from '@/src/store';
+import { API_BASE_URL, refreshTokens, redirectToSignIn, tokenExpiryTime } from '../../core/auth/auth-service';
+import { useStore } from '../../store';
 
 /**
  * Core service for authenticated API requests

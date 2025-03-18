@@ -97,6 +97,18 @@ export function useCommandCenter() {
       setIsLoading(false);
     }
   };
+  
+  const refreshCommandCenter = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      await window.electronAPI?.[CommandCenterEvents.REFRESH]?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return {
     state,
@@ -106,6 +118,7 @@ export function useCommandCenter() {
     openDialog,
     closeDialog,
     close,
+    refreshCommandCenter,
     currentProvider: state.activeCommand,
     currentDialog: state.dialogType ? { type: state.dialogType, data: state.dialogData } : null
   };

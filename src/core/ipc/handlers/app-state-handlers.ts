@@ -1,9 +1,9 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
-import { useStore, getStoreState } from '@/src/store';
+import { useStore, getStoreState } from '../../../store';
 import {
   fetchInitialAppData,
   refreshAppData
-} from '@/src/services/app-data/app-data-service';
+} from '../../../services/app-data/app-data-service';
 import { AppStateEvents } from '../constants';
 
 interface AppStateResponse {

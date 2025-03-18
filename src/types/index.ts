@@ -1,12 +1,24 @@
 import { User } from '@supabase/supabase-js';
 import { FC } from 'react';
-import { AuthEvents, AppStateEvents, CommandCenterEvents, SpaceEvents, MessageEvents } from '@/src/core/ipc/constants';
+import { 
+  AuthEvents,
+  AppStateEvents,
+  CommandCenterEvents, 
+  SpaceEvents, 
+  MessageEvents,
+  UserEvents,
+  NotificationEvents,
+  ConversationEvents
+} from '@/src/core/ipc/constants';
 
 export type AuthEventType = typeof AuthEvents[keyof typeof AuthEvents];
 export type AppStateEventType = typeof AppStateEvents[keyof typeof AppStateEvents];
 export type CommandCenterEventType = typeof CommandCenterEvents[keyof typeof CommandCenterEvents];
 export type SpaceEventType = typeof SpaceEvents[keyof typeof SpaceEvents];
 export type MessageEventType = typeof MessageEvents[keyof typeof MessageEvents];
+export type UserEventType = typeof UserEvents[keyof typeof UserEvents];
+export type NotificationEventType = typeof NotificationEvents[keyof typeof NotificationEvents];
+export type ConversationEventType = typeof ConversationEvents[keyof typeof ConversationEvents];
 
 // IPC Response Types
 export interface IpcResponse {
@@ -168,6 +180,21 @@ export interface AppStateResult extends AppState {
   error?: string;
 }
 
+// Model Types
+export interface Model {
+  id: string;
+  name: string;
+  description?: string;
+  contextWindow: number;
+  provider?: string;
+}
+
+export type Provider = 'groq' | 'anthropic' | 'openai' | 'cohere' | 'mistral' | 'google' | 'xai' | 'togetherai' | 'perplexity';
+
+export interface ModelsByProvider {
+  [key: string]: Model[];
+}
+
 // Provider and Model Types
 export const PROVIDER_DESCRIPTIONS: Record<Provider, string> = {
   groq: 'Ultra-fast inference optimized for real-time applications',
@@ -236,11 +263,6 @@ export const AVAILABLE_MODELS = {
     { id: 'sonar', name: 'Sonar', description: 'Fast, reliable model', contextWindow: 200000 }
   ]
 } as const;
-
-export type Provider = keyof typeof AVAILABLE_MODELS;
-export type ModelsByProvider = {
-  [P in Provider]: typeof AVAILABLE_MODELS[P][number]['id'];
-};
 
 export const PROVIDER_NAMES: Record<Provider, string> = {
   groq: 'Groq',

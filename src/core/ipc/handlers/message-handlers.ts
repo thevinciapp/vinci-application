@@ -4,10 +4,10 @@ import {
   sendChatMessage,
   deleteMessage,
   updateMessage
-} from '@/src/services/messages/message-service';
+} from '../../../services/messages/message-service';
 import {
   searchAllMessages
-} from '@/src/services/search/search-service';
+} from '../../../services/search/search-service';
 import { MessageResponse } from './index';
 import { MessageEvents, SearchEvents } from '../constants';
 

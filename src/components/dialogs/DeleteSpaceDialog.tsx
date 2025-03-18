@@ -1,32 +1,48 @@
 "use client";
 
-import React, { useState } from "react";
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "vinci-ui";
-import { DialogComponentProps } from "../../types";
-import { API } from "@/src/types/api-client";
-import { Space } from "@/src/types";
+import React from "react";
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, toast } from "vinci-ui";
+import { DialogComponentProps, Space } from "@/src/types";
+import { useSpaces } from "@/src/hooks/use-spaces";
+import { useCommandCenter } from "@/src/hooks/use-command-center";
 
 export const DeleteSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose }) => {
-  const [isDeleting, setIsDeleting] = useState(false);
   const space = data as Space;
+  const { deleteSpace, isLoading: isDeleting } = useSpaces();
+  const { refreshCommandCenter } = useCommandCenter();
 
   const handleDelete = async () => {
     if (!space || !space.id) return;
     
-    setIsDeleting(true);
     try {
-      const result = await API.spaces.deleteSpace(space.id);
-      if (result.success) {
+      const success = await deleteSpace(space.id);
+      
+      if (success) {
         // Refresh command center
-        window.electronAPI?.refreshCommandCenter?.();
+        refreshCommandCenter();
+        
+        // Show success toast
+        toast({
+          title: "Success",
+          description: "Space deleted successfully",
+          variant: "success",
+        });
+        
         onClose();
       } else {
-        throw new Error(result.error);
+        toast({
+          title: "Error",
+          description: "Failed to delete space",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error deleting space:', error);
-    } finally {
-      setIsDeleting(false);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
     }
   };
 

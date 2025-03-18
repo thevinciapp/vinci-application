@@ -13,16 +13,22 @@
     "noEmit": false,
     "baseUrl": "../",
     "paths": {
-      "@app/*": ["app/*"],
-      "@/lib/*": ["app/lib/*"],
-      "@lib/*": ["app/lib/*"],
-      "@/*": ["*"]
+      "@/*": ["*"],
+      "@/src/*": ["src/*"],
+      "@/lib/*": ["src/lib/*"],
+      "@/store/*": ["src/store/*"],
+      "@/core/*": ["src/core/*"],
+      "@/services/*": ["src/services/*"]
     }
   },
   "include": [
     "./**/*", 
     "../src/types/electron.d.ts", 
-    "../src/lib/**/*.ts"
-, "../src/core", "../src/services", "../src/store", "../src/lib/utils"  ],
+    "../src/lib/**/*.ts",
+    "../src/core",
+    "../src/services",
+    "../src/store",
+    "../src/lib/utils"
+  ],
   "exclude": ["../src/lib/**/*.tsx"]
 }

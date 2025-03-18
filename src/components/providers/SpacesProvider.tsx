@@ -1,25 +1,22 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
 import { PencilLine, Trash, Globe, Plus } from "lucide-react";
 import { Command } from 'cmdk';
 import { Button } from "vinci-ui";
-import { API } from '@/src/types/api-client';
 import { Space } from '@/src/types';
-import { useAppState } from '@/src/types/app-state-context';
 import { ProviderComponentProps } from "../../types";
+import { useSpaces } from '@/src/hooks/use-spaces';
 
 export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect, onAction }) => {
-  const { appState, refreshAppState } = useAppState();
-  const spaces = appState.spaces || [];
-
-  const filteredSpaces = spaces.filter(space => 
+  const { spaces, setActiveSpaceById } = useSpaces();
+  
+  const filteredSpaces = spaces.filter((space) => 
     space.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     space.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleSelect = async (space: Space) => {
+  const handleSelect = async (space: Space): Promise<void> => {
     try {
       // Validate space object and ID
       if (!space || !space.id) {
@@ -29,19 +26,15 @@ export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
 
       console.log('[SpacesProvider] Selecting space:', space.id, space.name);
       
-      console.log('[SpacesProvider] Calling setActiveSpace with ID:', space.id);
-        
       // Ensure space.id is a string and not null/undefined
       const spaceId = String(space.id);
-      console.log('[SpacesProvider] Formatted spaceId:', spaceId);
       
       try {
-        const result = await window.electronAPI.setActiveSpace(spaceId);
-        console.log('[SpacesProvider] Electron API result:', result);
-        if (result.success) {
+        const success = await setActiveSpaceById(spaceId);
+        if (success) {
           if (onSelect) onSelect({...space, closeOnSelect: true});
         } else {
-          console.error('[SpacesProvider] Error setting active space:', result.error);
+          console.error('[SpacesProvider] Error setting active space');
         }
       } catch (error) {
         console.error('[SpacesProvider] Exception setting active space:', error);
@@ -51,19 +44,19 @@ export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
     }
   };
 
-  const handleEdit = (e: React.MouseEvent, space: Space) => {
+  const handleEdit = (e: React.MouseEvent<HTMLButtonElement>, space: Space): void => {
     e.stopPropagation();
     e.preventDefault();
     if (onAction) onAction('edit', space);
   };
 
-  const handleDelete = (e: React.MouseEvent, space: Space) => {
+  const handleDelete = (e: React.MouseEvent<HTMLButtonElement>, space: Space): void => {
     e.stopPropagation();
     e.preventDefault();
     if (onAction) onAction('delete', space);
   };
 
-  const handleCreate = () => {
+  const handleCreate = (): void => {
     if (onAction) onAction('create', {});
   };
 
@@ -73,7 +66,7 @@ export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
         {filteredSpaces.length === 0 ? (
           <Command.Empty>No spaces found</Command.Empty>
         ) : (
-          filteredSpaces.map(space => (
+          filteredSpaces.map((space: Space) => (
             <Command.Item
               key={space.id}
               value={space.name}

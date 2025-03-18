@@ -1,10 +1,10 @@
-import { AppStateResult } from '@/src/types';
-import { useStore } from '@/src/store';
-import { fetchSpaces, fetchActiveSpace } from '@/src/services/spaces/space-service';
-import { fetchConversations } from '@/src/services/conversations/conversation-service';
-import { fetchMessages } from '@/src/services/messages/message-service';
-import { fetchUserProfile } from '@/src/services/user/user-service';
-import { checkServerHealth } from '@/src/services/api/api-service';
+import { AppStateResult } from '../../types';
+import { useStore } from '../../store';
+import { fetchSpaces, fetchActiveSpace } from '../spaces/space-service';
+import { fetchConversations } from '../conversations/conversation-service';
+import { fetchMessages } from '../messages/message-service';
+import { fetchUserProfile } from '../user/user-service';
+import { checkServerHealth } from '../api/api-service';
 
 /**
  * Fetch initial app data from multiple services

@@ -5,7 +5,7 @@
  * and augments the Window interface to include our IPC communication types
  */
 
-import { AuthEvents, AppStateEvents, CommandCenterEvents, SpaceEvents, MessageEvents } from '@/src/core/ipc/constants';
+import { AuthEvents, AppStateEvents, CommandCenterEvents, SpaceEvents, MessageEvents, NotificationEvents, ConversationEvents } from '@/src/core/ipc/constants';
 import { IpcResponse, IpcStateResponse } from '.';
 
 // Types for API responses
@@ -310,6 +310,8 @@ declare global {
       on(event: typeof CommandCenterEvents[keyof typeof CommandCenterEvents], listener: (event: any, ...args: any[]) => void): void;
       on(event: typeof SpaceEvents[keyof typeof SpaceEvents], listener: (event: any, ...args: any[]) => void): void;
       on(event: typeof MessageEvents[keyof typeof MessageEvents], listener: (event: any, ...args: any[]) => void): void;
+      on(event: typeof NotificationEvents[keyof typeof NotificationEvents], listener: (event: any, ...args: any[]) => void): void;
+      on(event: typeof ConversationEvents[keyof typeof ConversationEvents], listener: (event: any, ...args: any[]) => void): void;
     };
   }
 }

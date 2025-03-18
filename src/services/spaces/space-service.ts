@@ -1,9 +1,9 @@
-import { API_BASE_URL } from '@/src/core/auth/auth-service';
-import { Space } from '@/src/types';
-import { useStore } from '@/src/store';
-import { fetchWithAuth } from '@/src/services/api/api-service';
-import { fetchConversations } from '@/src/services/conversations/conversation-service';
-import { fetchMessages } from '@/src/services/messages/message-service';
+import { API_BASE_URL } from '../../core/auth/auth-service';
+import { Space } from '../../types';
+import { useStore } from '../../store';
+import { fetchWithAuth } from '../api/api-service';
+import { fetchConversations } from '../conversations/conversation-service';
+import { fetchMessages } from '../messages/message-service';
 
 /**
  * Fetch all spaces for the current user

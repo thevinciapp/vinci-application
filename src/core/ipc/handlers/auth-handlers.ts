@@ -1,17 +1,17 @@
 import { ipcMain, IpcMainInvokeEvent, safeStorage } from 'electron';
-import { useStore, getStoreState } from '@/src/store';
-import { API_BASE_URL } from '@/src/core/auth/auth-service';
+import { useStore, getStoreState } from '../../../store';
+import { API_BASE_URL } from '../../auth/auth-service';
 import {
   signUp,
   resetPassword
-} from '@/src/services/user/user-service';
+} from '../../../services/user/user-service';
 import {
   redirectToSignIn,
   refreshTokens,
   saveAuthData,
   clearAuthData,
   signIn
-} from '@/src/core/auth/auth-service';
+} from '../../auth/auth-service';
 import { AuthResponse } from './index';
 import { AuthEvents } from '../constants';
 

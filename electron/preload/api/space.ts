@@ -3,6 +3,16 @@ import { SpaceEvents } from '@/src/core/ipc/constants';
 import { IpcResponse } from '@/src/types';
 
 export const spaceApi = {
+  getSpaces: async () => {
+    try {
+      const response = await ipcRenderer.invoke(SpaceEvents.GET_SPACES);
+      return response.success ? response.data : null;
+    } catch (error) {
+      console.error('[ELECTRON PRELOAD] getSpaces error:', error);
+      return null;
+    }
+  },
+
   getSpaceConversations: async (spaceId: string) => {
     const response = await ipcRenderer.invoke(SpaceEvents.GET_SPACE_CONVERSATIONS, { spaceId });
     return response.success ? response.data : null;
@@ -33,6 +43,35 @@ export const spaceApi = {
       return response;
     } catch (error) {
       console.error('[ELECTRON PRELOAD] setActiveSpace error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  },
+
+  getActiveSpace: async () => {
+    try {
+      return await ipcRenderer.invoke(SpaceEvents.GET_ACTIVE_SPACE);
+    } catch (error) {
+      console.error('[ELECTRON PRELOAD] getActiveSpace error:', error);
+      throw error;
+    }
+  },
+
+  createSpace: async (spaceData: any) => {
+    try {
+      const response = await ipcRenderer.invoke(SpaceEvents.CREATE_SPACE, spaceData);
+      return response;
+    } catch (error) {
+      console.error('[ELECTRON PRELOAD] createSpace error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  },
+
+  deleteSpace: async (spaceId: string) => {
+    try {
+      const response = await ipcRenderer.invoke(SpaceEvents.DELETE_SPACE, spaceId);
+      return response;
+    } catch (error) {
+      console.error('[ELECTRON PRELOAD] deleteSpace error:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   },

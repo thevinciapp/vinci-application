@@ -5,7 +5,7 @@ import {
   getCommandCenterWindow,
   setCommandType
 } from './window-service';
-import { useStore } from '@/src/store';
+import { useStore } from '../../store';
 import { CommandCenterEvents } from '../ipc/constants';
 
 /**

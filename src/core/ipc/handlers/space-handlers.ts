@@ -1,14 +1,16 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
-import { Space } from '@/src/types';
+import { Space } from '../../../types';
 import {
   updateSpace,
   updateSpaceModel,
   setActiveSpaceInAPI,
   createSpace,
-  deleteSpace
-} from '@/src/services/spaces/space-service';
-import { fetchConversations } from '@/src/services/conversations/conversation-service';
-import { fetchMessages } from '@/src/services/messages/message-service';
+  deleteSpace,
+  fetchActiveSpace,
+  fetchSpaces
+} from '../../../services/spaces/space-service';
+import { fetchConversations } from '../../../services/conversations/conversation-service';
+import { fetchMessages } from '../../../services/messages/message-service';
 import { SpaceEvents } from '../constants';
 
 interface SpaceResponse {
@@ -31,9 +33,23 @@ export function registerSpaceHandlers() {
     }
   });
 
+  ipcMain.handle(SpaceEvents.GET_ACTIVE_SPACE, async (_event: IpcMainInvokeEvent): Promise<Space | null> => {
+    try {
+      const activeSpace = await fetchActiveSpace();
+      return activeSpace;
+    } catch (error) {
+      console.error('[ELECTRON] Error in get-active-space handler:', error);
+      throw error;
+    }
+  });
+
   ipcMain.handle(SpaceEvents.UPDATE_SPACE, async (_event: IpcMainInvokeEvent, spaceId: string, spaceData: Partial<Space>): Promise<SpaceResponse> => {
     try {
       const updatedSpace = await updateSpace(spaceId, spaceData);
+      
+      // Emit an event to notify renderers that space has been updated
+      ipcMain.emit(SpaceEvents.SPACE_UPDATED, null, { space: updatedSpace });
+      
       return { success: true, data: updatedSpace };
     } catch (error) {
       console.error('[ELECTRON] Error in update-space handler:', error);
@@ -44,6 +60,13 @@ export function registerSpaceHandlers() {
   ipcMain.handle(SpaceEvents.UPDATE_SPACE_MODEL, async (_event: IpcMainInvokeEvent, spaceId: string, modelId: string, provider: string): Promise<SpaceResponse> => {
     try {
       await updateSpaceModel(spaceId, modelId, provider);
+      
+      // Fetch the updated space to emit the update event
+      const updatedSpace = await fetchActiveSpace();
+      if (updatedSpace) {
+        ipcMain.emit(SpaceEvents.SPACE_UPDATED, null, { space: updatedSpace });
+      }
+      
       return { success: true };
     } catch (error) {
       console.error('[ELECTRON] Error in update-space-model handler:', error);
@@ -69,9 +92,64 @@ export function registerSpaceHandlers() {
       
       const result = await setActiveSpaceInAPI(spaceIdStr);
       console.log('[ELECTRON] setActiveSpace result:', result);
+      
+      // Fetch the newly activated space to emit the update event
+      const activeSpace = await fetchActiveSpace();
+      if (activeSpace) {
+        ipcMain.emit(SpaceEvents.SPACE_UPDATED, null, { space: activeSpace });
+      }
+      
       return { success: true, data: result };
     } catch (error) {
       console.error('[ELECTRON] Error in set-active-space handler:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  });
+  
+  ipcMain.handle(SpaceEvents.CREATE_SPACE, async (_event: IpcMainInvokeEvent, spaceData: Partial<Space>): Promise<SpaceResponse> => {
+    try {
+      const newSpace = await createSpace(spaceData);
+      
+      // Emit an event to notify renderers that spaces have been updated
+      const allSpaces = await fetchSpaces();
+      
+      // If this is the first space, set it as active automatically
+      if (allSpaces.length === 1) {
+        await setActiveSpaceInAPI(newSpace.id);
+        ipcMain.emit(SpaceEvents.SPACE_UPDATED, null, { space: newSpace });
+      }
+      
+      return { success: true, data: newSpace };
+    } catch (error) {
+      console.error('[ELECTRON] Error in create-space handler:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  });
+  
+  ipcMain.handle(SpaceEvents.DELETE_SPACE, async (_event: IpcMainInvokeEvent, spaceId: string): Promise<SpaceResponse> => {
+    try {
+      await deleteSpace(spaceId);
+      
+      // Get the updated list of spaces
+      const allSpaces = await fetchSpaces();
+      
+      // Get the new active space after deletion
+      const activeSpace = await fetchActiveSpace();
+      ipcMain.emit(SpaceEvents.SPACE_UPDATED, null, { space: activeSpace });
+      
+      return { success: true };
+    } catch (error) {
+      console.error('[ELECTRON] Error in delete-space handler:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  });
+  
+  ipcMain.handle(SpaceEvents.GET_SPACES, async (_event: IpcMainInvokeEvent): Promise<SpaceResponse> => {
+    try {
+      const spaces = await fetchSpaces();
+      return { success: true, data: spaces };
+    } catch (error) {
+      console.error('[ELECTRON] Error in get-spaces handler:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   });

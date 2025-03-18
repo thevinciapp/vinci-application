@@ -5,6 +5,8 @@ import { useHotkeys } from 'react-hotkeys-hook';
 import { File, Loader2, MessageSquare, X } from 'lucide-react';
 import { Button, cn } from "vinci-ui";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from 'cmdk';
+import path from 'path';
+import { CommandCenterEvents, SearchEvents, MessageEvents } from '@/src/core/ipc/constants';
 
 
 type FileTag = {
@@ -73,7 +75,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
   const [messageResults, setMessageResults] = useState<MessageTag[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Search for files using FileSystemProvider
+  // Search for files using CommandCenterEvents
   const searchFiles = useCallback(async (query: string) => {
     if (!query.trim()) {
       setFileResults([]);
@@ -83,38 +85,31 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     setIsSearching(true);
 
     try {
-      // Use the provider registry to search files
-      const fileSystemProvider = providerRegistry.getProviderById('filesystem');
+      const response = await window.electron.invoke(CommandCenterEvents.SEARCH_FILES, query);
       
-      if (!fileSystemProvider) {
-        console.error("File system provider not found");
-        return;
+      if (response.success && response.data) {
+        // Convert to file tags
+        const fileTags: FileTag[] = response.data.map((item: any) => ({
+          id: item.id || `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: item.name || item.fileName || path.basename(item.path),
+          path: item.path || '',
+        }));
+        
+        setFileResults(fileTags);
+      } else {
+        console.error("Error searching files:", response.error);
+        setFileResults([]);
       }
-      
-      // Execute the search
-      const results = await fileSystemProvider.search(query);
-      
-      // Convert to file tags
-      const fileTags: FileTag[] = results.map(item => ({
-        id: item.id,
-        name: item.name,
-        path: item.path || item.description || '',
-      }));
-      
-      setFileResults(fileTags);
     } catch (error) {
       console.error("Error searching files:", error);
       // Provide fallback results in case of error
-      setFileResults([
-        { id: "fallback-1", name: "index.tsx", path: "/app/index.tsx" },
-        { id: "fallback-2", name: "page.tsx", path: "/app/page.tsx" },
-      ]);
+      setFileResults([]);
     } finally {
       setIsSearching(false);
     }
   }, []);
 
-  // Search for messages using MessageProvider
+  // Search for messages using SearchEvents
   const searchMessages = useCallback(async (query: string) => {
     if (!query.trim()) {
       setMessageResults([]);
@@ -124,44 +119,30 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     setIsSearching(true);
 
     try {
-      // Use the provider registry to search messages
-      const messageProvider = providerRegistry.getProviderById('message');
+      const searchOptions = {
+        query,
+        limit: 10,
+        conversationId: activeConversationId, // Optional filter by conversation
+        spaceId: spaceId // Optional filter by space
+      };
       
-      if (!messageProvider) {
-        console.error("Message provider not found");
-        return;
+      const response = await window.electron.invoke(SearchEvents.SEARCH_MESSAGES, searchOptions);
+      
+      if (response.success && response.data) {
+        // Convert to message tags
+        const messageTags: MessageTag[] = response.data.map((item: any) => ({
+          id: item.id || `message-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: item.content?.substring(0, 50) + (item.content?.length > 50 ? '...' : '') || 'Message',
+          conversationTitle: item.conversationTitle || 'Unknown conversation',
+          role: item.role || 'user',
+          conversationId: item.conversationId || ''
+        }));
+        
+        setMessageResults(messageTags);
+      } else {
+        console.error("Error searching messages:", response.error);
+        setMessageResults([]);
       }
-      
-      // Determine search scope based on current context
-      let searchScope = 'all';
-      let conversationId = undefined;
-      
-      if (activeConversationId) {
-        searchScope = 'conversation';
-        conversationId = activeConversationId;
-      } else if (spaceId) {
-        searchScope = 'space';
-      }
-      
-      // Execute the search
-      const results = await messageProvider.search(query, {
-        searchScope,
-        searchMode: 'text',
-        conversationId,
-        spaceId,
-        limit: 10
-      });
-      
-      // Convert to message tags
-      const messageTags: MessageTag[] = results.map(item => ({
-        id: item.id,
-        name: item.name,
-        conversationTitle: item.providerData?.conversationTitle || 'Unknown conversation',
-        role: item.providerData?.role || 'user',
-        conversationId: item.providerData?.conversationId || ''
-      }));
-      
-      setMessageResults(messageTags);
     } catch (error) {
       console.error("Error searching messages:", error);
       setMessageResults([]);
@@ -262,34 +243,22 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     setIsSearching(true);
     
     try {
-      // Get the file system provider to read the file content
-      const fileSystemProvider = providerRegistry.getProviderById('filesystem');
-      
-      if (!fileSystemProvider) {
-        console.error("File system provider not found");
-        throw new Error("File system provider not found");
-      }
-      
-      // Create a mention item to get content
-      const mentionItem = {
-        id: file.id || `file-${Date.now()}`,
-        type: 'file' as const,
-        name: file.name,
-        path: file.path,
-        description: file.path
-      };
-      
-      // Fetch the file content using the provider
+      // Read file content using CommandCenterEvents.READ_FILE
       console.log(`Loading content for file: ${file.path}`);
-      let fileContent;
+      let fileContent = '';
+      
       try {
-        // Get the file content using the provider
-        const content = await fileSystemProvider.getContent(mentionItem);
-        fileContent = content.content;
-        console.log(`File content loaded, size: ${fileContent.length} bytes`);
+        const response = await window.electron.invoke(CommandCenterEvents.READ_FILE, file.path);
+        if (response.success && response.data) {
+          fileContent = response.data.content;
+          console.log(`File content loaded, size: ${fileContent.length} bytes`);
+        } else {
+          console.error(`Error loading file content: ${response.error}`);
+          fileContent = `[Error loading file content: ${response.error}]`;
+        }
       } catch (error) {
         console.error(`Error loading file content for ${file.path}:`, error);
-        fileContent = `[Error loading file content: ${error.message}]`;
+        fileContent = `[Error loading file content: ${error instanceof Error ? error.message : String(error)}]`;
       }
       
       // Create a new file token, properly formatted with content
@@ -304,7 +273,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
         },
       };
       
-      // Immediately add the file reference to the store with content
+      // Add the file reference
       addFileReference({
         id: fileToken.id,
         path: file.path,
@@ -313,7 +282,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
         type: 'file'
       });
       
-      console.log(`Added file reference to store: ${file.name} with content`);
+      console.log(`Added file reference: ${file.name} with content`);
   
       // Add the file token and a new empty text token
       const newTextToken: Token = {
@@ -361,39 +330,26 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     setIsSearching(true);
     
     try {
-      // Get the message provider to read the message content
-      const messageProvider = providerRegistry.getProviderById('message');
-      
-      if (!messageProvider) {
-        console.error("Message provider not found");
-        throw new Error("Message provider not found");
-      }
-      
-      // Create a mention item to get content
-      const mentionItem = {
-        id: message.id,
-        type: 'message' as const,
-        name: message.name,
-        description: message.conversationTitle,
-        providerData: {
-          messageId: message.id.replace('message-', ''),
-          conversationId: message.conversationId,
-          role: message.role,
-          conversationTitle: message.conversationTitle
-        }
-      };
-      
-      // Fetch the message content using the provider
+      // Fetch the message content using the MessageEvents
       console.log(`Loading content for message: ${message.id}`);
-      let messageContent;
+      let messageContent = '';
+      
       try {
-        // Get the message content
-        const content = await messageProvider.getContent(mentionItem);
-        messageContent = content.content;
-        console.log(`Message content loaded, size: ${messageContent.length} bytes`);
+        // Get the message by its ID
+        const messageId = message.id.replace('message-', '');
+        const response = await window.electron.invoke(MessageEvents.GET_CONVERSATION_MESSAGES, message.conversationId, messageId);
+        
+        if (response.success && response.data?.length > 0) {
+          const messageData = response.data[0];
+          messageContent = messageData.content;
+          console.log(`Message content loaded, size: ${messageContent.length} bytes`);
+        } else {
+          console.error(`Error loading message data: ${response.error || 'Message not found'}`);
+          messageContent = `[Error loading message content]`;
+        }
       } catch (error) {
         console.error(`Error loading message content for ${message.id}:`, error);
-        messageContent = `[Error loading message content: ${error.message}]`;
+        messageContent = `[Error loading message content: ${error instanceof Error ? error.message : String(error)}]`;
       }
       
       // Create a new message token

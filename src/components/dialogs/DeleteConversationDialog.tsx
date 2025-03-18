@@ -1,32 +1,35 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "vinci-ui";
 import { toast } from 'sonner';
-import { DialogComponentProps } from "../../types";
-import { API } from '@/src/types/api-client';
+import { useConversations } from "@/src/hooks/use-conversations";
+import { useCommandCenter } from "@/src/hooks/use-command-center";
+import { DialogComponentProps } from "@/src/types";
 
 export const DeleteConversationDialog: React.FC<DialogComponentProps> = ({ data, onClose, onConfirm }) => {
-  const [isDeleting, setIsDeleting] = useState(false);
+  const { deleteConversation, isLoading: isDeleting } = useConversations();
+  const { refreshCommandCenter } = useCommandCenter();
 
   const handleDelete = async () => {
     if (isDeleting) return;
     
-    setIsDeleting(true);
     try {
-      const result = await API.conversations.deleteConversation(data.id);
-      if (result.success) {
+      const success = await deleteConversation(data.spaceId, data.id);
+      
+      if (success) {
+        // Refresh command center
+        refreshCommandCenter();
+        
         toast.success('Conversation deleted successfully');
         onConfirm?.(data);
         onClose();
       } else {
-        toast.error(result.error || 'Failed to delete conversation');
+        toast.error('Failed to delete conversation');
       }
     } catch (error) {
       console.error('Error deleting conversation:', error);
-      toast.error('An unexpected error occurred');
-    } finally {
-      setIsDeleting(false);
+      toast.error(error instanceof Error ? error.message : 'An unexpected error occurred');
     }
   };
 

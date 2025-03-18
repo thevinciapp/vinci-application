@@ -1,6 +1,6 @@
-import { API_BASE_URL } from '@/src/core/auth/auth-service';
-import { fetchWithAuth } from '@/src/services/api/api-service';
-import { useStore } from '@/src/store';
+import { API_BASE_URL } from '../../core/auth/auth-service';
+import { fetchWithAuth } from '../api/api-service';
+import { useStore } from '../../store';
 
 export interface UserProfile {
   full_name: string;

@@ -1,8 +1,8 @@
 import { BrowserWindow } from 'electron';
 import { join } from 'path';
 import { writeFile, readFile, unlink } from 'fs';
-import { useStore } from '@/src/store';
-import { APP_BASE_URL, API_BASE_URL } from '@/src/config/api';
+import { useStore } from '../../store';
+import { APP_BASE_URL, API_BASE_URL } from '../../config/api';
 
 interface SignInResponse {
   status: string;

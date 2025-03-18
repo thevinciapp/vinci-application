@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useToast } from 'vinci-ui';
-import { UserEvents, AppStateEvents } from '@/src/core/ipc/constants';
+import { UserEvents, AppStateEvents, AuthEvents } from '@/src/core/ipc/constants';
 import { UserProfile, UserUpdateData, EmailPreferences } from '@/src/services/user/user-service';
 
 export function useUser() {
@@ -114,12 +114,34 @@ export function useUser() {
     }
   };
 
+  const signOut = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const response = await window.electron.invoke(AuthEvents.SIGN_OUT);
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to sign out');
+      }
+      
+      setProfile(null);
+
+      return handleSuccess("Signed out successfully");
+    } catch (error) {
+      return handleError(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return {
     isLoading,
     error,
     profile,
     updateProfile,
     updatePassword,
-    updateEmailPreferences
+    updateEmailPreferences,
+    signOut
   };
 }

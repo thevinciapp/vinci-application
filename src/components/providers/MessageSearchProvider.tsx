@@ -1,11 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { Search, MessageSquare, Calendar } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import { Command } from 'cmdk';
-import { ProviderComponentProps } from '../../types';
-import { API } from '@/src/types/api-client';
-import { Message, Conversation } from '@/src/types';
+import { Message, Conversation, ProviderComponentProps } from '@/src/types';
+import { MessageEvents } from '@/src/core/ipc/constants';
 
 interface MessageWithConversation extends Message {
   timestamp: number;
@@ -19,19 +18,21 @@ export function MessageSearchProvider({ searchQuery, onSelect }: ProviderCompone
 
   useEffect(() => {
     const fetchMessages = async () => {
-      if (!searchQuery) {
+      if (!searchQuery || searchQuery.length < 2) {
         setMessages([]);
         setIsLoading(false);
         return;
       }
 
       try {
-        const result = await API.messages.getMessages(searchQuery);
+        setIsLoading(true);
+        const result = await window.electron.invoke(MessageEvents.SEARCH_MESSAGES, searchQuery);
+        
         if (result.success) {
-          const messagesWithConversations: MessageWithConversation[] = (result.data || []).map(msg => ({
+          const messagesWithConversations: MessageWithConversation[] = (result.data || []).map((msg: any) => ({
             ...msg,
-            timestamp: new Date(msg.created_at).getTime(),
-            conversationName: msg.conversation?.title || 'Untitled'
+            timestamp: new Date(msg.createdAt).getTime(),
+            conversationName: msg.conversationTitle || 'Untitled'
           })) || [];
           setMessages(messagesWithConversations);
         } else {
@@ -44,8 +45,11 @@ export function MessageSearchProvider({ searchQuery, onSelect }: ProviderCompone
       }
     };
 
-    setIsLoading(true);
-    fetchMessages();
+    const timer = setTimeout(() => {
+      fetchMessages();
+    }, 300); // Debounce search
+
+    return () => clearTimeout(timer);
   }, [searchQuery]);
 
   const filteredMessages = messages.filter(message => 
@@ -78,7 +82,7 @@ export function MessageSearchProvider({ searchQuery, onSelect }: ProviderCompone
               value={message.content}
               onSelect={() => onSelect?.({...message, closeOnSelect: true})}
             >
-              <MessageSquare size={16} />
+              <MessageSquare size={16} className={message.role === 'assistant' ? 'text-cyan-400' : 'text-white/60'} />
               <div>
                 {message.content}
                 <span className="cmdk-meta">

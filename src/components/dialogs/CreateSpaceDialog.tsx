@@ -1,54 +1,64 @@
 "use client";
 
 import React, { useState } from "react";
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea } from "vinci-ui";
-import { DialogComponentProps } from "../../types";
-import { API } from "@/src/types/api-client";
-import { useRouter } from "next/navigation";
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea, toast } from "vinci-ui";
+import { useSpaces } from "@/src/hooks/use-spaces";
+import { useCommandCenter } from "@/src/hooks/use-command-center";
+import { DialogComponentProps } from "@/src/types";
 
 export const CreateSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose, onConfirm }) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-
-  const router = useRouter();
+  const { createSpace, isLoading } = useSpaces();
+  const { refreshCommandCenter } = useCommandCenter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    
     try {
-      // Using the default Claude model and provider for simplicity
-      const result = await API.spaces.createSpace({
+      // Using the default model and provider for simplicity
+      const spaceData = {
         name,
         description,
         model: "claude-3-haiku-20240307", // Default model
         provider: "anthropic", // Default provider
         color: "#3ecfff" // Default color
-      });
+      };
       
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      const space = result.data;
+      const success = await createSpace(spaceData);
       
-      if (space) {
+      if (success) {
         // Close dialog
         onClose();
         
         // Refresh command center
-        window.electronAPI?.refreshCommandCenter?.();
+        refreshCommandCenter();
+        
+        // Show success toast
+        toast({
+          title: "Success",
+          description: "Space created successfully",
+          variant: "success",
+        });
         
         // Navigate to the new space if user clicks
         if (onConfirm) {
-          onConfirm(space);
+          onConfirm(spaceData);
         }
       } else {
-        console.error('Space creation returned null');
+        toast({
+          title: "Error",
+          description: "Failed to create space",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error creating space:', error);
-    } finally {
-      setIsLoading(false);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
     }
   };
 
