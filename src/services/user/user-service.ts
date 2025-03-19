@@ -31,7 +31,7 @@ export interface EmailPreferences {
  */
 export async function fetchUserProfile(): Promise<UserProfile> {
   try {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/users/profile`);
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/user/profile`);
     
     // Check if response is valid before parsing JSON
     if (!response.ok) {

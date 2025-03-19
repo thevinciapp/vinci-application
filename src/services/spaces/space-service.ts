@@ -12,6 +12,8 @@ export async function fetchSpaces(): Promise<Space[]> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces`);
     const { status, error, data: spaces } = await response.json();
+
+    console.log("[ELECTRON] Fetch spaces response:", status, error, spaces);
     
     if (status !== 'success') {
       throw new Error(error || 'Failed to fetch spaces');

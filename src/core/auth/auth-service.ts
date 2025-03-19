@@ -1,9 +1,9 @@
 import { app, BrowserWindow } from 'electron';
 import { join } from 'path';
 import { writeFile, readFile, unlink, mkdirSync, existsSync } from 'fs';
-import { useStore } from '../../store';
-import { APP_BASE_URL, API_BASE_URL } from '../../config/api';
-import { AuthSession } from '../../../../vinci-api/src/lib/types/auth';
+import { AuthSession } from 'vinci-common';
+import { API_BASE_URL, APP_BASE_URL } from '@/config/api';
+import { useStore } from '@/store';
 
 interface SignInResponse {
   session: AuthSession | null;

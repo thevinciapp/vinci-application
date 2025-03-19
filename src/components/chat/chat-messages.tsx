@@ -1,6 +1,6 @@
 
 
-import { ChatContainer, useAutoScroll } from '@/components/ui/chat-container';
+import { ChatContainer, useAutoScroll } from '@/components/chat/chat-container';
 import { useEffect, forwardRef, useRef, memo, useMemo } from 'react';
 import { ChatMessage } from './chat-message';
 import { JSONValue, Message } from 'ai';

@@ -30,7 +30,6 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
   console.log('[ELECTRON] Current token state - Access token exists:', !!store.accessToken, 'Refresh token exists:', !!store.refreshToken);
   
   try {
-    // Check if server is available
     if (!await checkServerHealth()) {
       return {
         ...useStore.getState(),
@@ -40,7 +39,6 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
       };
     }
     
-    // Check if we have an access token
     if (!store.accessToken) {
       console.log('[ELECTRON] No auth token available, deferring data fetch');
       return {
@@ -51,20 +49,16 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
       };
     }
 
-    // Fetch spaces
     const spaces = await fetchSpaces();
     
-    // Fetch active space
     const activeSpace = await fetchActiveSpace();
     
     let conversations: any[] = [];
     let messages: any[] = [];
     
-    // If we have an active space, fetch its conversations
     if (activeSpace) {
       conversations = await fetchConversations(activeSpace.id);
       
-      // If we have conversations, fetch messages for the most recent one
       if (conversations.length > 0) {
         try {
           console.log(`[ELECTRON] Fetching messages for conversation ${conversations[0].id}`);
@@ -76,7 +70,6 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
       }
     }
 
-    // Construct the complete app state
     return {
       spaces,
       activeSpace,

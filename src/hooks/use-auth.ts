@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useToast } from 'vinci-ui';
 import { AuthEvents, AppStateEvents } from '@/core/ipc/constants';
 
@@ -32,51 +32,67 @@ export function useAuth() {
   const [session, setSession] = useState<AuthSession | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
+  // Setup auth state listener
+  const setupAuthListener = useCallback((callback?: (session: AuthSession | null) => void) => {
     // Only run in browser environment where Electron is available
     if (typeof window === 'undefined' || !window.electron) {
       console.log('Electron API not available');
-      return;
+      return () => {};
     }
     
     // Set up listener for state updates
-    const cleanup = window.electron.on(AppStateEvents.STATE_UPDATED, (event, response) => {
+    const handleStateUpdate = (event: any, response: any) => {
       if (response.success && response.data?.session) {
         setSession(response.data.session);
+        if (callback) callback(response.data.session);
       }
-    });
-
-    console.log('Starting token verification in useAuth hook...');
-    // Check if we have a valid token, and if not, get token data separately
-    window.electron.invoke(AuthEvents.VERIFY_TOKEN)
-      .then((response) => {
-        console.log('Token verification response:', response);
-        if (response.success && response.data?.isValid) {
-          // Token is valid, now get the actual token data
-          console.log('Token is valid, getting token data...');
-          return window.electron.invoke(AuthEvents.GET_AUTH_TOKEN);
-        } else {
-          // Token is not valid - we'll need to handle this
-          console.log('Token validation failed:', response);
-          return { success: false };
-        }
-      })
-      .then((tokenResponse) => {
+    };
+    
+    window.electron.on(AppStateEvents.STATE_UPDATED, handleStateUpdate);
+    
+    return () => {
+      window.electron.off(AppStateEvents.STATE_UPDATED, handleStateUpdate);
+    };
+  }, []);
+  
+  // Verify token
+  const verifyAndGetToken = useCallback(async (): Promise<AuthSession | null> => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Only run in browser environment where Electron is available
+      if (typeof window === 'undefined' || !window.electron) {
+        throw new Error('Electron API not available');
+      }
+      
+      const verifyResponse = await window.electron.invoke(AuthEvents.VERIFY_TOKEN);
+      
+      if (verifyResponse.success && verifyResponse.data?.isValid) {
+        // Token is valid, now get the actual token data
+        const tokenResponse = await window.electron.invoke(AuthEvents.GET_AUTH_TOKEN);
+        
         if (tokenResponse?.success && tokenResponse.data) {
           const { accessToken, refreshToken } = tokenResponse.data;
           if (accessToken && refreshToken) {
-            setSession({
+            const authSession = {
               access_token: accessToken,
               refresh_token: refreshToken
-            });
+            };
+            setSession(authSession);
+            return authSession;
           }
         }
-      })
-      .catch(err => {
-        console.error('Error verifying/getting tokens:', err);
-      });
-
-    return cleanup;
+      }
+      
+      return null;
+    } catch (err) {
+      console.error('Error verifying/getting tokens:', err);
+      setError(err instanceof Error ? err.message : 'Failed to verify token');
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   const handleError = (error: unknown) => {
@@ -198,6 +214,27 @@ export function useAuth() {
       setIsLoading(false);
     }
   };
+  
+  // Function to sync the application state
+  const syncAppState = async (): Promise<boolean> => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Check if Electron API is available
+      if (typeof window === 'undefined' || !window.electron) {
+        throw new Error("Electron API not available");
+      }
+      
+      const response = await window.electron.invoke(AppStateEvents.SYNC_STATE);
+      return response.success || false;
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to sync app state');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Helper property to check if user is authenticated
   const isAuthenticated = !!session?.access_token;
@@ -207,8 +244,11 @@ export function useAuth() {
     error,
     session,
     isAuthenticated,
+    setupAuthListener,
+    verifyAndGetToken,
     signIn,
     signUp,
-    resetPassword
+    resetPassword,
+    syncAppState
   };
 }

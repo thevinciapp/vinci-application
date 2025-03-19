@@ -104,28 +104,35 @@ export function useNotifications() {
     }
   }, [fetchNotifications]);
 
-  // Set up event listener for new notifications
-  useEffect(() => {
-    const cleanup = window.electron.on(
-      NotificationEvents.NOTIFICATION_RECEIVED,
-      (event, response) => {
-        if (response.success && response.data) {
-          fetchNotifications();
+  /**
+   * Setup notification listener
+   */
+  const setupNotificationListener = useCallback(() => {
+    const handleNotificationReceived = (event: any, response: any) => {
+      if (response.success && response.data) {
+        fetchNotifications();
           
-          // Optionally show a toast for the new notification
-          const newNotification = response.data;
-          toast(newNotification.title, {
-            description: newNotification.description,
-          });
-        }
+        // Optionally show a toast for the new notification
+        const newNotification = response.data;
+        toast(newNotification.title, {
+          description: newNotification.description,
+        });
       }
+    };
+    
+    // Register the event listener
+    window.electron.on(
+      NotificationEvents.NOTIFICATION_RECEIVED,
+      handleNotificationReceived
     );
-
-    // Initial fetch
-    fetchNotifications();
-
-    // Return the cleanup function directly
-    return cleanup;
+    
+    // Return cleanup function
+    return () => {
+      window.electron.off(
+        NotificationEvents.NOTIFICATION_RECEIVED,
+        handleNotificationReceived
+      );
+    };
   }, [fetchNotifications]);
 
   return {
@@ -134,6 +141,7 @@ export function useNotifications() {
     isLoading,
     error,
     fetchNotifications,
+    setupNotificationListener,
     markAsRead,
     markAllAsRead
   };

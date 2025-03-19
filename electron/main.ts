@@ -16,7 +16,7 @@ import {
 import {
   fetchInitialAppData
 } from '@/services/app-data/app-data-service';
-import { useStore } from '@/store';
+import { useStore } from '../../vinci-application/src/store';
 
 // Hide dock icon on macOS
 if (isMac()) {

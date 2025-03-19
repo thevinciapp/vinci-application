@@ -7,7 +7,6 @@ import {
   setCommandType 
 } from '../window/window-service';
 
-// Export all functions from window-service for backward compatibility
 export { 
   getCommandCenterWindow, 
   createCommandCenterWindow, 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { CommandCenterEvents } from '@/core/ipc/constants';
 import { CommandCenterState } from '@/types/electron';
 
@@ -16,9 +16,12 @@ export function useCommandCenter() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  /**
+   * Setup command center state listener
+   */
+  const setupCommandCenterListener = useCallback(() => {
     // Set up listener for state synchronization
-    const cleanup = window.electronAPI?.[CommandCenterEvents.SYNC_STATE]?.((event, action, data) => {
+    const handler = (event: any, action: string, data: any) => {
       setState(prevState => ({
         ...prevState,
         isOpen: action === 'open',
@@ -26,9 +29,11 @@ export function useCommandCenter() {
         dialogType: undefined,
         dialogData: undefined
       }));
-    });
+    };
 
-    // Cleanup listener on unmount
+    const cleanup = window.electronAPI?.[CommandCenterEvents.SYNC_STATE]?.(handler);
+
+    // Return cleanup function
     return () => {
       if (cleanup) cleanup();
     };
@@ -114,6 +119,7 @@ export function useCommandCenter() {
     state,
     isLoading,
     error,
+    setupCommandCenterListener,
     updateState,
     openDialog,
     closeDialog,

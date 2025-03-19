@@ -12,7 +12,6 @@ import { registerUserHandlers } from './handlers/user-handlers';
  * Register all IPC handlers for the application
  */
 export function registerIpcHandlers(): void {
-  // Register all handler modules
   registerAuthHandlers();
   registerMessageHandlers();
   registerSpaceHandlers();

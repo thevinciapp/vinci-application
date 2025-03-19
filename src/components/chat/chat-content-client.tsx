@@ -1,8 +1,6 @@
-
-
 import { useChat } from '@ai-sdk/react';
 import { useNavigate } from 'react-router-dom';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ArrowDown, Search } from 'lucide-react';
 import { BaseTab } from 'vinci-ui';
@@ -24,7 +22,6 @@ export default function ClientChatContent() {
   const { profile } = useUser();
   const { activeSpace, isLoading: isSpaceLoading } = useSpaces();
   const { conversations, activeConversation, createConversation } = useConversations();
-  const navigate = useNavigate();
 
   const [isStickToBottom, setIsStickToBottom] = useState(true);
   const [searchMode, setSearchMode] = useState<'chat' | 'search' | 'semantic' | 'hybrid'>('chat');
@@ -46,16 +43,24 @@ export default function ClientChatContent() {
     return fileMap;
   }, [fileReferences]);
 
-  // Use the messages hook to manage conversation messages
   const { 
+    messages: conversationMessages,
     isLoading: isLoadingMessages, 
-    formatMessagesForChat 
+    formatMessagesForChat,
+    fetchMessages 
   } = useMessages(activeConversation?.id);
+
+  // Fetch messages when conversation changes
+  useEffect(() => {
+    if (activeConversation?.id) {
+      fetchMessages(activeConversation.id);
+    }
+  }, [activeConversation?.id, fetchMessages]);
 
   const chatKey = `${activeConversation?.id || 'default'}-${activeSpace?.provider || ''}-${activeSpace?.model || ''}`;
 
   const {
-    messages,
+    messages: chatMessages,
     input,
     isLoading: isChatLoading,
     setInput,
@@ -66,7 +71,7 @@ export default function ClientChatContent() {
   } = useChat({
     id: chatKey,
     api: '/api/chat',
-    initialMessages: formatMessagesForChat(),
+    initialMessages: formatMessagesForChat() || [],
     body: {
       spaceId: activeSpace?.id || '',
       conversationId: activeConversation?.id || null,
@@ -103,15 +108,11 @@ export default function ClientChatContent() {
     
     try {
       await createConversation(activeSpace.id, title);
-      toast({
-        title: 'Success',
-        description: 'Conversation created successfully',
-      });
     } catch (error) {
-      console.error('Failed to create conversation:', error);
+      console.error('Error creating conversation:', error);
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to create conversation',
+        description: 'Failed to create conversation',
         variant: 'destructive',
       });
     }
@@ -144,7 +145,7 @@ export default function ClientChatContent() {
             <div className="px-1 first:pl-1 last:pr-1">
               <ChatModeTab chatMode={activeSpace?.chat_mode} />
             </div>
-            {!isStickToBottom && messages.length > 0 && (
+            {!isStickToBottom && chatMessages.length > 0 && (
               <div className="px-1 first:pl-1 last:pr-1">
                 <BaseTab
                   icon={<ArrowDown className="w-3 h-3" />}
@@ -165,7 +166,7 @@ export default function ClientChatContent() {
           <div className="absolute bottom-[10%] left-[30%] w-[600px] h-[600px] bg-[#3ecfff]/[0.01] blur-[130px] rounded-full" />
         </div>
         <ChatMessages
-          messages={messages}
+          messages={chatMessages}
           onStickToBottomChange={handleStickToBottomChange}
           onScrollToBottom={handleScrollToBottom}
           ref={messagesContainerRef}

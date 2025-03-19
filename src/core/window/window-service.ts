@@ -4,9 +4,7 @@ import { CommandType } from '../../../electron/types';
 import { APP_BASE_URL } from '../auth/auth-service';
 import { CommandCenterEvents } from '../ipc/constants';
 import { useStore } from '../../store';
-import { sanitizeStateForIpc } from '../utils/state-utils';
 
-// Global window references
 let mainWindow: BrowserWindow | null = null;
 let commandCenterWindow: BrowserWindow | null = null;
 let isDialogOpen = false;
@@ -74,9 +72,7 @@ export async function createCommandCenterWindow() {
     console.log('[ELECTRON] Sending app state to command center');
     try {
       const state = useStore.getState();
-      // Create a sanitized copy of the state for IPC (removing non-serializable fields)
-      const sanitizedState = sanitizeStateForIpc(state);
-      commandCenterWindow.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: sanitizedState });
+      commandCenterWindow.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: state });
     } catch (error) {
       console.error('Error sending initial app state to command center:', error);
     }
@@ -131,9 +127,7 @@ export async function createMainWindow(): Promise<BrowserWindow> {
       console.log('[ELECTRON] Sending initial app state to main window');
       try {
         const state = useStore.getState();
-        // Create a sanitized copy of the state for IPC (removing non-serializable fields)
-        const sanitizedState = sanitizeStateForIpc(state);
-        mainWindow.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: sanitizedState });
+        mainWindow.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: state });
       } catch (error) {
         console.error('Error sending initial app state to main window:', error);
       }
@@ -156,9 +150,7 @@ export async function toggleCommandCenterWindow() {
     if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
       console.log('[ELECTRON] Sending app state to command center on toggle');
       const state = useStore.getState();
-      // Create a sanitized copy of the state for IPC (removing non-serializable fields)
-      const sanitizedState = sanitizeStateForIpc(state);
-      commandCenterWindow.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: sanitizedState });
+      commandCenterWindow.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: state });
       commandCenterWindow.show();
       commandCenterWindow.focus();
     }
