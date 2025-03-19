@@ -10,14 +10,7 @@ import {
 } from '../../../services/search/search-service';
 import { MessageResponse } from './index';
 import { MessageEvents, SearchEvents } from '../constants';
-
-interface Message {
-  id: string;
-  content: string;
-  conversationId: string;
-  createdAt: string;
-  updatedAt?: string;
-}
+import { Message } from 'vinci-common';
 
 /**
  * Register message-related IPC handlers

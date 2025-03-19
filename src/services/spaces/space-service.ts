@@ -1,5 +1,5 @@
 import { API_BASE_URL } from '../../core/auth/auth-service';
-import { Space } from '../../types';
+import { Space } from 'vinci-common';
 import { useStore } from '../../store';
 import { fetchWithAuth } from '../api/api-service';
 import { fetchConversations } from '../conversations/conversation-service';
@@ -11,16 +11,16 @@ import { fetchMessages } from '../messages/message-service';
 export async function fetchSpaces(): Promise<Space[]> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces`);
-    const data = await response.json();
+    const { status, error, data: spaces } = await response.json();
     
-    if (data.status !== 'success') {
-      throw new Error(data.error || 'Failed to fetch spaces');
+    if (status !== 'success') {
+      throw new Error(error || 'Failed to fetch spaces');
     }
     
     // Update spaces in Zustand store
-    useStore.getState().updateSpaces(data.data || []);
+    useStore.getState().updateSpaces(spaces || []);
     
-    return data.data || [];
+    return spaces || [];
   } catch (error) {
     console.error('[ELECTRON] Error fetching spaces:', error);
     throw error;
@@ -32,14 +32,14 @@ export async function fetchSpaces(): Promise<Space[]> {
  */
 export async function fetchActiveSpace(): Promise<Space | null> {
   try {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/active-space`);
-    const data = await response.json();
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/user/active-space`);
+    const { status, error, data } = await response.json();
     
-    if (data.status !== 'success') {
-      throw new Error(data.error || 'Failed to fetch active space');
+    if (status !== 'success') {
+      throw new Error(error || 'Failed to fetch active space');
     }
     
-    const activeSpace = data.data?.activeSpace || null;
+    const activeSpace = data?.activeSpace || null;
     
     // Update active space in Zustand store
     if (activeSpace) {
@@ -66,26 +66,26 @@ export async function updateSpace(spaceId: string, spaceData: Partial<Space>): P
       body: JSON.stringify(spaceData)
     });
     
-    const data = await response.json();
+    const { status, error, data: updatedSpace } = await response.json();
     
-    if (data.status !== 'success') {
-      throw new Error(data.error || 'Failed to update space');
+    if (status !== 'success') {
+      throw new Error(error || 'Failed to update space');
     }
     
     // Update Zustand store
     const store = useStore.getState();
-    const spaces = store.spaces.map(s => s.id === spaceId ? { ...s, ...data.data } : s);
+    const spaces = store.spaces.map(s => s.id === spaceId ? { ...s, ...updatedSpace } : s);
     store.updateSpaces(spaces);
     
     // If this is the active space, update that too
     if (store.activeSpace && store.activeSpace.id === spaceId) {
-      const updatedSpace = spaces.find(s => s.id === spaceId);
-      if (updatedSpace) {
-        store.setActiveSpace(updatedSpace);
+      const updatedSpaceFromStore = spaces.find(s => s.id === spaceId);
+      if (updatedSpaceFromStore) {
+        store.setActiveSpace(updatedSpaceFromStore);
       }
     }
     
-    return data.data;
+    return updatedSpace;
   } catch (error) {
     console.error(`[ELECTRON] Error updating space ${spaceId}:`, error);
     throw error;
@@ -105,18 +105,18 @@ export async function createSpace(spaceData: Partial<Space>): Promise<Space> {
       body: JSON.stringify(spaceData)
     });
     
-    const data = await response.json();
+    const { status, error, data: newSpace } = await response.json();
     
-    if (data.status !== 'success') {
-      throw new Error(data.error || 'Failed to create space');
+    if (status !== 'success') {
+      throw new Error(error || 'Failed to create space');
     }
     
     // Update Zustand store - add new space to list
     const store = useStore.getState();
-    const spaces = [...store.spaces, data.data];
+    const spaces = [...store.spaces, newSpace];
     store.updateSpaces(spaces);
     
-    return data.data;
+    return newSpace;
   } catch (error) {
     console.error('[ELECTRON] Error creating space:', error);
     throw error;
@@ -132,10 +132,10 @@ export async function deleteSpace(spaceId: string): Promise<boolean> {
       method: 'DELETE'
     });
     
-    const data = await response.json();
+    const { status, error } = await response.json();
     
-    if (data.status !== 'success') {
-      throw new Error(data.error || 'Failed to delete space');
+    if (status !== 'success') {
+      throw new Error(error || 'Failed to delete space');
     }
     
     // Update Zustand store - remove deleted space
@@ -171,10 +171,10 @@ export async function updateSpaceModel(spaceId: string, modelId: string, provide
       body: JSON.stringify({ model: modelId, provider })
     });
     
-    const data = await response.json();
+    const { status, error } = await response.json();
     
-    if (data.status !== 'success') {
-      throw new Error(data.error || 'Failed to update space model');
+    if (status !== 'success') {
+      throw new Error(error || 'Failed to update space model');
     }
     
     // Update the space in our Zustand store
@@ -215,7 +215,7 @@ export async function setActiveSpaceInAPI(spaceId: string) {
 
     console.log(`[ELECTRON] Setting active space: ${spaceId}`);
     
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/active-space`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/user/active-space`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -226,17 +226,19 @@ export async function setActiveSpaceInAPI(spaceId: string) {
     const responseText = await response.text();
     console.log(`[ELECTRON] Active space API response status: ${response.status}`);
     
-    let data;
+    let parsedResponse;
     try {
-      data = JSON.parse(responseText);
+      parsedResponse = JSON.parse(responseText);
     } catch (e) {
       console.error('[ELECTRON] Failed to parse response as JSON:', e);
       throw new Error('Invalid response from server');
     }
     
-    if (data.status !== 'success') {
-      console.error('[ELECTRON] API error response:', data);
-      throw new Error(data.error || 'Failed to set active space');
+    const { status, error, data } = parsedResponse;
+    
+    if (status !== 'success') {
+      console.error('[ELECTRON] API error response:', parsedResponse);
+      throw new Error(error || 'Failed to set active space');
     }
     
     // Find the space in our spaces array from Zustand store
@@ -264,7 +266,7 @@ export async function setActiveSpaceInAPI(spaceId: string) {
       console.warn(`[ELECTRON] Space with ID ${spaceId} not found in Zustand store`);
     }
     
-    return data.data;
+    return data;
   } catch (error) {
     console.error(`[ELECTRON] Error setting active space ${spaceId}:`, error);
     throw error;

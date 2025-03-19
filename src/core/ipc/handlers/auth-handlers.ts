@@ -46,30 +46,55 @@ export function registerAuthHandlers() {
 
       return {
         success: true,
-        data: signInResult.data
+        data: signInResult.data,
+        status: 'success'
       };
     } catch (error) {
       console.error('[ELECTRON] Sign in handler error:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Failed to sign in' };
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to sign in', status: 'error' };
     }
   });
 
-  ipcMain.handle(AuthEvents.GET_SESSION, async (_event: IpcMainInvokeEvent): Promise<AuthResponse> => {
+  ipcMain.handle(AuthEvents.VERIFY_TOKEN, async (_event: IpcMainInvokeEvent): Promise<AuthResponse> => {
+    console.log('[ELECTRON] VERIFY_TOKEN handler called');
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/session`, {
+      // If there's no access token, return false immediately
+      const accessToken = getStoreState().accessToken;
+      console.log('[ELECTRON] Current access token exists:', !!accessToken);
+      if (!accessToken) {
+        console.log('[ELECTRON] No access token available to verify');
+        return { 
+          success: true, 
+          data: { isValid: false },
+          status: 'success'
+        };
+      }
+
+      // Verify token with API
+      const response = await fetch(`${API_BASE_URL}/api/auth/verify-token`, {
         headers: {
-          'Authorization': `Bearer ${getStoreState().accessToken}`
+          'Authorization': `Bearer ${accessToken}`
         }
       });
-      const sessionData: SessionResponse = await response.json();
+      
+      // Parse response
+      const responseData = await response.json();
+      
+      // Simply return if token is valid or not
       return {
-        success: sessionData.status === 'success',
-        data: sessionData.data,
-        error: sessionData.error
+        success: true,
+        data: { 
+          isValid: response.ok && responseData.status === 'success' && !!responseData.data?.session
+        },
+        status: 'success'
       };
     } catch (error) {
-      console.error('Error getting session:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Failed to get session' };
+      console.error('[ELECTRON] Error verifying token:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to verify token', 
+        status: 'error' 
+      };
     }
   });
 
@@ -78,7 +103,7 @@ export function registerAuthHandlers() {
       return await signUp(email, password);
     } catch (error) {
       console.error('Error signing up:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Failed to sign up' };
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to sign up', status: 'error' };
     }
   });
 
@@ -87,14 +112,14 @@ export function registerAuthHandlers() {
       return await resetPassword(email);
     } catch (error) {
       console.error('Error resetting password:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Failed to reset password' };
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to reset password', status: 'error' };
     }
   });
 
   ipcMain.handle(AuthEvents.SET_AUTH_TOKENS, async (_event: IpcMainInvokeEvent, newAccessToken: string, newRefreshToken: string): Promise<AuthResponse> => {
     if (!newAccessToken || !newRefreshToken) {
       console.error('[ELECTRON] Empty tokens received');
-      return { success: false, error: 'Empty tokens received' };
+      return { success: false, error: 'Empty tokens received', status: 'error' };
     }
     
     console.log('[ELECTRON] Auth tokens received');
@@ -106,7 +131,7 @@ export function registerAuthHandlers() {
       
       // Validate the tokens by making a test API call
       try {
-        const validationResponse = await fetch(`${API_BASE_URL}/api/auth/session`, {
+        const validationResponse = await fetch(`${API_BASE_URL}/api/auth/verify-token`, {
           headers: {
             'Authorization': `Bearer ${newAccessToken}`
           }
@@ -114,30 +139,37 @@ export function registerAuthHandlers() {
         
         if (!validationResponse.ok) {
           console.error('[ELECTRON] Token validation failed with status:', validationResponse.status);
-          return { success: false, error: `Token validation failed with status: ${validationResponse.status}` };
+          return { success: false, error: `Token validation failed with status: ${validationResponse.status}`, status: 'error' };
         }
         
         const validationData = await validationResponse.json();
-        if (validationData.status !== 'success') {
-          console.error('[ELECTRON] Token validation returned error status:', validationData);
-          return { success: false, error: 'Token validation returned error status' };
+        if (validationData.status !== 'success' || !validationData.data?.isValid) {
+          console.error('[ELECTRON] Token validation failed:', validationData);
+          return { success: false, error: 'Token validation failed', status: 'error' };
         }
         
         console.log('[ELECTRON] Tokens validated successfully');
         
-        // Update Zustand store with user info if available
-        if (validationData.data?.session?.user) {
-          useStore.getState().setUser(validationData.data.session.user);
+        // If validation returns a userId, update it in store
+        if (validationData.data.userId) {
+          // Create a minimal User object that satisfies the type requirements
+          useStore.getState().setUser({
+            id: validationData.data.userId,
+            app_metadata: {},
+            user_metadata: {},
+            aud: 'authenticated',
+            created_at: new Date().toISOString()
+          });
         }
       } catch (validationError) {
         console.error('[ELECTRON] Error validating tokens:', validationError);
-        return { success: false, error: validationError instanceof Error ? validationError.message : 'Error validating tokens' };
+        return { success: false, error: validationError instanceof Error ? validationError.message : 'Error validating tokens', status: 'error' };
       }
       
-      return { success: true, data: { tokensValidated: true } };
+      return { success: true, data: { tokensValidated: true }, status: 'success' };
     } catch (error) {
       console.error('[ELECTRON] Error during auth setup:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Error during auth setup' };
+      return { success: false, error: error instanceof Error ? error.message : 'Error during auth setup', status: 'error' };
     }
   });
 
@@ -152,10 +184,10 @@ export function registerAuthHandlers() {
       useStore.getState().setRefreshToken(null);
       
       console.log('[ELECTRON] Auth data cleared successfully');
-      return { success: true };
+      return { success: true, status: 'success' };
     } catch (error) {
       console.error('[ELECTRON] Error clearing auth data:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Error clearing auth data' };
+      return { success: false, error: error instanceof Error ? error.message : 'Error clearing auth data', status: 'error' };
     }
   });
 
@@ -163,11 +195,11 @@ export function registerAuthHandlers() {
   ipcMain.handle(AuthEvents.REFRESH_AUTH_TOKENS, async (_event: IpcMainInvokeEvent): Promise<AuthResponse> => {
     try {
       console.log('[ELECTRON] Refresh tokens handler called');
-      const refreshed = await refreshTokens(safeStorage);
+      const refreshed = await refreshTokens();
       
       if (!refreshed) {
         console.log('[ELECTRON] Failed to refresh tokens');
-        return { success: false, error: 'Failed to refresh tokens' };
+        return { success: false, error: 'Failed to refresh tokens', status: 'error' };
       }
       
       const store = useStore.getState();
@@ -176,11 +208,12 @@ export function registerAuthHandlers() {
         data: {
           accessToken: store.accessToken,
           refreshToken: store.refreshToken
-        }
+        },
+        status: 'success'
       };
     } catch (error) {
       console.error('[ELECTRON] Error refreshing tokens:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Error refreshing tokens' };
+      return { success: false, error: error instanceof Error ? error.message : 'Error refreshing tokens', status: 'error' };
     }
   });
 
@@ -193,11 +226,12 @@ export function registerAuthHandlers() {
         data: {
           accessToken: store.accessToken,
           refreshToken: store.refreshToken
-        }
+        },
+        status: 'success'
       };
     } catch (error) {
       console.error('[ELECTRON] Error getting auth token:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Error getting auth token' };
+      return { success: false, error: error instanceof Error ? error.message : 'Error getting auth token', status: 'error' };
     }
   });
 
@@ -205,10 +239,10 @@ export function registerAuthHandlers() {
   ipcMain.handle(AuthEvents.SIGN_OUT, async (_event: IpcMainInvokeEvent): Promise<AuthResponse> => {
     try {
       await redirectToSignIn();
-      return { success: true };
+      return { success: true, status: 'success' };
     } catch (error) {
       console.error('[ELECTRON] Error signing out:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Error signing out' };
+      return { success: false, error: error instanceof Error ? error.message : 'Error signing out', status: 'error' };
     }
   });
 }

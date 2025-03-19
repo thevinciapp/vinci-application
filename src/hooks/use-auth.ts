@@ -46,15 +46,34 @@ export function useAuth() {
       }
     });
 
-    // Get initial session state
-    window.electron.invoke(AuthEvents.GET_SESSION)
+    console.log('Starting token verification in useAuth hook...');
+    // Check if we have a valid token, and if not, get token data separately
+    window.electron.invoke(AuthEvents.VERIFY_TOKEN)
       .then((response) => {
-        if (response.success && response.data?.session) {
-          setSession(response.data.session);
+        console.log('Token verification response:', response);
+        if (response.success && response.data?.isValid) {
+          // Token is valid, now get the actual token data
+          console.log('Token is valid, getting token data...');
+          return window.electron.invoke(AuthEvents.GET_AUTH_TOKEN);
+        } else {
+          // Token is not valid - we'll need to handle this
+          console.log('Token validation failed:', response);
+          return { success: false };
+        }
+      })
+      .then((tokenResponse) => {
+        if (tokenResponse?.success && tokenResponse.data) {
+          const { accessToken, refreshToken } = tokenResponse.data;
+          if (accessToken && refreshToken) {
+            setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
+            });
+          }
         }
       })
       .catch(err => {
-        console.error('Error getting session:', err);
+        console.error('Error verifying/getting tokens:', err);
       });
 
     return cleanup;

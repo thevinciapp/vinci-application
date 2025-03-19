@@ -20,6 +20,6 @@ export const authApi = {
   signUp: (email: string, password: string) =>
     ipcRenderer.invoke(AuthEvents.SIGN_UP, email, password),
   
-  getSession: () =>
-    ipcRenderer.invoke(AuthEvents.GET_SESSION),
+  verifyToken: () =>
+    ipcRenderer.invoke(AuthEvents.VERIFY_TOKEN),
 };

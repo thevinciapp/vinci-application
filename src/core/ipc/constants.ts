@@ -2,7 +2,7 @@
  * Auth-related IPC events
  */
 export const AuthEvents = {
-  GET_SESSION: 'get-session',
+  VERIFY_TOKEN: 'verify-token',
   GET_AUTH_TOKEN: 'get-auth-token',
   REFRESH_AUTH_TOKENS: 'refresh-auth-tokens',
   SIGN_IN: 'sign-in',

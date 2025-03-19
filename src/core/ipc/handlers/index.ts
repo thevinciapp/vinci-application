@@ -6,6 +6,7 @@ import { registerCommandCenterHandlers } from './command-center-handlers';
 import { registerConversationHandlers } from './conversation-handlers';
 import { registerUserHandlers } from './user-handlers';
 import { registerNotificationHandlers } from './notification-handlers';
+import { Space, Conversation, Message, Notification } from 'vinci-common';
 
 // Common response interface for all handlers
 export interface IpcResponse {
@@ -21,15 +22,30 @@ export interface StateUpdate {
   payload: any;
 }
 
-// Export specific response types
-export type AuthResponse = IpcResponse;
-export type MessageResponse = IpcResponse;
-export type SpaceResponse = IpcResponse;
+// Export specific response types with better typing
+export interface AuthResponse extends IpcResponse {
+  data?: any;
+}
+
+export interface MessageResponse extends IpcResponse {
+  data?: Message | Message[] | { deleted: boolean };
+}
+
+export interface SpaceResponse extends IpcResponse {
+  data?: Space | Space[] | { deleted: boolean } | { updated: boolean };
+}
+
+export interface ConversationResponse extends IpcResponse {
+  data?: Conversation | Conversation[] | { deleted: boolean } | { updated: boolean };
+}
+
+export interface NotificationResponse extends IpcResponse {
+  data?: Notification | Notification[] | { deleted: boolean } | { updated: boolean };
+}
+
 export type AppStateResponse = IpcResponse;
 export type CommandCenterResponse = IpcResponse;
-export type ConversationResponse = IpcResponse;
 export type UserResponse = IpcResponse;
-export type NotificationResponse = IpcResponse;
 
 /**
  * Register all IPC handlers for the application

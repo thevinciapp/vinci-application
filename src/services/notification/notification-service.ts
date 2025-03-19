@@ -1,28 +1,12 @@
 import { API_BASE_URL } from '../../core/auth/auth-service';
 import { fetchWithAuth } from '../api/api-service';
+import { Notification, NotificationType } from 'vinci-common';
 
 /**
  * Notification service interface and types
  */
 
-export interface Notification {
-  id: string;
-  title: string;
-  description: string;
-  is_read: boolean;
-  created_at: string;
-  user_id: string;
-  type: NotificationType;
-  source_id?: string;
-  action_url?: string;
-}
-
-export enum NotificationType {
-  System = 'system',
-  Message = 'message',
-  Space = 'space',
-  User = 'user'
-}
+// Using Notification and NotificationType from vinci-common
 
 export interface NotificationResponse {
   success: boolean;
@@ -63,18 +47,18 @@ export interface CreateNotificationOptions {
 export async function fetchNotifications(): Promise<NotificationResponse> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/notifications`);
-    const data = await response.json();
+    const { status, error, data: notifications } = await response.json();
     
-    if (data.status !== 'success') {
+    if (status !== 'success') {
       return {
         success: false,
-        error: data.error || 'Failed to fetch notifications'
+        error: error || 'Failed to fetch notifications'
       };
     }
     
     return {
       success: true,
-      data: data.data || []
+      data: notifications || []
     };
   } catch (error: any) {
     console.error('[ELECTRON] Error fetching notifications:', error);
@@ -96,12 +80,12 @@ export async function markNotificationAsRead(notificationId: string): Promise<Ma
         method: 'PUT'
       }
     );
-    const data = await response.json();
+    const { status, error } = await response.json();
     
-    if (data.status !== 'success') {
+    if (status !== 'success') {
       return {
         success: false,
-        error: data.error || 'Failed to mark notification as read'
+        error: error || 'Failed to mark notification as read'
       };
     }
     
@@ -132,19 +116,19 @@ export async function markAllNotificationsAsRead(): Promise<MarkAllNotifications
         method: 'PUT'
       }
     );
-    const data = await response.json();
+    const { status, error, data } = await response.json();
     
-    if (data.status !== 'success') {
+    if (status !== 'success') {
       return {
         success: false,
-        error: data.error || 'Failed to mark all notifications as read'
+        error: error || 'Failed to mark all notifications as read'
       };
     }
     
     return {
       success: true,
       data: {
-        count: data.data?.count || 0,
+        count: data?.count || 0,
         updated: true
       }
     };
@@ -179,18 +163,18 @@ export async function createNotification(options: CreateNotificationOptions): Pr
         })
       }
     );
-    const data = await response.json();
+    const { status, error, data: notification } = await response.json();
     
-    if (data.status !== 'success') {
+    if (status !== 'success') {
       return {
         success: false,
-        error: data.error || 'Failed to create notification'
+        error: error || 'Failed to create notification'
       };
     }
     
     return {
       success: true,
-      data: [data.data] // Return as array to match response type
+      data: [notification] // Return as array to match response type
     };
   } catch (error: any) {
     console.error('[ELECTRON] Error creating notification:', error);

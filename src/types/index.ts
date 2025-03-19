@@ -156,12 +156,7 @@ export interface DialogRegistry {
   [key: string]: FC<DialogComponentProps>;
 }
 
-// API Types
-export interface ApiResponse<T> {
-  status: 'success' | 'error';
-  data?: T;
-  error?: string;
-}
+// API Types are imported from vinci-common
 
 // App State Types
 export interface AppState {

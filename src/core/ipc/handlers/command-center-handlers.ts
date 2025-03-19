@@ -70,7 +70,7 @@ export function registerCommandCenterHandlers(): void {
     if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
       commandCenterWindow.hide();
     }
-    return { success: true };
+    return { success: true, status: 'success' };
   });
 
   ipcMain.on(CommandCenterEvents.SET_TYPE, (_event: IpcMainInvokeEvent, commandType: CommandType) => {
@@ -118,10 +118,10 @@ export function registerCommandCenterHandlers(): void {
   ipcMain.handle(CommandCenterEvents.SEARCH_FILES, async (_event: IpcMainInvokeEvent, searchTerm: string): Promise<IpcResponse> => {
     try {
       // Implement file search logic here
-      return { success: true, data: [] };
+      return { success: true, data: [], status: 'success' };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      return { success: false, error: errorMessage };
+      return { success: false, error: errorMessage, status: 'error' };
     }
   });
 
@@ -129,10 +129,10 @@ export function registerCommandCenterHandlers(): void {
   ipcMain.handle(CommandCenterEvents.READ_FILE, async (_event: IpcMainInvokeEvent, filePath: string): Promise<IpcResponse> => {
     try {
       // Implement file reading logic here
-      return { success: true, data: { content: '', metadata: {} } };
+      return { success: true, data: { content: '', metadata: {} }, status: 'success' };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      return { success: false, error: errorMessage };
+      return { success: false, error: errorMessage, status: 'error' };
     }
   });
 

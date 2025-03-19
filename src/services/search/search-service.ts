@@ -1,5 +1,5 @@
 import { API_BASE_URL } from '../../core/auth/auth-service';
-import { Message } from '../../types';
+import { Message } from 'vinci-common';
 import { fetchWithAuth } from '../api/api-service';
 
 /**
@@ -8,13 +8,13 @@ import { fetchWithAuth } from '../api/api-service';
 export async function searchAllMessages(query: string): Promise<Message[]> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/search/messages?q=${encodeURIComponent(query)}`);
-    const data = await response.json();
+    const { status, error, data: messages } = await response.json();
     
-    if (data.status !== 'success') {
-      throw new Error(data.error || 'Failed to search messages');
+    if (status !== 'success') {
+      throw new Error(error || 'Failed to search messages');
     }
     
-    return data.data || [];
+    return messages || [];
   } catch (error) {
     console.error('[ELECTRON] Error searching messages:', error);
     throw error;
@@ -29,13 +29,13 @@ export async function searchSpaceMessages(spaceId: string, query: string): Promi
     const response = await fetchWithAuth(
       `${API_BASE_URL}/api/search/spaces/${spaceId}/messages?q=${encodeURIComponent(query)}`
     );
-    const data = await response.json();
+    const { status, error, data: messages } = await response.json();
     
-    if (data.status !== 'success') {
-      throw new Error(data.error || 'Failed to search space messages');
+    if (status !== 'success') {
+      throw new Error(error || 'Failed to search space messages');
     }
     
-    return data.data || [];
+    return messages || [];
   } catch (error) {
     console.error(`[ELECTRON] Error searching messages in space ${spaceId}:`, error);
     throw error;
@@ -50,13 +50,13 @@ export async function searchConversationMessages(conversationId: string, query: 
     const response = await fetchWithAuth(
       `${API_BASE_URL}/api/search/conversations/${conversationId}/messages?q=${encodeURIComponent(query)}`
     );
-    const data = await response.json();
+    const { status, error, data: messages } = await response.json();
     
-    if (data.status !== 'success') {
-      throw new Error(data.error || 'Failed to search conversation messages');
+    if (status !== 'success') {
+      throw new Error(error || 'Failed to search conversation messages');
     }
     
-    return data.data || [];
+    return messages || [];
   } catch (error) {
     console.error(`[ELECTRON] Error searching messages in conversation ${conversationId}:`, error);
     throw error;
@@ -71,13 +71,13 @@ export async function findSimilarMessages(messageId: string, limit: number = 5):
     const response = await fetchWithAuth(
       `${API_BASE_URL}/api/search/similar-messages/${messageId}?limit=${limit}`
     );
-    const data = await response.json();
+    const { status, error, data: messages } = await response.json();
     
-    if (data.status !== 'success') {
-      throw new Error(data.error || 'Failed to find similar messages');
+    if (status !== 'success') {
+      throw new Error(error || 'Failed to find similar messages');
     }
     
-    return data.data || [];
+    return messages || [];
   } catch (error) {
     console.error(`[ELECTRON] Error finding similar messages to ${messageId}:`, error);
     throw error;

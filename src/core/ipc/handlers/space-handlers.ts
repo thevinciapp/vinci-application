@@ -1,5 +1,5 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
-import { Space } from '../../../types';
+import { Space } from 'vinci-common';
 import {
   updateSpace,
   updateSpaceModel,
@@ -12,12 +12,7 @@ import {
 import { fetchConversations } from '../../../services/conversations/conversation-service';
 import { fetchMessages } from '../../../services/messages/message-service';
 import { SpaceEvents } from '../constants';
-
-interface SpaceResponse {
-  success: boolean;
-  data?: any;
-  error?: string;
-}
+import { SpaceResponse } from './index';
 
 /**
  * Register space-related IPC handlers

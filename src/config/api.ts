@@ -3,8 +3,8 @@
  */
 
 export const API_CONFIG = {
-  APP_BASE_URL: 'http://localhost:3000',
-  API_BASE_URL: 'http://localhost:3001',
+  APP_BASE_URL: 'http://localhost:5432',
+  API_BASE_URL: 'http://localhost:3000',
 } as const;
 
 // Export individual constants for convenience

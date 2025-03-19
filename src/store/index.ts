@@ -1,5 +1,19 @@
 import { create } from 'zustand';
-import { AppState } from '@/types';
+import { User } from '@supabase/supabase-js';
+import { Space, Conversation, Message } from 'vinci-common';
+
+// Define AppState using imported types from vinci-common
+interface AppState {
+  spaces: Space[];
+  activeSpace: Space | null;
+  conversations: Conversation[];
+  messages: Message[];
+  initialDataLoaded: boolean;
+  lastFetched: number | null;
+  user: User | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+}
 
 const initialState: AppState = {
   spaces: [],

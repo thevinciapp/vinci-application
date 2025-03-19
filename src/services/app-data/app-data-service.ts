@@ -1,10 +1,23 @@
-import { AppStateResult } from '../../types';
 import { useStore } from '../../store';
+import { Space, Conversation, Message } from 'vinci-common';
 import { fetchSpaces, fetchActiveSpace } from '../spaces/space-service';
 import { fetchConversations } from '../conversations/conversation-service';
 import { fetchMessages } from '../messages/message-service';
 import { fetchUserProfile } from '../user/user-service';
 import { checkServerHealth } from '../api/api-service';
+
+interface AppStateResult {
+  spaces: Space[];
+  activeSpace: Space | null;
+  conversations: Conversation[];
+  messages: Message[];
+  initialDataLoaded: boolean;
+  lastFetched: number | null;
+  user: any | null;
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  error?: string;
+}
 
 /**
  * Fetch initial app data from multiple services
@@ -14,29 +27,9 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
   
   // Get current token state
   const store = useStore.getState();
+  console.log('[ELECTRON] Current token state - Access token exists:', !!store.accessToken, 'Refresh token exists:', !!store.refreshToken);
   
   try {
-    // First fetch user profile to validate session 
-    try {
-      const user = await fetchUserProfile();
-      if (!user) {
-        return {
-          ...useStore.getState(),
-          error: 'No active session',
-          lastFetched: Date.now(),
-          user: null
-        };
-      }
-    } catch (error) {
-      console.error('[ELECTRON] Failed to fetch user session:', error);
-      return {
-        ...useStore.getState(),
-        error: 'Failed to fetch user session',
-        lastFetched: Date.now(),
-        user: null
-      };
-    }
-  
     // Check if server is available
     if (!await checkServerHealth()) {
       return {

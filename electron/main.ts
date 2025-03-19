@@ -77,7 +77,8 @@ async function initialize() {
     
     registerIpcHandlers();
 
-    await loadAuthData(safeStorage);
+    const authResult = await loadAuthData(safeStorage);
+    console.log('[ELECTRON] Auth data loaded. Access token exists:', !!authResult.accessToken, 'Refresh token exists:', !!authResult.refreshToken);
     
     // Create the main window
     mainWindow = createWindow();
@@ -88,7 +89,7 @@ async function initialize() {
     // Check token state
     const store = useStore.getState();
     
-    // If no auth tokens, redirect to sign-in
+    // If no auth tokens at all, redirect to sign-in immediately
     if (!store.accessToken && !store.refreshToken) {
       console.log('[ELECTRON] No auth tokens available, redirecting to sign-in');
       mainWindow.loadURL(
@@ -102,7 +103,7 @@ async function initialize() {
         // If we have a refresh token but no access token, try to refresh
         if (!store.accessToken && store.refreshToken) {
           console.log('[ELECTRON] No access token, attempting refresh with saved refresh token');
-          const refreshed = await refreshTokens(safeStorage);
+          const refreshed = await refreshTokens();
           if (!refreshed) {
             console.log('[ELECTRON] Failed to refresh tokens on startup');
             await redirectToSignIn();
@@ -116,6 +117,14 @@ async function initialize() {
         if (!freshData.error) {
           store.setAppState(freshData);
           console.log('[ELECTRON] Initial data loaded with saved auth token');
+          
+          // Explicitly redirect to protected route after successful data loading
+          console.log('[ELECTRON] Redirecting to protected route');
+          mainWindow.loadURL(
+            process.env.NODE_ENV === 'development' 
+              ? 'http://localhost:5173/#/protected' 
+              : `file://${join(__dirname, '../renderer/index.html')}#/protected`
+          );
         } else {
           console.error('[ELECTRON] Failed to load initial data:', freshData.error);
           // Check if it's an auth error

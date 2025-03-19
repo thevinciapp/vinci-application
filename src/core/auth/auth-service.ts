@@ -3,17 +3,10 @@ import { join } from 'path';
 import { writeFile, readFile, unlink, mkdirSync, existsSync } from 'fs';
 import { useStore } from '../../store';
 import { APP_BASE_URL, API_BASE_URL } from '../../config/api';
+import { AuthSession } from '../../../../vinci-api/src/lib/types/auth';
 
 interface SignInResponse {
-  status: string;
-  data?: {
-    session?: {
-      access_token: string;
-      refresh_token: string;
-      user?: any;
-    };
-  };
-  error?: string;
+  session: AuthSession | null;
 }
 
 // Use app.getPath('userData') to get the correct user data directory
@@ -93,8 +86,10 @@ export async function saveAuthData(access: string, refresh: string, safeStorage:
  * Load authentication data from secure storage
  */
 export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{ accessToken: string | null, refreshToken: string | null }> {
+  console.log('[ELECTRON] loadAuthData called');
   // Get current token state
   const store = useStore.getState();
+  console.log('[ELECTRON] Store before loading: Access token exists:', !!store.accessToken, 'Refresh token exists:', !!store.refreshToken);
   return new Promise((resolve) => {
     if (!safeStorage.isEncryptionAvailable()) {
       console.error('[ELECTRON] Encryption not available during load');
@@ -140,6 +135,8 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
                 const refreshToken = safeStorage.decryptString(encryptedRefreshToken);
                 console.log('[ELECTRON] Refresh token loaded successfully');
                 store.setRefreshToken(refreshToken);
+                // Check store state after setting
+                console.log('[ELECTRON] Store after setting refresh token: token exists:', !!store.refreshToken);
                 resolve({ accessToken: null, refreshToken });
               } catch (decryptError) {
                 console.error('[ELECTRON] Failed to decrypt refresh token:', decryptError);
@@ -157,6 +154,7 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
           const accessToken = safeStorage.decryptString(encryptedAccessToken);
           store.setAccessToken(accessToken);
           console.log('[ELECTRON] Access token loaded successfully');
+          console.log('[ELECTRON] Store after setting access token: token exists:', !!store.accessToken);
           
           // Now load refresh token if it exists
           if (refreshTokenExists) {
@@ -350,8 +348,9 @@ export async function redirectToSignIn(): Promise<void> {
 
 /**
  * Refresh authentication tokens
+ * Note: This function will automatically save tokens to secure storage
  */
-export async function refreshTokens(safeStor?: Electron.SafeStorage): Promise<boolean> {
+export async function refreshTokens(): Promise<boolean> {
   const store = useStore.getState();
   const refreshToken = store.refreshToken;
   
@@ -359,6 +358,9 @@ export async function refreshTokens(safeStor?: Electron.SafeStorage): Promise<bo
     console.log('[ELECTRON] No refresh token available');
     return false;
   }
+  
+  // Get safeStorage from electron
+  const { safeStorage } = require('electron');
   
   try {
     console.log('[ELECTRON] Attempting to refresh tokens');
@@ -379,44 +381,38 @@ export async function refreshTokens(safeStor?: Electron.SafeStorage): Promise<bo
       return false;
     }
     
-    const data = await response.json();
+    const { status, error, data } = await response.json();
     
-    if (data.status !== 'success' || !data.data?.session?.access_token) {
-      console.error('[ELECTRON] Invalid response from refresh endpoint:', data);
-      // If refresh explicitly returns error status, redirect to sign-in
-      if (data.status === 'error' && data.error?.includes('token')) {
-        await redirectToSignIn();
-      }
+    if (status !== 'success' || !data?.session?.access_token) {
+      console.error('[ELECTRON] Invalid response from refresh endpoint:', error || 'No session data');
       return false;
     }
     
     // Update tokens in Zustand store
-    store.setAccessToken(data.data.session.access_token);
+    store.setAccessToken(data.session.access_token);
     
     // If a new refresh token was provided, update it too
-    if (data.data.session.refresh_token) {
-      store.setRefreshToken(data.data.session.refresh_token);
+    if (data.session.refresh_token) {
+      store.setRefreshToken(data.session.refresh_token);
     }
     
     // Set expiry time to 1 hour from now
     tokenExpiryTime = Date.now() + (60 * 60 * 1000);
     
-    // Save the new tokens to disk if safeStorage is provided
+    // Always attempt to save the tokens to disk
     const newState = useStore.getState();
-    if (newState.accessToken && newState.refreshToken && safeStor) {
+    if (newState.accessToken && newState.refreshToken) {
       try {
         await saveAuthData(
           newState.accessToken, 
           newState.refreshToken,
-          safeStor
+          safeStorage
         );
         console.log('[ELECTRON] Refreshed tokens saved to disk');
       } catch (saveError) {
         console.error('[ELECTRON] Error saving refreshed tokens:', saveError);
         // Even if saving fails, we still have the tokens in memory, so continue
       }
-    } else if (!safeStor) {
-      console.log('[ELECTRON] SafeStorage not provided, skipping token save to disk');
     } else {
       console.error('[ELECTRON] Cannot save tokens: One or both tokens are null');
       // This is a recoverable error - we still have tokens in memory
@@ -463,23 +459,24 @@ export async function signIn(email: string, password: string): Promise<{ success
       };
     }
 
-    const data: SignInResponse = await response.json();
+    const { status, error, data } = await response.json();
 
-    if (data.status !== 'success' || !data.data?.session?.access_token || !data.data?.session?.refresh_token) {
+    console.log('[ELECTRON] Sign in response:', { status, error, data });
+    if (status !== 'success' || !data?.session?.access_token || !data?.session?.refresh_token) {
       return { 
         success: false, 
-        error: data.error || 'Invalid credentials'
+        error: error || 'Invalid credentials'
       };
     }
 
     // Update store with tokens
     const store = useStore.getState();
-    store.setAccessToken(data.data.session.access_token);
-    store.setRefreshToken(data.data.session.refresh_token);
+    store.setAccessToken(data.session.access_token);
+    store.setRefreshToken(data.session.refresh_token);
     
     // Update store with user data if available
-    if (data.data.session.user) {
-      store.setUser(data.data.session.user);
+    if (data.session.user) {
+      store.setUser(data.session.user);
     }
 
     // Note: We don't need to save tokens to disk here - the auth-handlers.ts
@@ -487,7 +484,7 @@ export async function signIn(email: string, password: string): Promise<{ success
 
     return {
       success: true,
-      data: data.data
+      data
     };
   } catch (error) {
     console.error('[ELECTRON] Sign in error:', error);

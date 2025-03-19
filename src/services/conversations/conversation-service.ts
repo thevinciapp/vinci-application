@@ -1,5 +1,5 @@
 import { API_BASE_URL } from '../../config/api';
-import { Conversation } from '../../types';
+import { Conversation } from 'vinci-common';
 import { useStore } from '../../store';
 import { fetchWithAuth } from '../api/api-service';
 
@@ -9,17 +9,15 @@ import { fetchWithAuth } from '../api/api-service';
 export async function fetchConversations(spaceId: string): Promise<Conversation[]> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}/conversations`);
-    const data = await response.json();
+    const { status, error, data: conversations } = await response.json();
     
-    if (data.status !== 'success') {
-      throw new Error(data.error || 'Failed to fetch conversations');
+    if (status !== 'success') {
+      throw new Error(error || 'Failed to fetch conversations');
     }
     
-    const conversations = data.data || [];
+    useStore.getState().updateConversations(conversations || []);
     
-    useStore.getState().updateConversations(conversations);
-    
-    return conversations;
+    return conversations || [];
   } catch (error) {
     console.error(`[ELECTRON] Error fetching conversations for space ${spaceId}:`, error);
     throw error;
@@ -39,18 +37,18 @@ export async function createConversation(spaceId: string, title: string): Promis
       body: JSON.stringify({ title })
     });
     
-    const data = await response.json();
+    const { status, error, data: conversation } = await response.json();
     
-    if (data.status !== 'success') {
-      throw new Error(data.error || 'Failed to create conversation');
+    if (status !== 'success') {
+      throw new Error(error || 'Failed to create conversation');
     }
     
     // Update conversations in Zustand store
     const store = useStore.getState();
-    const conversations = [data.data, ...store.conversations];
+    const conversations = [conversation, ...store.conversations];
     store.updateConversations(conversations);
     
-    return data.data;
+    return conversation;
   } catch (error) {
     console.error(`[ELECTRON] Error creating conversation in space ${spaceId}:`, error);
     throw error;
@@ -70,10 +68,10 @@ export async function updateConversation(spaceId: string, conversationId: string
       body: JSON.stringify({ title })
     });
     
-    const data = await response.json();
+    const { status, error, data: updatedConversation } = await response.json();
     
-    if (data.status !== 'success') {
-      throw new Error(data.error || 'Failed to update conversation');
+    if (status !== 'success') {
+      throw new Error(error || 'Failed to update conversation');
     }
     
     // Update conversations in Zustand store
@@ -83,7 +81,7 @@ export async function updateConversation(spaceId: string, conversationId: string
     );
     store.updateConversations(conversations);
     
-    return data.data;
+    return updatedConversation;
   } catch (error) {
     console.error(`[ELECTRON] Error updating conversation ${conversationId}:`, error);
     throw error;
@@ -99,10 +97,10 @@ export async function deleteConversation(spaceId: string, conversationId: string
       method: 'DELETE'
     });
     
-    const data = await response.json();
+    const { status, error } = await response.json();
     
-    if (data.status !== 'success') {
-      throw new Error(data.error || 'Failed to delete conversation');
+    if (status !== 'success') {
+      throw new Error(error || 'Failed to delete conversation');
     }
     
     // Update conversations in Zustand store

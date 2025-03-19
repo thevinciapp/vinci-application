@@ -1,5 +1,5 @@
 import { API_BASE_URL } from '../../core/auth/auth-service';
-import { Message } from '../../types';
+import { Message } from 'vinci-common';
 import { useStore } from '../../store';
 import { fetchWithAuth } from '../api/api-service';
 
@@ -9,18 +9,16 @@ import { fetchWithAuth } from '../api/api-service';
 export async function fetchMessages(conversationId: string): Promise<Message[]> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/conversations/${conversationId}/messages`);
-    const data = await response.json();
+    const { status, error, data: messages } = await response.json();
     
-    if (data.status !== 'success') {
-      throw new Error(data.error || 'Failed to fetch messages');
+    if (status !== 'success') {
+      throw new Error(error || 'Failed to fetch messages');
     }
     
-    const messages = data.data || [];
-    
     // Update messages in Zustand store
-    useStore.getState().updateMessages(messages);
+    useStore.getState().updateMessages(messages || []);
     
-    return messages;
+    return messages || [];
   } catch (error) {
     console.error(`[ELECTRON] Error fetching messages for conversation ${conversationId}:`, error);
     throw error;
@@ -46,17 +44,17 @@ export async function sendChatMessage(conversationId: string, content: string): 
       }
     );
     
-    const data = await response.json();
+    const { status, error, data: message } = await response.json();
     
-    if (data.status !== 'success' || !data.data) {
-      throw new Error(data.error || 'Failed to send message');
+    if (status !== 'success' || !message) {
+      throw new Error(error || 'Failed to send message');
     }
     
     // Update messages in Zustand store
-    const messages = [...store.messages, data.data];
+    const messages = [...store.messages, message];
     store.updateMessages(messages);
     
-    return data.data;
+    return message;
   } catch (error) {
     console.error(`[ELECTRON] Error sending chat message in conversation ${conversationId}:`, error);
     throw error;
@@ -78,10 +76,10 @@ export async function deleteMessage(conversationId: string, messageId: string): 
       { method: 'DELETE' }
     );
     
-    const data = await response.json();
+    const { status, error } = await response.json();
     
-    if (data.status !== 'success') {
-      throw new Error(data.error || 'Failed to delete message');
+    if (status !== 'success') {
+      throw new Error(error || 'Failed to delete message');
     }
     
     // Update messages in Zustand store
@@ -114,17 +112,17 @@ export async function updateMessage(conversationId: string, messageId: string, c
       }
     );
     
-    const data = await response.json();
+    const { status, error, data: message } = await response.json();
     
-    if (data.status !== 'success' || !data.data) {
-      throw new Error(data.error || 'Failed to update message');
+    if (status !== 'success' || !message) {
+      throw new Error(error || 'Failed to update message');
     }
     
     // Update messages in Zustand store
     const messages = store.messages.map(m => m.id === messageId ? { ...m, content } : m);
     store.updateMessages(messages);
     
-    return data.data;
+    return message;
   } catch (error) {
     console.error(`[ELECTRON] Error updating message ${messageId}:`, error);
     throw error;
@@ -137,13 +135,13 @@ export async function updateMessage(conversationId: string, messageId: string, c
 export async function searchMessages(query: string): Promise<Message[]> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/search/messages?q=${encodeURIComponent(query)}`);
-    const data = await response.json();
+    const { status, error, data: messages } = await response.json();
     
-    if (data.status !== 'success') {
-      throw new Error(data.error || 'Failed to search messages');
+    if (status !== 'success') {
+      throw new Error(error || 'Failed to search messages');
     }
     
-    return data.data || [];
+    return messages || [];
   } catch (error) {
     console.error('[ELECTRON] Error searching messages:', error);
     throw error;
