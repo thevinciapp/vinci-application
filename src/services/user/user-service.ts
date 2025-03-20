@@ -31,7 +31,7 @@ export interface EmailPreferences {
  */
 export async function fetchUserProfile(): Promise<UserProfile> {
   try {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/user/profile`);
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/user`);
     
     // Check if response is valid before parsing JSON
     if (!response.ok) {
@@ -50,29 +50,29 @@ export async function fetchUserProfile(): Promise<UserProfile> {
           console.error('[ELECTRON] API returned non-JSON response:', textContent);
           throw new Error(`Invalid API response. ${statusText}`);
         }
-      } catch (textError) {
-        throw new Error(`Failed to fetch user profile. ${statusText}`);
+      } catch (error) {
+        console.error('[ELECTRON] Failed to read error response:', error);
+        throw new Error(`Failed to read error response. ${statusText}`);
       }
     }
+
+    const { status, error, data } = await response.json();
     
-    // Try to parse the response as JSON
-    let jsonData;
-    try {
-      jsonData = await response.json();
-    } catch (jsonError) {
-      console.error('[ELECTRON] Failed to parse profile response as JSON:', jsonError);
-      throw new Error('Invalid JSON response from profile API');
-    }
-    
-    const { status, error, data: profile } = jsonData;
-    
+    console.log('[ELECTRON] User profile response:', data);
+
     if (status !== 'success') {
       throw new Error(error || 'Failed to fetch user profile');
     }
 
-    useStore.getState().setUser(profile);
+    const user = data?.user;
+    if (!user) {
+      throw new Error('User profile not found in response');
+    }
 
-    return profile;
+    // Update user in store
+    useStore.getState().setUser(user);
+
+    return user;
   } catch (error) {
     console.error('[ELECTRON] Error fetching user profile:', error);
     throw error;

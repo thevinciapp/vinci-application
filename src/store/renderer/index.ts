@@ -73,21 +73,43 @@ export const useRendererStore = create<RendererProcessState & {
       console.log('App state response', response);
       if (response.success && response.data) {
         console.log('App state data', response.data);
+        
+        // Extract data from response
+        const {
+          spaces = [],
+          activeSpace = null,
+          conversations = [],
+          messages = [],
+          user = null,
+          profile = null,
+          initialDataLoaded = false
+        } = response.data;
+
+        console.log('[RENDERER] Setting state with:', {
+          spaces,
+          activeSpace,
+          conversations: conversations.length,
+          messages: messages.length,
+          user: user?.email,
+          initialDataLoaded
+        });
+
         set((state) => ({
           ...state,
           isLoading: false,
           error: null,
-          spaces: response.data.spaces || [],
-          activeSpace: response.data.activeSpace || null,
-          conversations: response.data.conversations || [],
-          messages: response.data.messages || [],
-          user: response.data.user || null,
-          profile: response.data.profile || null,
+          spaces,
+          activeSpace,
+          conversations,
+          messages,
+          user,
+          profile,
           initialDataLoaded: true,
           lastSynced: Date.now()
         }));
         return true;
       } else {
+        console.error('[RENDERER] Failed to fetch app state:', response.error);
         set((state) => ({ 
           ...state,
           isLoading: false,
@@ -96,6 +118,7 @@ export const useRendererStore = create<RendererProcessState & {
         return false;
       }
     } catch (error) {
+      console.error('[RENDERER] Error fetching app state:', error);
       set((state) => ({ 
         ...state,
         isLoading: false,

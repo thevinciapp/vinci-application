@@ -1,4 +1,4 @@
-import { useChat } from '@ai-sdk/react';
+import { useChat } from 'ai/react';
 import { useNavigate } from 'react-router-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -15,11 +15,12 @@ import { SpaceTab } from '@/components/chat/ui/space-tab';
 import { ModelTab } from '@/components/chat/ui/model-tab';
 import { ChatModeTab } from '@/components/chat/ui/chat-mode-tab';
 import { toast } from '@/components/chat/ui/toast';
-import { ServerDrivenConversationTab } from '../conversation/conversation-tab';
-import { ServerDrivenQuickActionsTab, ServerDrivenBackgroundTasksTab, ServerDrivenSuggestionsTab } from './quick-actions-tab';
+import { ConversationTab } from '../conversation/conversation-tab';
+import { QuickActionsTab, BackgroundTasksTab, SuggestionsTab } from './quick-actions-tab';
+import { useRendererStore } from '@/store/renderer';
 
-export default function ClientChatContent() {
-  const { profile } = useUser();
+export default function ChatContent() {
+  const { user } = useRendererStore();
   const { activeSpace, isLoading: isSpaceLoading } = useSpaces();
   const { activeConversation, createConversation } = useConversations();
 
@@ -102,11 +103,18 @@ export default function ClientChatContent() {
     scrollToBottomHandler.current = callback;
   }, []);
 
-  const handleCreateConversation = async (title: string) => {
-    if (!activeSpace) return;
-    
+  const handleCreateConversation = async () => {
+    if (!activeSpace?.id) {
+      toast({
+        title: 'Error',
+        description: 'Please select a space first',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
-      await createConversation(activeSpace.id, title);
+      await createConversation(activeSpace.id, 'New Conversation');
     } catch (error) {
       console.error('Error creating conversation:', error);
       toast({
@@ -120,7 +128,7 @@ export default function ClientChatContent() {
   return (
     <div className="h-full w-full">
       <div className="fixed top-4 right-4 z-50">
-        {profile && <UserProfileDropdown user={profile} />}
+        {user && <UserProfileDropdown />}
       </div>
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
         <div
@@ -134,15 +142,13 @@ export default function ClientChatContent() {
         >
           <div className="flex items-center divide-x divide-white/[0.08]">
             <div className="px-1 first:pl-1 last:pr-1">
-              <SpaceTab 
-                activeSpace={activeSpace}
-              />
+              <SpaceTab activeSpace={activeSpace} />
             </div>
             <div className="px-1 first:pl-1 last:pr-1">
-              <ModelTab />
+              <ModelTab space={activeSpace} />
             </div>
             <div className="px-1 first:pl-1 last:pr-1">
-              <ChatModeTab chatMode={activeSpace?.chat_mode} />
+              <ChatModeTab space={activeSpace} />
             </div>
             {!isStickToBottom && chatMessages.length > 0 && (
               <div className="px-1 first:pl-1 last:pr-1">
@@ -178,31 +184,29 @@ export default function ClientChatContent() {
               value={input}
               onChange={handleInputChange}
               onSubmit={handleSubmit}
-              disabled={!activeSpace || isChatLoading}
+              disabled={!activeSpace || !activeConversation || isChatLoading}
             >
               <div className="flex items-center divide-x divide-white/[0.05] bg-white/[0.03] border-t border-l border-r border-white/[0.05] rounded-t-2xl overflow-hidden backdrop-blur-xl w-full shadow-[0_-4px_20px_rgba(62,207,255,0.03)]">
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
-                  <ServerDrivenQuickActionsTab 
-                    onCreateConversation={handleCreateConversation}
-                  />
+                  <QuickActionsTab onCreateConversation={handleCreateConversation} />
                 </div>
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
                   <BaseTab
                     icon={<Search className="w-3 h-3" />}
                     label="Messages"
                     shortcut="F"
-                    commandType="conversations"
                   />
                 </div>
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
-                  <ServerDrivenBackgroundTasksTab />
+                  <BackgroundTasksTab />
                 </div>
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
-                  <ServerDrivenSuggestionsTab />
+                  <SuggestionsTab />
                 </div>
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
-                  <ServerDrivenConversationTab
+                  <ConversationTab
                     onCreateConversation={handleCreateConversation}
+                    activeConversation={activeConversation}
                   />
                 </div>
               </div>

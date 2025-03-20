@@ -11,8 +11,10 @@ export default function Protected() {
       try {
         await rendererStore.fetchAppState();
         console.log('[Protected] App initialized');
-        console.log('[Protected] Spaces:', rendererStore.spaces);
-        console.log('[Protected] Conversations:', rendererStore.conversations);
+        console.log('[Protected] Active space:', rendererStore.activeSpace?.name);
+        console.log('[Protected] Spaces:', rendererStore.spaces.map(s => s.name));
+        console.log('[Protected] Active conversation:', rendererStore.conversations[0]?.title);
+        console.log('[Protected] Conversations:', rendererStore.conversations.map(c => c.title));
       } catch (error) {
         console.error('[Protected] Error initializing app:', error);
         toast({

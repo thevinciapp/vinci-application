@@ -48,6 +48,15 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
       };
     }
 
+    // Fetch user profile first
+    let user = null;
+    try {
+      user = await fetchUserProfile();
+      console.log('[ELECTRON] User profile loaded:', user.email);
+    } catch (error) {
+      console.error('[ELECTRON] Error fetching user profile:', error);
+    }
+
     const spaces = await fetchSpaces();
     const activeSpace = await fetchActiveSpace();
     
@@ -56,7 +65,6 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
     
     if (activeSpace) {
       conversations = await fetchConversations(activeSpace.id);
-
       console.log(`[ELECTRON] Fetched ${conversations.length} conversations for space ${activeSpace.id}`);
       
       if (conversations.length > 0) {
@@ -77,7 +85,7 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
       messages,
       initialDataLoaded: true,
       lastFetched: Date.now(),
-      user: store.user,
+      user,
       accessToken: store.accessToken,
       refreshToken: store.refreshToken
     };

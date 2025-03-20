@@ -10,9 +10,7 @@ export function useUser() {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Function to setup profile update listener
   const setupProfileListener = useCallback((callback?: (profile: UserProfile | null) => void) => {
-    // Set up listener for state updates
     const handleStateUpdate = (event: any, response: any) => {
       if (response.success && response.data?.profile) {
         rendererStore.setProfile(response.data.profile);
@@ -27,7 +25,6 @@ export function useUser() {
     };
   }, [rendererStore]);
   
-  // Function to fetch profile
   const fetchProfile = useCallback(async (): Promise<UserProfile | null> => {
     try {
       setIsLoading(true);
@@ -83,7 +80,6 @@ export function useUser() {
         throw new Error(response.error || 'Failed to update profile');
       }
 
-      // Update local state
       if (response.data?.profile) {
         rendererStore.setProfile(response.data.profile);
       }

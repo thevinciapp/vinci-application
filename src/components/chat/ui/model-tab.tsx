@@ -1,17 +1,17 @@
-
-
 import { BaseTab } from 'vinci-ui';
 import { Cpu } from 'lucide-react';
-import { useSpaces } from '@/hooks/use-spaces';
+import { Space } from '@/types';
 
-export function ModelTab() {
-  const { activeSpace } = useSpaces();
+interface ModelTabProps {
+  space: Space | null;
+}
 
+export function ModelTab({ space }: ModelTabProps) {
   return (
     <BaseTab
       icon={<Cpu className="w-3 h-3" />}
-      label={activeSpace?.model || 'Select Model'}
-      isActive={!!activeSpace?.model}
+      label={space?.model || 'Select Model'}
+      isActive={!!space?.model}
     />
   );
 }

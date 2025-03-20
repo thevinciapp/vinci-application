@@ -1,42 +1,37 @@
-import { Sparkles, Timer, Lightbulb } from "lucide-react";
-import { BaseTab } from "vinci-ui";
+import { Plus, Loader2, Bell } from 'lucide-react';
+import { BaseTab } from 'vinci-ui';
 
-export function ServerDrivenQuickActionsTab({ 
-    onCreateConversation 
-}: { 
-    onCreateConversation: (title: string) => Promise<void> 
-}) {
-    return (
-        <BaseTab
-            icon={<Sparkles className="w-3 h-3" />}
-            label="Quick Actions"
-            shortcut="K"
-            minWidth="actions"
-            commandType="application"
-        />
-    );
+interface QuickActionsTabProps {
+  onCreateConversation?: () => Promise<void>;
 }
 
-export function ServerDrivenBackgroundTasksTab() {
-    return (
-        <BaseTab
-            icon={<Timer className="w-3 h-3" />}
-            label="Background Tasks"
-            shortcut="T"
-            minWidth="actions"
-            commandType="background-tasks"
-        />
-    );
+export function QuickActionsTab({ onCreateConversation }: QuickActionsTabProps) {
+  return (
+    <BaseTab
+      icon={<Plus className="w-3 h-3" />}
+      label="Quick Actions"
+      shortcut="Q"
+      onClick={onCreateConversation}
+    />
+  );
 }
 
-export function ServerDrivenSuggestionsTab() {
-    return (
-        <BaseTab
-            icon={<Lightbulb className="w-3 h-3" />}
-            label="Suggestions"
-            shortcut="G"
-            minWidth="actions"
-            commandType="suggestions"
-        />
-    );
+export function BackgroundTasksTab() {
+  return (
+    <BaseTab
+      icon={<Loader2 className="w-3 h-3 animate-spin" />}
+      label="Background Tasks"
+      shortcut="B"
+    />
+  );
+}
+
+export function SuggestionsTab() {
+  return (
+    <BaseTab
+      icon={<Bell className="w-3 h-3" />}
+      label="Suggestions"
+      shortcut="S"
+    />
+  );
 }
