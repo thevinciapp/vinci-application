@@ -5,6 +5,7 @@ import { fetchConversations } from '../conversations/conversation-service';
 import { fetchMessages } from '../messages/message-service';
 import { fetchUserProfile } from '../user/user-service';
 import { checkServerHealth } from '../api/api-service';
+import { isTokenExpiringSoon, refreshTokens } from '../../core/auth/auth-service';
 
 interface AppStateResult {
   spaces: Space[];
@@ -16,6 +17,7 @@ interface AppStateResult {
   user: any | null;
   accessToken?: string | null;
   refreshToken?: string | null;
+  tokenExpiryTime?: number | null;
   error?: string;
 }
 
@@ -48,6 +50,22 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
       };
     }
 
+    // Check if token is about to expire and refresh if needed
+    if (store.refreshToken && isTokenExpiringSoon()) {
+      console.log('[ELECTRON] Token is expiring soon, attempting to refresh...');
+      const refreshed = await refreshTokens();
+      if (!refreshed) {
+        console.log('[ELECTRON] Token refresh failed during app data fetch');
+        return {
+          ...useStore.getState(),
+          error: 'Authentication expired',
+          lastFetched: Date.now(),
+          user: null
+        };
+      }
+      console.log('[ELECTRON] Token refreshed successfully before fetching app data');
+    }
+
     // Fetch user profile first
     let user = null;
     try {
@@ -78,6 +96,9 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
       }
     }
 
+    // Get current store state for tokens and expiry time
+    const currentStore = useStore.getState();
+    
     return {
       spaces,
       activeSpace,
@@ -86,8 +107,9 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
       initialDataLoaded: true,
       lastFetched: Date.now(),
       user,
-      accessToken: store.accessToken,
-      refreshToken: store.refreshToken
+      accessToken: currentStore.accessToken,
+      refreshToken: currentStore.refreshToken,
+      tokenExpiryTime: currentStore.tokenExpiryTime
     };
   } catch (error) {
     console.error('[ELECTRON] Fetch initial data failed:', error);

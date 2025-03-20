@@ -46,6 +46,7 @@ export interface AppState {
   user: User | null;
   accessToken: string | null;
   refreshToken: string | null;
+  tokenExpiryTime: number | null; // Unix timestamp in seconds when the token expires
 }
 
 /**

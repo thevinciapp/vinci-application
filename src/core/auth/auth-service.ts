@@ -24,8 +24,6 @@ if (!existsSync(STORAGE_DIR)) {
   }
 }
 
-let tokenExpiryTime: number | null = null;
-
 /**
  * Save authentication data securely
  */
@@ -307,7 +305,6 @@ export async function redirectToSignIn(): Promise<void> {
   const store = useStore.getState();
   store.setAccessToken(null);
   store.setRefreshToken(null);
-  tokenExpiryTime = null;
   
   // Reset app state using Zustand
   store.setAppState({ 
@@ -348,7 +345,6 @@ export async function redirectToSignIn(): Promise<void> {
 
 /**
  * Refresh authentication tokens
- * Note: This function will automatically save tokens to secure storage
  */
 export async function refreshTokens(): Promise<boolean> {
   const store = useStore.getState();
@@ -358,9 +354,6 @@ export async function refreshTokens(): Promise<boolean> {
     console.log('[ELECTRON] No refresh token available');
     return false;
   }
-  
-  // Get safeStorage from electron
-  const { safeStorage } = require('electron');
   
   try {
     console.log('[ELECTRON] Attempting to refresh tokens');
@@ -374,7 +367,6 @@ export async function refreshTokens(): Promise<boolean> {
     
     if (!response.ok) {
       console.error('[ELECTRON] Token refresh failed with status:', response.status);
-      // If refresh explicitly fails with 401/403, redirect to sign-in
       if (response.status === 401 || response.status === 403) {
         await redirectToSignIn();
       }
@@ -388,37 +380,20 @@ export async function refreshTokens(): Promise<boolean> {
       return false;
     }
     
-    // Update tokens in Zustand store
     store.setAccessToken(data.session.access_token);
     
-    // If a new refresh token was provided, update it too
     if (data.session.refresh_token) {
       store.setRefreshToken(data.session.refresh_token);
     }
     
-    // Set expiry time to 1 hour from now
-    tokenExpiryTime = Date.now() + (60 * 60 * 1000);
-    
-    // Always attempt to save the tokens to disk
-    const newState = useStore.getState();
-    if (newState.accessToken && newState.refreshToken) {
-      try {
-        await saveAuthData(
-          newState.accessToken, 
-          newState.refreshToken,
-          safeStorage
-        );
-        console.log('[ELECTRON] Refreshed tokens saved to disk');
-      } catch (saveError) {
-        console.error('[ELECTRON] Error saving refreshed tokens:', saveError);
-        // Even if saving fails, we still have the tokens in memory, so continue
-      }
-    } else {
-      console.error('[ELECTRON] Cannot save tokens: One or both tokens are null');
-      // This is a recoverable error - we still have tokens in memory
+    if (!data.session.expires_at) {
+      console.error('[ELECTRON] No expires_at received from refresh endpoint');
+      return false;
     }
     
-    console.log('[ELECTRON] Tokens refreshed successfully');
+    store.setTokenExpiryTime(data.session.expires_at);
+    console.log('[ELECTRON] Token expiry set from API:', new Date(data.session.expires_at * 1000).toISOString());
+    
     return true;
   } catch (error) {
     console.error('[ELECTRON] Error refreshing tokens:', error);
@@ -426,7 +401,24 @@ export async function refreshTokens(): Promise<boolean> {
   }
 }
 
-// fetchInitialAppData has been moved to app-data-service.ts
+/**
+ * Check if the current token needs to be refreshed
+ * Returns true if token expiry is less than 5 minutes away or already expired
+ */
+export function isTokenExpiringSoon(): boolean {
+  const store = useStore.getState();
+  const tokenExpiryTime = store.tokenExpiryTime;
+  
+  if (!tokenExpiryTime) {
+    console.error('[ELECTRON] No token expiry time found');
+    return true;
+  }
+  
+  const currentTimeSeconds = Math.floor(Date.now() / 1000);
+  const fiveMinutesFromNow = currentTimeSeconds + 300;
+  
+  return tokenExpiryTime <= fiveMinutesFromNow;
+}
 
 /**
  * Helper to check server availability
@@ -461,26 +453,21 @@ export async function signIn(email: string, password: string): Promise<{ success
 
     const { status, error, data } = await response.json();
 
-    console.log('[ELECTRON] Sign in response:', { status, error, data });
-    if (status !== 'success' || !data?.session?.access_token || !data?.session?.refresh_token) {
+    if (status !== 'success' || !data?.session?.access_token || !data?.session?.refresh_token || !data?.session?.expires_at) {
       return { 
         success: false, 
-        error: error || 'Invalid credentials'
+        error: error || 'Invalid response from server'
       };
     }
 
-    // Update store with tokens
     const store = useStore.getState();
     store.setAccessToken(data.session.access_token);
     store.setRefreshToken(data.session.refresh_token);
+    store.setTokenExpiryTime(data.session.expires_at);
     
-    // Update store with user data if available
     if (data.session.user) {
       store.setUser(data.session.user);
     }
-
-    // Note: We don't need to save tokens to disk here - the auth-handlers.ts
-    // handles that when calling this method
 
     return {
       success: true,
@@ -501,9 +488,6 @@ export async function getAuthData() {
   const { accessToken, refreshToken } = store;
   return { accessToken, refreshToken };
 }
-
-// Export token expiry time
-export { tokenExpiryTime };
 
 // Expose constants
 export { API_BASE_URL, APP_BASE_URL };

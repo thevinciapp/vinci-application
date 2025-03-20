@@ -116,55 +116,23 @@ export function registerAuthHandlers() {
     }
   });
 
-  ipcMain.handle(AuthEvents.SET_AUTH_TOKENS, async (_event: IpcMainInvokeEvent, newAccessToken: string, newRefreshToken: string): Promise<AuthResponse> => {
-    if (!newAccessToken || !newRefreshToken) {
-      console.error('[ELECTRON] Empty tokens received');
-      return { success: false, error: 'Empty tokens received', status: 'error' };
+  ipcMain.handle(AuthEvents.SET_AUTH_TOKENS, async (_event: IpcMainInvokeEvent, newAccessToken: string, newRefreshToken: string, expiresAt: number): Promise<AuthResponse> => {
+    if (!newAccessToken || !newRefreshToken || !expiresAt) {
+      console.error('[ELECTRON] Invalid token data received');
+      return { success: false, error: 'Invalid token data received', status: 'error' };
     }
     
     console.log('[ELECTRON] Auth tokens received');
     
     try {
-      // First, save the auth data to secure storage
       await saveAuthData(newAccessToken, newRefreshToken, safeStorage);
       console.log('[ELECTRON] Auth tokens saved to secure storage');
-      
-      // Validate the tokens by making a test API call
-      try {
-        const validationResponse = await fetch(`${API_BASE_URL}/api/auth/verify-token`, {
-          headers: {
-            'Authorization': `Bearer ${newAccessToken}`
-          }
-        });
-        
-        if (!validationResponse.ok) {
-          console.error('[ELECTRON] Token validation failed with status:', validationResponse.status);
-          return { success: false, error: `Token validation failed with status: ${validationResponse.status}`, status: 'error' };
-        }
-        
-        const validationData = await validationResponse.json();
-        if (validationData.status !== 'success' || !validationData.data?.isValid) {
-          console.error('[ELECTRON] Token validation failed:', validationData);
-          return { success: false, error: 'Token validation failed', status: 'error' };
-        }
-        
-        console.log('[ELECTRON] Tokens validated successfully');
-        
-        // If validation returns a userId, update it in store
-        if (validationData.data.userId) {
-          // Create a minimal User object that satisfies the type requirements
-          useStore.getState().setUser({
-            id: validationData.data.userId,
-            app_metadata: {},
-            user_metadata: {},
-            aud: 'authenticated',
-            created_at: new Date().toISOString()
-          });
-        }
-      } catch (validationError) {
-        console.error('[ELECTRON] Error validating tokens:', validationError);
-        return { success: false, error: validationError instanceof Error ? validationError.message : 'Error validating tokens', status: 'error' };
-      }
+
+      const store = useStore.getState();
+      store.setAccessToken(newAccessToken);
+      store.setRefreshToken(newRefreshToken);
+      store.setTokenExpiryTime(expiresAt * 1000);
+      console.log('[ELECTRON] Token expiry set from handler:', new Date(expiresAt * 1000).toISOString());
       
       return { success: true, data: { tokensValidated: true }, status: 'success' };
     } catch (error) {

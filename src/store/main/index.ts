@@ -13,6 +13,7 @@ export interface MainProcessState {
   user: User | null;
   accessToken: string | null;
   refreshToken: string | null;
+  tokenExpiryTime: number | null;
 }
 
 // Initial state values
@@ -25,7 +26,8 @@ const initialState: MainProcessState = {
   lastFetched: null,
   user: null,
   accessToken: null,
-  refreshToken: null
+  refreshToken: null,
+  tokenExpiryTime: null
 };
 
 // Create the main process store
@@ -38,6 +40,7 @@ export const useMainStore = create<MainProcessState & {
   setUser: (user: MainProcessState['user']) => void;
   setAccessToken: (token: MainProcessState['accessToken']) => void;
   setRefreshToken: (token: MainProcessState['refreshToken']) => void;
+  setTokenExpiryTime: (time: MainProcessState['tokenExpiryTime']) => void;
 }>((set) => ({
   ...initialState,
   setAppState: (newState) => set((state) => ({ ...state, ...newState, initialDataLoaded: true })),
@@ -47,7 +50,8 @@ export const useMainStore = create<MainProcessState & {
   updateMessages: (messages) => set({ messages }),
   setUser: (user) => set({ user }),
   setAccessToken: (accessToken) => set({ accessToken }),
-  setRefreshToken: (refreshToken) => set({ refreshToken })
+  setRefreshToken: (refreshToken) => set({ refreshToken }),
+  setTokenExpiryTime: (tokenExpiryTime) => set({ tokenExpiryTime })
 }));
 
 // Helper functions to access the store externally

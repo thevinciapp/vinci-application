@@ -156,9 +156,6 @@ export interface DialogRegistry {
   [key: string]: FC<DialogComponentProps>;
 }
 
-// API Types are imported from vinci-common
-
-// App State Types
 export interface AppState {
   spaces: Space[];
   activeSpace: Space | null;
@@ -175,7 +172,6 @@ export interface AppStateResult extends AppState {
   error?: string;
 }
 
-// Model Types
 export interface Model {
   id: string;
   name: string;

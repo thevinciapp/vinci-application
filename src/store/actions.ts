@@ -9,6 +9,7 @@ export interface StoreActions {
   setUser: (user: AppState['user']) => void;
   setAccessToken: (token: AppState['accessToken']) => void;
   setRefreshToken: (token: AppState['refreshToken']) => void;
+  setTokenExpiryTime: (time: AppState['tokenExpiryTime']) => void;
 }
 
 export type Store = AppState & StoreActions;

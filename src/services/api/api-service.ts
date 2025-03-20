@@ -1,4 +1,4 @@
-import { API_BASE_URL, refreshTokens, redirectToSignIn, tokenExpiryTime } from '../../core/auth/auth-service';
+import { API_BASE_URL, refreshTokens, redirectToSignIn } from '../../core/auth/auth-service';
 import { useStore } from '../../store';
 
 /**
@@ -7,66 +7,62 @@ import { useStore } from '../../store';
  */
 
 /**
- * Fetch with authentication header and token refresh capability
+ * Fetch with authentication and automatic token refresh
  */
 export async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
   try {
-    // Get current state 
     const store = useStore.getState();
     
     // Check if access token is expired
-    const isTokenExpired = !tokenExpiryTime || Date.now() >= tokenExpiryTime;
+    const currentTimeSeconds = Math.floor(Date.now() / 1000);
+    const isTokenExpired = !store.tokenExpiryTime || store.tokenExpiryTime <= currentTimeSeconds;
     
     // If token is expired and we have a refresh token, try to refresh
     if (isTokenExpired && store.refreshToken) {
+      console.log('[ELECTRON] Token expired, attempting refresh');
       const refreshed = await refreshTokens();
       if (!refreshed) {
-        console.error('[ELECTRON] Failed to refresh tokens and no valid token available');
+        console.log('[ELECTRON] Failed to refresh tokens and no valid token available');
         await redirectToSignIn();
         throw new Error('Failed to refresh authentication tokens');
       }
     }
     
-    // Get updated state after possible refresh
-    const updatedStore = useStore.getState();
-    
-    // If we still don't have a valid access token, redirect and fail
-    if (!updatedStore.accessToken) {
-      console.error('[ELECTRON] No authentication token available');
+    // Get the latest token from store
+    const currentToken = useStore.getState().accessToken;
+    if (!currentToken) {
+      console.log('[ELECTRON] No access token available');
       await redirectToSignIn();
       throw new Error('No authentication token available');
     }
-
-    // Add auth header
+    
+    // Add authorization header
     const headers = new Headers(options.headers);
-    headers.set('Authorization', `Bearer ${updatedStore.accessToken}`);
+    headers.set('Authorization', `Bearer ${currentToken}`);
     
     // Make the request
-    const response = await fetch(url, { ...options, headers });
+    const response = await fetch(url, {
+      ...options,
+      headers
+    });
     
-    // If we get a 401 or 403, try to refresh the token once
-    if ((response.status === 401 || response.status === 403) && updatedStore.refreshToken) {
-      console.log(`[ELECTRON] Got ${response.status}, attempting token refresh`);
+    // If we get a 401/403, the token might be invalid even if not expired
+    if ((response.status === 401 || response.status === 403) && store.refreshToken) {
+      console.log(`[ELECTRON] Got ${response.status}, attempting one-time token refresh`);
       const refreshed = await refreshTokens();
       
-      // Get the latest state after refresh attempt
-      const refreshedStore = useStore.getState();
-      
-      if (refreshed && refreshedStore.accessToken) {
-        // Retry the request with the new token
-        headers.set('Authorization', `Bearer ${refreshedStore.accessToken}`);
-        return fetch(url, { ...options, headers });
-      } else {
-        // If refresh failed and we got 401/403, redirect to sign-in
-        console.error('[ELECTRON] Token refresh failed after auth error');
-        await redirectToSignIn();
+      if (refreshed) {
+        // Retry the request once with the new token
+        const retryToken = useStore.getState().accessToken;
+        if (retryToken) {
+          headers.set('Authorization', `Bearer ${retryToken}`);
+          return fetch(url, { ...options, headers });
+        }
       }
-    }
-    
-    // Handle other auth-related errors in the response
-    if (response.status === 401 || response.status === 403) {
-      console.error(`[ELECTRON] Authentication failed with status: ${response.status}`);
+      
+      // If refresh failed, redirect to sign-in
       await redirectToSignIn();
+      throw new Error('Authentication failed after token refresh attempt');
     }
     
     return response;

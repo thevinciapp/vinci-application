@@ -118,7 +118,17 @@ export async function signUp(email: string, password: string): Promise<any> {
       body: JSON.stringify({ email, password })
     });
     
-    return await response.json();
+    const data = await response.json();
+    
+    if (data.status === 'success' && data.data?.session?.access_token && data.data?.session?.refresh_token && data.data?.session?.expires_at) {
+      const store = useStore.getState();
+      store.setAccessToken(data.data.session.access_token);
+      store.setRefreshToken(data.data.session.refresh_token);
+      store.setTokenExpiryTime(data.data.session.expires_at);
+      console.log('[ELECTRON] Sign-up: Token expiry set from API:', new Date(data.data.session.expires_at * 1000).toISOString());
+    }
+    
+    return data;
   } catch (error) {
     console.error('[ELECTRON] Error signing up:', error);
     throw error;
