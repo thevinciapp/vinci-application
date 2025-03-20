@@ -36,19 +36,18 @@ export async function fetchActiveSpace(): Promise<Space | null> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/user/active-space`);
     const { status, error, data } = await response.json();
+
+    console.log("[ELECTRON] Fetch active space response:", status, error, data);
     
     if (status !== 'success') {
       throw new Error(error || 'Failed to fetch active space');
     }
     
-    const activeSpace = data?.activeSpace || null;
-    
-    // Update active space in Zustand store
-    if (activeSpace) {
-      useStore.getState().setActiveSpace(activeSpace);
+    if (data?.space) {
+      useStore.getState().setActiveSpace(data.space);
     }
     
-    return activeSpace;
+    return data?.space || null;
   } catch (error) {
     console.error('[ELECTRON] Error fetching active space:', error);
     throw error;

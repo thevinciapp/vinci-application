@@ -70,8 +70,9 @@ export const useRendererStore = create<RendererProcessState & {
   fetchAppState: async () => {
     try {
       const response = await window.electron.invoke(AppStateEvents.GET_STATE);
+      console.log('App state response', response);
       if (response.success && response.data) {
-        // Batch all state updates together
+        console.log('App state data', response.data);
         set((state) => ({
           ...state,
           isLoading: false,

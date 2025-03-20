@@ -25,7 +25,6 @@ interface AppStateResult {
 export async function fetchInitialAppData(): Promise<AppStateResult> {
   console.log('[ELECTRON] Fetching initial app data...');
   
-  // Get current token state
   const store = useStore.getState();
   console.log('[ELECTRON] Current token state - Access token exists:', !!store.accessToken, 'Refresh token exists:', !!store.refreshToken);
   
@@ -50,7 +49,6 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
     }
 
     const spaces = await fetchSpaces();
-    
     const activeSpace = await fetchActiveSpace();
     
     let conversations: any[] = [];

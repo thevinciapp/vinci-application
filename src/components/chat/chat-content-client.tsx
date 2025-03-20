@@ -21,7 +21,7 @@ import { ServerDrivenQuickActionsTab, ServerDrivenBackgroundTasksTab, ServerDriv
 export default function ClientChatContent() {
   const { profile } = useUser();
   const { activeSpace, isLoading: isSpaceLoading } = useSpaces();
-  const { conversations, activeConversation, createConversation } = useConversations();
+  const { activeConversation, createConversation } = useConversations();
 
   const [isStickToBottom, setIsStickToBottom] = useState(true);
   const [searchMode, setSearchMode] = useState<'chat' | 'search' | 'semantic' | 'hybrid'>('chat');
@@ -50,7 +50,6 @@ export default function ClientChatContent() {
     fetchMessages 
   } = useMessages(activeConversation?.id);
 
-  // Fetch messages when conversation changes
   useEffect(() => {
     if (activeConversation?.id) {
       fetchMessages(activeConversation.id);

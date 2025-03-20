@@ -118,7 +118,6 @@ async function initialize() {
           store.setAppState(freshData);
           console.log('[ELECTRON] Initial data loaded with saved auth token');
           
-          // Explicitly redirect to protected route after successful data loading
           console.log('[ELECTRON] Redirecting to protected route');
           mainWindow.loadURL(
             process.env.NODE_ENV === 'development' 
