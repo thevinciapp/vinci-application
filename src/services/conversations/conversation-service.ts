@@ -9,15 +9,20 @@ import { fetchWithAuth } from '../api/api-service';
 export async function fetchConversations(spaceId: string): Promise<Conversation[]> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}/conversations`);
-    const { status, error, data: conversations } = await response.json();
+    const { status, error, data } = await response.json();
+
+    console.log('[ELECTRON] Conversations response:', data);
     
     if (status !== 'success') {
       throw new Error(error || 'Failed to fetch conversations');
     }
+
+    const conversations = data?.data || [];
+    console.log(`[ELECTRON] Fetched ${conversations.length} conversations for space ${spaceId}`);
     
-    useStore.getState().updateConversations(conversations || []);
+    useStore.getState().updateConversations(conversations);
     
-    return conversations || [];
+    return conversations;
   } catch (error) {
     console.error(`[ELECTRON] Error fetching conversations for space ${spaceId}:`, error);
     throw error;

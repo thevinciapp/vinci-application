@@ -56,6 +56,8 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
     
     if (activeSpace) {
       conversations = await fetchConversations(activeSpace.id);
+
+      console.log(`[ELECTRON] Fetched ${conversations.length} conversations for space ${activeSpace.id}`);
       
       if (conversations.length > 0) {
         try {

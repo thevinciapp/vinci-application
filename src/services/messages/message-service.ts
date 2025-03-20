@@ -8,17 +8,27 @@ import { fetchWithAuth } from '../api/api-service';
  */
 export async function fetchMessages(conversationId: string): Promise<Message[]> {
   try {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/conversations/${conversationId}/messages`);
-    const { status, error, data: messages } = await response.json();
+    // Get current space ID from store
+    const spaceId = useStore.getState().activeSpace?.id;
+    if (!spaceId) {
+      throw new Error('No active space found');
+    }
+
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}/conversations/${conversationId}/messages`);
+    const { status, error, data } = await response.json();
+
+    console.log('[ELECTRON] Messages response:', data);
     
     if (status !== 'success') {
       throw new Error(error || 'Failed to fetch messages');
     }
+
+    const messages = data?.data || [];
+    console.log(`[ELECTRON] Fetched ${messages.length} messages for conversation ${conversationId}`);
     
-    // Update messages in Zustand store
-    useStore.getState().updateMessages(messages || []);
+    useStore.getState().updateMessages(messages);
     
-    return messages || [];
+    return messages;
   } catch (error) {
     console.error(`[ELECTRON] Error fetching messages for conversation ${conversationId}:`, error);
     throw error;
