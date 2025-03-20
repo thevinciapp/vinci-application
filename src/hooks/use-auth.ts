@@ -236,6 +236,32 @@ export function useAuth() {
     }
   };
 
+  // Sign out function
+  const signOut = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Check if Electron API is available
+      if (typeof window === 'undefined' || !window.electron) {
+        throw new Error("Electron API not available");
+      }
+
+      const response = await window.electron.invoke(AuthEvents.SIGN_OUT);
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to sign out');
+      }
+
+      setSession(null);
+      return handleSuccess("Successfully signed out");
+    } catch (error) {
+      return handleError(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Helper property to check if user is authenticated
   const isAuthenticated = !!session?.access_token;
 
@@ -248,6 +274,7 @@ export function useAuth() {
     verifyAndGetToken,
     signIn,
     signUp,
+    signOut,
     resetPassword,
     syncAppState
   };

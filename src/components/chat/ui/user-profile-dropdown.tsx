@@ -1,37 +1,71 @@
-import { useState } from 'react';
-import { User } from 'lucide-react';
+import { User } from '@supabase/supabase-js';
 import { useAuth } from '@/hooks/use-auth';
+import { Button } from 'vinci-ui';
+import { useState, useRef, useEffect } from 'react';
 
-export function UserProfileDropdown() {
+interface UserProfileDropdownProps {
+  user: User;
+}
+
+export function UserProfileDropdown({ user }: UserProfileDropdownProps) {
+  const { signOut } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const { signOut, user } = useAuth();
-  
-  const toggleDropdown = () => setIsOpen(!isOpen);
-  
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const initials = user.user_metadata.full_name
+    ?.split(' ')
+    .map((name: string) => name[0])
+    .join('') || user.email?.[0] || '?';
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
-    <div className="relative">
-      <button 
-        onClick={toggleDropdown}
-        className="flex items-center space-x-1 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+    <div className="relative" ref={dropdownRef}>
+      <Button
+        variant="ghost"
+        className="h-8 w-8 rounded-full p-0 overflow-hidden"
+        onClick={() => setIsOpen(!isOpen)}
       >
-        <User size={20} />
-        <span className="hidden sm:inline-block">{user?.email || 'User'}</span>
-      </button>
-      
+        <div className="w-full h-full bg-white/5">
+          {user.user_metadata.avatar_url ? (
+            <img
+              src={user.user_metadata.avatar_url}
+              alt={initials}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-sm font-medium">
+              {initials}
+            </div>
+          )}
+        </div>
+      </Button>
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded shadow-lg z-10 py-1">
-          <div className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 border-b dark:border-gray-700">
-            {user?.email || 'Unknown User'}
+        <div className="absolute right-0 mt-2 w-56 bg-white/5 backdrop-blur-xl border border-white/[0.08] rounded-lg shadow-lg">
+          <div className="px-4 py-3">
+            <p className="text-sm font-medium">{user.user_metadata.full_name}</p>
+            <p className="text-xs text-gray-400">{user.email}</p>
           </div>
-          <button
-            onClick={() => {
-              signOut();
-              setIsOpen(false);
-            }}
-            className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-          >
-            Sign Out
-          </button>
+          <div className="border-t border-white/[0.08]">
+            <Button
+              variant="ghost"
+              className="w-full justify-start rounded-none px-4 py-2 text-sm text-red-500 hover:text-red-400"
+              onClick={() => {
+                signOut();
+                setIsOpen(false);
+              }}
+            >
+              Sign out
+            </Button>
+          </div>
         </div>
       )}
     </div>

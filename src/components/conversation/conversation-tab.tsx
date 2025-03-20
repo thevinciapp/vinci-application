@@ -5,7 +5,7 @@ import { MessageSquare } from 'lucide-react';
 import { Conversation } from '@/types';
 
 interface ConversationTabProps {
-  onCreateConversation?: () => Promise<void>;
+  onCreateConversation?: (title: string) => Promise<void>;
   activeConversation: Conversation | null;
 }
 
@@ -20,7 +20,7 @@ export function ConversationTab({
 
     setIsCreating(true);
     try {
-      await onCreateConversation();
+      await onCreateConversation('New Conversation');
     } catch (error) {
       console.error('Error creating conversation:', error);
       toast({

@@ -1,5 +1,4 @@
-import { useChat } from 'ai/react';
-import { useNavigate } from 'react-router-dom';
+import { useChat } from '@ai-sdk/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ArrowDown, Search } from 'lucide-react';
@@ -45,7 +44,6 @@ export default function ChatContent() {
   }, [fileReferences]);
 
   const { 
-    messages: conversationMessages,
     isLoading: isLoadingMessages, 
     formatMessagesForChat,
     fetchMessages 
@@ -60,10 +58,9 @@ export default function ChatContent() {
   const chatKey = `${activeConversation?.id || 'default'}-${activeSpace?.provider || ''}-${activeSpace?.model || ''}`;
 
   const {
-    messages: chatMessages,
+    messages,
     input,
-    isLoading: isChatLoading,
-    setInput,
+    status,
     handleInputChange,
     handleSubmit,
     data,
@@ -103,7 +100,7 @@ export default function ChatContent() {
     scrollToBottomHandler.current = callback;
   }, []);
 
-  const handleCreateConversation = async () => {
+  const handleCreateConversation = async (title: string = 'New Conversation') => {
     if (!activeSpace?.id) {
       toast({
         title: 'Error',
@@ -114,7 +111,7 @@ export default function ChatContent() {
     }
 
     try {
-      await createConversation(activeSpace.id, 'New Conversation');
+      await createConversation(activeSpace.id, title);
     } catch (error) {
       console.error('Error creating conversation:', error);
       toast({
@@ -128,7 +125,7 @@ export default function ChatContent() {
   return (
     <div className="h-full w-full">
       <div className="fixed top-4 right-4 z-50">
-        {user && <UserProfileDropdown />}
+        {user && <UserProfileDropdown user={user} />}
       </div>
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
         <div
@@ -150,7 +147,7 @@ export default function ChatContent() {
             <div className="px-1 first:pl-1 last:pr-1">
               <ChatModeTab space={activeSpace} />
             </div>
-            {!isStickToBottom && chatMessages.length > 0 && (
+            {!isStickToBottom && messages.length > 0 && (
               <div className="px-1 first:pl-1 last:pr-1">
                 <BaseTab
                   icon={<ArrowDown className="w-3 h-3" />}
@@ -171,11 +168,11 @@ export default function ChatContent() {
           <div className="absolute bottom-[10%] left-[30%] w-[600px] h-[600px] bg-[#3ecfff]/[0.01] blur-[130px] rounded-full" />
         </div>
         <ChatMessages
-          messages={chatMessages}
+          messages={messages}
           onStickToBottomChange={handleStickToBottomChange}
           onScrollToBottom={handleScrollToBottom}
           ref={messagesContainerRef}
-          isLoading={isChatLoading || isSpaceLoading || isLoadingMessages}
+          isLoading={status !== 'ready' || isSpaceLoading || isLoadingMessages}
           streamData={data}
         />
         <div className="fixed left-1/2 bottom-8 -translate-x-1/2 w-[800px] z-50">
@@ -184,7 +181,7 @@ export default function ChatContent() {
               value={input}
               onChange={handleInputChange}
               onSubmit={handleSubmit}
-              disabled={!activeSpace || !activeConversation || isChatLoading}
+              disabled={!activeSpace || !activeConversation || status !== 'ready'}
             >
               <div className="flex items-center divide-x divide-white/[0.05] bg-white/[0.03] border-t border-l border-r border-white/[0.05] rounded-t-2xl overflow-hidden backdrop-blur-xl w-full shadow-[0_-4px_20px_rgba(62,207,255,0.03)]">
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
