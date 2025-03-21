@@ -31,25 +31,74 @@ export function useMessages(conversationId: string | undefined | null) {
       setIsLoading(true);
       setError(null);
       
+      // Use a local state flag to prevent repeated fetches of the same conversation
+      // if we've had trouble with it before
+      const fetchKey = `failed_fetch_${id}`;
+      if ((window as any)[fetchKey]) {
+        console.warn(`Skipping fetch for previously failed conversation ${id}`);
+        return [];
+      }
+      
       const response = await window.electron.invoke(MessageEvents.GET_CONVERSATION_MESSAGES, id);
       
       if (response.success && response.data) {
         // Store messages in both local state and renderer store
         setLocalMessages(response.data);
         rendererStore.setMessages(response.data as unknown as VinciCommonMessage[]);
+        // Clear any error flags for this conversation
+        if ((window as any)[fetchKey]) {
+          delete (window as any)[fetchKey];
+        }
         return response.data;
       } else {
         const errorMsg = response.error || 'Failed to fetch messages';
         setError(errorMsg);
         rendererStore.setError(errorMsg);
-        return null;
+        
+        // Set a temporary flag to prevent repeated fetches of problematic conversations
+        // This helps prevent UI-triggered infinite loops
+        if (errorMsg.includes('[object Object]') || errorMsg.includes('infinite loop')) {
+          console.warn(`Marking conversation ${id} as problematic to prevent repeated fetches`);
+          (window as any)[fetchKey] = true;
+          
+          // Clear the flag after some time
+          setTimeout(() => {
+            delete (window as any)[fetchKey];
+          }, 10000); // 10 seconds
+        }
+        
+        return [];
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'An error occurred while fetching messages';
+      let errorMsg: string;
+      if (err instanceof Error) {
+        errorMsg = err.message;
+      } else if (typeof err === 'object') {
+        try {
+          errorMsg = JSON.stringify(err);
+        } catch {
+          errorMsg = 'Unknown error object';
+        }
+      } else {
+        errorMsg = String(err);
+      }
+      
       setError(errorMsg);
       rendererStore.setError(errorMsg);
-      console.error('Error fetching messages:', err);
-      return null;
+      console.error('Error fetching messages:', errorMsg);
+      
+      // Add temporary flag for problematic conversations
+      if (errorMsg.includes('[object Object]') || errorMsg.includes('infinite loop')) {
+        const fetchKey = `failed_fetch_${id}`;
+        (window as any)[fetchKey] = true;
+        
+        // Clear the flag after some time
+        setTimeout(() => {
+          delete (window as any)[fetchKey];
+        }, 10000); // 10 seconds
+      }
+      
+      return [];
     } finally {
       setIsLoading(false);
     }
@@ -60,7 +109,31 @@ export function useMessages(conversationId: string | undefined | null) {
     if (!id) return () => {};
     
     // Define handler for message updates
-    const handleMessagesUpdate = (event: any, data: { messages: Message[] }) => {
+    const handleMessagesUpdate = (event: any, data: { messages: Message[], error?: string, success: boolean }) => {
+      // Check if the response indicates an error
+      if (data.error || !data.success) {
+        console.warn(`Message listener received error for conversation ${id}:`, data.error);
+        const fetchKey = `failed_fetch_${id}`;
+        
+        // Set a temporary flag to prevent repeated fetches
+        if (data.error?.includes('[object Object]') || data.error?.includes('infinite loop')) {
+          console.warn(`Marking conversation ${id} as problematic from listener`);
+          (window as any)[fetchKey] = true;
+          
+          // Clear the flag after some time
+          setTimeout(() => {
+            delete (window as any)[fetchKey];
+          }, 10000); // 10 seconds
+        }
+        return;
+      }
+      
+      // Validate messages data is an array
+      if (!Array.isArray(data.messages)) {
+        console.warn(`Invalid messages data received for conversation ${id}:`, data.messages);
+        return;
+      }
+      
       // Only update if the messages are for the specified conversation
       if (data.messages.length > 0 && data.messages[0].conversationId === id) {
         setLocalMessages(data.messages);

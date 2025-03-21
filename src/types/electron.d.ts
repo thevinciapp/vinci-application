@@ -292,6 +292,35 @@ declare global {
     __SPATIAL_PLATFORM__: 'darwin' | 'win32' | 'linux';
     
     /**
+     * Zustand store access for internal use
+     * This allows direct access to the store for special cases
+     */
+    electron: {
+      invoke(channel: string, ...args: any[]): Promise<any>;
+      on(channel: string, listener: (event: any, ...args: any[]) => void): void;
+      off(channel: string, listener: Function): void;
+    };
+    
+    /**
+     * Direct access to the renderer store for reset operations
+     */
+    rendererStore?: {
+      getState(): any;
+      setState(state: any): void;
+      setAppState(state: any): void;
+      setSpaces(spaces: any[]): void;
+      setActiveSpace(space: any): void;
+      setConversations(conversations: any[]): void;
+      setMessages(messages: any[]): void;
+      setUser(user: any): void;
+      setProfile(profile: any): void;
+      setLoading(isLoading: boolean): void;
+      setError(error: string | null): void;
+      fetchAppState(): Promise<boolean>;
+      syncWithMainProcess(): Promise<boolean>;
+    };
+    
+    /**
      * IPC Event Handlers
      * These are injected by the preload script
      */

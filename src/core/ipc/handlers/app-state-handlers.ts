@@ -56,12 +56,10 @@ export function registerAppStateHandlers() {
     }
   });
 
-  // Handler for sync-app-state
   ipcMain.handle(AppStateEvents.SYNC_STATE, async (_event: IpcMainInvokeEvent, state: any): Promise<AppStateResponse> => {
     try {
       console.log('[ELECTRON] Syncing app state from renderer');
       
-      // Check if state is valid before attempting to use it
       if (!state || typeof state !== 'object') {
         console.log('[ELECTRON] Received invalid state object:', state);
         return { 
@@ -70,11 +68,9 @@ export function registerAppStateHandlers() {
         };
       }
       
-      // Process and merge the incoming state with the main process state
       const currentState = getMainStoreState();
       const mergedState = { ...currentState, ...state };
       
-      // Update only changed properties to avoid circular updates
       Object.keys(state).forEach(key => {
         const setter = `set${key.charAt(0).toUpperCase() + key.slice(1)}`;
         const store = useMainStore.getState();
@@ -101,20 +97,32 @@ export function registerAppStateHandlers() {
       const state = getMainStoreState();
       console.log('[ELECTRON] Getting app state from renderer, initialDataLoaded:', state.initialDataLoaded);
       
-      if (!state.initialDataLoaded) {
+      // Check if we have an access token but no data loaded
+      // This covers the case where a user has signed out and signed back in
+      const accessTokenExists = !!state.accessToken;
+      const needsFreshData = !state.initialDataLoaded || (accessTokenExists && (!state.spaces || state.spaces.length === 0));
+      
+      if (needsFreshData) {
+        console.log('[ELECTRON] Need to fetch fresh data, token exists:', accessTokenExists);
+        
         const freshData = await fetchInitialAppData();
         if (!freshData.error) {
+          console.log('[ELECTRON] Successfully fetched fresh data after GET_STATE');
           useMainStore.getState().setAppState({ ...freshData, initialDataLoaded: true });
           return { 
             success: true, 
             data: makeSerializable(getMainStoreState()),
           };
         }
+        
+        console.error('[ELECTRON] Error fetching fresh data:', freshData.error);
         return { 
           success: false, 
           error: freshData.error
         };
       }
+      
+      console.log('[ELECTRON] Using existing app state, no fresh data needed');
       return { 
         success: true, 
         data: makeSerializable(getMainStoreState())

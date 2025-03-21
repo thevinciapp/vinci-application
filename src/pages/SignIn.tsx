@@ -1,12 +1,16 @@
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { SubmitButton } from '@/components/auth/submit-button';
-import { Input, Label } from 'vinci-ui';
+import { Input, Label, toast } from 'vinci-ui';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
+import { useRendererStore } from '@/store/renderer';
 
 export default function SignIn() {
   const navigate = useNavigate();
   const { signIn, isLoading, error } = useAuth();
+  const rendererStore = useRendererStore();
+  const [loadingData, setLoadingData] = useState(false);
   
   return (
     <form className="flex flex-col w-full">
@@ -52,19 +56,44 @@ export default function SignIn() {
             <div className="text-red-500 text-sm mb-4">{error}</div>
           )}
           <SubmitButton 
-            pendingText="Signing In..." 
+            pendingText="Signing in..." 
             formAction={async (formData: FormData) => {
               const email = formData.get('email') as string;
               const password = formData.get('password') as string;
               const success = await signIn({ email, password });
+              
               if (success) {
-                navigate('/protected');
+                try {
+                  setLoadingData(true);
+                  // Fetch app state after successful authentication
+                  const dataLoaded = await rendererStore.fetchAppState();
+                  if (dataLoaded) {
+                    navigate('/protected');
+                  } else {
+                    console.error("Failed to load application data after login");
+                    // Send toast notification for data loading failure
+                    toast({
+                      title: "Error",
+                      description: "Successfully signed in, but failed to load your data. Please try again.",
+                      variant: "destructive"
+                    });
+                  }
+                } catch (error) {
+                  console.error("Error loading application data:", error);
+                  toast({
+                    title: "Error",
+                    description: "Failed to load application data after login. Please try again.",
+                    variant: "destructive"
+                  });
+                } finally {
+                  setLoadingData(false);
+                }
               }
             }}
             variant="cyan"
-            disabled={isLoading}
+            disabled={isLoading || loadingData}
           >
-            {isLoading ? "Signing in..." : "Sign in"}
+            {isLoading || loadingData ? "Signing in..." : "Sign in"}
           </SubmitButton>
         </div>
       </div>

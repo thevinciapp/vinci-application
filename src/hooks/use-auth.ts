@@ -125,7 +125,6 @@ export function useAuth() {
         throw new Error("Please fill in all fields");
       }
 
-      // Check if Electron API is available
       if (typeof window === 'undefined' || !window.electron) {
         throw new Error("Electron API not available");
       }
@@ -136,13 +135,27 @@ export function useAuth() {
         throw new Error(response.error || 'Authentication failed');
       }
 
-      // Update session state with the new tokens
       if (response.data?.session) {
         setSession(response.data.session);
       }
 
-      // Sync app state after successful auth
-      await window.electron.invoke(AppStateEvents.SYNC_STATE);
+      // Sync state and wait for the complete data to be loaded
+      try {
+        const syncResponse = await window.electron.invoke(AppStateEvents.SYNC_STATE);
+        if (!syncResponse.success) {
+          console.warn("State sync was not successful after login:", syncResponse.error);
+        }
+        
+        // Get the complete state data after syncing
+        const stateResponse = await window.electron.invoke(AppStateEvents.GET_STATE);
+        if (!stateResponse.success) {
+          console.warn("Failed to get app state after login:", stateResponse.error);
+        }
+      } catch (syncError) {
+        console.error("Error during state synchronization after login:", syncError);
+        // We don't throw here because we want to return successful login
+        // The UI layer will handle data loading errors separately
+      }
 
       return handleSuccess("Successfully signed in");
     } catch (error) {
@@ -176,8 +189,23 @@ export function useAuth() {
         throw new Error(response.error || 'Failed to create account');
       }
 
-      // Sync app state after successful signup
-      await window.electron.invoke(AppStateEvents.SYNC_STATE);
+      // Sync state and wait for the complete data to be loaded
+      try {
+        const syncResponse = await window.electron.invoke(AppStateEvents.SYNC_STATE);
+        if (!syncResponse.success) {
+          console.warn("State sync was not successful after signup:", syncResponse.error);
+        }
+        
+        // Get the complete state data after syncing
+        const stateResponse = await window.electron.invoke(AppStateEvents.GET_STATE);
+        if (!stateResponse.success) {
+          console.warn("Failed to get app state after signup:", stateResponse.error);
+        }
+      } catch (syncError) {
+        console.error("Error during state synchronization after signup:", syncError);
+        // We don't throw here because we want to return successful signup
+        // The UI layer will handle data loading errors separately
+      }
 
       return handleSuccess("Successfully signed up");
     } catch (error) {
@@ -245,6 +273,27 @@ export function useAuth() {
       // Check if Electron API is available
       if (typeof window === 'undefined' || !window.electron) {
         throw new Error("Electron API not available");
+      }
+
+      // Reset renderer state to ensure clean state on next sign-in
+      if (window.electron) {
+        try {
+          // Reset initialDataLoaded in renderer store
+          const rendererStore = window.rendererStore;
+          if (rendererStore) {
+            rendererStore.setAppState({ 
+              initialDataLoaded: false,
+              spaces: [],
+              activeSpace: null,
+              conversations: [],
+              messages: [],
+              user: null,
+              profile: null
+            });
+          }
+        } catch (storeError) {
+          console.error("Error resetting renderer store:", storeError);
+        }
       }
 
       const response = await window.electron.invoke(AuthEvents.SIGN_OUT);

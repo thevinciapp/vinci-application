@@ -24,11 +24,45 @@ export function registerConversationHandlers() {
   // Handle conversation-to-message relationship
   ipcMain.handle(MessageEvents.GET_CONVERSATION_MESSAGES, async (_event: IpcMainInvokeEvent, conversationId: string): Promise<MessageResponse> => {
     try {
+      // Validate conversationId
+      if (!conversationId || typeof conversationId !== 'string') {
+        console.error('[ELECTRON] Invalid conversation ID:', conversationId);
+        return { 
+          success: false, 
+          error: 'Invalid conversation ID', 
+          status: 'error',
+          data: [] // Return empty array to prevent further attempts
+        };
+      }
+      
       const messages = await fetchMessages(conversationId);
+      console.log('[ELECTRON] Messages response:', messages ? messages.length : 0);
       return { success: true, data: messages, status: 'success' };
     } catch (error) {
-      console.error('[ELECTRON] Error in get-conversation-messages handler:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error', status: 'error' };
+      // Format error properly for logging and client response
+      let errorMessage: string;
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object') {
+        try {
+          errorMessage = JSON.stringify(error);
+        } catch {
+          errorMessage = 'Unknown error object';
+        }
+      } else {
+        errorMessage = String(error);
+      }
+      
+      console.error('[ELECTRON] Error in get-conversation-messages handler:', errorMessage);
+      
+      // Return empty data to prevent infinite loops and properly formatted error
+      return { 
+        success: false, 
+        error: errorMessage, 
+        status: 'error',
+        data: [] // Return empty array to prevent further attempts 
+      };
     }
   });
 

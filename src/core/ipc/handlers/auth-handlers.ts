@@ -37,7 +37,6 @@ export function registerAuthHandlers() {
         return { success: false, error: signInResult.error || 'Invalid credentials' };
       }
 
-      // Save tokens to secure storage
       await saveAuthData(
         signInResult.data.session.access_token,
         signInResult.data.session.refresh_token,
@@ -58,7 +57,6 @@ export function registerAuthHandlers() {
   ipcMain.handle(AuthEvents.VERIFY_TOKEN, async (_event: IpcMainInvokeEvent): Promise<AuthResponse> => {
     console.log('[ELECTRON] VERIFY_TOKEN handler called');
     try {
-      // If there's no access token, return false immediately
       const accessToken = getStoreState().accessToken;
       console.log('[ELECTRON] Current access token exists:', !!accessToken);
       if (!accessToken) {

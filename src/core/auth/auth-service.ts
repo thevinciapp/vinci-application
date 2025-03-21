@@ -306,13 +306,15 @@ export async function redirectToSignIn(): Promise<void> {
   store.setAccessToken(null);
   store.setRefreshToken(null);
   
-  // Reset app state using Zustand
+  // Reset app state using Zustand - explicitly set initialDataLoaded to false
+  // This ensures that after sign-out, the next GET_STATE call will trigger a fresh data fetch
+  console.log('[ELECTRON] Resetting app state on sign-out, setting initialDataLoaded to false');
   store.setAppState({ 
     spaces: [],
     activeSpace: null,
     conversations: [],
     messages: [],
-    initialDataLoaded: false,
+    initialDataLoaded: false, // Critical for ensuring fresh data fetch on next sign-in
     lastFetched: null,
     user: null
   });

@@ -51,7 +51,33 @@ export default function ChatContent() {
 
   useEffect(() => {
     if (activeConversation?.id) {
-      fetchMessages(activeConversation.id);
+      // Add a local reference to track the current conversation ID
+      // to prevent stale closures from refetching old conversations
+      const currentId = activeConversation.id;
+      
+      // Prevent refetching a problematic conversation
+      const fetchKey = `failed_fetch_${currentId}`;
+      if ((window as any)[fetchKey]) {
+        console.warn(`Skipping useEffect fetch for previously failed conversation ${currentId}`);
+        return;
+      }
+      
+      // Wrap in try/catch to prevent unhandled errors
+      try {
+        fetchMessages(currentId).catch(err => {
+          console.error(`Error fetching messages in useEffect for conversation ${currentId}:`, err);
+          
+          // Mark this conversation as problematic to prevent repeated fetches
+          (window as any)[fetchKey] = true;
+          
+          // Clear the flag after some time
+          setTimeout(() => {
+            delete (window as any)[fetchKey];
+          }, 10000); // 10 seconds
+        });
+      } catch (err) {
+        console.error(`Unexpected error in useEffect for conversation ${currentId}:`, err);
+      }
     }
   }, [activeConversation?.id, fetchMessages]);
 

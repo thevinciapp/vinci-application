@@ -14,24 +14,70 @@ export async function fetchMessages(conversationId: string): Promise<Message[]> 
       throw new Error('No active space found');
     }
 
+    // Add a circuit breaker to prevent infinite loops
+    const store = useStore.getState();
+    const conversationKey = `fetch_attempts_${conversationId}`;
+    const fetchAttempts = (store as any)[conversationKey] || 0;
+    
+    if (fetchAttempts > 3) {
+      console.log(`[ELECTRON] Too many fetch attempts for conversation ${conversationId}, aborting to prevent infinite loop`);
+      // Reset the counter after a while
+      setTimeout(() => {
+        const currentStore = useStore.getState();
+        const updatedStore = { ...currentStore };
+        delete (updatedStore as any)[conversationKey];
+        useStore.setState(updatedStore);
+      }, 5000);
+      return [];
+    }
+    
+    // Increment attempt counter
+    useStore.setState({ ...store, [conversationKey]: fetchAttempts + 1 });
+
+    // Make the API request
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}/conversations/${conversationId}/messages`);
-    const { status, error, data } = await response.json();
+    const responseData = await response.json();
+    const { status, error, data } = responseData;
 
     console.log('[ELECTRON] Messages response:', data);
     
     if (status !== 'success') {
-      throw new Error(error || 'Failed to fetch messages');
+      const errorMessage = typeof error === 'object' 
+        ? JSON.stringify(error) 
+        : (error || 'Failed to fetch messages');
+      throw new Error(errorMessage);
     }
 
     const messages = data?.data || [];
     console.log(`[ELECTRON] Fetched ${messages.length} messages for conversation ${conversationId}`);
     
+    // Reset attempt counter on success
+    const updatedStore = { ...useStore.getState() };
+    delete (updatedStore as any)[conversationKey];
+    useStore.setState(updatedStore);
+    
+    // Update messages in store
     useStore.getState().updateMessages(messages);
     
     return messages;
   } catch (error) {
-    console.error(`[ELECTRON] Error fetching messages for conversation ${conversationId}:`, error);
-    throw error;
+    // Properly format the error for logging and rethrowing
+    let errorMessage: string;
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'object') {
+      try {
+        errorMessage = JSON.stringify(error);
+      } catch {
+        errorMessage = 'Unknown error object';
+      }
+    } else {
+      errorMessage = String(error);
+    }
+    
+    console.error(`[ELECTRON] Error fetching messages for conversation ${conversationId}:`, errorMessage);
+    throw new Error(errorMessage);
   }
 }
 
