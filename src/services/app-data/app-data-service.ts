@@ -6,6 +6,7 @@ import { fetchMessages } from '../messages/message-service';
 import { fetchUserProfile } from '../user/user-service';
 import { checkServerHealth } from '../api/api-service';
 import { isTokenExpiringSoon, refreshTokens } from '../../core/auth/auth-service';
+import { safeStorage } from 'electron';
 
 interface AppStateResult {
   spaces: Space[];
@@ -53,7 +54,7 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
     // Check if token is about to expire and refresh if needed
     if (store.refreshToken && isTokenExpiringSoon()) {
       console.log('[ELECTRON] Token is expiring soon, attempting to refresh...');
-      const refreshed = await refreshTokens();
+      const refreshed = await refreshTokens(safeStorage);
       if (!refreshed) {
         console.log('[ELECTRON] Token refresh failed during app data fetch');
         return {

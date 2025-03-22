@@ -10,7 +10,7 @@ export const AuthEvents = {
   SIGN_OUT: 'sign-out',
   RESET_PASSWORD: 'reset-password',
   SET_AUTH_TOKENS: 'set-auth-tokens',
-  CLEAR_AUTH_DATA: 'clear-auth-data'
+  CLEAR_AUTH_DATA: 'clear-auth-data',
 } as const;
 
 /**
@@ -61,6 +61,18 @@ export const MessageEvents = {
   SEND_MESSAGE: 'send-message',
   DELETE_MESSAGE: 'delete-message',
   UPDATE_MESSAGE: 'update-message'
+} as const;
+
+/**
+ * Chat-related IPC events
+ */
+export const ChatEvents = {
+  CHAT_STREAM_START: 'chat-stream-start',
+  CHAT_STREAM_CHUNK: 'chat-stream-chunk',
+  CHAT_STREAM_FINISH: 'chat-stream-finish',
+  CHAT_STREAM_ERROR: 'chat-stream-error',
+  INITIATE_CHAT: 'initiate-chat',
+  CANCEL_CHAT: 'cancel-chat'
 } as const;
 
 /**
@@ -122,4 +134,5 @@ export type IpcEvent =
   | typeof UserEvents[keyof typeof UserEvents]
   | typeof ConversationEvents[keyof typeof ConversationEvents]
   | typeof AppStateEvents[keyof typeof AppStateEvents]
-  | typeof NotificationEvents[keyof typeof NotificationEvents];
+  | typeof NotificationEvents[keyof typeof NotificationEvents]
+  | typeof ChatEvents[keyof typeof ChatEvents];

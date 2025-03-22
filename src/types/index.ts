@@ -8,7 +8,8 @@ import {
   MessageEvents,
   UserEvents,
   NotificationEvents,
-  ConversationEvents
+  ConversationEvents,
+  ChatEvents
 } from '@/core/ipc/constants';
 
 export type AuthEventType = typeof AuthEvents[keyof typeof AuthEvents];
@@ -19,11 +20,12 @@ export type MessageEventType = typeof MessageEvents[keyof typeof MessageEvents];
 export type UserEventType = typeof UserEvents[keyof typeof UserEvents];
 export type NotificationEventType = typeof NotificationEvents[keyof typeof NotificationEvents];
 export type ConversationEventType = typeof ConversationEvents[keyof typeof ConversationEvents];
+export type ChatEventType = typeof ChatEvents[keyof typeof ChatEvents];
 
 // IPC Response Types
-export interface IpcResponse {
+export interface IpcResponse<T = any> {
   success: boolean;
-  data?: any;
+  data?: T;
   error?: string;
 }
 
@@ -35,6 +37,25 @@ export interface IpcStateResponse extends IpcResponse {
     initialDataLoaded: boolean;
     lastFetched: number | null;
   };
+}
+
+// Chat Stream Event Types
+export interface ChatStreamStartEvent {
+  chatId: string;
+}
+
+export interface ChatStreamChunkEvent {
+  chatId: string;
+  chunk: any;
+}
+
+export interface ChatStreamFinishEvent {
+  chatId: string;
+}
+
+export interface ChatStreamErrorEvent {
+  chatId: string;
+  error: string;
 }
 
 export interface Space {
@@ -166,6 +187,7 @@ export interface AppState {
   user: User | null;
   accessToken: string | null;
   refreshToken: string | null;
+  tokenExpiryTime?: number | null;
 }
 
 export interface AppStateResult extends AppState {

@@ -1,4 +1,4 @@
-import { app, safeStorage, BrowserWindow } from 'electron';
+import { app, safeStorage, BrowserWindow, ipcMain } from 'electron';
 import { join } from 'path';
 
 // Import utilities
@@ -18,9 +18,9 @@ import {
 } from '@/services/app-data/app-data-service';
 import { useStore } from '../../vinci-application/src/store';
 
-// Hide dock icon on macOS
+// Show dock icon on macOS
 if (isMac()) {
-  app.dock.hide();
+  app.dock.show();
 }
 
 let mainWindow: BrowserWindow | null = null;
@@ -29,15 +29,26 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    show: false, // Don't show until ready
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       nodeIntegration: false,
       contextIsolation: true,
     },
+    // Add these options for better visibility
+    center: true,
+    title: 'Spatial',
+    backgroundColor: '#ffffff',
   });
   
   // Log for debugging
   console.log('[ELECTRON] Preload path:', join(__dirname, '../preload/index.js'));
+
+  // Show window when ready to prevent flashing
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show();
+    mainWindow?.focus();
+  });
 
   // Determine which URL to load based on environment
   // Add error handlers for better debugging
@@ -78,7 +89,12 @@ async function initialize() {
     registerIpcHandlers();
 
     const authResult = await loadAuthData(safeStorage);
-    console.log('[ELECTRON] Auth data loaded. Access token exists:', !!authResult.accessToken, 'Refresh token exists:', !!authResult.refreshToken);
+    console.log('[ELECTRON] Auth data loaded. Access token exists:', !!authResult.accessToken, 'Refresh token exists:', !!authResult.refreshToken, 'Token expiry exists:', !!authResult.tokenExpiryTime);
+    
+    if (authResult.tokenExpiryTime) {
+      useStore.getState().setTokenExpiryTime(authResult.tokenExpiryTime);
+      console.log('[ELECTRON] Token expiry loaded from storage:', new Date(authResult.tokenExpiryTime * 1000).toISOString());
+    }
     
     // Create the main window
     mainWindow = createWindow();
@@ -103,7 +119,8 @@ async function initialize() {
         // If we have a refresh token but no access token, try to refresh
         if (!store.accessToken && store.refreshToken) {
           console.log('[ELECTRON] No access token, attempting refresh with saved refresh token');
-          const refreshed = await refreshTokens();
+          // Pass safeStorage to refreshTokens
+          const refreshed = await refreshTokens(safeStorage);
           if (!refreshed) {
             console.log('[ELECTRON] Failed to refresh tokens on startup');
             await redirectToSignIn();

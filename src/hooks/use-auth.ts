@@ -55,13 +55,11 @@ export function useAuth() {
     };
   }, []);
   
-  // Verify token
   const verifyAndGetToken = useCallback(async (): Promise<AuthSession | null> => {
     try {
       setIsLoading(true);
       setError(null);
       
-      // Only run in browser environment where Electron is available
       if (typeof window === 'undefined' || !window.electron) {
         throw new Error('Electron API not available');
       }
@@ -69,7 +67,6 @@ export function useAuth() {
       const verifyResponse = await window.electron.invoke(AuthEvents.VERIFY_TOKEN);
       
       if (verifyResponse.success && verifyResponse.data?.isValid) {
-        // Token is valid, now get the actual token data
         const tokenResponse = await window.electron.invoke(AuthEvents.GET_AUTH_TOKEN);
         
         if (tokenResponse?.success && tokenResponse.data) {

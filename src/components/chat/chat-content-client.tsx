@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ArrowDown, Search } from 'lucide-react';
 import { BaseTab } from 'vinci-ui';
-import { useUser } from '@/hooks/use-user';
 import { useSpaces } from '@/hooks/use-spaces';
 import { useConversations } from '@/hooks/use-conversations';
 import { useMessages } from '@/hooks/use-messages';
@@ -17,16 +16,18 @@ import { toast } from '@/components/chat/ui/toast';
 import { ConversationTab } from '../conversation/conversation-tab';
 import { QuickActionsTab, BackgroundTasksTab, SuggestionsTab } from './quick-actions-tab';
 import { useRendererStore } from '@/store/renderer';
+import { IpcResponse } from '@/types';
+import { API_BASE_URL } from '@/config/api';
 
 export default function ChatContent() {
   const { user } = useRendererStore();
   const { activeSpace, isLoading: isSpaceLoading } = useSpaces();
   const { activeConversation, createConversation } = useConversations();
 
-  const [isStickToBottom, setIsStickToBottom] = useState(true);
   const [searchMode, setSearchMode] = useState<'chat' | 'search' | 'semantic' | 'hybrid'>('chat');
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [fileReferences, setFileReferences] = useState<any[]>([]);
+  const [isStickToBottom, setIsStickToBottom] = useState(true);
 
   const clearFileReferences = () => setFileReferences([]);
   const fileReferencesMap = useCallback(() => {
@@ -43,45 +44,45 @@ export default function ChatContent() {
     return fileMap;
   }, [fileReferences]);
 
-  const { 
-    isLoading: isLoadingMessages, 
-    formatMessagesForChat,
-    fetchMessages 
+  const {
+    isLoading: isLoadingMessages,
+    formatMessagesForChat
   } = useMessages(activeConversation?.id);
 
-  useEffect(() => {
-    if (activeConversation?.id) {
-      // Add a local reference to track the current conversation ID
-      // to prevent stale closures from refetching old conversations
-      const currentId = activeConversation.id;
-      
-      // Prevent refetching a problematic conversation
-      const fetchKey = `failed_fetch_${currentId}`;
-      if ((window as any)[fetchKey]) {
-        console.warn(`Skipping useEffect fetch for previously failed conversation ${currentId}`);
-        return;
-      }
-      
-      // Wrap in try/catch to prevent unhandled errors
-      try {
-        fetchMessages(currentId).catch(err => {
-          console.error(`Error fetching messages in useEffect for conversation ${currentId}:`, err);
-          
-          // Mark this conversation as problematic to prevent repeated fetches
-          (window as any)[fetchKey] = true;
-          
-          // Clear the flag after some time
-          setTimeout(() => {
-            delete (window as any)[fetchKey];
-          }, 10000); // 10 seconds
-        });
-      } catch (err) {
-        console.error(`Unexpected error in useEffect for conversation ${currentId}:`, err);
-      }
-    }
-  }, [activeConversation?.id, fetchMessages]);
-
   const chatKey = `${activeConversation?.id || 'default'}-${activeSpace?.provider || ''}-${activeSpace?.model || ''}`;
+  
+  async function getHeaders() {
+    const response = await window.electron.getAuthToken();
+    console.log('Get auth token response:', response);
+    if (!response.success || !response.data) {
+      throw new Error('Failed to get access token');
+    }
+    return {
+      Authorization: `Bearer ${response.data.accessToken}`,
+    };
+  }
+
+  const customFetch: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    console.log('Custom fetch called with URL:', input);
+    console.log('Custom fetch called with init:', init);
+    const headers = await getHeaders(); 
+
+    console.log('Headers:', headers);
+
+    const url = typeof input === 'string' ? input : input.toString();
+
+    const updatedOptions: RequestInit = {
+      ...init,
+      headers: {
+        ...(init?.headers || {}),
+        ...headers,
+      },
+    };
+
+    console.log('Custom fetch called with updated URL:', url);
+
+    return fetch(url, updatedOptions); 
+  };
 
   const {
     messages,
@@ -93,8 +94,9 @@ export default function ChatContent() {
     setData,
   } = useChat({
     id: chatKey,
-    api: '/api/chat',
+    api: `${API_BASE_URL}/api/chat`,
     initialMessages: formatMessagesForChat() || [],
+    fetch: customFetch,
     body: {
       spaceId: activeSpace?.id || '',
       conversationId: activeConversation?.id || null,
@@ -158,9 +160,8 @@ export default function ChatContent() {
           className="relative p-1 rounded-full bg-black/20 border border-white/[0.08] backdrop-blur-xl"
           style={{
             background: `color-mix(in srgb, ${activeSpace?.color || '#3ecfff'}10, transparent)`,
-            boxShadow: `0 0 20px ${activeSpace?.color || '#3ecfff'}10, inset 0 0 20px ${
-              activeSpace?.color || '#3ecfff'
-            }05`,
+            boxShadow: `0 0 20px ${activeSpace?.color || '#3ecfff'}10, inset 0 0 20px ${activeSpace?.color || '#3ecfff'
+              }05`,
           }}
         >
           <div className="flex items-center divide-x divide-white/[0.08]">

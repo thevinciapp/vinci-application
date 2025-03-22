@@ -90,6 +90,16 @@ interface ElectronAPI {
   [AuthEvents.SIGN_OUT]?: () => Promise<boolean>;
   
   /**
+   * Get access token from main process
+   */
+  [AuthEvents.GET_ACCESS_TOKEN]?: () => Promise<IpcResponse<string>>;
+
+  /**
+   * Set access token in main process
+   */
+  [AuthEvents.SET_ACCESS_TOKEN]?: (token: string) => Promise<IpcResponse<void>>;
+
+  /**
    * Get the current application state
    */
   [AppStateEvents.GET_STATE]?: () => Promise<{

@@ -1,14 +1,7 @@
 import { API_BASE_URL, refreshTokens, redirectToSignIn } from '../../core/auth/auth-service';
 import { useStore } from '../../store';
+import { safeStorage } from 'electron';
 
-/**
- * Core service for authenticated API requests
- * This service provides the basic fetch functionality used by other domain-specific services
- */
-
-/**
- * Fetch with authentication and automatic token refresh
- */
 export async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
   try {
     const store = useStore.getState();
@@ -17,10 +10,9 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}): Pro
     const currentTimeSeconds = Math.floor(Date.now() / 1000);
     const isTokenExpired = !store.tokenExpiryTime || store.tokenExpiryTime <= currentTimeSeconds;
     
-    // If token is expired and we have a refresh token, try to refresh
     if (isTokenExpired && store.refreshToken) {
       console.log('[ELECTRON] Token expired, attempting refresh');
-      const refreshed = await refreshTokens();
+      const refreshed = await refreshTokens(safeStorage);
       if (!refreshed) {
         console.log('[ELECTRON] Failed to refresh tokens and no valid token available');
         await redirectToSignIn();

@@ -6,6 +6,7 @@ import { registerCommandCenterHandlers } from './command-center-handlers';
 import { registerConversationHandlers } from './conversation-handlers';
 import { registerUserHandlers } from './user-handlers';
 import { registerNotificationHandlers } from './notification-handlers';
+import { registerChatHandlers } from './chat-handlers';
 import { Space, Conversation, Message, Notification } from 'vinci-common';
 
 // Common response interface for all handlers
@@ -43,6 +44,12 @@ export interface NotificationResponse extends IpcResponse {
   data?: Notification | Notification[] | { deleted: boolean } | { updated: boolean };
 }
 
+export interface ChatResponse extends IpcResponse {
+  chatId?: string;
+  chunk?: any;
+  error?: string;
+}
+
 export type AppStateResponse = IpcResponse;
 export type CommandCenterResponse = IpcResponse;
 export type UserResponse = IpcResponse;
@@ -60,4 +67,5 @@ export function registerAllHandlers() {
   registerConversationHandlers();
   registerUserHandlers();
   registerNotificationHandlers();
+  registerChatHandlers();
 }

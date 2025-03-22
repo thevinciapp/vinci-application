@@ -1,4 +1,5 @@
 import { ipcRenderer } from 'electron';
+import { IpcResponse } from '../../../src/types';
 import { AuthEvents } from '@/core/ipc/constants';
 
 export const authApi = {
@@ -6,7 +7,7 @@ export const authApi = {
     ipcRenderer.invoke(AuthEvents.SET_AUTH_TOKENS, accessToken, refreshToken),
   
   getAuthToken: () => 
-    ipcRenderer.invoke(AuthEvents.GET_AUTH_TOKEN),
+    ipcRenderer.invoke(AuthEvents.GET_AUTH_TOKEN) as Promise<IpcResponse>,
   
   refreshAuthTokens: () => 
     ipcRenderer.invoke(AuthEvents.REFRESH_AUTH_TOKENS),
@@ -21,5 +22,5 @@ export const authApi = {
     ipcRenderer.invoke(AuthEvents.SIGN_UP, email, password),
   
   verifyToken: () =>
-    ipcRenderer.invoke(AuthEvents.VERIFY_TOKEN),
+    ipcRenderer.invoke(AuthEvents.VERIFY_TOKEN) as Promise<IpcResponse>,
 };
