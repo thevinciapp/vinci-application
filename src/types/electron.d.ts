@@ -368,3 +368,36 @@ export type {
   CommandCenterState,
   ElectronAPI
 };
+
+export interface IpcResponse<T = any> {
+  success: boolean;
+  error?: string;
+  data?: T;
+}
+
+export interface CommandCenterState {
+  isOpen: boolean;
+  activeCommand?: CommandType;
+  dialogType?: string;
+  dialogData?: any;
+}
+
+export interface ElectronAPI {
+  [CommandCenterEvents.SYNC_STATE]: (callback: (event: any, response: IpcResponse<CommandCenterState>) => void) => () => void;
+  toggleCommandCenter: (commandType?: CommandType) => Promise<IpcResponse>;
+  openCommandType: (commandType: CommandType) => Promise<IpcResponse>;
+  openDialog: (dialogType: string, data: any) => Promise<IpcResponse>;
+  closeDialog: () => Promise<IpcResponse>;
+  closeCommandCenter: (commandType?: CommandType) => Promise<IpcResponse>;
+  refreshCommandCenter: (commandType?: CommandType) => Promise<IpcResponse>;
+  checkCommandType: (commandType: CommandType) => Promise<IpcResponse>;
+  searchFiles: (searchTerm: string) => Promise<any[]>;
+  readFile: (filePath: string) => Promise<any>;
+  ping: () => Promise<{ success: true; data: string }>;
+}
+
+declare global {
+  interface Window {
+    electronAPI?: ElectronAPI;
+  }
+}

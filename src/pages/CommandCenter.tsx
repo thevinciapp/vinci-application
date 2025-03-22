@@ -1,61 +1,55 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Command } from 'cmdk';
 import { providers } from "@/registry/providers";
 import { dialogs } from "@/registry/dialogs";
 import { useCommandCenter } from '@/hooks/use-command-center';
 import { useAuth } from '@/hooks/use-auth';
+import { useParams } from 'react-router-dom';
+import { CommandType } from '@/types';
 import '@/styles/cmdk.css';
 
 const CommandCenter = () => {
+  const { type = 'unified' } = useParams<{ type: CommandType }>();
   const {
+    state,
     currentProvider,
     currentDialog,
     updateState,
     openDialog,
     closeDialog,
-    close
+    close,
+    refreshCommandCenter
   } = useCommandCenter();
   const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
 
-  // When component mounts, check if we need a default provider
+  // Set the active command type based on the URL parameter
   useEffect(() => {
-    if (!currentProvider && isAuthenticated) {
-      updateState({ activeCommand: 'spaces' });
+    if (isAuthenticated) {
+      console.log(`[COMMAND] Setting active command to: ${type}`);
+      updateState({ activeCommand: type });
     }
-  }, [currentProvider, updateState, isAuthenticated]);
-  
-  // Special case for unauthenticated users
-  if (!isAuthenticated) {
-    // Close the window after a short delay
-    useEffect(() => {
-      const timer = setTimeout(() => {
-        if (window?.electron?.closeCommandCenterFromUnauthenticated) {
-          window.electron.closeCommandCenterFromUnauthenticated();
-        }
-      }, 2000);
-      
-      return () => clearTimeout(timer);
-    }, []);
-    
-    return (
-      <div className="vinci">
-        <Command shouldFilter={false} loop autoFocus>
-          <Command.Input 
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-            placeholder="Please sign in to use the command center..."
-            disabled={true}
-          />
-          <div className="flex-1 flex justify-center items-center text-white/60 text-center p-8">
-            <p>You must be signed in to use the command center.<br/>
-            The command center window will close in a moment.</p>
-          </div>
-        </Command>
-      </div>
-    );
-  }
+  }, [type, updateState, isAuthenticated]);
 
+  // Handle escape key to close the command center
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        close();
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [close]);
+
+  // Refresh data when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log(`[COMMAND] Refreshing command center data for type: ${type}`);
+      refreshCommandCenter();
+    }
+  }, [isAuthenticated, refreshCommandCenter, type]);
+  
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
   };
@@ -80,14 +74,17 @@ const CommandCenter = () => {
   };
 
   const renderProviderUI = () => {
-    if (!currentProvider || !providers[currentProvider]) {
+    // Always use the type from the URL parameter as the provider key
+    const providerKey = type;
+    
+    if (!providerKey || !providers[providerKey]) {
       return (
         <Command.List>
           <Command.Group heading="Select a category">
-            {Object.keys(providers).map((key) => (
+            {Object.entries(providers).map(([key, Provider]) => (
               <Command.Item 
                 key={key}
-                onSelect={() => updateState({ activeCommand: key })}
+                onSelect={() => updateState({ activeCommand: key as CommandType })}
               >
                 {key.charAt(0).toUpperCase() + key.slice(1)}
               </Command.Item>
@@ -97,7 +94,7 @@ const CommandCenter = () => {
       );
     }
     
-    const ProviderComponent = providers[currentProvider];
+    const ProviderComponent = providers[providerKey];
     return (
       <ProviderComponent 
         searchQuery={searchQuery} 
@@ -123,7 +120,7 @@ const CommandCenter = () => {
         <Command.Input 
           value={searchQuery}
           onValueChange={handleSearchChange}
-          placeholder="Search or type a command..."
+          placeholder={`Search ${type} commands...`}
         />
         
         <Command.Empty>No results found.</Command.Empty>

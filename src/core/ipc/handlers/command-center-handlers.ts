@@ -3,11 +3,12 @@ import { useStore } from '../../../store';
 import { fetchInitialAppData } from '../../../services/app-data/app-data-service';
 import { 
   getCommandCenterWindow,
+  getContextCommandWindow,
   createCommandCenterWindow,
   toggleCommandCenterWindow,
   setDialogState,
   setCommandType
-} from '../../windows/command-center';
+} from '../../window/window-service';
 import { CommandType } from '../../../types';
 import { IpcResponse } from './index';
 import { CommandCenterEvents } from '../constants';
@@ -23,54 +24,86 @@ interface DialogData {
  * Register command center-related IPC handlers
  */
 export function registerCommandCenterHandlers(): void {
-  ipcMain.on(CommandCenterEvents.OPEN_DIALOG, (_event: IpcMainInvokeEvent, dialogType: string, data: DialogData) => {
-    const commandCenterWindow = getCommandCenterWindow();
-    if (commandCenterWindow?.isVisible()) {
-      commandCenterWindow.webContents.send(CommandCenterEvents.OPEN_DIALOG, dialogType, data);
-    } else {
-      createCommandCenterWindow().then(() => {
-        const window = getCommandCenterWindow();
-        window?.webContents.send(CommandCenterEvents.OPEN_DIALOG, dialogType, data);
-      });
+  ipcMain.handle(CommandCenterEvents.TOGGLE, async (_, commandType: CommandType = 'unified') => {
+    try {
+      const window = await toggleCommandCenterWindow(commandType);
+      return { success: true, window: window ? true : false };
+    } catch (error) {
+      console.error('Error toggling command center:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to toggle command center' };
     }
   });
 
-  ipcMain.on(CommandCenterEvents.DIALOG_OPENED, () => { 
-    setDialogState(true);
-  });
-  
-  ipcMain.on(CommandCenterEvents.DIALOG_CLOSED, () => { 
-    setDialogState(false);
-    const commandCenterWindow = getCommandCenterWindow();
-    if (!commandCenterWindow?.isFocused()) {
-      commandCenterWindow?.hide();
+  ipcMain.handle(CommandCenterEvents.SHOW, async (_, commandType: CommandType = 'unified') => {
+    try {
+      const window = await toggleCommandCenterWindow(commandType);
+      if (window) {
+        window.show();
+        window.focus();
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('Error showing command center:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to show command center' };
     }
   });
 
-  ipcMain.on(CommandCenterEvents.TOGGLE, () => {
-    toggleCommandCenterWindow();
-  });
-
-  ipcMain.on(CommandCenterEvents.SHOW, async () => {
-    const window = await createCommandCenterWindow();
-    window.show();
-    window.focus();
-  });
-
-  ipcMain.on(CommandCenterEvents.CLOSE, () => {
-    const commandCenterWindow = getCommandCenterWindow();
-    if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
-      commandCenterWindow.hide();
+  ipcMain.handle(CommandCenterEvents.CLOSE, async (_, commandType: CommandType = 'unified') => {
+    try {
+      const window = await getContextCommandWindow(commandType);
+      
+      if (window?.isVisible()) {
+        window.hide();
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('Error closing command center:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to close command center' };
     }
   });
-  
-  // Add a handler for closing the command center from unauthenticated state
-  ipcMain.handle('close-command-center', () => {
-    const commandCenterWindow = getCommandCenterWindow();
-    if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
-      commandCenterWindow.hide();
+
+  ipcMain.handle(CommandCenterEvents.OPEN_DIALOG, async (_, dialogType: string, data: any) => {
+    try {
+      setDialogState(true);
+      return { success: true };
+    } catch (error) {
+      console.error('Error opening dialog:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to open dialog' };
     }
-    return { success: true, status: 'success' };
+  });
+
+  ipcMain.handle(CommandCenterEvents.DIALOG_CLOSED, async () => {
+    try {
+      setDialogState(false);
+      return { success: true };
+    } catch (error) {
+      console.error('Error closing dialog:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to close dialog' };
+    }
+  });
+
+  ipcMain.handle(CommandCenterEvents.REFRESH, async (_, commandType: CommandType = 'unified') => {
+    try {
+      const window = await getContextCommandWindow(commandType);
+        
+      if (window) {
+        window.reload();
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('Error refreshing command center:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to refresh command center' };
+    }
+  });
+
+  ipcMain.handle(CommandCenterEvents.CHECK_TYPE, async (_, commandType: CommandType) => {
+    try {
+      const window = await getContextCommandWindow(commandType);
+      return { success: true, data: { type: commandType, exists: window ? true : false } };
+    } catch (error) {
+      console.error('Error checking command type:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to check command type' };
+    }
   });
 
   ipcMain.on(CommandCenterEvents.SET_TYPE, (_event: IpcMainInvokeEvent, commandType: CommandType) => {
@@ -79,38 +112,24 @@ export function registerCommandCenterHandlers(): void {
 
   ipcMain.on(CommandCenterEvents.SYNC_STATE, (_event: IpcMainInvokeEvent, action: string, data?: any) => {
     BrowserWindow.getAllWindows().forEach((window) => {
-      const commandCenterWindow = getCommandCenterWindow();
-      if (!window.isDestroyed() && window !== commandCenterWindow) {
+      if (!window.isDestroyed()) {
         window.webContents.send(CommandCenterEvents.SYNC_STATE, action, data);
       }
     });
   });
 
-  ipcMain.on(CommandCenterEvents.REFRESH, () => {
-    fetchInitialAppData().then((freshData) => {
-      if (!freshData.error) {
-        useStore.getState().setAppState(freshData);
+  // Handle window resize events
+  ipcMain.on(CommandCenterEvents.ON_RESIZE, (_event: IpcMainInvokeEvent, dimensions: { width: number; height: number }, commandType?: CommandType) => {
+    if (commandType) {
+      const contextWindow = getContextCommandWindow(commandType);
+      if (contextWindow && !contextWindow.isDestroyed()) {
+        contextWindow.setSize(dimensions.width, dimensions.height);
       }
-      
+    } else {
       const commandCenterWindow = getCommandCenterWindow();
       if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
-        commandCenterWindow.webContents.send(CommandCenterEvents.REFRESH);
+        commandCenterWindow.setSize(dimensions.width, dimensions.height);
       }
-    });
-  });
-
-  ipcMain.on(CommandCenterEvents.CHECK_TYPE, (_event: IpcMainInvokeEvent, commandType: CommandType) => {
-    const commandCenterWindow = getCommandCenterWindow();
-    if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
-      commandCenterWindow.webContents.send(CommandCenterEvents.CHECK_TYPE, commandType);
-    }
-  });
-
-  // Handle window resize events
-  ipcMain.on(CommandCenterEvents.ON_RESIZE, (_event: IpcMainInvokeEvent, dimensions: { width: number; height: number }) => {
-    const commandCenterWindow = getCommandCenterWindow();
-    if (commandCenterWindow && !commandCenterWindow.isDestroyed()) {
-      commandCenterWindow.setSize(dimensions.width, dimensions.height);
     }
   });
 

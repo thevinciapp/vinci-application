@@ -119,6 +119,7 @@ export interface SimilarMessage {
 
 // Command Center Types
 export type CommandType = 
+  | 'unified'  // Main command center with all groups
   | 'spaces'
   | 'conversations'
   | 'models'
@@ -129,11 +130,27 @@ export type CommandType =
   | 'messageSearch'
   | 'similarMessages';
 
+export interface CommandGroup {
+  type: CommandType;
+  title: string;
+  items: any[];
+  icon?: string;
+  description?: string;
+}
+
+export interface UnifiedCommandState {
+  groups: CommandGroup[];
+  searchQuery: string;
+  selectedGroup?: CommandType;
+}
+
 export type CommandCenterAction = 'open' | 'close' | 'refresh';
 
 export interface CommandCenterStateData {
   action: CommandCenterAction;
   commandType?: CommandType;
+  isUnified?: boolean;
+  groups?: CommandGroup[];
 }
 
 export type ShortcutKey = 

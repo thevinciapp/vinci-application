@@ -10,12 +10,8 @@ import { conversationApi } from './preload/api/conversations';
 import { chatApi } from './preload/api/chat';
 import { ipcUtils } from './preload/utils/ipc';
 
-console.log('[ELECTRON PRELOAD] Initializing preload script');
-
 const updatedAuthApi = {
   ...authApi,
-  getAccessToken: () => ipcRenderer.invoke('get-access-token'),
-  setAccessToken: (token: string) => ipcRenderer.invoke('set-access-token', token),
 };
 
 contextBridge.exposeInMainWorld("electron", {

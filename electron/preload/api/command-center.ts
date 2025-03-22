@@ -1,5 +1,6 @@
 import { ipcRenderer } from 'electron';
 import { CommandCenterEvents, AppStateEvents } from '@/core/ipc/constants';
+import { CommandType } from '@/types';
 
 export const commandCenterApi = {
   searchFiles: async (searchTerm: string) => {
@@ -35,48 +36,75 @@ export const commandCenterApi = {
     }
   },
 
-  toggleCommandCenter: async () => {
+  toggleCommandCenter: async (commandType: CommandType = 'unified') => {
     try {
       await ipcRenderer.invoke(AppStateEvents.REFRESH_DATA);
-      ipcRenderer.send(CommandCenterEvents.TOGGLE);
-      ipcRenderer.send(CommandCenterEvents.SYNC_STATE, { success: true, data: { action: "toggle" } });
+      return await ipcRenderer.invoke(CommandCenterEvents.TOGGLE, commandType);
     } catch (error) {
-      console.error("Error preloading data for command center:", error);
+      console.error("Error toggling command center:", error);
+      return { success: false, error };
     }
   },
 
-  closeCommandCenter: () => {
-    ipcRenderer.send(CommandCenterEvents.CLOSE);
-    ipcRenderer.send(CommandCenterEvents.SYNC_STATE, { success: true, data: { action: "close" } });
-  },
-
-  openCommandType: async (commandType: string) => {
+  closeCommandCenter: async (commandType: CommandType = 'unified') => {
     try {
-      await ipcRenderer.invoke(AppStateEvents.REFRESH_DATA);
-      ipcRenderer.send(CommandCenterEvents.SHOW);
-      ipcRenderer.send(CommandCenterEvents.SET_TYPE, { success: true, data: { type: commandType } });
-      ipcRenderer.send(CommandCenterEvents.SYNC_STATE, { success: true, data: { action: "open", type: commandType } });
+      return await ipcRenderer.invoke(CommandCenterEvents.CLOSE, commandType);
     } catch (error) {
-      console.error("Error preloading data for command center:", error);
+      console.error("Error closing command center:", error);
+      return { success: false, error };
     }
   },
 
-  refreshCommandCenter: () => {
-    ipcRenderer.send(CommandCenterEvents.REFRESH);
-    ipcRenderer.send(CommandCenterEvents.SYNC_STATE, { success: true, data: { action: "refresh" } });
+  openCommandType: async (commandType: CommandType) => {
+    try {
+      await ipcRenderer.invoke(AppStateEvents.REFRESH_DATA);
+      return await ipcRenderer.invoke(CommandCenterEvents.SHOW, commandType);
+    } catch (error) {
+      console.error("Error opening command type:", error);
+      return { success: false, error };
+    }
   },
 
-  checkCommandType: (commandType: string) => {
-    ipcRenderer.send(CommandCenterEvents.CHECK_TYPE, { success: true, data: { type: commandType } });
+  refreshCommandCenter: async (commandType: CommandType = 'unified') => {
+    try {
+      return await ipcRenderer.invoke(CommandCenterEvents.REFRESH, commandType);
+    } catch (error) {
+      console.error("Error refreshing command center:", error);
+      return { success: false, error };
+    }
+  },
+
+  checkCommandType: async (commandType: CommandType) => {
+    try {
+      return await ipcRenderer.invoke(CommandCenterEvents.CHECK_TYPE, commandType);
+    } catch (error) {
+      console.error("Error checking command type:", error);
+      return { success: false, error };
+    }
   },
 
   // Dialog APIs
-  openDialog: (dialogType: string, data: any) => 
-    ipcRenderer.send(CommandCenterEvents.OPEN_DIALOG, { success: true, data: { type: dialogType, ...data } }),
+  openDialog: async (dialogType: string, data: any) => {
+    try {
+      return await ipcRenderer.invoke(CommandCenterEvents.OPEN_DIALOG, dialogType, data);
+    } catch (error) {
+      console.error("Error opening dialog:", error);
+      return { success: false, error };
+    }
+  },
   
   notifyDialogOpened: () => 
     ipcRenderer.send(CommandCenterEvents.DIALOG_OPENED, { success: true }),
   
   notifyDialogClosed: () => 
     ipcRenderer.send(CommandCenterEvents.DIALOG_CLOSED, { success: true }),
+
+  closeDialog: async () => {
+    try {
+      return await ipcRenderer.invoke(CommandCenterEvents.DIALOG_CLOSED);
+    } catch (error) {
+      console.error("Error closing dialog:", error);
+      return { success: false, error };
+    }
+  }
 };

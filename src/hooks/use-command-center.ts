@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { CommandCenterEvents } from '@/core/ipc/constants';
-import { CommandCenterState } from '@/types/electron';
+import { CommandType, CommandCenterState, IpcResponse } from '@/types';
 
 /**
  * Custom hook for managing command center state and IPC communication
@@ -16,51 +16,66 @@ export function useCommandCenter() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /**
-   * Setup command center state listener
-   */
-  const setupCommandCenterListener = useCallback(() => {
-    // Set up listener for state synchronization
-    const handler = (event: any, action: string, data: any) => {
-      setState(prevState => ({
-        ...prevState,
-        isOpen: action === 'open',
-        activeCommand: action === 'open' ? data : undefined,
-        dialogType: undefined,
-        dialogData: undefined
-      }));
+  useEffect(() => {
+    const handleStateSync = (event: any, response: IpcResponse<Partial<CommandCenterState>>) => {
+      if (response.success && response.data) {
+        setState(prevState => ({
+          ...prevState,
+          ...response.data,
+          isOpen: true
+        }));
+        console.log('[COMMAND] State synced:', response.data?.activeCommand);
+      } else {
+        setError(response.error || 'Failed to sync state');
+      }
     };
 
-    const cleanup = window.electronAPI?.[CommandCenterEvents.SYNC_STATE]?.(handler);
-
-    // Return cleanup function
+    // Don't automatically toggle command center on hook mount
+    // Let the shortcut keys control this instead
+    const unsubscribe = window.electronAPI?.[CommandCenterEvents.SYNC_STATE]?.(handleStateSync);
+    
+    // Log the current command type for debugging
+    console.log('[COMMAND] Hook initialized with command type:', state.activeCommand);
+    
     return () => {
-      if (cleanup) cleanup();
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
     };
-  }, []);
+  }, [state.activeCommand]);
 
-  const updateState = async (newState: Partial<CommandCenterState>) => {
+  const updateState = useCallback(async (newState: Partial<CommandCenterState>) => {
     try {
       setIsLoading(true);
       setError(null);
+
+      // If changing command type, notify the main process
+      if (newState.activeCommand && newState.activeCommand !== state.activeCommand) {
+        await window.electronAPI?.openCommandType?.(newState.activeCommand);
+      }
+
       setState(prevState => ({ ...prevState, ...newState }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [state.activeCommand]);
 
   const openDialog = async (dialogType: string, data: any) => {
     try {
       setIsLoading(true);
       setError(null);
-      await window.electronAPI?.[CommandCenterEvents.OPEN_DIALOG]?.(dialogType, data);
-      setState(prevState => ({
-        ...prevState,
-        dialogType,
-        dialogData: data
-      }));
+      const response = await window.electronAPI?.openDialog?.(dialogType, data);
+      if (response?.success) {
+        setState(prevState => ({
+          ...prevState,
+          dialogType,
+          dialogData: data
+        }));
+      } else {
+        throw new Error(response?.error || 'Failed to open dialog');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -72,12 +87,16 @@ export function useCommandCenter() {
     try {
       setIsLoading(true);
       setError(null);
-      await window.electronAPI?.[CommandCenterEvents.DIALOG_CLOSED]?.();
-      setState(prevState => ({
-        ...prevState,
-        dialogType: undefined,
-        dialogData: undefined
-      }));
+      const response = await window.electronAPI?.closeDialog?.();
+      if (response?.success) {
+        setState(prevState => ({
+          ...prevState,
+          dialogType: undefined,
+          dialogData: undefined
+        }));
+      } else {
+        throw new Error(response?.error || 'Failed to close dialog');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -89,13 +108,17 @@ export function useCommandCenter() {
     try {
       setIsLoading(true);
       setError(null);
-      await window.electronAPI?.[CommandCenterEvents.CLOSE]?.();
-      setState({
-        isOpen: false,
-        activeCommand: undefined,
-        dialogType: undefined,
-        dialogData: undefined
-      });
+      const response = await window.electronAPI?.closeCommandCenter?.(state.activeCommand);
+      if (response?.success) {
+        setState({
+          isOpen: false,
+          activeCommand: undefined,
+          dialogType: undefined,
+          dialogData: undefined
+        });
+      } else {
+        throw new Error(response?.error || 'Failed to close command center');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -107,7 +130,10 @@ export function useCommandCenter() {
     try {
       setIsLoading(true);
       setError(null);
-      await window.electronAPI?.[CommandCenterEvents.REFRESH]?.();
+      const response = await window.electronAPI?.refreshCommandCenter?.(state.activeCommand);
+      if (!response?.success) {
+        throw new Error(response?.error || 'Failed to refresh command center');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -119,7 +145,6 @@ export function useCommandCenter() {
     state,
     isLoading,
     error,
-    setupCommandCenterListener,
     updateState,
     openDialog,
     closeDialog,

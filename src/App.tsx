@@ -26,7 +26,10 @@ function App() {
           <Route path="/protected/profile" element={<Profile />} />
           <Route path="/protected/reset-password" element={<ResetPassword />} />
         </Route>
-        <Route path="/command-center" element={<CommandCenter />} />
+        <Route path="/command-center">
+          <Route path="unified" element={<CommandCenter />} />
+          <Route path=":type" element={<CommandCenter />} />
+        </Route>
       </Routes>
     </HashRouter>
   );
