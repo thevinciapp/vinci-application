@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Command } from 'cmdk';
 import { providers } from "@/registry/providers";
 import { dialogs } from "@/registry/dialogs";
@@ -22,14 +22,16 @@ const CommandCenter = () => {
   } = useCommandCenter();
   const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const commandType = type as CommandType;
 
   // Set the active command type based on the URL parameter
   useEffect(() => {
     if (isAuthenticated) {
-      console.log(`[COMMAND] Setting active command to: ${type}`);
-      updateState({ activeCommand: type });
+      console.log(`[COMMAND] Setting active command to: ${commandType}`);
+      updateState({ activeCommand: commandType });
     }
-  }, [type, updateState, isAuthenticated]);
+  }, [commandType, updateState, isAuthenticated]);
 
   // Handle escape key to close the command center
   useEffect(() => {
@@ -42,13 +44,37 @@ const CommandCenter = () => {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [close]);
 
+  // Focus the search input when component mounts or command type changes
+  useEffect(() => {
+    // Use multiple focus attempts with increasing delays to ensure focus works
+    const focusInput = () => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        console.log('[COMMAND] Input focused');
+      }
+    };
+    
+    // Try focusing immediately
+    focusInput();
+    
+    // And also after small delays with multiple attempts
+    const timers = [
+      setTimeout(focusInput, 50),
+      setTimeout(focusInput, 100),
+      setTimeout(focusInput, 200),
+      setTimeout(focusInput, 500)
+    ];
+    
+    return () => timers.forEach(timer => clearTimeout(timer));
+  }, [commandType]);
+
   // Refresh data when authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      console.log(`[COMMAND] Refreshing command center data for type: ${type}`);
+      console.log(`[COMMAND] Refreshing command center data for type: ${commandType}`);
       refreshCommandCenter();
     }
-  }, [isAuthenticated, refreshCommandCenter, type]);
+  }, [isAuthenticated, refreshCommandCenter, commandType]);
   
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
@@ -74,10 +100,8 @@ const CommandCenter = () => {
   };
 
   const renderProviderUI = () => {
-    // Always use the type from the URL parameter as the provider key
-    const providerKey = type;
-    
-    if (!providerKey || !providers[providerKey]) {
+    // Always use the commandType (derived from URL) as the provider key
+    if (!commandType || !providers[commandType]) {
       return (
         <Command.List>
           <Command.Group heading="Select a category">
@@ -94,7 +118,7 @@ const CommandCenter = () => {
       );
     }
     
-    const ProviderComponent = providers[providerKey];
+    const ProviderComponent = providers[commandType];
     return (
       <ProviderComponent 
         searchQuery={searchQuery} 
@@ -118,9 +142,11 @@ const CommandCenter = () => {
     <div className="vinci">
       <Command shouldFilter={false} loop autoFocus>
         <Command.Input 
+          ref={inputRef}
           value={searchQuery}
           onValueChange={handleSearchChange}
-          placeholder={`Search ${type} commands...`}
+          placeholder={`Search ${commandType} commands...`}
+          autoFocus={true}
         />
         
         <Command.Empty>No results found.</Command.Empty>

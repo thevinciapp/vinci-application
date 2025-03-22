@@ -25,6 +25,7 @@ const COMMAND_CENTER_CONFIG = {
   alwaysOnTop: true,
   hasShadow: false,
   skipTaskbar: true,
+  show: false, // Don't show until ready
   webPreferences: {
     preload: join(app.getAppPath(), 'out', 'preload', 'index.js'),
     nodeIntegration: false,
@@ -133,31 +134,88 @@ export async function createCommandCenterWindow(commandType: CommandType = 'unif
     
     // Create a new window for this command type
     console.log(`[ELECTRON] Creating new window for command type: ${commandType}`);
-    const window = new BrowserWindow(windowConfig);
+    const window = new BrowserWindow({
+      ...windowConfig,
+      show: false // Keep hidden until fully loaded to prevent flashing
+    });
+    
+    // Store the window reference
     WINDOW_STATE.commandWindows.set(commandType, window);
     
     // Configure window behavior
     window.setAlwaysOnTop(true, 'screen-saver');
     window.setVisibleOnAllWorkspaces(true);
-    window.once('ready-to-show', () => centerWindowOnScreen(window));
+    
+    // Pre-position the window for instant appearance
+    centerWindowOnScreen(window);
     
     // Initialize data when window loads
     window.webContents.once('did-finish-load', async () => {
       try {
-        const freshData = await fetchInitialAppData();
-        if (!freshData.error) {
-          useStore.getState().setAppState(freshData);
-        }
+        console.log(`[ELECTRON] Window content loaded for ${commandType}`);
+        
+        // First synchronize with current state for immediate feedback
         syncStateToWindow(window, commandType);
+        
+        // Then fetch fresh data in background to update
+        fetchInitialAppData().then(freshData => {
+          if (!freshData.error) {
+            useStore.getState().setAppState(freshData);
+            syncStateToWindow(window, commandType);
+          }
+        }).catch(err => {
+          console.error(`[ELECTRON] Background data fetch error:`, err);
+        });
       } catch (error) {
         console.error(`[ELECTRON] Failed to initialize state for ${commandType} window:`, error);
       }
     });
     
-    // Set up window behavior events
-    window.on('blur', () => !WINDOW_STATE.isDialogOpen && window.hide());
+    // Only set up the ready-to-show event ONCE to prevent flashing issues
+    let hasShownBefore = false;
+    window.once('ready-to-show', () => {
+      console.log(`[ELECTRON] Window ready to show for ${commandType}`);
+      hasShownBefore = true;
+      // Window will be shown by the shortcut handler, not automatically
+    });
+    
+    // Prevent immediate blur hiding by adding a small grace period
+    let lastShownTime = 0;
+    let blurProtectionActive = false;
+    
+    // Create a listener that will prevent blur hide immediately after showing
+    window.on('show', () => {
+      lastShownTime = Date.now();
+      blurProtectionActive = true;
+      console.log(`[ELECTRON] Show protection activated for ${commandType}`);
+      
+      // Disable blur protection after a short delay
+      setTimeout(() => {
+        blurProtectionActive = false;
+        console.log(`[ELECTRON] Show protection deactivated for ${commandType}`);
+      }, 500);
+    });
+    
+    // Set up window behavior events with blur protection
+    window.on('blur', () => {
+      if (WINDOW_STATE.isDialogOpen) {
+        console.log(`[ELECTRON] Not hiding ${commandType} window on blur - dialog open`);
+        return;
+      }
+      
+      const timeSinceShown = Date.now() - lastShownTime;
+      if (blurProtectionActive && timeSinceShown < 500) {
+        console.log(`[ELECTRON] Not hiding ${commandType} window - too soon after showing (${timeSinceShown}ms)`);
+        return;
+      }
+      
+      console.log(`[ELECTRON] Hiding ${commandType} window on blur`);
+      window.hide();
+    });
+    
     window.on('close', (event) => {
       event.preventDefault();
+      console.log(`[ELECTRON] Preventing close of ${commandType} window`);
       window.hide();
     });
     
@@ -168,6 +226,7 @@ export async function createCommandCenterWindow(commandType: CommandType = 'unif
       
     console.log(`[ELECTRON] Loading URL for ${commandType} window: ${url}`);
     await window.loadURL(url);
+    
     return window;
   } catch (error) {
     console.error('[ELECTRON] Error creating command window:', error);
@@ -191,38 +250,16 @@ export async function createMainWindow() {
   return window;
 }
 
+/**
+ * This function is DEPRECATED - use createCommandCenterWindow instead
+ * and handle the shown/hidden state explicitly in the shortcut handler
+ */
 export async function toggleCommandCenterWindow(commandType: CommandType = 'unified'): Promise<BrowserWindow | null> {
   try {
-    console.log(`[ELECTRON] Toggling command window for type: ${commandType}`);
-    
-    const window = WINDOW_STATE.commandWindows.get(commandType);
-    
-    if (window?.isVisible()) {
-      console.log(`[ELECTRON] Hiding ${commandType} window`);
-      window.hide();
-      return window;
-    }
-    
-    console.log(`[ELECTRON] Creating/showing ${commandType} window`);
-    const newWindow = await createCommandCenterWindow(commandType);
-    if (newWindow) {
-      // Reload fresh data for this specific command type
-      try {
-        const freshData = await fetchInitialAppData();
-        if (!freshData.error) {
-          useStore.getState().setAppState(freshData);
-        }
-      } catch (err) {
-        console.error(`[ELECTRON] Error fetching fresh data for ${commandType}:`, err);
-      }
-      
-      syncStateToWindow(newWindow, commandType);
-      newWindow.show();
-      newWindow.focus();
-    }
-    return newWindow;
+    // Create/get the window but DON'T modify the visible state
+    return await createCommandCenterWindow(commandType);
   } catch (error) {
-    console.error('[ELECTRON] Error toggling command window:', error);
+    console.error('[ELECTRON] Error in toggleCommandCenterWindow:', error);
     return null;
   }
 }
@@ -232,6 +269,22 @@ export const getCommandCenterWindow = () => WINDOW_STATE.commandWindows.get('uni
 export const getContextCommandWindow = (type: CommandType) => WINDOW_STATE.commandWindows.get(type);
 export const setDialogState = (state: boolean) => WINDOW_STATE.isDialogOpen = state;
 export const getDialogState = () => WINDOW_STATE.isDialogOpen;
+
+// Helper function to get all visible command windows
+export const getAllVisibleCommandWindows = (): Array<[CommandType, BrowserWindow]> => {
+  const visibleWindows: Array<[CommandType, BrowserWindow]> = [];
+  
+  for (const [type, window] of WINDOW_STATE.commandWindows.entries()) {
+    if (window && !window.isDestroyed() && window.isVisible()) {
+      visibleWindows.push([type, window]);
+    }
+  }
+  
+  return visibleWindows;
+};
+
+// Export the window state for access from other modules
+export const getWindowState = () => WINDOW_STATE;
 
 export const setCommandType = (commandType: CommandType) => {
   const window = WINDOW_STATE.commandWindows.get(commandType);
