@@ -1,5 +1,3 @@
-
-
 import React from "react";
 import { PencilLine, Trash, MessageSquare, Plus } from "lucide-react";
 import { Command } from 'cmdk';
@@ -17,22 +15,22 @@ export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ search
   const { fetchMessages } = useMessages(null);
 
   const filteredConversations = conversations
-    .filter(conv => conv.spaceId === activeSpace?.id)
+    .filter(conv => conv.space_id === activeSpace?.id)
     .filter(conv =>
       (conv.title || 'Untitled').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
   const handleSelect = async (conversation: Conversation) => {
     try {
-      if (!conversation || !conversation.spaceId) {
+      if (!conversation || !conversation.space_id) {
         console.error('[ConversationsProvider] Cannot select conversation: Invalid spaceId', conversation);
         return;
       }
 
-      console.log('[ConversationsProvider] Selecting conversation:', conversation.id, 'in space:', conversation.spaceId);
+      console.log('[ConversationsProvider] Selecting conversation:', conversation.id, 'in space:', conversation.space_id);
       
       // First set active space
-      const spaceSuccess = await setActiveSpaceById(conversation.spaceId);
+      const spaceSuccess = await setActiveSpaceById(conversation.space_id);
       
       if (spaceSuccess) {
         // Then fetch messages for the conversation
@@ -84,7 +82,7 @@ export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ search
             <Command.Item
               key={conv.id}
               value={conv.title || 'Untitled'}
-              onSelect={() => handleSelect(conv)}
+              onSelect={() => handleSelect({...conv, title: conv.title || 'Untitled'})}
             >
               <MessageSquare size={16} />
               <div>
@@ -94,14 +92,14 @@ export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ search
                 <Button 
                   variant="ghost"
                   size="icon"
-                  onClick={(e) => handleEdit(e, conv)}
+                  onClick={(e) => handleEdit(e, {...conv, title: conv.title || 'Untitled'})}
                 >
                   <PencilLine size={14} />
                 </Button>
                 <Button 
                   variant="ghost"
                   size="icon"
-                  onClick={(e) => handleDelete(e, conv)}
+                  onClick={(e) => handleDelete(e, {...conv, title: conv.title || 'Untitled'})}
                 >
                   <Trash size={14} />
                 </Button>
