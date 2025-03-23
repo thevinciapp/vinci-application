@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Command } from 'cmdk';
 import { providers } from "@/registry/providers";
 import { dialogs } from "@/registry/dialogs";
@@ -8,7 +8,60 @@ import { useParams } from 'react-router-dom';
 import { CommandType } from '@/types';
 import '@/styles/cmdk.css';
 
-const CommandCenter = () => {
+interface CommandCenterProps {}
+
+const FOCUS_DELAYS = [50, 100, 200, 500] as const;
+
+function useCommandCenterFocus(inputRef: React.RefObject<HTMLInputElement>, commandType: CommandType) {
+  useEffect(() => {
+    const focusInput = () => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    };
+    
+    focusInput();
+    const timers = FOCUS_DELAYS.map(delay => setTimeout(focusInput, delay));
+    return () => timers.forEach(clearTimeout);
+  }, [commandType]);
+}
+
+function useEscapeKey(onEscape: () => void) {
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onEscape();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [onEscape]);
+}
+
+function useInitialDataLoad(
+  isAuthenticated: boolean, 
+  commandType: CommandType, 
+  updateState: (state: Partial<{ activeCommand: CommandType }>) => Promise<void>,
+  preloadData: () => Promise<void>
+) {
+  const hasLoadedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isAuthenticated || hasLoadedRef.current) return;
+    
+    const initializeCommandCenter = async () => {
+      try {
+        await preloadData();
+        await updateState({ activeCommand: commandType });
+        hasLoadedRef.current = true;
+      } catch (error) {
+        console.error('Failed to initialize command center:', error);
+      }
+    };
+
+    initializeCommandCenter();
+  }, [isAuthenticated, commandType, updateState, preloadData]);
+}
+
+const CommandCenter: React.FC<CommandCenterProps> = () => {
   const { type = 'unified' } = useParams<{ type: CommandType }>();
   const {
     state,
@@ -18,89 +71,35 @@ const CommandCenter = () => {
     openDialog,
     closeDialog,
     close,
-    refreshCommandCenter
+    preloadData
   } = useCommandCenter();
   const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const commandType = type as CommandType;
 
-  // Set the active command type based on the URL parameter
-  useEffect(() => {
-    if (isAuthenticated) {
-      console.log(`[COMMAND] Setting active command to: ${commandType}`);
-      updateState({ activeCommand: commandType });
-    }
-  }, [commandType, updateState, isAuthenticated]);
+  useInitialDataLoad(isAuthenticated, commandType, updateState, preloadData);
+  useEscapeKey(close);
+  useCommandCenterFocus(inputRef as React.RefObject<HTMLInputElement>, commandType);
 
-  // Handle escape key to close the command center
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        close();
-      }
-    };
-    window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
-  }, [close]);
-
-  // Focus the search input when component mounts or command type changes
-  useEffect(() => {
-    // Use multiple focus attempts with increasing delays to ensure focus works
-    const focusInput = () => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-        console.log('[COMMAND] Input focused');
-      }
-    };
-    
-    // Try focusing immediately
-    focusInput();
-    
-    // And also after small delays with multiple attempts
-    const timers = [
-      setTimeout(focusInput, 50),
-      setTimeout(focusInput, 100),
-      setTimeout(focusInput, 200),
-      setTimeout(focusInput, 500)
-    ];
-    
-    return () => timers.forEach(timer => clearTimeout(timer));
-  }, [commandType]);
-
-  // Refresh data when authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      console.log(`[COMMAND] Refreshing command center data for type: ${commandType}`);
-      refreshCommandCenter();
-    }
-  }, [isAuthenticated, refreshCommandCenter, commandType]);
-  
-  const handleSearchChange = (value: string) => {
+  const handleSearchChange = useCallback((value: string) => {
     setSearchQuery(value);
-  };
+  }, []);
 
-  const handleSelect = (item: any) => {
-    if (item?.closeOnSelect === true) {
+  const handleSelect = useCallback((item: { closeOnSelect?: boolean }) => {
+    if (item?.closeOnSelect) {
       close();
     }
-  };
+  }, [close]);
 
-  const handleAction = async (action: string, data: any) => {
-    try {
-      const dialogType = `${action}-${currentProvider?.slice(0, -1)}`;
-      if (dialogs[dialogType]) {
-        await openDialog(dialogType, data);
-      } else {
-        console.warn(`Unknown dialog type: ${dialogType}`);
-      }
-    } catch (error) {
-      console.error('Error handling action:', error);
+  const handleAction = useCallback(async (action: string, data: unknown) => {
+    const dialogType = `${action}-${currentProvider?.slice(0, -1)}`;
+    if (dialogs[dialogType]) {
+      await openDialog(dialogType, data);
     }
-  };
+  }, [currentProvider, openDialog]);
 
-  const renderProviderUI = () => {
-    // Always use the commandType (derived from URL) as the provider key
+  const renderProviderUI = useCallback(() => {
     if (!commandType || !providers[commandType]) {
       return (
         <Command.List>
@@ -126,17 +125,22 @@ const CommandCenter = () => {
         onAction={handleAction}
       />
     );
-  };
+  }, [commandType, searchQuery, handleSelect, handleAction, updateState]);
 
-  const renderDialog = () => {
-    if (!currentDialog || !dialogs[currentDialog.type]) return null;
+  const renderDialog = useCallback(() => {
+    if (!currentDialog?.type || !dialogs[currentDialog.type]) return null;
+    
     const DialogComponent = dialogs[currentDialog.type];
     return (
       <div className="dialog">
         <DialogComponent data={currentDialog.data} onClose={closeDialog} />
       </div>
     );
-  };
+  }, [currentDialog, closeDialog]);
+
+  if (!state.isDataLoaded) {
+    return null;
+  }
 
   return (
     <div className="vinci">

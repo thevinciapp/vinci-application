@@ -7,10 +7,6 @@ import { useStore } from '../../store';
 import { sanitizeStateForIPC } from '../utils/state-utils';
 import { fetchInitialAppData } from '../../services/app-data/app-data-service';
 
-/**
- * Track windows across all command types
- * In Raycast-style UI, we create a separate window for each command type
- */
 const WINDOW_STATE = {
   main: null as BrowserWindow | null,
   commandWindows: new Map<CommandType, BrowserWindow>(),
@@ -25,7 +21,7 @@ const COMMAND_CENTER_CONFIG = {
   alwaysOnTop: true,
   hasShadow: false,
   skipTaskbar: true,
-  show: false, // Don't show until ready
+  show: false,
   webPreferences: {
     preload: join(app.getAppPath(), 'out', 'preload', 'index.js'),
     nodeIntegration: false,
@@ -72,7 +68,6 @@ function getCommandGroups(state: any): CommandGroup[] {
       icon: 'ModelIcon',
       description: 'Available AI models'
     },
-    // Add other groups as needed
   ];
 }
 
@@ -81,25 +76,11 @@ function syncStateToWindow(window: BrowserWindow, commandType?: CommandType) {
     const state = useStore.getState();
     const sanitizedState = sanitizeStateForIPC(state);
     
-    if (commandType === 'unified') {
-      const groups = getCommandGroups(sanitizedState);
-      window.webContents.send(CommandCenterEvents.SYNC_STATE, { 
-        success: true, 
-        data: {
-          ...sanitizedState,
-          isUnified: true,
-          groups
-        }
-      });
-    } else {
-      window.webContents.send(CommandCenterEvents.SYNC_STATE, { 
-        success: true, 
-        data: {
-          ...sanitizedState,
-          isUnified: false
-        }
-      });
-    }
+    const payload = commandType === 'unified' 
+      ? { ...sanitizedState, isUnified: true, groups: getCommandGroups(sanitizedState) }
+      : { ...sanitizedState, isUnified: false };
+
+    window.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: payload });
   } catch (error) {
     console.error('Failed to sync state to window:', error);
     window.webContents.send(CommandCenterEvents.SYNC_STATE, { 
@@ -118,115 +99,72 @@ function centerWindowOnScreen(window: BrowserWindow) {
   );
 }
 
+function configureWindowBehavior(window: BrowserWindow, commandType: CommandType) {
+  window.setAlwaysOnTop(true, 'screen-saver');
+  window.setVisibleOnAllWorkspaces(true);
+  centerWindowOnScreen(window);
+}
+
+function setupBlurProtection(window: BrowserWindow, commandType: CommandType) {
+  let lastShownTime = 0;
+  let blurProtectionActive = false;
+
+  window.on('show', () => {
+    lastShownTime = Date.now();
+    blurProtectionActive = true;
+    setTimeout(() => blurProtectionActive = false, 500);
+  });
+
+  window.on('blur', () => {
+    if (WINDOW_STATE.isDialogOpen) return;
+    
+    const timeSinceShown = Date.now() - lastShownTime;
+    if (blurProtectionActive && timeSinceShown < 500) return;
+    
+    window.hide();
+  });
+}
+
+function setupWindowEvents(window: BrowserWindow, commandType: CommandType) {
+  window.webContents.once('did-finish-load', async () => {
+    syncStateToWindow(window, commandType);
+    try {
+      const freshData = await fetchInitialAppData();
+      useStore.getState().setAppState(freshData);
+      syncStateToWindow(window, commandType);
+    } catch (error) {
+      console.error('Failed to fetch initial app data:', error);
+    }
+  });
+
+  window.once('ready-to-show', () => {});
+  window.on('close', event => {
+    event.preventDefault();
+    window.hide();
+  });
+
+  setupBlurProtection(window, commandType);
+}
+
+function getWindowUrl(commandType: CommandType): string {
+  return process.env.NODE_ENV === 'development'
+    ? `http://localhost:5173/#/command-center/${commandType}`
+    : `file://${join(app.getAppPath(), 'out', 'renderer', 'index.html')}#/command-center/${commandType}`;
+}
+
 export async function createCommandCenterWindow(commandType: CommandType = 'unified'): Promise<BrowserWindow | null> {
   try {
-    console.log(`[ELECTRON] Creating command window for type: ${commandType}`);
-    
-    // Check if a window for this command type already exists
-    let existingWindow = WINDOW_STATE.commandWindows.get(commandType);
-    if (existingWindow?.isDestroyed() === false) {
-      console.log(`[ELECTRON] Reusing existing window for command type: ${commandType}`);
-      return existingWindow;
-    }
-    
-    // Choose the appropriate window config based on command type
+    const existingWindow = WINDOW_STATE.commandWindows.get(commandType);
+    if (existingWindow?.isDestroyed() === false) return existingWindow;
+
     const windowConfig = commandType === 'unified' ? COMMAND_CENTER_CONFIG : CONTEXT_COMMAND_CONFIG;
+    const window = new BrowserWindow({ ...windowConfig, show: false });
     
-    // Create a new window for this command type
-    console.log(`[ELECTRON] Creating new window for command type: ${commandType}`);
-    const window = new BrowserWindow({
-      ...windowConfig,
-      show: false // Keep hidden until fully loaded to prevent flashing
-    });
-    
-    // Store the window reference
     WINDOW_STATE.commandWindows.set(commandType, window);
+    configureWindowBehavior(window, commandType);
+    setupWindowEvents(window, commandType);
     
-    // Configure window behavior
-    window.setAlwaysOnTop(true, 'screen-saver');
-    window.setVisibleOnAllWorkspaces(true);
-    
-    // Pre-position the window for instant appearance
-    centerWindowOnScreen(window);
-    
-    // Initialize data when window loads
-    window.webContents.once('did-finish-load', async () => {
-      try {
-        console.log(`[ELECTRON] Window content loaded for ${commandType}`);
-        
-        // First synchronize with current state for immediate feedback
-        syncStateToWindow(window, commandType);
-        
-        // Then fetch fresh data in background to update
-        fetchInitialAppData().then(freshData => {
-          if (!freshData.error) {
-            useStore.getState().setAppState(freshData);
-            syncStateToWindow(window, commandType);
-          }
-        }).catch(err => {
-          console.error(`[ELECTRON] Background data fetch error:`, err);
-        });
-      } catch (error) {
-        console.error(`[ELECTRON] Failed to initialize state for ${commandType} window:`, error);
-      }
-    });
-    
-    // Only set up the ready-to-show event ONCE to prevent flashing issues
-    let hasShownBefore = false;
-    window.once('ready-to-show', () => {
-      console.log(`[ELECTRON] Window ready to show for ${commandType}`);
-      hasShownBefore = true;
-      // Window will be shown by the shortcut handler, not automatically
-    });
-    
-    // Prevent immediate blur hiding by adding a small grace period
-    let lastShownTime = 0;
-    let blurProtectionActive = false;
-    
-    // Create a listener that will prevent blur hide immediately after showing
-    window.on('show', () => {
-      lastShownTime = Date.now();
-      blurProtectionActive = true;
-      console.log(`[ELECTRON] Show protection activated for ${commandType}`);
-      
-      // Disable blur protection after a short delay
-      setTimeout(() => {
-        blurProtectionActive = false;
-        console.log(`[ELECTRON] Show protection deactivated for ${commandType}`);
-      }, 500);
-    });
-    
-    // Set up window behavior events with blur protection
-    window.on('blur', () => {
-      if (WINDOW_STATE.isDialogOpen) {
-        console.log(`[ELECTRON] Not hiding ${commandType} window on blur - dialog open`);
-        return;
-      }
-      
-      const timeSinceShown = Date.now() - lastShownTime;
-      if (blurProtectionActive && timeSinceShown < 500) {
-        console.log(`[ELECTRON] Not hiding ${commandType} window - too soon after showing (${timeSinceShown}ms)`);
-        return;
-      }
-      
-      console.log(`[ELECTRON] Hiding ${commandType} window on blur`);
-      window.hide();
-    });
-    
-    window.on('close', (event) => {
-      event.preventDefault();
-      console.log(`[ELECTRON] Preventing close of ${commandType} window`);
-      window.hide();
-    });
-    
-    // Construct and load the appropriate URL
-    const url = process.env.NODE_ENV === 'development'
-      ? `http://localhost:5173/#/command-center/${commandType}`
-      : `file://${join(app.getAppPath(), 'out', 'renderer', 'index.html')}#/command-center/${commandType}`;
-      
-    console.log(`[ELECTRON] Loading URL for ${commandType} window: ${url}`);
-    await window.loadURL(url);
-    
+    await window.loadURL(getWindowUrl(commandType));
     return window;
   } catch (error) {
     console.error('[ELECTRON] Error creating command window:', error);
@@ -250,18 +188,8 @@ export async function createMainWindow() {
   return window;
 }
 
-/**
- * This function is DEPRECATED - use createCommandCenterWindow instead
- * and handle the shown/hidden state explicitly in the shortcut handler
- */
 export async function toggleCommandCenterWindow(commandType: CommandType = 'unified'): Promise<BrowserWindow | null> {
-  try {
-    // Create/get the window but DON'T modify the visible state
-    return await createCommandCenterWindow(commandType);
-  } catch (error) {
-    console.error('[ELECTRON] Error in toggleCommandCenterWindow:', error);
-    return null;
-  }
+  return await createCommandCenterWindow(commandType);
 }
 
 export const getMainWindow = () => WINDOW_STATE.main;
@@ -270,20 +198,18 @@ export const getContextCommandWindow = (type: CommandType) => WINDOW_STATE.comma
 export const setDialogState = (state: boolean) => WINDOW_STATE.isDialogOpen = state;
 export const getDialogState = () => WINDOW_STATE.isDialogOpen;
 
-// Helper function to get all visible command windows
 export const getAllVisibleCommandWindows = (): Array<[CommandType, BrowserWindow]> => {
   const visibleWindows: Array<[CommandType, BrowserWindow]> = [];
   
-  for (const [type, window] of WINDOW_STATE.commandWindows.entries()) {
+  Array.from(WINDOW_STATE.commandWindows.entries()).forEach(([type, window]) => {
     if (window && !window.isDestroyed() && window.isVisible()) {
       visibleWindows.push([type, window]);
     }
-  }
+  });
   
   return visibleWindows;
 };
 
-// Export the window state for access from other modules
 export const getWindowState = () => WINDOW_STATE;
 
 export const setCommandType = (commandType: CommandType) => {
