@@ -4,7 +4,7 @@ import { isMac } from '@/lib/utils/env-utils';
 import { registerIpcHandlers } from '@/core/ipc/ipc-handlers';
 import { registerGlobalShortcuts } from '@/core/window/shortcuts';
 import { loadAuthData, refreshTokens } from '@/core/auth/auth-service';
-import { createMainWindow, getMainWindow, getCommandCenterWindow } from '@/core/window/window-service';
+import { createMainWindow, getMainWindow, getCommandCenterWindow, preloadCommandWindows } from '@/core/window/window-service';
 import { fetchInitialAppData } from '@/services/app-data/app-data-service';
 import { useStore } from '../../vinci-application/src/store';
 
@@ -57,6 +57,11 @@ async function startApp() {
   const isAuthenticated = await handleAuth();
   if (!isAuthenticated) {
     const mainWindow = await createMainWindow();
+    if (!mainWindow) {
+      console.error('Failed to create main window');
+      app.quit();
+      return;
+    }
     mainWindow.webContents.on('did-fail-load', console.error);
     if (APP_CONFIG.IS_DEV) mainWindow.webContents.openDevTools();
     mainWindow.loadURL(getAppUrl(ROUTES.SIGN_IN));
@@ -66,20 +71,33 @@ async function startApp() {
   const hasData = await handleAppData();
   if (!hasData) {
     const mainWindow = await createMainWindow();
+    if (!mainWindow) {
+      console.error('Failed to create main window');
+      app.quit();
+      return;
+    }
     mainWindow.webContents.on('did-fail-load', console.error);
     if (APP_CONFIG.IS_DEV) mainWindow.webContents.openDevTools();
     mainWindow.loadURL(getAppUrl(ROUTES.SIGN_IN));
     return;
   }
 
-  const mainWindow = await createMainWindow();
+  const [mainWindow] = await Promise.all([
+    createMainWindow(),
+    preloadCommandWindows()
+  ]);
+
+  if (!mainWindow) {
+    console.error('Failed to create main window');
+    app.quit();
+    return;
+  }
   mainWindow.webContents.on('did-fail-load', console.error);
   if (APP_CONFIG.IS_DEV) mainWindow.webContents.openDevTools();
   mainWindow.loadURL(getAppUrl(ROUTES.PROTECTED));
 }
 
 function shutdown() {
-  // Close all command center windows
   BrowserWindow.getAllWindows()
     .filter(window => window && !window.isDestroyed())
     .forEach(window => window?.destroy());

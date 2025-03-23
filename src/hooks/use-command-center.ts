@@ -24,7 +24,6 @@ interface CommandCenterHookReturn {
   closeDialog: () => Promise<void>;
   close: () => Promise<void>;
   refreshCommandCenter: () => Promise<void>;
-  preloadData: () => Promise<void>;
   currentProvider?: CommandType;
   currentDialog: CommandCenterDialog | null;
 }
@@ -83,49 +82,6 @@ export function useCommandCenter(): CommandCenterHookReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
-
-  const preloadData = useCallback(async () => {
-    if (state.isDataLoaded) return;
-
-    await handleIpcRequest(
-      () => callElectronAPI('refresh-command-center'),
-      setIsLoading,
-      setError
-    );
-
-    setState(prev => ({ ...prev, isDataLoaded: true }));
-  }, [state.isDataLoaded]);
-
-  useEffect(() => {
-    if (isInitialized) return;
-
-    const handleStateSync = (event: unknown, action: string, data: IpcResponse<Partial<CommandCenterState>>) => {
-      if (data.success && data.data) {
-        setState(prevState => ({
-          ...prevState,
-          ...data.data,
-          isOpen: true,
-          isDataLoaded: true
-        }));
-      } else {
-        setError(data.error || 'Failed to sync state');
-      }
-    };
-
-    const unsubscribe = window.electronAPI?.[CommandCenterEvents.SYNC_STATE]?.(handleStateSync);
-    setIsInitialized(true);
-
-    // Preload data when the hook is first initialized
-    preloadData().catch(err => {
-      console.error('Failed to preload command center data:', err);
-    });
-
-    return () => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
-    };
-  }, [isInitialized, preloadData]);
 
   const updateState = useCallback(async (newState: Partial<CommandCenterHookState>) => {
     if (newState.activeCommand && newState.activeCommand !== state.activeCommand) {
@@ -199,7 +155,6 @@ export function useCommandCenter(): CommandCenterHookReturn {
     closeDialog,
     close,
     refreshCommandCenter,
-    preloadData,
     currentProvider: state.activeCommand,
     currentDialog: state.dialogType ? { type: state.dialogType, data: state.dialogData } : null
   };

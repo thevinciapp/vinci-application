@@ -1,10 +1,7 @@
 import { ipcMain, IpcMainInvokeEvent, BrowserWindow } from 'electron';
-import { useStore } from '../../../store';
-import { fetchInitialAppData } from '../../../services/app-data/app-data-service';
 import { 
   getCommandCenterWindow,
   getContextCommandWindow,
-  createCommandCenterWindow,
   toggleCommandCenterWindow,
   setDialogState,
   setCommandType
@@ -20,9 +17,6 @@ interface DialogData {
   buttons?: string[];
 }
 
-/**
- * Register command center-related IPC handlers
- */
 export function registerCommandCenterHandlers(): void {
   ipcMain.handle(CommandCenterEvents.TOGGLE, async (_, commandType: CommandType = 'unified') => {
     try {

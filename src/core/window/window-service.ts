@@ -6,11 +6,14 @@ import { CommandCenterEvents } from '../ipc/constants';
 import { useStore } from '../../store';
 import { sanitizeStateForIPC } from '../utils/state-utils';
 import { fetchInitialAppData } from '../../services/app-data/app-data-service';
+import debounce from 'lodash/debounce';
 
 const WINDOW_STATE = {
   main: null as BrowserWindow | null,
   commandWindows: new Map<CommandType, BrowserWindow>(),
-  isDialogOpen: false
+  isDialogOpen: false,
+  cachedState: null as any,
+  lastStateUpdate: 0
 };
 
 const COMMAND_CENTER_CONFIG = {
@@ -72,23 +75,33 @@ function getCommandGroups(state: any): CommandGroup[] {
   ];
 }
 
-function syncStateToWindow(window: BrowserWindow, commandType?: CommandType) {
-  try {
+function getCachedState() {
+  const now = Date.now();
+  if (!WINDOW_STATE.cachedState || now - WINDOW_STATE.lastStateUpdate > 5000) {
     const state = useStore.getState();
-    const sanitizedState = sanitizeStateForIPC(state);
-    
+    WINDOW_STATE.cachedState = sanitizeStateForIPC(state);
+    WINDOW_STATE.lastStateUpdate = now;
+  }
+  return WINDOW_STATE.cachedState;
+}
+
+const debouncedStateSync = debounce((window: BrowserWindow, commandType?: CommandType) => {
+  try {
+    const sanitizedState = getCachedState();
     const payload = commandType === 'unified' 
       ? { ...sanitizedState, isUnified: true, groups: getCommandGroups(sanitizedState) }
       : { ...sanitizedState, isUnified: false };
 
-    window.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: payload });
+    if (!window.isDestroyed()) {
+      window.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: payload });
+    }
   } catch (error) {
     console.error('Failed to sync state to window:', error);
-    window.webContents.send(CommandCenterEvents.SYNC_STATE, { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Failed to serialize state' 
-    });
   }
+}, 100);
+
+function syncStateToWindow(window: BrowserWindow, commandType?: CommandType) {
+  debouncedStateSync(window, commandType);
 }
 
 function centerWindowOnScreen(window: BrowserWindow) {
@@ -153,6 +166,19 @@ function getWindowUrl(commandType: CommandType): string {
     : `${APP_BASE_URL}/#/command-center/${commandType}`;
 }
 
+export async function preloadCommandWindows() {
+  const commandTypes: CommandType[] = ['unified', 'spaces', 'conversations', 'models'];
+  
+  return Promise.all(commandTypes.map(async (type) => {
+    if (!WINDOW_STATE.commandWindows.has(type)) {
+      const window = await createCommandCenterWindow(type);
+      if (window) {
+        window.hide();
+      }
+    }
+  }));
+}
+
 export async function toggleCommandCenterWindow(commandType: CommandType): Promise<BrowserWindow | null> {
   const window = getContextCommandWindow(commandType);
   
@@ -162,11 +188,22 @@ export async function toggleCommandCenterWindow(commandType: CommandType): Promi
     } else {
       window.show();
       window.focus();
+      
+      setTimeout(() => {
+        if (!window.isDestroyed()) {
+          syncStateToWindow(window, commandType);
+        }
+      }, 0);
     }
     return window;
   }
 
-  return await createCommandCenterWindow(commandType);
+  const newWindow = await createCommandCenterWindow(commandType);
+  if (newWindow) {
+    newWindow.show();
+    newWindow.focus();
+  }
+  return newWindow;
 }
 
 export function getCommandCenterWindow(): BrowserWindow | null {
@@ -197,13 +234,22 @@ export function setCommandType(commandType: CommandType) {
 export async function createCommandCenterWindow(commandType: CommandType): Promise<BrowserWindow | null> {
   try {
     const config = commandType === 'unified' ? COMMAND_CENTER_CONFIG : CONTEXT_COMMAND_CONFIG;
-    const window = new BrowserWindow(config);
+    const window = new BrowserWindow({
+      ...config,
+      show: false,
+      webPreferences: {
+        ...config.webPreferences,
+        backgroundThrottling: false
+      }
+    });
     
     WINDOW_STATE.commandWindows.set(commandType, window);
     
-    await window.loadURL(getWindowUrl(commandType));
-    configureWindowBehavior(window, commandType);
-    setupWindowEvents(window, commandType);
+    window.loadURL(getWindowUrl(commandType));
+    
+    window.once('ready-to-show', () => {
+      setTimeout(() => setupWindowEvents(window, commandType), 0);
+    });
     
     return window;
   } catch (error) {

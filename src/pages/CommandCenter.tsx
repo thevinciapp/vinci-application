@@ -3,14 +3,11 @@ import { Command } from 'cmdk';
 import { providers } from "@/registry/providers";
 import { dialogs } from "@/registry/dialogs";
 import { useCommandCenter } from '@/hooks/use-command-center';
-import { useAuth } from '@/hooks/use-auth';
 import { useParams } from 'react-router-dom';
 import { CommandType } from '@/types';
 import '@/styles/cmdk.css';
 
 interface CommandCenterProps {}
-
-const FOCUS_DELAYS = [50, 100, 200, 500] as const;
 
 function useCommandCenterFocus(inputRef: React.RefObject<HTMLInputElement>, commandType: CommandType) {
   useEffect(() => {
@@ -21,8 +18,6 @@ function useCommandCenterFocus(inputRef: React.RefObject<HTMLInputElement>, comm
     };
     
     focusInput();
-    const timers = FOCUS_DELAYS.map(delay => setTimeout(focusInput, delay));
-    return () => timers.forEach(clearTimeout);
   }, [commandType]);
 }
 
@@ -36,49 +31,20 @@ function useEscapeKey(onEscape: () => void) {
   }, [onEscape]);
 }
 
-function useInitialDataLoad(
-  isAuthenticated: boolean, 
-  commandType: CommandType, 
-  updateState: (state: Partial<{ activeCommand: CommandType }>) => Promise<void>,
-  preloadData: () => Promise<void>
-) {
-  const hasLoadedRef = useRef(false);
-
-  useEffect(() => {
-    if (!isAuthenticated || hasLoadedRef.current) return;
-    
-    const initializeCommandCenter = async () => {
-      try {
-        await preloadData();
-        await updateState({ activeCommand: commandType });
-        hasLoadedRef.current = true;
-      } catch (error) {
-        console.error('Failed to initialize command center:', error);
-      }
-    };
-
-    initializeCommandCenter();
-  }, [isAuthenticated, commandType, updateState, preloadData]);
-}
-
 const CommandCenter: React.FC<CommandCenterProps> = () => {
   const { type = 'unified' } = useParams<{ type: CommandType }>();
   const {
-    state,
     currentProvider,
     currentDialog,
     updateState,
     openDialog,
     closeDialog,
     close,
-    preloadData
   } = useCommandCenter();
-  const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const commandType = type as CommandType;
 
-  useInitialDataLoad(isAuthenticated, commandType, updateState, preloadData);
   useEscapeKey(close);
   useCommandCenterFocus(inputRef as React.RefObject<HTMLInputElement>, commandType);
 
@@ -137,10 +103,6 @@ const CommandCenter: React.FC<CommandCenterProps> = () => {
       </div>
     );
   }, [currentDialog, closeDialog]);
-
-  if (!state.isDataLoaded) {
-    return null;
-  }
 
   return (
     <div className="vinci">

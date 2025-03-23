@@ -37,7 +37,6 @@ export const commandCenterApi = {
 
   toggleCommandCenter: async (commandType: CommandType = 'unified') => {
     try {
-      await ipcRenderer.invoke(AppStateEvents.REFRESH_DATA);
       return await ipcRenderer.invoke(CommandCenterEvents.TOGGLE, commandType);
     } catch (error) {
       console.error("Error toggling command center:", error);
