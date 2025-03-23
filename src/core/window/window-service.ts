@@ -17,9 +17,10 @@ const COMMAND_CENTER_CONFIG = {
   width: 680,
   height: 600,
   frame: false,
-  transparent: true,
+  transparent: false,
+  backgroundColor: '#161617',
   alwaysOnTop: true,
-  hasShadow: false,
+  hasShadow: true,
   skipTaskbar: true,
   show: false,
   webPreferences: {
@@ -149,79 +150,96 @@ function setupWindowEvents(window: BrowserWindow, commandType: CommandType) {
 function getWindowUrl(commandType: CommandType): string {
   return process.env.NODE_ENV === 'development'
     ? `http://localhost:5173/#/command-center/${commandType}`
-    : `file://${join(app.getAppPath(), 'out', 'renderer', 'index.html')}#/command-center/${commandType}`;
+    : `${APP_BASE_URL}/#/command-center/${commandType}`;
 }
 
-export async function createCommandCenterWindow(commandType: CommandType = 'unified'): Promise<BrowserWindow | null> {
-  try {
-    const existingWindow = WINDOW_STATE.commandWindows.get(commandType);
-    if (existingWindow?.isDestroyed() === false) return existingWindow;
+export async function toggleCommandCenterWindow(commandType: CommandType): Promise<BrowserWindow | null> {
+  const window = getContextCommandWindow(commandType);
+  
+  if (window && !window.isDestroyed()) {
+    if (window.isVisible()) {
+      window.hide();
+    } else {
+      window.show();
+      window.focus();
+    }
+    return window;
+  }
 
-    const windowConfig = commandType === 'unified' ? COMMAND_CENTER_CONFIG : CONTEXT_COMMAND_CONFIG;
-    const window = new BrowserWindow({ ...windowConfig, show: false });
+  return await createCommandCenterWindow(commandType);
+}
+
+export function getCommandCenterWindow(): BrowserWindow | null {
+  return WINDOW_STATE.commandWindows.get('unified') || null;
+}
+
+export function getContextCommandWindow(commandType: CommandType): BrowserWindow | null {
+  return WINDOW_STATE.commandWindows.get(commandType) || null;
+}
+
+export function getAllVisibleCommandWindows(): [CommandType, BrowserWindow][] {
+  return Array.from(WINDOW_STATE.commandWindows.entries())
+    .filter(([_, win]) => win && !win.isDestroyed() && win.isVisible());
+}
+
+export function getWindowState() {
+  return WINDOW_STATE;
+}
+
+export function setDialogState(isOpen: boolean) {
+  WINDOW_STATE.isDialogOpen = isOpen;
+}
+
+export function setCommandType(commandType: CommandType) {
+  // Implementation for setting command type
+}
+
+export async function createCommandCenterWindow(commandType: CommandType): Promise<BrowserWindow | null> {
+  try {
+    const config = commandType === 'unified' ? COMMAND_CENTER_CONFIG : CONTEXT_COMMAND_CONFIG;
+    const window = new BrowserWindow(config);
     
     WINDOW_STATE.commandWindows.set(commandType, window);
+    
+    await window.loadURL(getWindowUrl(commandType));
     configureWindowBehavior(window, commandType);
     setupWindowEvents(window, commandType);
     
-    await window.loadURL(getWindowUrl(commandType));
     return window;
   } catch (error) {
-    console.error('[ELECTRON] Error creating command window:', error);
+    console.error('Failed to create command center window:', error);
     return null;
   }
 }
 
-export async function createMainWindow() {
-  WINDOW_STATE.main = new BrowserWindow(MAIN_WINDOW_CONFIG);
-  const window = WINDOW_STATE.main;
+export async function createMainWindow(): Promise<BrowserWindow | null> {
+  try {
+    const window = new BrowserWindow(MAIN_WINDOW_CONFIG);
+    WINDOW_STATE.main = window;
 
-  window.once('ready-to-show', () => window.show());
-  window.webContents.once('did-finish-load', () => syncStateToWindow(window));
-  window.on('closed', () => WINDOW_STATE.main = null);
+    const url = process.env.NODE_ENV === 'development'
+      ? 'http://localhost:5173'
+      : APP_BASE_URL;
 
-  const url = process.env.NODE_ENV === 'development'
-    ? APP_BASE_URL
-    : `file://${join(app.getAppPath(), 'out', 'renderer', 'index.html')}`;
-    
-  await window.loadURL(url);
-  return window;
-}
+    await window.loadURL(url);
 
-export async function toggleCommandCenterWindow(commandType: CommandType = 'unified'): Promise<BrowserWindow | null> {
-  return await createCommandCenterWindow(commandType);
-}
-
-export const getMainWindow = () => WINDOW_STATE.main;
-export const getCommandCenterWindow = () => WINDOW_STATE.commandWindows.get('unified');
-export const getContextCommandWindow = (type: CommandType) => WINDOW_STATE.commandWindows.get(type);
-export const setDialogState = (state: boolean) => WINDOW_STATE.isDialogOpen = state;
-export const getDialogState = () => WINDOW_STATE.isDialogOpen;
-
-export const getAllVisibleCommandWindows = (): Array<[CommandType, BrowserWindow]> => {
-  const visibleWindows: Array<[CommandType, BrowserWindow]> = [];
-  
-  Array.from(WINDOW_STATE.commandWindows.entries()).forEach(([type, window]) => {
-    if (window && !window.isDestroyed() && window.isVisible()) {
-      visibleWindows.push([type, window]);
-    }
-  });
-  
-  return visibleWindows;
-};
-
-export const getWindowState = () => WINDOW_STATE;
-
-export const setCommandType = (commandType: CommandType) => {
-  const window = WINDOW_STATE.commandWindows.get(commandType);
-  if (window?.isDestroyed() === false) {
-    window.webContents.send(CommandCenterEvents.SET_TYPE, { 
-      success: true, 
-      data: { 
-        type: commandType, 
-        isUnified: commandType === 'unified' 
-      } 
+    window.webContents.once('did-finish-load', async () => {
+      try {
+        const freshData = await fetchInitialAppData();
+        useStore.getState().setAppState(freshData);
+        window.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: sanitizeStateForIPC(useStore.getState()) });
+      } catch (error) {
+        console.error('Failed to fetch initial app data:', error);
+      }
     });
-    window.focus();
+
+    return window;
+  } catch (error) {
+    console.error('Failed to create main window:', error);
+    return null;
   }
-};
+}
+
+export function getMainWindow(): BrowserWindow | null {
+  return WINDOW_STATE.main;
+}
