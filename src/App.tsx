@@ -1,6 +1,5 @@
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import SignIn from './pages/SignIn';
-import SignUp from './pages/SignUp';
 import ForgotPassword from './pages/ForgotPassword';
 import Protected from './pages/Protected';
 import Profile from './pages/Profile';
@@ -17,7 +16,6 @@ function App() {
       <Routes>
         <Route element={<AuthLayout />}>
           <Route path="/sign-in" element={<SignIn />} />
-          <Route path="/sign-up" element={<SignUp />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
         </Route>
         <Route path="/" element={<SignIn />} /> {/* Default route */}

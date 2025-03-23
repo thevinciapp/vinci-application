@@ -26,7 +26,6 @@ export const commandCenterApi = {
 
   ping: () => ({ success: true, data: "pong" }),
   
-  // Add method to close command center from unauthenticated state
   closeCommandCenterFromUnauthenticated: async () => {
     try {
       return await ipcRenderer.invoke('close-command-center');
@@ -83,7 +82,6 @@ export const commandCenterApi = {
     }
   },
 
-  // Dialog APIs
   openDialog: async (dialogType: string, data: any) => {
     try {
       return await ipcRenderer.invoke(CommandCenterEvents.OPEN_DIALOG, dialogType, data);

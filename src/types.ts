@@ -1,11 +1,4 @@
-/**
- * Re-export everything from types/index.ts to maintain compatibility
- */
 export * from './types/index';
-
-/**
- * Additional types specific to IPC events and other shared constructs
- */
 
 import {
   AuthEvents,
@@ -20,7 +13,8 @@ import {
   ChatEvents
 } from './core/ipc/constants';
 
-// Types for Chat IPC events
+import { IpcResponse } from './types';
+
 export interface ChatStreamStartEvent {
   chatId: string;
 }

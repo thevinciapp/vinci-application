@@ -25,9 +25,3 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </ErrorBoundary>
   </React.StrictMode>
 );
-
-// Make the renderer store globally accessible for cleanup during sign-out
-// This ensures we can properly reset state between sessions
-if (typeof window !== 'undefined') {
-  window.rendererStore = useRendererStore;
-}
