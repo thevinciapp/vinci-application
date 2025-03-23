@@ -177,10 +177,9 @@ const ChatMessagesComponent = forwardRef<HTMLDivElement, ChatMessagesProps>(
       isLoading;
 
     return (
-      <div className="relative flex-1 flex flex-col h-full">
         <ChatContainer
           ref={actualRef}
-          className="absolute inset-0 py-12 px-4 pb-52"
+          className="absolute inset-0 py-12 px-4 pb-52 h-full"
           autoScroll={true}
         >
           <div className="max-w-[85%] w-full mx-auto">
@@ -209,16 +208,10 @@ const ChatMessagesComponent = forwardRef<HTMLDivElement, ChatMessagesProps>(
             </div>
           </div>
         </ChatContainer>
-      </div>
     );
   }
 );
 
-// Set display name for the base component
 ChatMessagesComponent.displayName = 'ChatMessagesComponent';
-
-// Apply memo to the component after definition
 export const ChatMessages = memo(ChatMessagesComponent);
-
-// Set display name for the memoized component
 ChatMessages.displayName = 'ChatMessages';
