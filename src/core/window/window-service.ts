@@ -228,7 +228,10 @@ export function setDialogState(isOpen: boolean) {
 }
 
 export function setCommandType(commandType: CommandType) {
-  // Implementation for setting command type
+  const window = getContextCommandWindow(commandType);
+  if (window && !window.isDestroyed()) {
+    window.webContents.send(CommandCenterEvents.SET_TYPE, commandType);
+  }
 }
 
 export async function createCommandCenterWindow(commandType: CommandType): Promise<BrowserWindow | null> {
@@ -248,7 +251,12 @@ export async function createCommandCenterWindow(commandType: CommandType): Promi
     window.loadURL(getWindowUrl(commandType));
     
     window.once('ready-to-show', () => {
-      setTimeout(() => setupWindowEvents(window, commandType), 0);
+      setTimeout(() => {
+        setupWindowEvents(window, commandType);
+        if (process.env.NODE_ENV === 'development') {
+          window.webContents.openDevTools({ mode: 'detach' });
+        }
+      }, 0);
     });
     
     return window;

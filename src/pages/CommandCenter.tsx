@@ -5,6 +5,7 @@ import { dialogs } from "@/registry/dialogs";
 import { useCommandCenter } from '@/hooks/use-command-center';
 import { useParams } from 'react-router-dom';
 import { CommandType } from '@/types';
+import { useAppState } from '@/hooks/use-app-state';
 import '@/styles/cmdk.css';
 
 interface CommandCenterProps {}
@@ -47,6 +48,7 @@ const CommandCenter: React.FC<CommandCenterProps> = () => {
 
   useEscapeKey(close);
   useCommandCenterFocus(inputRef as React.RefObject<HTMLInputElement>, commandType);
+  useAppState();
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchQuery(value);

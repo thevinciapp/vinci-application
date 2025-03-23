@@ -74,7 +74,6 @@ export const useRendererStore = create<RendererProcessState & {
       if (response.success && response.data) {
         console.log('App state data', response.data);
         
-        // Extract data from response
         const {
           spaces = [],
           activeSpace = null,

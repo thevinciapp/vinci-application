@@ -4,7 +4,7 @@ import { isMac } from '@/lib/utils/env-utils';
 import { registerIpcHandlers } from '@/core/ipc/ipc-handlers';
 import { registerGlobalShortcuts } from '@/core/window/shortcuts';
 import { loadAuthData, refreshTokens } from '@/core/auth/auth-service';
-import { createMainWindow, getMainWindow, getCommandCenterWindow, preloadCommandWindows } from '@/core/window/window-service';
+import { createMainWindow, preloadCommandWindows } from '@/core/window/window-service';
 import { fetchInitialAppData } from '@/services/app-data/app-data-service';
 import { useStore } from '../../vinci-application/src/store';
 
@@ -93,7 +93,9 @@ async function startApp() {
     return;
   }
   mainWindow.webContents.on('did-fail-load', console.error);
-  if (APP_CONFIG.IS_DEV) mainWindow.webContents.openDevTools();
+  if (APP_CONFIG.IS_DEV) {
+    mainWindow.webContents.openDevTools();
+  }
   mainWindow.loadURL(getAppUrl(ROUTES.PROTECTED));
 }
 

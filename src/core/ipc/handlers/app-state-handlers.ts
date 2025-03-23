@@ -97,14 +97,10 @@ export function registerAppStateHandlers() {
       const state = getMainStoreState();
       console.log('[ELECTRON] Getting app state from renderer, initialDataLoaded:', state.initialDataLoaded);
       
-      // Check if we have an access token but no data loaded
-      // This covers the case where a user has signed out and signed back in
       const accessTokenExists = !!state.accessToken;
       const needsFreshData = !state.initialDataLoaded || (accessTokenExists && (!state.spaces || state.spaces.length === 0));
       
       if (needsFreshData) {
-        console.log('[ELECTRON] Need to fetch fresh data, token exists:', accessTokenExists);
-        
         const freshData = await fetchInitialAppData();
         if (!freshData.error) {
           console.log('[ELECTRON] Successfully fetched fresh data after GET_STATE');
@@ -115,17 +111,15 @@ export function registerAppStateHandlers() {
           };
         }
         
-        console.error('[ELECTRON] Error fetching fresh data:', freshData.error);
         return { 
           success: false, 
           error: freshData.error
         };
       }
-      
-      console.log('[ELECTRON] Using existing app state, no fresh data needed');
+      const serializedState = makeSerializable(getMainStoreState());
       return { 
         success: true, 
-        data: makeSerializable(getMainStoreState())
+        data: serializedState
       };
     } catch (error) {
       console.error('[ELECTRON] Error getting app state:', error);

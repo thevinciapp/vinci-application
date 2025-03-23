@@ -5,33 +5,26 @@ import { fetchWithAuth } from '../api/api-service';
 import { fetchConversations } from '../conversations/conversation-service';
 import { fetchMessages } from '../messages/message-service';
 
-/**
- * Fetch all spaces for the current user
- */
 export async function fetchSpaces(): Promise<Space[]> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces`);
-    const { status, error, data: spaces } = await response.json();
+    const { status, error, data } = await response.json();
 
-    console.log("[ELECTRON] Fetch spaces response:", status, error, spaces);
+    console.log("[ELECTRON] Fetch spaces response:", status, error, data.spaces);
     
     if (status !== 'success') {
       throw new Error(error || 'Failed to fetch spaces');
     }
     
-    // Update spaces in Zustand store
-    useStore.getState().updateSpaces(spaces || []);
+    useStore.getState().updateSpaces(data.spaces || []);
     
-    return spaces || [];
+    return data.spaces || [];
   } catch (error) {
     console.error('[ELECTRON] Error fetching spaces:', error);
     throw error;
   }
 }
 
-/**
- * Fetch the active space
- */
 export async function fetchActiveSpace(): Promise<Space | null> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/user/active-space`);

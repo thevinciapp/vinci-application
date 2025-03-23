@@ -437,48 +437,34 @@ export async function clearAuthData(): Promise<boolean> {
   });
 }
 
-/**
- * Redirect to sign-in page
- */
 export async function redirectToSignIn(): Promise<void> {
-  console.log('[ELECTRON] Redirecting to sign-in page');
-  
-  // Clear tokens in Zustand store
   const store = useStore.getState();
   store.setAccessToken(null);
   store.setRefreshToken(null);
   
-  // Reset app state using Zustand - explicitly set initialDataLoaded to false
-  // This ensures that after sign-out, the next GET_STATE call will trigger a fresh data fetch
-  console.log('[ELECTRON] Resetting app state on sign-out, setting initialDataLoaded to false');
   store.setAppState({ 
     spaces: [],
     activeSpace: null,
     conversations: [],
     messages: [],
-    initialDataLoaded: false, // Critical for ensuring fresh data fetch on next sign-in
+    initialDataLoaded: false,
     lastFetched: null,
     user: null
   });
   
-  // Delete stored tokens
   await clearAuthData();
   
-  // Redirect all windows to sign-in
   BrowserWindow.getAllWindows().forEach((window) => {
     if (!window.isDestroyed()) {
-      // Use hash-based routing for Vite/React Router
       if (process.env.NODE_ENV === 'development') {
         window.loadURL(`http://localhost:5173/#/sign-in`);
       } else {
-        // For production build
         const basePath = join(__dirname, '../renderer/index.html');
         window.loadURL(`file://${basePath}#/sign-in`);
       }
     }
   });
   
-  // Hide command center if open
   const commandCenterWindow = BrowserWindow.getAllWindows().find(win => 
     win.webContents.getURL().includes('command-center'));
   

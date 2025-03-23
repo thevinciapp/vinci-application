@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/globals.css';
 import ErrorBoundary from './components/ErrorBoundary';
-import { useRendererStore } from './store/renderer';
 
 const FallbackUI = () => (
   <div style={{ 

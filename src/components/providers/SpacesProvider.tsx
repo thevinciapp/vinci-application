@@ -18,7 +18,6 @@ export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, 
 
   const handleSelect = async (space: Space): Promise<void> => {
     try {
-      // Validate space object and ID
       if (!space || !space.id) {
         console.error('[SpacesProvider] Cannot select space: Invalid space or missing ID', space);
         return;
