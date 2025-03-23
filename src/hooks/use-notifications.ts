@@ -2,25 +2,19 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { NotificationEvents } from '@/core/ipc/constants';
 import type { 
-  Notification, 
   NotificationResponse, 
   MarkNotificationResponse, 
   MarkAllNotificationsResponse 
 } from '@/services/notification/notification-service';
+import { Notification } from '@/types/notification';
 
-/**
- * Hook to manage user notifications
- */
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  /**
-   * Load notifications from the IPC service
-   */
-  const fetchNotifications = useCallback(async () => {
+    const fetchNotifications = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -47,9 +41,6 @@ export function useNotifications() {
     }
   }, []);
 
-  /**
-   * Mark a notification as read
-   */
   const markAsRead = useCallback(async (notificationId: string) => {
     try {
       setError(null);
@@ -74,9 +65,6 @@ export function useNotifications() {
     }
   }, [fetchNotifications]);
 
-  /**
-   * Mark all notifications as read
-   */
   const markAllAsRead = useCallback(async () => {
     try {
       setError(null);
@@ -104,15 +92,11 @@ export function useNotifications() {
     }
   }, [fetchNotifications]);
 
-  /**
-   * Setup notification listener
-   */
   const setupNotificationListener = useCallback(() => {
     const handleNotificationReceived = (event: any, response: any) => {
       if (response.success && response.data) {
         fetchNotifications();
           
-        // Optionally show a toast for the new notification
         const newNotification = response.data;
         toast(newNotification.title, {
           description: newNotification.description,
@@ -120,13 +104,11 @@ export function useNotifications() {
       }
     };
     
-    // Register the event listener
     window.electron.on(
       NotificationEvents.NOTIFICATION_RECEIVED,
       handleNotificationReceived
     );
     
-    // Return cleanup function
     return () => {
       window.electron.off(
         NotificationEvents.NOTIFICATION_RECEIVED,

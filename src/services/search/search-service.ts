@@ -1,6 +1,6 @@
-import { API_BASE_URL } from '../../core/auth/auth-service';
-import { fetchWithAuth } from '../api/api-service';
-import { Message } from '@/types';
+import { API_BASE_URL } from '@/core/auth/auth-service';
+import { fetchWithAuth } from '@/services/api/api-service';
+import { Message } from '@/types/message';
 
 export async function searchAllMessages(query: string): Promise<Message[]> {
   try {

@@ -1,3 +1,5 @@
+import { IpcResponse } from '@/types/ipc';
+
 export interface Conversation {
   id: string;
   space_id: string;
@@ -7,6 +9,10 @@ export interface Conversation {
   updated_at: string;
   messageCount?: number;
   lastMessage?: string;
+}
+
+export interface ConversationResponse extends IpcResponse {
+  data?: Conversation | Conversation[] | { deleted: boolean } | { updated: boolean };
 }
 
 export interface ActiveConversation {

@@ -1,5 +1,5 @@
-import { AuthenticationError } from '../errors';
-import { AuthSession } from '../types';
+import { AuthenticationError } from '@/errors';
+import { AuthSession } from '@/types/auth';
 
 export function extractAuthToken(request: Request): string {
   const authHeader = request.headers.get('authorization');

@@ -2,7 +2,7 @@ import { app, BrowserWindow } from 'electron';
 import { join } from 'path';
 import { writeFile, readFile, unlink, mkdirSync, existsSync } from 'fs';
 import { API_BASE_URL, APP_BASE_URL } from '@/config/api';
-import { useStore } from '@/store';
+import { useMainStore } from '@/store/main';
 import { AuthSession } from '@/types/auth';
 
 interface SignInResponse {
@@ -95,7 +95,7 @@ export async function saveAuthData(access: string, refresh: string, safeStorage:
 
 export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{ accessToken: string | null, refreshToken: string | null, tokenExpiryTime: number | null }> {
   console.log('[ELECTRON] loadAuthData called');
-  const store = useStore.getState();
+  const store = useMainStore.getState();
   console.log('[ELECTRON] Store before loading: Access token exists:', !!store.accessToken, 'Refresh token exists:', !!store.refreshToken);
   return new Promise((resolve) => {
     if (!safeStorage.isEncryptionAvailable()) {
@@ -405,7 +405,7 @@ export async function clearAuthData(): Promise<boolean> {
 }
 
 export async function redirectToSignIn(): Promise<void> {
-  const store = useStore.getState();
+  const store = useMainStore.getState();
   store.setAccessToken(null);
   store.setRefreshToken(null);
   
@@ -444,7 +444,7 @@ export async function redirectToSignIn(): Promise<void> {
  * Refresh authentication tokens
  */
 export async function refreshTokens(safeStorage: Electron.SafeStorage): Promise<boolean> {
-  const store = useStore.getState();
+  const store = useMainStore.getState();
   const refreshToken = store.refreshToken;
   
   if (!refreshToken) {
@@ -510,7 +510,7 @@ export async function refreshTokens(safeStorage: Electron.SafeStorage): Promise<
  * Returns true if token expiry is less than 5 minutes away or already expired
  */
 export function isTokenExpiringSoon(): boolean {
-  const store = useStore.getState();
+  const store = useMainStore.getState();
   const tokenExpiryTime = store.tokenExpiryTime;
   const accessToken = store.accessToken;
   
@@ -572,7 +572,7 @@ export async function signIn(email: string, password: string, safeStorage?: Elec
       };
     }
 
-    const store = useStore.getState();
+    const store = useMainStore.getState();
     store.setAccessToken(data.session.access_token);
     store.setRefreshToken(data.session.refresh_token);
     store.setTokenExpiryTime(data.session.expires_at);
@@ -614,7 +614,7 @@ export async function signIn(email: string, password: string, safeStorage?: Elec
 
 // Get current auth data
 export async function getAuthData() {
-  const store = useStore.getState();
+  const store = useMainStore.getState();
   const { accessToken, refreshToken } = store;
   return { accessToken, refreshToken };
 }

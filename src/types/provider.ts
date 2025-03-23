@@ -5,7 +5,7 @@ export interface Model {
   name: string;
   description?: string;
   contextWindow: number;
-  provider?: string;
+  provider?: Provider;
   multimodal?: boolean;
 }
 
@@ -35,4 +35,10 @@ export const PROVIDER_DESCRIPTIONS: Record<Provider, string> = {
   xai: 'Advanced models focused on reasoning and transparency',
   togetherai: 'Curated collection of top open-source models',
   perplexity: 'Research-focused models optimized for reasoning tasks'
+};
+
+export type ProviderComponentProps = {
+  searchQuery?: string;
+  onSelect?: (item: any) => void;
+  onAction?: (action: string, data: any) => void;
 }; 

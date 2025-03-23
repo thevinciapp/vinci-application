@@ -4,8 +4,7 @@ import React from "react";
 import { PencilLine, Trash, Globe, Plus } from "lucide-react";
 import { Command } from 'cmdk';
 import { Button } from "vinci-ui";
-import { Space } from '@/types';
-import { ProviderComponentProps } from "../../types";
+import { Space } from '@/types/space';
 import { useSpaces } from '@/hooks/use-spaces';
 
 export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect, onAction }) => {

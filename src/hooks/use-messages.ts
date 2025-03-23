@@ -1,15 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { MessageEvents } from '@/core/ipc/constants';
 import { useRendererStore } from '@/store/renderer';
-
-export interface Message {
-  id: string;
-  conversationId: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import { Message } from '@/types/message';
 
 export function useMessages(conversationId: string | undefined | null) {
   const rendererStore = useRendererStore();
@@ -139,7 +131,7 @@ export function useMessages(conversationId: string | undefined | null) {
       id: msg.id,
       role: msg.role,
       content: msg.content,
-      createdAt: new Date(msg.createdAt)
+      createdAt: new Date(msg.created_at)
     }));
   }, [messages]);
 

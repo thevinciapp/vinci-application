@@ -1,4 +1,5 @@
-import { Provider } from './provider';
+import { Provider } from "@/types/provider";
+import { IpcResponse } from "@/types/ipc";
 
 export interface Message {
   id: string;
@@ -10,7 +11,10 @@ export interface Message {
   is_deleted: boolean;
   created_at: string;
   updated_at: string;
-  search_vector?: any;
+}
+
+export interface MessageResponse extends IpcResponse {
+  data?: Message | Message[] | { deleted: boolean };
 }
 
 export interface MessageAnnotation {

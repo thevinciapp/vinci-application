@@ -1,10 +1,13 @@
+import { Provider } from '@/types/provider';
+import { IpcResponse } from '@/types/ipc';
+
 export interface Space {
   id: string;
   user_id: string;
   name: string;
   description?: string;
   model: string;
-  provider: string;
+  provider: Provider;
   chat_mode: string;
   chat_mode_config: Record<string, any>;
   is_archived: boolean;
@@ -13,6 +16,10 @@ export interface Space {
   updated_at: string;
   color?: string;
   isActive?: boolean;
+}
+
+export interface SpaceResponse extends IpcResponse {
+  data?: Space | Space[] | { deleted: boolean } | { updated: boolean };
 }
 
 export interface ActiveSpace {
@@ -54,7 +61,7 @@ export interface CreateSpaceRequest {
   name: string;
   description?: string;
   model?: string;
-  provider?: string;
+  provider?: Provider;
   chat_mode?: string;
   chat_mode_config?: Record<string, any>;
 }
@@ -63,7 +70,7 @@ export interface UpdateSpaceRequest {
   name?: string;
   description?: string;
   model?: string;
-  provider?: string;
+  provider?: Provider;
   is_archived?: boolean;
   chat_mode?: string;
   chat_mode_config?: Record<string, any>;

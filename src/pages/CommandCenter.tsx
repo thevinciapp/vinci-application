@@ -4,7 +4,7 @@ import { providers } from "@/registry/providers";
 import { dialogs } from "@/registry/dialogs";
 import { useCommandCenter } from '@/hooks/use-command-center';
 import { useParams } from 'react-router-dom';
-import { CommandType } from '@/types';
+import { CommandType } from '@/types/command';
 import { useAppState } from '@/hooks/use-app-state';
 import '@/styles/cmdk.css';
 
@@ -62,13 +62,13 @@ const CommandCenter: React.FC<CommandCenterProps> = () => {
 
   const handleAction = useCallback(async (action: string, data: unknown) => {
     const dialogType = `${action}-${currentProvider?.slice(0, -1)}`;
-    if (dialogs[dialogType]) {
+    if (dialogs[dialogType as keyof typeof dialogs]) {
       await openDialog(dialogType, data);
     }
   }, [currentProvider, openDialog]);
 
   const renderProviderUI = useCallback(() => {
-    if (!commandType || !providers[commandType]) {
+    if (!commandType || !providers[commandType as keyof typeof providers]) {
       return (
         <Command.List>
           <Command.Group heading="Select a category">
@@ -85,7 +85,7 @@ const CommandCenter: React.FC<CommandCenterProps> = () => {
       );
     }
     
-    const ProviderComponent = providers[commandType];
+    const ProviderComponent = providers[commandType as keyof typeof providers];
     return (
       <ProviderComponent 
         searchQuery={searchQuery} 
@@ -96,9 +96,9 @@ const CommandCenter: React.FC<CommandCenterProps> = () => {
   }, [commandType, searchQuery, handleSelect, handleAction, updateState]);
 
   const renderDialog = useCallback(() => {
-    if (!currentDialog?.type || !dialogs[currentDialog.type]) return null;
+    if (!currentDialog?.type || !dialogs[currentDialog.type as keyof typeof dialogs]) return null;
     
-    const DialogComponent = dialogs[currentDialog.type];
+    const DialogComponent = dialogs[currentDialog.type as keyof typeof dialogs];
     return (
       <div className="dialog">
         <DialogComponent data={currentDialog.data} onClose={closeDialog} />

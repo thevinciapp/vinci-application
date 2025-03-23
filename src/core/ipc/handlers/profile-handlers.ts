@@ -1,16 +1,13 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
-import { UserResponse } from '.';
-import { UserEvents } from '../constants';
+import { UserResponse } from '@/types/ipc';
+import { UserEvents } from '@/core/ipc/constants';
 import { 
   fetchUserProfile, 
   updateUserProfile,
   updateUserSettings,
   UserUpdateData
-} from '../../../services/user/user-service';
+} from '@/services/user/user-service';
 
-/**
- * Register profile-related IPC handlers
- */
 export function registerProfileHandlers() {
   ipcMain.handle(UserEvents.GET_PROFILE, async (_event: IpcMainInvokeEvent): Promise<UserResponse> => {
     try {

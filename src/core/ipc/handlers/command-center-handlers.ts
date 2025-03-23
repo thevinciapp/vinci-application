@@ -5,11 +5,10 @@ import {
   toggleCommandCenterWindow,
   setDialogState,
   setCommandType
-} from '../../window/window-service';
-import { CommandType } from '../../../types';
-import { IpcResponse } from './index';
-import { CommandCenterEvents } from '../constants';
-
+} from '@/core/window/window-service';
+import { CommandType } from '@/types/command';
+import { CommandCenterEvents } from '@/core/ipc/constants';
+import { IpcResponse } from '@/types/ipc';
 interface DialogData {
   title?: string;
   message?: string;

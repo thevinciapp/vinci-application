@@ -3,13 +3,11 @@ import {
   fetchNotifications, 
   markNotificationAsRead, 
   markAllNotificationsAsRead 
-} from '../../../services/notification/notification-service';
-import { NotificationResponse } from './index';
-import { NotificationEvents } from '../constants';
+} from '@/services/notification/notification-service';
+import { NotificationResponse } from '@/types/notification';
+import { NotificationEvents } from '@/core/ipc/constants';
 
-/**
- * Register notification-related IPC handlers
- */
+
 export function registerNotificationHandlers() {
   ipcMain.handle(NotificationEvents.GET_NOTIFICATIONS, async (_event: IpcMainInvokeEvent): Promise<NotificationResponse> => {
     try {

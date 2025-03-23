@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import { CommandCenterEvents } from '@/core/ipc/constants';
-import { CommandType, CommandCenterStateData as CommandCenterState, IpcResponse } from '@/types';
+import { CommandType } from '@/types/command';
+import { IpcResponse } from '@/types/ipc';
 
 interface CommandCenterDialog {
   type: string;

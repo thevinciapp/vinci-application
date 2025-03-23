@@ -1,6 +1,6 @@
-import { API_BASE_URL } from '../../core/auth/auth-service';
-import { fetchWithAuth } from '../api/api-service';
-import { useStore } from '../../store';
+import { API_BASE_URL } from '@/core/auth/auth-service';
+import { fetchWithAuth } from '@/services/api/api-service';
+import { useMainStore } from '@/store/main'; 
 
 export interface UserProfile {
   full_name: string;
@@ -70,7 +70,7 @@ export async function fetchUserProfile(): Promise<UserProfile> {
     }
 
     // Update user in store
-    useStore.getState().setUser(user);
+    useMainStore.getState().setUser(user);
 
     return user;
   } catch (error) {
@@ -98,7 +98,7 @@ export async function updateUserProfile(data: UserUpdateData): Promise<UserProfi
       throw new Error(error || 'Failed to update user profile');
     }
 
-    useStore.getState().setUser(profile);
+    useMainStore.getState().setUser(profile);
 
     return profile;
   } catch (error) {
@@ -121,7 +121,7 @@ export async function signUp(email: string, password: string): Promise<any> {
     const data = await response.json();
     
     if (data.status === 'success' && data.data?.session?.access_token && data.data?.session?.refresh_token && data.data?.session?.expires_at) {
-      const store = useStore.getState();
+      const store = useMainStore.getState();
       store.setAccessToken(data.data.session.access_token);
       store.setRefreshToken(data.data.session.refresh_token);
       store.setTokenExpiryTime(data.data.session.expires_at);
@@ -241,7 +241,7 @@ export async function updateUserEmailPreferences(preferences: EmailPreferences):
       throw new Error(error || 'Failed to update email preferences');
     }
 
-    useStore.getState().setUser(user);
+    useMainStore.getState().setUser(user);
   } catch (error) {
     console.error('[ELECTRON] Error updating email preferences:', error);
     throw error;

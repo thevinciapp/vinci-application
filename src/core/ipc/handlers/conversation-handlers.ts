@@ -4,11 +4,12 @@ import {
   createConversation,
   updateConversation,
   deleteConversation
-} from '../../../services/conversations/conversation-service';
-import { fetchMessages } from '../../../services/messages/message-service';
-import { ConversationResponse, MessageResponse } from './index';
-import { ConversationEvents, SpaceEvents, MessageEvents } from '../constants';
-import { CreateConversationRequest } from '@/types';
+} from '@/services/conversations/conversation-service';
+import { fetchMessages } from '@/services/messages/message-service';
+import { ConversationResponse } from '@/types/conversation';
+import { ConversationEvents, SpaceEvents, MessageEvents } from '@/core/ipc/constants';
+import { CreateConversationRequest } from '@/types/conversation';
+import { MessageResponse } from '@/types/message';
 
 export function registerConversationHandlers() {
   ipcMain.handle(MessageEvents.GET_CONVERSATION_MESSAGES, async (_event: IpcMainInvokeEvent, conversationId: string): Promise<MessageResponse> => {

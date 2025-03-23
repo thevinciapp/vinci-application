@@ -4,7 +4,7 @@ import React from 'react';
 import { MessageSquare, Plus, Settings, Check, Trash, PencilLine } from 'lucide-react';
 import { Command } from 'cmdk';
 import { Button } from "vinci-ui";
-import { ProviderComponentProps } from '@/types';
+import { ProviderComponentProps } from '@/types/provider';
 
 interface ChatMode {
   id: string;

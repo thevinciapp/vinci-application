@@ -1,12 +1,14 @@
-import { useStore } from '../../store';
-import { fetchSpaces, fetchActiveSpace } from '../spaces/space-service';
-import { fetchConversations } from '../conversations/conversation-service';
-import { fetchMessages } from '../messages/message-service';
-import { fetchUserProfile } from '../user/user-service';
-import { checkServerHealth } from '../api/api-service';
-import { isTokenExpiringSoon, refreshTokens } from '../../core/auth/auth-service';
+import { useMainStore } from '@/store/main';
+import { fetchSpaces, fetchActiveSpace } from '@/services/spaces/space-service';
+import { fetchConversations } from '@/services/conversations/conversation-service';
+import { fetchMessages } from '@/services/messages/message-service';
+import { fetchUserProfile } from '@/services/user/user-service';
+import { checkServerHealth } from '@/services/api/api-service';
+import { isTokenExpiringSoon, refreshTokens } from '@/core/auth/auth-service';
 import { safeStorage } from 'electron';
-import { Conversation, Message, Space } from '@/types';
+import { Conversation } from '@/types/conversation';
+import { Message } from '@/types/message';
+import { Space } from '@/types/space';
 import { User } from '@supabase/supabase-js';
 
 interface AppStateResult {
@@ -24,12 +26,12 @@ interface AppStateResult {
 }
 
 export async function fetchInitialAppData(): Promise<AppStateResult> {
-  const store = useStore.getState();
+  const store = useMainStore.getState();
   
   try {
     if (!await checkServerHealth()) {
       return {
-        ...useStore.getState(),
+        ...useMainStore.getState(),
         error: 'Server not available',
         lastFetched: Date.now(),
         user: null
@@ -38,7 +40,7 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
     
     if (!store.accessToken) {
       return {
-        ...useStore.getState(),
+        ...useMainStore.getState(),
         error: 'Authentication required',
         lastFetched: Date.now(),
         user: null
@@ -49,7 +51,7 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
       const refreshed = await refreshTokens(safeStorage);
       if (!refreshed) {
         return {
-          ...useStore.getState(),
+          ...useMainStore.getState(),
           error: 'Authentication expired',
           lastFetched: Date.now(),
           user: null
@@ -82,7 +84,7 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
       }
     }
 
-    const currentStore = useStore.getState();
+    const currentStore = useMainStore.getState();
     
     return {
       spaces,
@@ -91,7 +93,7 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
       messages,
       initialDataLoaded: true,
       lastFetched: Date.now(),
-      user,
+      user: user as User | null,
       accessToken: currentStore.accessToken,
       refreshToken: currentStore.refreshToken,
       tokenExpiryTime: currentStore.tokenExpiryTime
@@ -99,7 +101,7 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
   } catch (error) {
     console.error('[ELECTRON] Fetch initial data failed:', error);
     return {
-      ...useStore.getState(),
+      ...useMainStore.getState(),
       error: error instanceof Error ? error.message : 'Unknown error',
       lastFetched: Date.now()
     };
@@ -110,14 +112,14 @@ export async function refreshAppData(): Promise<AppStateResult> {
   try {
     const freshData = await fetchInitialAppData();
     if (!freshData.error) {
-      const store = useStore.getState();
+      const store = useMainStore.getState();
       store.setAppState(freshData);
     }
     return freshData;
   } catch (error) {
     console.error('[ELECTRON] Refresh failed:', error);
     return {
-      ...useStore.getState(),
+      ...useMainStore.getState(),
       error: error instanceof Error ? error.message : 'Unknown error',
       lastFetched: Date.now()
     };

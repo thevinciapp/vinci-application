@@ -5,7 +5,6 @@ import { ArrowDown, Search } from 'lucide-react';
 import { BaseTab } from 'vinci-ui';
 import { useSpaces } from '@/hooks/use-spaces';
 import { useConversations } from '@/hooks/use-conversations';
-import { useMessages } from '@/hooks/use-messages';
 import { UnifiedInput } from './unified-input';
 import { ChatMessages } from './chat-messages';
 import { UserProfileDropdown } from '@/components/chat/ui/user-profile-dropdown';
@@ -16,7 +15,6 @@ import { toast } from '@/components/chat/ui/toast';
 import { ConversationTab } from '../conversation/conversation-tab';
 import { QuickActionsTab, BackgroundTasksTab, SuggestionsTab } from './quick-actions-tab';
 import { useRendererStore } from '@/store/renderer';
-import { IpcResponse } from '@/types';
 import { API_BASE_URL } from '@/config/api';
 
 export default function ChatContent() {

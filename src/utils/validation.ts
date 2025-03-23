@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ValidationError } from '../errors';
+import { ValidationError } from '@/errors';
 
 export function validateData<T>(
   data: unknown, 

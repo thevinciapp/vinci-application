@@ -7,11 +7,11 @@ import {
   deleteSpace,
   fetchActiveSpace,
   fetchSpaces
-} from '../../../services/spaces/space-service';
-import { fetchConversations } from '../../../services/conversations/conversation-service';
-import { SpaceEvents } from '../constants';
-import { SpaceResponse } from './index';
-import { Space } from '@/types';
+} from '@/services/spaces/space-service';
+import { fetchConversations } from '@/services/conversations/conversation-service';
+import { SpaceEvents } from '@/core/ipc/constants';
+import { SpaceResponse } from '@/types/space';
+import { Space } from '@/types/space';
 
 export function registerSpaceHandlers() {
   ipcMain.handle(SpaceEvents.GET_SPACE_CONVERSATIONS, async (_event: IpcMainInvokeEvent, spaceId: string): Promise<SpaceResponse> => {
@@ -38,7 +38,6 @@ export function registerSpaceHandlers() {
     try {
       const updatedSpace = await updateSpace(spaceId, spaceData);
       
-      // Emit an event to notify renderers that space has been updated
       ipcMain.emit(SpaceEvents.SPACE_UPDATED, null, { space: updatedSpace });
       
       return { success: true, data: updatedSpace };
@@ -52,7 +51,6 @@ export function registerSpaceHandlers() {
     try {
       await updateSpaceModel(spaceId, modelId, provider);
       
-      // Fetch the updated space to emit the update event
       const updatedSpace = await fetchActiveSpace();
       if (updatedSpace) {
         ipcMain.emit(SpaceEvents.SPACE_UPDATED, null, { space: updatedSpace });
@@ -67,13 +65,10 @@ export function registerSpaceHandlers() {
 
   ipcMain.handle(SpaceEvents.SET_ACTIVE_SPACE, async (_event: IpcMainInvokeEvent, spaceId: string): Promise<SpaceResponse> => {
     try {
-      // Log the raw input from renderer
       console.log('[ELECTRON] set-active-space handler received raw input:', spaceId);
       
-      // Ensure spaceId is a string
       const spaceIdStr = String(spaceId || '').trim();
       
-      // Additional validation to ensure spaceId is provided and valid
       if (!spaceIdStr) {
         console.error('[ELECTRON] Invalid space ID in set-active-space handler after conversion:', spaceIdStr);
         return { success: false, error: 'Space ID is required' };
@@ -84,7 +79,6 @@ export function registerSpaceHandlers() {
       const result = await setActiveSpaceInAPI(spaceIdStr);
       console.log('[ELECTRON] setActiveSpace result:', result);
       
-      // Fetch the newly activated space to emit the update event
       const activeSpace = await fetchActiveSpace();
       if (activeSpace) {
         ipcMain.emit(SpaceEvents.SPACE_UPDATED, null, { space: activeSpace });
@@ -101,10 +95,8 @@ export function registerSpaceHandlers() {
     try {
       const newSpace = await createSpace(spaceData);
       
-      // Emit an event to notify renderers that spaces have been updated
       const allSpaces = await fetchSpaces();
       
-      // If this is the first space, set it as active automatically
       if (allSpaces.length === 1) {
         await setActiveSpaceInAPI(newSpace.id);
         ipcMain.emit(SpaceEvents.SPACE_UPDATED, null, { space: newSpace });
@@ -121,10 +113,8 @@ export function registerSpaceHandlers() {
     try {
       await deleteSpace(spaceId);
       
-      // Get the updated list of spaces
       const allSpaces = await fetchSpaces();
       
-      // Get the new active space after deletion
       const activeSpace = await fetchActiveSpace();
       ipcMain.emit(SpaceEvents.SPACE_UPDATED, null, { space: activeSpace });
       

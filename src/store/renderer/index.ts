@@ -2,7 +2,9 @@ import { create } from 'zustand';
 import { User } from '@supabase/supabase-js';
 import { AppStateEvents } from '@/core/ipc/constants';
 import { UserProfile } from '@/services/user/user-service';
-import { Space, Conversation, Message } from '@/types';
+import { Conversation } from '@/types/conversation';
+import { Message } from '@/types/message';
+import { Space } from '@/types/space';
 
 export interface RendererProcessState {
   spaces: Space[];

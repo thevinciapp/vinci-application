@@ -3,7 +3,7 @@
 import React from 'react';
 import { MessageSquare } from 'lucide-react';
 import { Command } from 'cmdk';
-import { ProviderComponentProps } from '@/types';
+import { ProviderComponentProps } from '@/types/provider';
 
 interface SimilarMessage {
   id: string;

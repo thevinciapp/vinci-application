@@ -7,20 +7,6 @@ interface AuthSession {
   refresh_token: string;
 }
 
-interface AuthState {
-  session: AuthSession | null;
-}
-
-interface AuthResponse {
-  success: boolean;
-  error?: string;
-  data?: AuthState;
-  toast?: {
-    title: string;
-    description: string;
-  };
-}
-
 interface AuthCredentials {
   email: string;
   password: string;
@@ -31,10 +17,8 @@ export function useAuth() {
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const { toast } = useToast();
-
-  // Setup auth state listener
+  
   const setupAuthListener = useCallback((callback?: (session: AuthSession | null) => void) => {
-    // Only run in browser environment where Electron is available
     if (typeof window === 'undefined' || !window.electron) {
       console.log('Electron API not available');
       return () => {};

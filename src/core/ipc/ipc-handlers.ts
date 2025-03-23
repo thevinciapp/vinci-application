@@ -1,26 +1,19 @@
-import { registerAuthHandlers } from './handlers/auth-handlers';
-import { registerMessageHandlers } from './handlers/message-handlers';
-import { registerSpaceHandlers } from './handlers/space-handlers';
-import { registerAppStateHandlers } from './handlers/app-state-handlers';
-import { registerConversationHandlers } from './handlers/conversation-handlers';
-import { registerCommandCenterHandlers } from './handlers/command-center-handlers';
-import { registerProfileHandlers } from './handlers/profile-handlers';
-import { registerNotificationHandlers } from './handlers/notification-handlers';
-import { registerUserHandlers } from './handlers/user-handlers';
-import { registerChatHandlers } from './handlers/chat-handlers';
+import { registerAuthHandlers } from '@/core/ipc/handlers/auth-handlers';
+import { registerMessageHandlers } from '@/core/ipc/handlers/message-handlers';
+import { registerSpaceHandlers } from '@/core/ipc/handlers/space-handlers';
+import { registerAppStateHandlers } from '@/core/ipc/handlers/app-state-handlers';
+import { registerCommandCenterHandlers } from '@/core/ipc/handlers/command-center-handlers';
+import { registerConversationHandlers } from '@/core/ipc/handlers/conversation-handlers';
+import { registerUserHandlers } from '@/core/ipc/handlers/user-handlers';
+import { registerNotificationHandlers } from '@/core/ipc/handlers/notification-handlers';
 
-/**
- * Register all IPC handlers for the application
- */
 export function registerIpcHandlers(): void {
   registerAuthHandlers();
   registerMessageHandlers();
   registerSpaceHandlers();
   registerAppStateHandlers();
-  registerConversationHandlers();
   registerCommandCenterHandlers();
-  registerProfileHandlers();
-  registerNotificationHandlers();
+  registerConversationHandlers();
   registerUserHandlers();
-  registerChatHandlers();
+  registerNotificationHandlers();
 }

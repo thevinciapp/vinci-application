@@ -1,4 +1,4 @@
-import { AppState } from '../../electron/types';
+import { AppState } from '@/types/app';
 
 export interface StoreActions {
   setAppState: (state: Partial<AppState>) => void;

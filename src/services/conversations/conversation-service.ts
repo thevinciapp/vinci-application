@@ -1,7 +1,7 @@
-import { API_BASE_URL } from '../../config/api';
-import { useStore } from '../../store';
-import { fetchWithAuth } from '../api/api-service';
-import { Conversation } from '@/types';
+import { API_BASE_URL } from '@/config/api';
+import { useMainStore } from '@/store/main';
+import { fetchWithAuth } from '@/services/api/api-service';
+import { Conversation } from '@/types/conversation';
 
 export async function fetchConversations(spaceId: string): Promise<Conversation[]> {
   try {
@@ -17,7 +17,7 @@ export async function fetchConversations(spaceId: string): Promise<Conversation[
     const conversations = data?.data || [];
     console.log(`[ELECTRON] Fetched ${conversations.length} conversations for space ${spaceId}`);
     
-    useStore.getState().updateConversations(conversations);
+    useMainStore.getState().updateConversations(conversations);
     
     return conversations;
   } catch (error) {
@@ -43,7 +43,7 @@ export async function createConversation(spaceId: string, title: string): Promis
       throw new Error(error || 'Failed to create conversation');
     }
     
-    const store = useStore.getState();
+    const store = useMainStore.getState();
     const conversations = [conversation, ...store.conversations];
     store.updateConversations(conversations);
     
@@ -71,7 +71,7 @@ export async function updateConversation(spaceId: string, conversationId: string
       throw new Error(error || 'Failed to update conversation');
     }
     
-    const store = useStore.getState();
+    const store = useMainStore.getState();
     const conversations = store.conversations.map(c => 
       c.id === conversationId ? { ...c, title } : c
     );
@@ -96,7 +96,7 @@ export async function deleteConversation(spaceId: string, conversationId: string
       throw new Error(error || 'Failed to delete conversation');
     }
     
-    const store = useStore.getState();
+    const store = useMainStore.getState();
     const conversations = store.conversations.filter(c => c.id !== conversationId);
     store.updateConversations(conversations);
     

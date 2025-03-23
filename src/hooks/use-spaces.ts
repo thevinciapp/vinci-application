@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { SpaceEvents } from '@/core/ipc/constants';
-import { Space } from '@/types';
+import { Space } from '@/types/space';
 import { useRendererStore } from '@/store/renderer';
 
 export function useSpaces() {

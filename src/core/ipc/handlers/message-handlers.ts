@@ -4,12 +4,12 @@ import {
   sendChatMessage,
   deleteMessage,
   updateMessage
-} from '../../../services/messages/message-service';
+} from '@/services/messages/message-service';
 import {
   searchAllMessages
-} from '../../../services/search/search-service';
-import { MessageResponse } from './index';
-import { MessageEvents, SearchEvents } from '../constants';
+} from '@/services/search/search-service';
+import { MessageResponse } from '@/types/message';
+import { MessageEvents, SearchEvents } from '@/core/ipc/constants';
 
 export function registerMessageHandlers() {
   ipcMain.handle(SearchEvents.SEARCH_MESSAGES, async (_event: IpcMainInvokeEvent, query: string): Promise<MessageResponse> => {

@@ -1,3 +1,5 @@
+import { IpcResponse } from '@/types/ipc';
+
 export type NotificationType =
   | 'space_created'
   | 'space_deleted'
@@ -15,6 +17,10 @@ export interface Notification {
   is_read: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface NotificationResponse extends IpcResponse {
+  data?: Notification | Notification[] | { deleted: boolean } | { updated: boolean };
 }
 
 export interface GetNotificationsResponse {

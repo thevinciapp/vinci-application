@@ -1,14 +1,11 @@
-import { API_BASE_URL } from '../../core/auth/auth-service';
-import { useStore } from '../../store';
-import { fetchWithAuth } from '../api/api-service';
-import { Message } from '@/types';
-/**
- * Fetch messages for a specific conversation
- */
+import { API_BASE_URL } from '@/core/auth/auth-service';
+import { useMainStore } from '@/store/main';
+import { fetchWithAuth } from '@/services/api/api-service';
+import { Message } from '@/types/message';
+
 export async function fetchMessages(conversationId: string): Promise<Message[]> {
   try {
-    // Get current space ID from store
-    const spaceId = useStore.getState().activeSpace?.id;
+    const spaceId = useMainStore.getState().activeSpace?.id;
     if (!spaceId) {
       throw new Error('No active space found');
     }
@@ -25,12 +22,11 @@ export async function fetchMessages(conversationId: string): Promise<Message[]> 
     const messages = data?.data || [];
     console.log(`[ELECTRON] Fetched ${messages.length} messages for conversation ${conversationId}`);
     
-    useStore.getState().updateMessages(messages);
+    useMainStore.getState().updateMessages(messages);
     
     return messages;
   } catch (error) {
     console.error(`[ELECTRON] Error fetching messages for conversation ${conversationId}:`, error);
-    // Properly serialize the error before throwing
     if (error instanceof Error) {
       throw new Error(error.message);
     } else if (typeof error === 'object' && error !== null) {
@@ -43,10 +39,10 @@ export async function fetchMessages(conversationId: string): Promise<Message[]> 
 
 /**
  * Send a chat message
- */
+ */ 
 export async function sendChatMessage(conversationId: string, content: string): Promise<Message> {
   try {
-    const store = useStore.getState();
+    const store = useMainStore.getState();
     if (!store.activeSpace) {
       throw new Error('No active space found');
     }
@@ -66,7 +62,6 @@ export async function sendChatMessage(conversationId: string, content: string): 
       throw new Error(error || 'Failed to send message');
     }
     
-    // Update messages in Zustand store
     const messages = [...store.messages, message];
     store.updateMessages(messages);
     
@@ -82,7 +77,7 @@ export async function sendChatMessage(conversationId: string, content: string): 
  */
 export async function deleteMessage(conversationId: string, messageId: string): Promise<boolean> {
   try {
-    const store = useStore.getState();
+    const store = useMainStore.getState();
     if (!store.activeSpace) {
       throw new Error('No active space found');
     }
@@ -114,7 +109,7 @@ export async function deleteMessage(conversationId: string, messageId: string): 
  */
 export async function updateMessage(conversationId: string, messageId: string, content: string): Promise<Message> {
   try {
-    const store = useStore.getState();
+    const store = useMainStore.getState();
     if (!store.activeSpace) {
       throw new Error('No active space found');
     }

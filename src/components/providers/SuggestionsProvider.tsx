@@ -5,7 +5,6 @@ import { Lightbulb, Check, X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Command } from 'cmdk';
 import { Button } from "vinci-ui";
-import { ProviderComponentProps } from '../../types';
 
 interface Suggestion {
   id: string;

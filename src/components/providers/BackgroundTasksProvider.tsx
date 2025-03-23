@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Activity, Clock, Check, X } from 'lucide-react';
 import { Command } from 'cmdk';
 import { Progress } from "vinci-ui";
-import { ProviderComponentProps } from '@/types';
+import { ProviderComponentProps } from '@/types/provider';
 
 interface BackgroundTask {
   id: string;

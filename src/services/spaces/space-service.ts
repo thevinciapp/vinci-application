@@ -1,10 +1,10 @@
-import { API_BASE_URL } from '../../core/auth/auth-service';
-import { Space } from '../../types';
-import { useStore } from '../../store';
-import { fetchWithAuth } from '../api/api-service';
-import { fetchConversations } from '../conversations/conversation-service';
-import { fetchMessages } from '../messages/message-service';
-
+import { API_BASE_URL } from '@/core/auth/auth-service';
+import { Space } from '@/types/space';
+import { useMainStore } from '@/store/main';
+import { fetchWithAuth } from '@/services/api/api-service';
+import { fetchConversations } from '@/services/conversations/conversation-service';
+import { fetchMessages } from '@/services/messages/message-service';
+import { Provider } from '@/types/provider';
 export async function fetchSpaces(): Promise<Space[]> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces`);
@@ -16,7 +16,7 @@ export async function fetchSpaces(): Promise<Space[]> {
       throw new Error(error || 'Failed to fetch spaces');
     }
     
-    useStore.getState().updateSpaces(data.spaces || []);
+    useMainStore.getState().updateSpaces(data.spaces || []);
     
     return data.spaces || [];
   } catch (error) {
@@ -37,7 +37,7 @@ export async function fetchActiveSpace(): Promise<Space | null> {
     }
     
     if (data?.space) {
-      useStore.getState().setActiveSpace(data.space);
+      useMainStore.getState().setActiveSpace(data.space);
     }
     
     return data?.space || null;
@@ -67,7 +67,7 @@ export async function updateSpace(spaceId: string, spaceData: Partial<Space>): P
     }
     
     // Update Zustand store
-    const store = useStore.getState();
+    const store = useMainStore.getState();
     const spaces = store.spaces.map(s => s.id === spaceId ? { ...s, ...updatedSpace } : s);
     store.updateSpaces(spaces);
     
@@ -106,7 +106,7 @@ export async function createSpace(spaceData: Partial<Space>): Promise<Space> {
     }
     
     // Update Zustand store - add new space to list
-    const store = useStore.getState();
+    const store = useMainStore.getState();
     const spaces = [...store.spaces, newSpace];
     store.updateSpaces(spaces);
     
@@ -133,7 +133,7 @@ export async function deleteSpace(spaceId: string): Promise<boolean> {
     }
     
     // Update Zustand store - remove deleted space
-    const store = useStore.getState();
+    const store = useMainStore.getState();
     const spaces = store.spaces.filter(s => s.id !== spaceId);
     store.updateSpaces(spaces);
     
@@ -171,21 +171,18 @@ export async function updateSpaceModel(spaceId: string, modelId: string, provide
       throw new Error(error || 'Failed to update space model');
     }
     
-    // Update the space in our Zustand store
-    const store = useStore.getState();
+    const store = useMainStore.getState();
     if (store.spaces) {
-      // Update spaces array
       const spaces = store.spaces.map(space => 
-        space.id === spaceId ? { ...space, model: modelId, provider } : space
+        space.id === spaceId ? { ...space, model: modelId as Provider, provider: provider as Provider } : space
       );
       store.updateSpaces(spaces);
       
-      // Update active space if needed
       if (store.activeSpace && store.activeSpace.id === spaceId) {
         store.setActiveSpace({
           ...store.activeSpace,
-          model: modelId,
-          provider
+          model: modelId as Provider,
+          provider: provider as Provider
         });
       }
     }
@@ -236,7 +233,7 @@ export async function setActiveSpaceInAPI(spaceId: string) {
     }
     
     // Find the space in our spaces array from Zustand store
-    const store = useStore.getState();
+    const store = useMainStore.getState();
     const space = store.spaces?.find(s => s.id === spaceId);
     
     if (space) {

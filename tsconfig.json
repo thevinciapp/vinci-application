@@ -15,7 +15,14 @@
     "jsx": "react-jsx",
     "incremental": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@components/*": ["./src/components/*"],
+      "@services/*": ["./src/services/*"],
+      "@core/*": ["./src/core/*"],
+      "@types/*": ["./src/types/*"],
+      "@utils/*": ["./src/utils/*"],
+      "@store/*": ["./src/store/*"],
+      "@electron/*": ["./electron/*"]
     }
   },
   "include": ["electron/**/*", "types/**/*.d.ts", "**/*.ts", "**/*.tsx", "src/**/*"],

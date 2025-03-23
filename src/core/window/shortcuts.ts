@@ -1,16 +1,11 @@
 import { globalShortcut, app, BrowserWindow } from 'electron';
-import { ShortcutKey } from '../../../electron/types';
-import { CommandType } from '../../types';
+import { CommandType, ShortcutKey } from '@/types/command';
 import { 
   createCommandCenterWindow, 
-  getCommandCenterWindow,
   getContextCommandWindow,
-  getAllVisibleCommandWindows,
+  getAllVisibleCommandWindows,    
   getWindowState
 } from './window-service';
-import { useStore } from '../../store';
-import { CommandCenterEvents } from '../ipc/constants';
-import { sanitizeStateForIPC } from '../utils/state-utils';
 
 interface ShortcutState {
   activeCommandType: CommandType | null;
@@ -24,16 +19,16 @@ const SHORTCUT_CONFIG = {
 } as const;
 
 const COMMAND_SHORTCUTS: Record<ShortcutKey, CommandType> = {
-  "CommandOrControl+Option+A": "unified",
-  "CommandOrControl+Option+S": "spaces",
-  "CommandOrControl+Option+C": "conversations",
-  "CommandOrControl+Option+M": "models",
+  "CommandOrControl+Option+A": "spaces",
+  "CommandOrControl+Option+S": "conversations",
+  "CommandOrControl+Option+C": "models",
   "CommandOrControl+Option+T": "backgroundTasks",
   "CommandOrControl+Option+G": "suggestions",
   "CommandOrControl+Option+H": "actions",
   "CommandOrControl+Option+Q": "chatModes",
   "CommandOrControl+Option+W": "messageSearch",
   "CommandOrControl+Option+E": "similarMessages",
+  "CommandOrControl+Option+M": "models",
 } as const;
 
 function hideAllWindowsExcept(commandType: CommandType) {

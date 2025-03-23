@@ -1,6 +1,6 @@
 import { ipcRenderer } from 'electron';
 import { CommandCenterEvents, AppStateEvents } from '@/core/ipc/constants';
-import { CommandType } from '@/types';
+import { CommandType } from '@/types/command';
 
 export const commandCenterApi = {
   searchFiles: async (searchTerm: string) => {

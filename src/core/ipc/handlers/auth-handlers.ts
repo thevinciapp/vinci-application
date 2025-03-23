@@ -1,19 +1,20 @@
 import { ipcMain, IpcMainInvokeEvent, safeStorage } from 'electron';
-import { useStore, getStoreState } from '../../../store';
-import { API_BASE_URL } from '../../auth/auth-service';
+import { API_BASE_URL } from '@/core/auth/auth-service';
 import {
   signUp,
   resetPassword
-} from '../../../services/user/user-service';
+} from '@/services/user/user-service';
 import {
   redirectToSignIn,
   refreshTokens,
   saveAuthData,
   clearAuthData,
   signIn
-} from '../../auth/auth-service';
-import { AuthResponse } from './index';
-import { AuthEvents } from '../constants';
+} from '@/core/auth/auth-service';
+import { AuthEvents } from '@/core/ipc/constants';
+import { AuthResponse } from '@/types/auth';
+import { useMainStore } from '@/store/main';
+import { useStore } from 'zustand';
 
 interface SessionResponse {
   status: string;
@@ -25,9 +26,7 @@ interface SessionResponse {
   error?: string;
 }
 
-/**
- * Register authentication-related IPC handlers
- */
+
 export function registerAuthHandlers() {
   ipcMain.handle(AuthEvents.SIGN_IN, async (_event: IpcMainInvokeEvent, email: string, password: string): Promise<AuthResponse> => {
     try {
@@ -37,8 +36,6 @@ export function registerAuthHandlers() {
         return { success: false, error: signInResult.error || 'Invalid credentials' };
       }
       
-      // Note: saveAuthData is already called inside signIn if safeStorage is available
-
       return {
         success: true,
         data: signInResult.data,
@@ -53,7 +50,7 @@ export function registerAuthHandlers() {
   ipcMain.handle(AuthEvents.VERIFY_TOKEN, async (_event: IpcMainInvokeEvent): Promise<AuthResponse> => {
     console.log('[ELECTRON] VERIFY_TOKEN handler called');
     try {
-      const accessToken = getStoreState().accessToken;
+      const accessToken = useMainStore.getState().accessToken;
       console.log('[ELECTRON] Current access token exists:', !!accessToken);
       if (!accessToken) {
         console.log('[ELECTRON] No access token available to verify');
@@ -64,17 +61,14 @@ export function registerAuthHandlers() {
         };
       }
 
-      // Verify token with API
       const response = await fetch(`${API_BASE_URL}/api/auth/verify-token`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`
         }
       });
       
-      // Parse response
       const responseData = await response.json();
       
-      // Simply return if token is valid or not
       return {
         success: true,
         data: { 
@@ -122,7 +116,7 @@ export function registerAuthHandlers() {
       await saveAuthData(newAccessToken, newRefreshToken, safeStorage, expiresAt);
       console.log('[ELECTRON] Auth tokens and expiry saved to secure storage');
 
-      const store = useStore.getState();
+      const store = useMainStore.getState();
       store.setAccessToken(newAccessToken);
       store.setRefreshToken(newRefreshToken);
       store.setTokenExpiryTime(expiresAt * 1000);
@@ -137,13 +131,11 @@ export function registerAuthHandlers() {
 
   ipcMain.handle(AuthEvents.CLEAR_AUTH_DATA, async (_event: IpcMainInvokeEvent): Promise<AuthResponse> => {
     try {
-      // Clear auth data from secure storage
       await clearAuthData();
       
-      // Clear user and tokens from Zustand store
-      useStore.getState().setUser(null);
-      useStore.getState().setAccessToken(null);
-      useStore.getState().setRefreshToken(null);
+      useMainStore.getState().setUser(null);
+      useMainStore.getState().setAccessToken(null);
+      useMainStore.getState().setRefreshToken(null);
       
       console.log('[ELECTRON] Auth data cleared successfully');
       return { success: true, status: 'success' };
@@ -153,7 +145,6 @@ export function registerAuthHandlers() {
     }
   });
 
-  // Handle token refresh
   ipcMain.handle(AuthEvents.REFRESH_AUTH_TOKENS, async (_event: IpcMainInvokeEvent): Promise<AuthResponse> => {
     try {
       console.log('[ELECTRON] Refresh tokens handler called');
@@ -164,7 +155,7 @@ export function registerAuthHandlers() {
         return { success: false, error: 'Failed to refresh tokens', status: 'error' };
       }
       
-      const store = useStore.getState();
+      const store = useMainStore.getState();
       return { 
         success: true, 
         data: {
@@ -181,7 +172,7 @@ export function registerAuthHandlers() {
 
   ipcMain.handle(AuthEvents.GET_AUTH_TOKEN, async (_event: IpcMainInvokeEvent): Promise<AuthResponse> => {
     try {
-      const store = useStore.getState();
+      const store = useMainStore.getState();
       return { 
         success: true, 
         data: {

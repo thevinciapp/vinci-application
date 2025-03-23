@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { ConversationEvents } from '@/core/ipc/constants';
 import { useRendererStore } from '@/store/renderer';
-import { Conversation } from '@/types';
+import { Conversation } from '@/types/conversation';
 
 export function useConversations() {
   const rendererStore = useRendererStore();

@@ -1,17 +1,15 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
-import { UserEvents } from '../constants';
+import { UserEvents } from '@/core/ipc/constants';
 import { 
   updateUserPassword, 
   updateUserEmailPreferences,
   getUserSettings,
-  PasswordUpdateData,
+  PasswordUpdateData, 
   EmailPreferences
-} from '../../../services/user/user-service';
-import { UserResponse } from './index';
+} from '@/services/user/user-service';
+import { UserResponse } from '@/types/ipc';
 
 export function registerUserHandlers() {
-  // Note: GET_PROFILE and UPDATE_PROFILE are handled in profile-handlers.ts
-
   ipcMain.handle(UserEvents.UPDATE_PASSWORD, async (_event: IpcMainInvokeEvent, data: PasswordUpdateData): Promise<UserResponse> => {
     try {
       await updateUserPassword(data);

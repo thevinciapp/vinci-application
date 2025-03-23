@@ -1,12 +1,20 @@
 import { BrowserWindow, screen, app } from 'electron';
 import { join } from 'path';
-import { CommandType, CommandGroup } from '../../types';
+import { CommandType } from '@/types/command';
 import { APP_BASE_URL } from '../auth/auth-service';
 import { CommandCenterEvents } from '../ipc/constants';
-import { useStore } from '../../store';
+import { useMainStore } from '@/store/main';
 import { sanitizeStateForIPC } from '../utils/state-utils';
 import { fetchInitialAppData } from '../../services/app-data/app-data-service';
 import debounce from 'lodash/debounce';
+
+type CommandGroup = {
+  type: CommandType;
+  title: string;
+  items: any[];
+  icon: string;
+  description: string;
+};
 
 const WINDOW_STATE = {
   main: null as BrowserWindow | null,
@@ -78,7 +86,7 @@ function getCommandGroups(state: any): CommandGroup[] {
 function getCachedState() {
   const now = Date.now();
   if (!WINDOW_STATE.cachedState || now - WINDOW_STATE.lastStateUpdate > 5000) {
-    const state = useStore.getState();
+    const state = useMainStore.getState();
     WINDOW_STATE.cachedState = sanitizeStateForIPC(state);
     WINDOW_STATE.lastStateUpdate = now;
   }
@@ -88,7 +96,7 @@ function getCachedState() {
 const debouncedStateSync = debounce((window: BrowserWindow, commandType?: CommandType) => {
   try {
     const sanitizedState = getCachedState();
-    const payload = commandType === 'unified' 
+    const payload = commandType === 'unified' as CommandType
       ? { ...sanitizedState, isUnified: true, groups: getCommandGroups(sanitizedState) }
       : { ...sanitizedState, isUnified: false };
 
@@ -144,7 +152,7 @@ function setupWindowEvents(window: BrowserWindow, commandType: CommandType) {
     syncStateToWindow(window, commandType);
     try {
       const freshData = await fetchInitialAppData();
-      useStore.getState().setAppState(freshData);
+      useMainStore.getState().setAppState(freshData);
       syncStateToWindow(window, commandType);
     } catch (error) {
       console.error('Failed to fetch initial app data:', error);
@@ -170,7 +178,7 @@ function getWindowUrl(commandType: CommandType): string {
 }
 
 export async function preloadCommandWindows() {
-  const commandTypes: CommandType[] = ['unified', 'spaces', 'conversations', 'models'];
+  const commandTypes: CommandType[] = ['spaces', 'conversations', 'models'];
   
   return Promise.all(commandTypes.map(async (type) => {
     if (!WINDOW_STATE.commandWindows.has(type)) {
@@ -210,7 +218,7 @@ export async function toggleCommandCenterWindow(commandType: CommandType): Promi
 }
 
 export function getCommandCenterWindow(): BrowserWindow | null {
-  return WINDOW_STATE.commandWindows.get('unified') || null;
+    return WINDOW_STATE.commandWindows.get('spaces') || null;
 }
 
 export function getContextCommandWindow(commandType: CommandType): BrowserWindow | null {
@@ -239,7 +247,7 @@ export function setCommandType(commandType: CommandType) {
 
 export async function createCommandCenterWindow(commandType: CommandType): Promise<BrowserWindow | null> {
   try {
-    const config = commandType === 'unified' ? COMMAND_CENTER_CONFIG : CONTEXT_COMMAND_CONFIG;
+    const config = commandType === 'spaces' ? COMMAND_CENTER_CONFIG : CONTEXT_COMMAND_CONFIG;
     const window = new BrowserWindow({
       ...config,
       show: false,
@@ -283,8 +291,8 @@ export async function createMainWindow(): Promise<BrowserWindow | null> {
     window.webContents.once('did-finish-load', async () => {
       try {
         const freshData = await fetchInitialAppData();
-        useStore.getState().setAppState(freshData);
-        window.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: sanitizeStateForIPC(useStore.getState()) });
+        useMainStore.getState().setAppState(freshData);
+        window.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: sanitizeStateForIPC(useMainStore.getState()) });
       } catch (error) {
         console.error('Failed to fetch initial app data:', error);
       }
