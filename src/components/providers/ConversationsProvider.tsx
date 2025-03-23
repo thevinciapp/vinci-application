@@ -29,14 +29,10 @@ export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ search
 
       console.log('[ConversationsProvider] Selecting conversation:', conversation.id, 'in space:', conversation.space_id);
       
-      // First set active space
       const spaceSuccess = await setActiveSpaceById(conversation.space_id);
-      
       if (spaceSuccess) {
-        // Then fetch messages for the conversation
         await fetchMessages(conversation.id);
         
-        // Return the conversation to the caller
         if (onSelect) {
           onSelect({...conversation, closeOnSelect: true});
         }
