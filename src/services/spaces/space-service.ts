@@ -1,5 +1,5 @@
 import { API_BASE_URL } from '../../core/auth/auth-service';
-import { Space } from 'vinci-common';
+import { Space } from '../../types';
 import { useStore } from '../../store';
 import { fetchWithAuth } from '../api/api-service';
 import { fetchConversations } from '../conversations/conversation-service';

@@ -7,9 +7,8 @@ import { registerConversationHandlers } from './conversation-handlers';
 import { registerUserHandlers } from './user-handlers';
 import { registerNotificationHandlers } from './notification-handlers';
 import { registerChatHandlers } from './chat-handlers';
-import { Space, Conversation, Message, Notification } from 'vinci-common';
+import { Message, Space, Conversation, Notification } from '@/types';
 
-// Common response interface for all handlers
 export interface IpcResponse {
   success: boolean;
   status?: string;
@@ -17,13 +16,11 @@ export interface IpcResponse {
   error?: string;
 }
 
-// Common state update interface
 export interface StateUpdate {
   type: string;
   payload: any;
 }
 
-// Export specific response types with better typing
 export interface AuthResponse extends IpcResponse {
   data?: any;
 }
@@ -54,11 +51,7 @@ export type AppStateResponse = IpcResponse;
 export type CommandCenterResponse = IpcResponse;
 export type UserResponse = IpcResponse;
 
-/**
- * Register all IPC handlers for the application
- */
 export function registerAllHandlers() {
-  // Register all handler modules
   registerAuthHandlers();
   registerMessageHandlers();
   registerSpaceHandlers();

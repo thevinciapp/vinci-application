@@ -1,7 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { MessageEvents } from '@/core/ipc/constants';
 import { useRendererStore } from '@/store/renderer';
-import { Message as VinciCommonMessage } from 'vinci-common';
 
 export interface Message {
   id: string;
@@ -14,13 +13,15 @@ export interface Message {
 
 export function useMessages(conversationId: string | undefined | null) {
   const rendererStore = useRendererStore();
-  const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
 
-  const messages = localMessages.length > 0 ? localMessages : rendererStore.messages
-    .filter(msg => msg.conversationId === conversationId) as unknown as Message[];
+  const messages = useMemo(() => 
+    rendererStore.messages
+      .filter(msg => msg.conversation_id === conversationId) as Message[],
+    [rendererStore.messages, conversationId]
+  );
 
   const fetchMessages = useCallback(async (id: string) => {
     if (!id || hasFetched) return null;
@@ -32,8 +33,7 @@ export function useMessages(conversationId: string | undefined | null) {
       const response = await window.electron.invoke(MessageEvents.GET_CONVERSATION_MESSAGES, id);
       
       if (response.success && response.data) {
-        setLocalMessages(response.data);
-        rendererStore.setMessages(response.data as unknown as VinciCommonMessage[]);
+        rendererStore.setMessages(response.data as Message[]);
         setHasFetched(true);
         return response.data;
       } else {

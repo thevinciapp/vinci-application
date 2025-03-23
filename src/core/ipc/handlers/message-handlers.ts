@@ -10,13 +10,8 @@ import {
 } from '../../../services/search/search-service';
 import { MessageResponse } from './index';
 import { MessageEvents, SearchEvents } from '../constants';
-import { Message } from 'vinci-common';
 
-/**
- * Register message-related IPC handlers
- */
 export function registerMessageHandlers() {
-  // Search Routes
   ipcMain.handle(SearchEvents.SEARCH_MESSAGES, async (_event: IpcMainInvokeEvent, query: string): Promise<MessageResponse> => {
     try {
       const messages = await searchAllMessages(query);
@@ -27,7 +22,6 @@ export function registerMessageHandlers() {
     }
   });
 
-  // Message Routes
   ipcMain.handle(MessageEvents.SEND_MESSAGE, async (_event: IpcMainInvokeEvent, conversationId: string, message: string): Promise<MessageResponse> => {
     try {
       const result = await sendChatMessage(conversationId, message);

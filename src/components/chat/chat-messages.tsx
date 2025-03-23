@@ -14,7 +14,6 @@ interface ChatMessagesProps {
   spaceId?: string;
 }
 
-// Memoized message component to reduce re-renders
 const MemoizedMessage = memo(({ 
   message, 
   index, 
@@ -58,12 +57,10 @@ const MemoizedMessage = memo(({
     </>
   );
 }, (prevProps, nextProps) => {
-  // Only re-render if message content or streaming state changes
   if (prevProps.message.id !== nextProps.message.id) return false;
   if (prevProps.message.content !== nextProps.message.content) return false;
   if (prevProps.isLoading !== nextProps.isLoading) return false;
   
-  // For streaming messages, only compare first and last stream data
   if (prevProps.message.role === 'assistant' && prevProps.isLoading && nextProps.isLoading) {
     const prevStreamLength = prevProps.streamData?.length || 0;
     const nextStreamLength = nextProps.streamData?.length || 0;
@@ -75,7 +72,6 @@ const MemoizedMessage = memo(({
 
 MemoizedMessage.displayName = 'MemoizedMessage';
 
-// Memoized placeholder message component
 const PlaceholderMessage = memo(({ 
   needsSeparator,
   streamData,
@@ -105,7 +101,6 @@ const PlaceholderMessage = memo(({
     </div>
   );
 }, (prevProps, nextProps) => {
-  // Only re-render on significant stream data updates
   const prevStreamLength = prevProps.streamData?.length || 0;
   const nextStreamLength = nextProps.streamData?.length || 0;
   return (nextStreamLength - prevStreamLength < 5);
@@ -130,17 +125,13 @@ const ChatMessagesComponent = forwardRef<HTMLDivElement, ChatMessagesProps>(
       }
     }, [autoScrollEnabled, onStickToBottomChange]);
     
-    // Expose scrollToBottom to parent
     useEffect(() => {
       if (onScrollToBottom && scrollToBottom) {
-        // Create a function that parent can call
         const handleScrollToBottom = () => scrollToBottom("smooth");
-        // Provide the callback to the parent
         onScrollToBottom(handleScrollToBottom);
       }
     }, [onScrollToBottom, scrollToBottom]);
     
-    // Log only when messages length changes
     useEffect(() => {
       if (prevMessagesLengthRef.current !== messages.length) {
         prevMessagesLengthRef.current = messages.length;
@@ -150,7 +141,6 @@ const ChatMessagesComponent = forwardRef<HTMLDivElement, ChatMessagesProps>(
       }
     }, [messages.length]);
 
-    // Precompute message separators to avoid recalculation on each render
     const messageSeparatorMap = useMemo(() => {
       const separators: Record<string, boolean> = {};
       
@@ -165,13 +155,11 @@ const ChatMessagesComponent = forwardRef<HTMLDivElement, ChatMessagesProps>(
       return separators;
     }, [messages]);
 
-    // Check if we need a separator for placeholder message
     const needsPlaceholderSeparator = useMemo(() => {
       return messages.length > 1 && 
         messages[messages.length - 1].role !== 'assistant';
     }, [messages]);
     
-    // Check if we should show placeholder
     const shouldShowPlaceholder = messages.length > 0 && 
       messages[messages.length - 1].role === 'user' && 
       isLoading;

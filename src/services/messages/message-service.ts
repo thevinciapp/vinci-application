@@ -1,8 +1,7 @@
 import { API_BASE_URL } from '../../core/auth/auth-service';
-import { Message } from 'vinci-common';
 import { useStore } from '../../store';
 import { fetchWithAuth } from '../api/api-service';
-
+import { Message } from '@/types';
 /**
  * Fetch messages for a specific conversation
  */

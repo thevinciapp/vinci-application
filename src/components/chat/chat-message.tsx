@@ -1,149 +1,75 @@
 import { User, MessageSquareIcon, Sparkles, FileText, File } from 'lucide-react';
-import { memo, Provider, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { ProviderIcon } from './provider-icon';
-import { JSONValue, Message } from 'ai';
+import { JSONValue } from 'ai';
 import { Avatar, AvatarFallback, AvatarImage } from 'vinci-ui';
 import { StreamStatus } from './stream-status';
 import { Markdown } from './markdown';
-import { SimilarMessage } from '@/types';
+import { Message, MessageAnnotation, SimilarMessage } from '@/types/message';
+import { Provider } from '@/types/provider';
 import DotSphere from '../space/planet-icon';
 
-// Component for rendering user messages with file mentions
+interface ChatMessageProps {
+  message: Message;
+  userAvatarUrl?: string;
+  isLoading?: boolean;
+  streamData?: JSONValue[];
+  spaceId?: string;
+}
+
 const UserMessageWithMentions = memo(({ id, content }: { id: string, content: string }) => {
-  // Process the content to identify and render filenames as tags
   const processedContent = useMemo(() => {
-    // First, pre-process the content to remove file tags for display
-    // This format is the special marker we use: @[filename](filepath)
     const fileTagRegex = /@\[(.*?)\]\((.*?)\)/g;
+    if (!fileTagRegex.test(content)) return <span>{content}</span>;
     
-    // Check if we need to process any file tags
-    if (!fileTagRegex.test(content)) {
-      return <span>{content}</span>;
-    }
-    
-    // Replace all file tags with their display components
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
     let key = 0;
-    
-    // Create a clean version of the text without special markers
-    let cleanedContent = content;
     let match;
     
-    // Reset regex to start from beginning
     fileTagRegex.lastIndex = 0;
-    
-    // Process each file tag match
     while ((match = fileTagRegex.exec(content)) !== null) {
       const [fullMatch, fileName, filePath] = match;
-      
-      // Add text before the file tag
       if (match.index > lastIndex) {
-        parts.push(
-          <span key={`text-${key++}`}>
-            {content.substring(lastIndex, match.index)}
-          </span>
-        );
+        parts.push(<span key={`text-${key++}`}>{content.substring(lastIndex, match.index)}</span>);
       }
-      
-      // Add the file tag component
       parts.push(
-        <span 
-          key={`file-${key++}`}
-          className="inline-flex items-center gap-1 px-1.5 py-0.5 mr-1 rounded bg-cyan-500/20 text-xs text-cyan-300"
-          title={filePath}
-        >
+        <span key={`file-${key++}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 mr-1 rounded bg-cyan-500/20 text-xs text-cyan-300" title={filePath}>
           <File className="h-3 w-3" />
           <span className="truncate max-w-[150px]">{fileName}</span>
         </span>
       );
-      
-      // Update the last index to after this match
       lastIndex = match.index + fullMatch.length;
-      
-      // Remove this match from the cleaned content
-      cleanedContent = cleanedContent.replace(fullMatch, "");
     }
-    
-    // Add any remaining text after the last match
     if (lastIndex < content.length) {
-      parts.push(
-        <span key={`text-${key++}`}>
-          {content.substring(lastIndex)}
-        </span>
-      );
+      parts.push(<span key={`text-${key++}`}>{content.substring(lastIndex)}</span>);
     }
-    
     return <>{parts}</>;
   }, [content]);
   
-  return (
-    <div id={id}>
-      {processedContent}
-    </div>
-  );
-}, (prevProps, nextProps) => {
-  // Only re-render if the content has changed
-  return prevProps.content === nextProps.content && prevProps.id === nextProps.id;
+  return <div id={id}>{processedContent}</div>;
 });
 
-interface ChatMessageProps {
-    message: Message;
-    userAvatarUrl?: string;
-    isLoading?: boolean;
-    streamData?: JSONValue[] | undefined;
-}
-
-// Interface for chat mode annotation
-interface ChatModeAnnotation {
-  chat_mode?: string;
-  chat_mode_config?: {
-    tools: string[];
-    mcp_servers?: string[];
-  };
-}
-
 const UserAvatar = ({ avatarUrl }: { avatarUrl?: string }) => (
-    <Avatar className="h-10 w-10 border bg-white/[0.03] border-white/[0.1]">
-        <AvatarImage src={avatarUrl || ""} />
-        <AvatarFallback className="bg-white/[0.03]">
-            <User className="h-5 w-5 text-white/80" />
-        </AvatarFallback>
-    </Avatar>
+  <Avatar className="h-10 w-10 border bg-white/[0.03] border-white/[0.1]">
+    <AvatarImage src={avatarUrl || ""} />
+    <AvatarFallback className="bg-white/[0.03]">
+      <User className="h-5 w-5 text-white/80" />
+    </AvatarFallback>
+  </Avatar>
 );
 
-interface AIAvatarProps {
-    spaceId?: string;
-}
-
-const AIAvatar = ({ spaceId }: AIAvatarProps) => {
-    const seed = spaceId || "default-space"; // Fallback if no space ID
-    
-    return (
-        <div className="relative group">
-            {/* Refined outer glow */}
-            <div className="absolute -inset-2 bg-linear-to-r from-cyan-500/10 via-indigo-400/10 to-purple-500/10 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            
-            {/* Elegant halo effect */}
-            <div className="absolute -inset-4 opacity-0 group-hover:opacity-70 transition-opacity duration-500">
-                <div className="absolute inset-0 rounded-full bg-linear-to-r from-cyan-500/8 to-indigo-500/8 animate-pulse-slow" />
-            </div>
-            
-            {/* DotSphere component as the avatar - using exact same props as space-tab.tsx except for size */}
-            <div className="relative h-12 w-12 flex items-center justify-center">
-                <DotSphere 
-                    size={40} 
-                    seed={seed} 
-                    dotCount={80} 
-                    dotSize={0.9} 
-                    expandFactor={1.15} 
-                    transitionSpeed={400}
-                    highPerformance={true}
-                />
-            </div>
-        </div>
-    );
-};
+const AIAvatar = ({ spaceId }: { spaceId?: string }) => (
+  <div className="relative group">
+    <div className="absolute -inset-2 bg-linear-to-r from-cyan-500/10 via-indigo-400/10 to-purple-500/10 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+    <div className="absolute -inset-4 opacity-0 group-hover:opacity-70 transition-opacity duration-500">
+      <div className="absolute inset-0 rounded-full bg-linear-to-r from-cyan-500/8 to-indigo-500/8 animate-pulse-slow" />
+    </div>
+    <div className="relative h-12 w-12 flex items-center justify-center">
+      <DotSphere size={40} seed={spaceId || "default-space"} dotCount={80} dotSize={0.9} expandFactor={1.15} transitionSpeed={400} highPerformance={true} />
+    </div>
+  </div>
+);
 
 const ModelInfo = ({ provider, modelName, similarMessages, chatMode }: { 
   provider?: Provider; 
@@ -151,11 +77,8 @@ const ModelInfo = ({ provider, modelName, similarMessages, chatMode }: {
   similarMessages?: SimilarMessage[];
   chatMode?: string;
 }) => {
-  const hasSimilarMessages = similarMessages && similarMessages.length > 0;
-  
-  // Get the chat mode configuration if available
-  const modeConfig = chatMode ? getChatModeConfig(chatMode) : null;
-  const ModeModeIcon = modeConfig?.icon || Sparkles;
+  const ModeModeIcon = Sparkles;
+  const similarMessagesCount = similarMessages?.length ?? 0;
   
   return (
     <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
@@ -167,155 +90,92 @@ const ModelInfo = ({ provider, modelName, similarMessages, chatMode }: {
       <div className="px-2.5 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-linear-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10">
         <span className="text-white">{modelName}</span>
       </div>
-      
-      {/* Chat mode badge */}
-      {chatMode && modeConfig && (
+      {chatMode && (
         <div className="px-2.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit">
           <ModeModeIcon size={11} />
-          <span>{modeConfig.name}</span>
+          <span>{chatMode}</span>
         </div>
       )}
-      
-      {hasSimilarMessages && (
-        <button
-          className="px-2.5 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-linear-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10 hover:bg-white/[0.07] transition-colors"
+      {similarMessagesCount > 0 && similarMessages && (
+        <button 
           onClick={() => {
-            if (window.openSimilarMessages) {
-              window.openSimilarMessages(similarMessages);
+            const win = window as any;
+            if (win.openSimilarMessages) {
+              win.openSimilarMessages(similarMessages);
             }
-          }}
+          }} 
+          className="px-2.5 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-linear-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10 hover:bg-white/[0.07] transition-colors"
         >
           <MessageSquareIcon size={11} className="text-cyan-400/80" />
-          <span>{similarMessages.length} similar</span>
+          <span>{similarMessagesCount} similar</span>
         </button>
       )}
     </div>
   );
 };
 
-interface ExtendedChatMessageProps extends ChatMessageProps {
-    spaceId?: string;
-}
+export const ChatMessage = memo<ChatMessageProps>(({ message, userAvatarUrl, isLoading, streamData, spaceId }) => {
+  const isUser = message.role === 'user';
+  const isStreamingAssistant = !isUser && ((isLoading && message.content.length <= 0) || message.id === 'placeholder-assistant');
 
-export const ChatMessage = memo<ExtendedChatMessageProps>(
-    ({ message, userAvatarUrl, isLoading, streamData, spaceId }) => {
-        const isUser = message.role === 'user';
+  const modelAnnotation = message.annotations?.[0] as MessageAnnotation | undefined;
+  const provider = modelAnnotation?.provider;
+  const modelUsed = modelAnnotation?.model_used;
+  const chatMode = modelAnnotation?.chat_mode;
+  const similarMessages = modelAnnotation?.similarMessages;
+  const modelName = modelUsed || 'AI';
 
-        const annotations = message.annotations as Array<{
-            model_used?: string;
-            provider?: string;
-            similarMessages?: SimilarMessage[];
-            chat_mode?: string;
-            chat_mode_config?: {
-                tools: string[];
-                mcp_servers?: string[];
-            };
-        }> | undefined;
-
-        const modelAnnotation = annotations?.find(a => a.model_used);
-        const providerAnnotation = annotations?.find(a => a.provider);
-        const similarMessagesAnnotation = annotations?.find(a => a.similarMessages);
-        const chatModeAnnotation = annotations?.find(a => a.chat_mode);
-        
-        const similarMessages = similarMessagesAnnotation?.similarMessages || [];
-        const chatMode = chatModeAnnotation?.chat_mode;
-
-        const modelName = modelAnnotation?.model_used
-            ? getModelName(modelAnnotation.provider as Provider, modelAnnotation.model_used)
-            : 'AI';
-
-        const providerName = providerAnnotation?.provider
-            ? providerAnnotation.provider.charAt(0).toUpperCase() + providerAnnotation.provider.slice(1)
-            : '';
-
-        
-        const isStreamingAssistant = !isUser && (
-            // Handle regular streaming scenario
-            (isLoading && message.content.length <= 0) || 
-            // Handle placeholder message scenario
-            message.id === 'placeholder-assistant'
-        );
-
-        return (
-            <div className={`flex items-start gap-5 w-full mx-auto group transition-opacity ${isUser ? 'flex-row-reverse' : ''}`}>
-                <div className={`shrink-0 ${isUser ? '' : 'mt-1'}`}>
-                    {isUser ? <UserAvatar avatarUrl={userAvatarUrl} /> : <AIAvatar />}
-                </div>
-
-                <div className="space-y-2 overflow-hidden max-w-[85%]">
-                    <div className="prose prose-invert max-w-none w-full">
-                    {message.role === 'assistant' && annotations && !isStreamingAssistant && (
-                            <ModelInfo
-                                provider={providerAnnotation?.provider as Provider}
-                                modelName={modelName}
-                                similarMessages={similarMessages}
-                                chatMode={chatMode}
-                            />
-                        )}
-
-                        {isUser ? (
-                            <div className="text-sm leading-relaxed whitespace-pre-wrap break-words text-white shadow-[0_0_15px_-5px_rgba(255,255,255,0.3)]">
-                                <UserMessageWithMentions id={`user-${message.id}`} content={message.content} />
-                            </div>
-                        ) : isStreamingAssistant ? (
-                            <div className="transition-all duration-500 ease-in-out will-change-transform">
-                            {annotations && (
-                                <ModelInfo
-                                    provider={providerAnnotation?.provider as Provider}
-                                    modelName={modelName}
-                                    chatMode={chatMode}
-                                />
-                            )}
-                                {/* Add a growing animation to the StreamStatus container */}
-                                <div 
-                                    className="animate-appear transform-gpu transition-all duration-500 ease-out"
-                                    style={{ animationFillMode: 'both' }}
-                                >
-                                    <StreamStatus streamData={streamData} />
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="prose prose-invert prose-zinc max-w-none">
-                                <Markdown id={message.id}>
-                                    {message.content}
-                                </Markdown>
-                            </div>
-                        )}
-                    </div>
-                </div>
+  return (
+    <div className={`flex items-start gap-5 w-full mx-auto group transition-opacity ${isUser ? 'flex-row-reverse' : ''}`}>
+      <div className={`shrink-0 ${isUser ? '' : 'mt-1'}`}>
+        {isUser ? <UserAvatar avatarUrl={userAvatarUrl} /> : <AIAvatar spaceId={spaceId} />}
+      </div>
+      <div className="space-y-2 overflow-hidden max-w-[85%]">
+        <div className="prose prose-invert max-w-none w-full">
+          {!isUser && message.annotations && message.annotations.length > 0 && (
+            <ModelInfo
+              provider={provider}
+              modelName={modelName}
+              similarMessages={similarMessages}
+              chatMode={chatMode}
+            />
+          )}
+          {isUser ? (
+            <div className="text-sm leading-relaxed whitespace-pre-wrap break-words text-white shadow-[0_0_15px_-5px_rgba(255,255,255,0.3)]">
+              <UserMessageWithMentions id={`user-${message.id}`} content={message.content} />
             </div>
-        );
-    },
-    (prevProps, nextProps) => {
-        // Custom equality comparison to avoid unnecessary re-renders
-        if (prevProps.message.id !== nextProps.message.id) return false;
-        if (prevProps.message.role !== nextProps.message.role) return false;
-        
-        // For user messages, only re-render if content changes
-        if (prevProps.message.role === 'user') {
-            return prevProps.message.content === nextProps.message.content;
-        }
-        
-        // For assistant messages, check if we're in streaming state
-        const isStreamingPrev = prevProps.isLoading && (prevProps.message.id === 'placeholder-assistant' || prevProps.message.content.length === 0);
-        const isStreamingNext = nextProps.isLoading && (nextProps.message.id === 'placeholder-assistant' || nextProps.message.content.length === 0);
-        
-        // If streaming state changed, re-render
-        if (isStreamingPrev !== isStreamingNext) return false;
-        
-        // If streaming, only update every 5 stream data changes to reduce re-renders
-        if (isStreamingNext && prevProps.streamData && nextProps.streamData) {
-            const prevLength = prevProps.streamData.length;
-            const nextLength = nextProps.streamData.length;
-            
-            // Only re-render if streamData length increased by at least 5
-            return nextLength <= prevLength || (nextLength - prevLength < 5);
-        }
-        
-        // For normal messages, only re-render if content changes
-        return prevProps.message.content === nextProps.message.content;
-    }
-);
+          ) : isStreamingAssistant ? (
+            <div className="transition-all duration-500 ease-in-out will-change-transform">
+              <div className="animate-appear transform-gpu transition-all duration-500 ease-out">
+                <StreamStatus streamData={streamData} />
+              </div>
+            </div>
+          ) : (
+            <div className="prose prose-invert prose-zinc max-w-none">
+              <Markdown id={message.id}>{message.content}</Markdown>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  if (prevProps.message.id !== nextProps.message.id) return false;
+  if (prevProps.message.role !== nextProps.message.role) return false;
+  if (prevProps.message.role === 'user') return prevProps.message.content === nextProps.message.content;
+  
+  const isStreamingPrev = prevProps.isLoading && (prevProps.message.id === 'placeholder-assistant' || prevProps.message.content.length === 0);
+  const isStreamingNext = nextProps.isLoading && (nextProps.message.id === 'placeholder-assistant' || nextProps.message.content.length === 0);
+  
+  if (isStreamingPrev !== isStreamingNext) return false;
+  
+  if (isStreamingNext && prevProps.streamData && nextProps.streamData) {
+    const prevLength = prevProps.streamData.length;
+    const nextLength = nextProps.streamData.length;
+    return nextLength <= prevLength || (nextLength - prevLength < 5);
+  }
+  
+  return prevProps.message.content === nextProps.message.content;
+});
 
-// Add a display name for easier debugging
 ChatMessage.displayName = 'ChatMessage';

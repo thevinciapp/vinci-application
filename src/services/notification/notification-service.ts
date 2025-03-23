@@ -1,12 +1,6 @@
 import { API_BASE_URL } from '../../core/auth/auth-service';
 import { fetchWithAuth } from '../api/api-service';
-import { Notification, NotificationType } from 'vinci-common';
-
-/**
- * Notification service interface and types
- */
-
-// Using Notification and NotificationType from vinci-common
+import { Notification, NotificationType } from '@/types';
 
 export interface NotificationResponse {
   success: boolean;

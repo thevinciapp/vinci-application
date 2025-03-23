@@ -1,10 +1,9 @@
 import { create } from 'zustand';
 import { User } from '@supabase/supabase-js';
-import { Space, Conversation, Message } from 'vinci-common';
 import { AppStateEvents } from '@/core/ipc/constants';
 import { UserProfile } from '@/services/user/user-service';
+import { Space, Conversation, Message } from '@/types';
 
-// Define the renderer process state interface
 export interface RendererProcessState {
   spaces: Space[];
   activeSpace: Space | null;
@@ -18,7 +17,6 @@ export interface RendererProcessState {
   profile: UserProfile | null;
 }
 
-// Initial state values
 const initialState: RendererProcessState = {
   spaces: [],
   activeSpace: null,
@@ -32,9 +30,7 @@ const initialState: RendererProcessState = {
   profile: null
 };
 
-// Create the renderer process store
 export const useRendererStore = create<RendererProcessState & {
-  // State setting actions
   setAppState: (state: Partial<RendererProcessState>) => void;
   setSpaces: (spaces: Space[]) => void;
   setActiveSpace: (space: Space | null) => void;
@@ -50,7 +46,6 @@ export const useRendererStore = create<RendererProcessState & {
 }>((set, get) => ({
   ...initialState,
   
-  // Sync state setters
   setAppState: (newState) => set((state) => ({ 
     ...state, 
     ...newState,
@@ -153,5 +148,4 @@ export const useRendererStore = create<RendererProcessState & {
   }
 }));
 
-// Helper function to access the store externally
 export const getRendererStoreState = () => useRendererStore.getState();

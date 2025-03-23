@@ -1,21 +1,19 @@
 import { app, BrowserWindow } from 'electron';
 import { join } from 'path';
 import { writeFile, readFile, unlink, mkdirSync, existsSync } from 'fs';
-import { AuthSession } from 'vinci-common';
 import { API_BASE_URL, APP_BASE_URL } from '@/config/api';
 import { useStore } from '@/store';
+import { AuthSession } from '@/types/auth';
 
 interface SignInResponse {
   session: AuthSession | null;
 }
 
-// Use app.getPath('userData') to get the correct user data directory
 const STORAGE_DIR = join(app.getPath('userData'), 'secure');
 const STORAGE_ACCESS_TOKEN_PATH = join(STORAGE_DIR, 'access_token.enc');
 const STORAGE_REFRESH_TOKEN_PATH = join(STORAGE_DIR, 'refresh_token.enc');
 const STORAGE_TOKEN_EXPIRY_PATH = join(STORAGE_DIR, 'token_expiry.enc');
 
-// Ensure the secure directory exists
 if (!existsSync(STORAGE_DIR)) {
   try {
     mkdirSync(STORAGE_DIR, { recursive: true });
@@ -25,9 +23,6 @@ if (!existsSync(STORAGE_DIR)) {
   }
 }
 
-/**
- * Save authentication data securely
- */
 export async function saveAuthData(access: string, refresh: string, safeStorage: Electron.SafeStorage, expiryTime?: number): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
@@ -35,7 +30,6 @@ export async function saveAuthData(access: string, refresh: string, safeStorage:
         throw new Error('Encryption is not available');
       }
 
-      // Ensure the secure directory exists before writing
       if (!existsSync(STORAGE_DIR)) {
         try {
           mkdirSync(STORAGE_DIR, { recursive: true });
@@ -56,7 +50,6 @@ export async function saveAuthData(access: string, refresh: string, safeStorage:
         encryptedExpiryTime = safeStorage.encryptString(expiryTime.toString());
       }
 
-      // Save access token
       writeFile(STORAGE_ACCESS_TOKEN_PATH, encryptedAccessToken, (err) => {
         if (err) {
           console.error('[ELECTRON] Failed to write access token file:', err);
@@ -66,7 +59,6 @@ export async function saveAuthData(access: string, refresh: string, safeStorage:
         
         console.log('[ELECTRON] Access token saved to:', STORAGE_ACCESS_TOKEN_PATH);
         
-        // Save refresh token
         writeFile(STORAGE_REFRESH_TOKEN_PATH, encryptedRefreshToken, (err) => {
           if (err) {
             console.error('[ELECTRON] Failed to write refresh token file:', err);
@@ -101,12 +93,8 @@ export async function saveAuthData(access: string, refresh: string, safeStorage:
   });
 }
 
-/**
- * Load authentication data from secure storage
- */
 export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{ accessToken: string | null, refreshToken: string | null, tokenExpiryTime: number | null }> {
   console.log('[ELECTRON] loadAuthData called');
-  // Get current token state
   const store = useStore.getState();
   console.log('[ELECTRON] Store before loading: Access token exists:', !!store.accessToken, 'Refresh token exists:', !!store.refreshToken);
   return new Promise((resolve) => {
@@ -116,7 +104,6 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
       return;
     }
 
-    // Check if the storage directory exists
     if (!existsSync(STORAGE_DIR)) {
       console.log('[ELECTRON] Secure storage directory does not exist:', STORAGE_DIR);
       resolve({ accessToken: null, refreshToken: null, tokenExpiryTime: null });
@@ -125,7 +112,6 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
 
     console.log('[ELECTRON] Loading auth tokens from:', STORAGE_DIR);
     
-    // Check if token files exist
     const accessTokenExists = existsSync(STORAGE_ACCESS_TOKEN_PATH);
     const refreshTokenExists = existsSync(STORAGE_REFRESH_TOKEN_PATH);
     const expiryTimeExists = existsSync(STORAGE_TOKEN_EXPIRY_PATH);
@@ -136,13 +122,11 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
       return;
     }
 
-    // Load access token if it exists
     if (accessTokenExists) {
       readFile(STORAGE_ACCESS_TOKEN_PATH, (err, encryptedAccessToken) => {
         if (err) {
           console.log('[ELECTRON] Error reading access token file:', err);
           
-          // Even if access token fails, try to load refresh token
           if (refreshTokenExists) {
             readFile(STORAGE_REFRESH_TOKEN_PATH, (err, encryptedRefreshToken) => {
               if (err) {
@@ -155,10 +139,8 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
                 const refreshToken = safeStorage.decryptString(encryptedRefreshToken);
                 console.log('[ELECTRON] Refresh token loaded successfully');
                 store.setRefreshToken(refreshToken);
-                // Check store state after setting
                 console.log('[ELECTRON] Store after setting refresh token: token exists:', !!store.refreshToken);
                 
-                // Try to load token expiry
                 if (expiryTimeExists) {
                   readFile(STORAGE_TOKEN_EXPIRY_PATH, (err, encryptedExpiryTime) => {
                     if (err) {
@@ -199,7 +181,6 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
           console.log('[ELECTRON] Access token loaded successfully');
           console.log('[ELECTRON] Store after setting access token: token exists:', !!store.accessToken);
           
-          // Now load refresh token if it exists
           if (refreshTokenExists) {
             readFile(STORAGE_REFRESH_TOKEN_PATH, (err, encryptedRefreshToken) => {
               if (err) {
@@ -213,7 +194,6 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
                 console.log('[ELECTRON] Both tokens loaded successfully');
                 store.setRefreshToken(refreshToken);
                 
-                // Try to load token expiry
                 if (expiryTimeExists) {
                   readFile(STORAGE_TOKEN_EXPIRY_PATH, (err, encryptedExpiryTime) => {
                     if (err) {
@@ -247,7 +227,6 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
         } catch (decryptError) {
           console.error('[ELECTRON] Failed to decrypt access token:', decryptError);
           
-          // Try to load refresh token even if access token fails
           if (refreshTokenExists) {
             readFile(STORAGE_REFRESH_TOKEN_PATH, (err, encryptedRefreshToken) => {
               if (err) {
@@ -261,7 +240,6 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
                 console.log('[ELECTRON] Only refresh token loaded successfully');
                 store.setRefreshToken(refreshToken);
                 
-                // Try to load token expiry
                 if (expiryTimeExists) {
                   readFile(STORAGE_TOKEN_EXPIRY_PATH, (err, encryptedExpiryTime) => {
                     if (err) {
@@ -295,7 +273,6 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
         }
       });
     } else if (refreshTokenExists) {
-      // Only refresh token exists
       readFile(STORAGE_REFRESH_TOKEN_PATH, (err, encryptedRefreshToken) => {
         if (err) {
           console.log('[ELECTRON] Error reading refresh token file:', err);
@@ -308,7 +285,6 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
           console.log('[ELECTRON] Only refresh token loaded successfully');
           store.setRefreshToken(refreshToken);
           
-          // Try to load token expiry
           if (expiryTimeExists) {
             readFile(STORAGE_TOKEN_EXPIRY_PATH, (err, encryptedExpiryTime) => {
               if (err) {
@@ -337,28 +313,22 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
         }
       });
     } else {
-      // This should never happen (we already checked if both don't exist)
       resolve({ accessToken: null, refreshToken: null, tokenExpiryTime: null });
     }
   });
 }
 
-/**
- * Delete authentication data
- */
 export async function clearAuthData(): Promise<boolean> {
   let accessDeleted = false;
   let refreshDeleted = false;
   
   return new Promise((resolve) => {
-    // Check if storage directory exists
     if (!existsSync(STORAGE_DIR)) {
       console.log('[ELECTRON] Secure storage directory does not exist:', STORAGE_DIR);
       resolve(false);
       return;
     }
     
-    // Check if token files exist
     const accessTokenExists = existsSync(STORAGE_ACCESS_TOKEN_PATH);
     const refreshTokenExists = existsSync(STORAGE_REFRESH_TOKEN_PATH);
     const expiryTimeExists = existsSync(STORAGE_TOKEN_EXPIRY_PATH);
@@ -369,12 +339,10 @@ export async function clearAuthData(): Promise<boolean> {
       return;
     }
     
-    // Function to delete the refresh token file
     const deleteRefreshToken = () => {
       if (!refreshTokenExists) {
         console.log('[ELECTRON] Refresh token file does not exist, nothing to delete');
         
-        // Check if token expiry exists and delete it
         if (existsSync(STORAGE_TOKEN_EXPIRY_PATH)) {
           unlink(STORAGE_TOKEN_EXPIRY_PATH, (err) => {
             if (err) {
@@ -417,7 +385,6 @@ export async function clearAuthData(): Promise<boolean> {
       });
     };
     
-    // Delete access token if it exists
     if (accessTokenExists) {
       unlink(STORAGE_ACCESS_TOKEN_PATH, (err) => {
         if (err) {

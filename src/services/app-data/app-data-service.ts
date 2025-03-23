@@ -1,5 +1,4 @@
 import { useStore } from '../../store';
-import { Space, Conversation, Message } from 'vinci-common';
 import { fetchSpaces, fetchActiveSpace } from '../spaces/space-service';
 import { fetchConversations } from '../conversations/conversation-service';
 import { fetchMessages } from '../messages/message-service';
@@ -7,15 +6,17 @@ import { fetchUserProfile } from '../user/user-service';
 import { checkServerHealth } from '../api/api-service';
 import { isTokenExpiringSoon, refreshTokens } from '../../core/auth/auth-service';
 import { safeStorage } from 'electron';
+import { Conversation, Message, Space } from '@/types';
+import { User } from '@supabase/supabase-js';
 
 interface AppStateResult {
-  spaces: Space[];
+    spaces: Space[];
   activeSpace: Space | null;
   conversations: Conversation[];
   messages: Message[];
   initialDataLoaded: boolean;
   lastFetched: number | null;
-  user: any | null;
+  user: User | null;
   accessToken?: string | null;
   refreshToken?: string | null;
   tokenExpiryTime?: number | null;

@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 import { User } from '@supabase/supabase-js';
-import { Space, Conversation, Message } from 'vinci-common';
+import { Conversation, Message, Space } from '@/types';
 
-// Define the main process state interface
 export interface MainProcessState {
   spaces: Space[];
   activeSpace: Space | null;
@@ -16,7 +15,6 @@ export interface MainProcessState {
   tokenExpiryTime: number | null;
 }
 
-// Initial state values
 const initialState: MainProcessState = {
   spaces: [],
   activeSpace: null,
@@ -30,7 +28,6 @@ const initialState: MainProcessState = {
   tokenExpiryTime: null
 };
 
-// Create the main process store
 export const useMainStore = create<MainProcessState & {
   setAppState: (state: Partial<MainProcessState>) => void;
   updateSpaces: (spaces: MainProcessState['spaces']) => void;
@@ -54,7 +51,6 @@ export const useMainStore = create<MainProcessState & {
   setTokenExpiryTime: (tokenExpiryTime) => set({ tokenExpiryTime })
 }));
 
-// Helper functions to access the store externally
 export const getMainStoreState = () => useMainStore.getState();
 
 export const subscribeToMainStore = (callback: (state: MainProcessState) => void) => {

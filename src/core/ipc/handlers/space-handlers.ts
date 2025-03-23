@@ -1,5 +1,4 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
-import { Space } from 'vinci-common';
 import {
   updateSpace,
   updateSpaceModel,
@@ -10,13 +9,10 @@ import {
   fetchSpaces
 } from '../../../services/spaces/space-service';
 import { fetchConversations } from '../../../services/conversations/conversation-service';
-import { fetchMessages } from '../../../services/messages/message-service';
 import { SpaceEvents } from '../constants';
 import { SpaceResponse } from './index';
+import { Space } from '@/types';
 
-/**
- * Register space-related IPC handlers
- */
 export function registerSpaceHandlers() {
   ipcMain.handle(SpaceEvents.GET_SPACE_CONVERSATIONS, async (_event: IpcMainInvokeEvent, spaceId: string): Promise<SpaceResponse> => {
     try {

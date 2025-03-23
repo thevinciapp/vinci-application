@@ -1,11 +1,8 @@
 import { API_BASE_URL } from '../../config/api';
-import { Conversation } from 'vinci-common';
 import { useStore } from '../../store';
 import { fetchWithAuth } from '../api/api-service';
+import { Conversation } from '@/types';
 
-/**
- * Fetch conversations for a specific space
- */
 export async function fetchConversations(spaceId: string): Promise<Conversation[]> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}/conversations`);
@@ -29,9 +26,7 @@ export async function fetchConversations(spaceId: string): Promise<Conversation[
   }
 }
 
-/**
- * Create a new conversation
- */
+
 export async function createConversation(spaceId: string, title: string): Promise<Conversation> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}/conversations`, {
@@ -48,7 +43,6 @@ export async function createConversation(spaceId: string, title: string): Promis
       throw new Error(error || 'Failed to create conversation');
     }
     
-    // Update conversations in Zustand store
     const store = useStore.getState();
     const conversations = [conversation, ...store.conversations];
     store.updateConversations(conversations);
@@ -60,9 +54,7 @@ export async function createConversation(spaceId: string, title: string): Promis
   }
 }
 
-/**
- * Update conversation title
- */
+
 export async function updateConversation(spaceId: string, conversationId: string, title: string): Promise<Conversation> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}/conversations/${conversationId}`, {
@@ -79,7 +71,6 @@ export async function updateConversation(spaceId: string, conversationId: string
       throw new Error(error || 'Failed to update conversation');
     }
     
-    // Update conversations in Zustand store
     const store = useStore.getState();
     const conversations = store.conversations.map(c => 
       c.id === conversationId ? { ...c, title } : c
@@ -93,9 +84,6 @@ export async function updateConversation(spaceId: string, conversationId: string
   }
 }
 
-/**
- * Delete a conversation
- */
 export async function deleteConversation(spaceId: string, conversationId: string): Promise<boolean> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}/conversations/${conversationId}`, {
@@ -108,7 +96,6 @@ export async function deleteConversation(spaceId: string, conversationId: string
       throw new Error(error || 'Failed to delete conversation');
     }
     
-    // Update conversations in Zustand store
     const store = useStore.getState();
     const conversations = store.conversations.filter(c => c.id !== conversationId);
     store.updateConversations(conversations);

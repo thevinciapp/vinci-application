@@ -1,5 +1,5 @@
 import { useChat } from '@ai-sdk/react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 
 import { ArrowDown, Search } from 'lucide-react';
 import { BaseTab } from 'vinci-ui';
@@ -20,7 +20,7 @@ import { IpcResponse } from '@/types';
 import { API_BASE_URL } from '@/config/api';
 
 export default function ChatContent() {
-  const { user } = useRendererStore();
+  const { user, messages: messagesFromStore } = useRendererStore();
   const { activeSpace, isLoading: isSpaceLoading } = useSpaces();
   const { activeConversation, createConversation } = useConversations();
 
@@ -30,7 +30,7 @@ export default function ChatContent() {
   const [isStickToBottom, setIsStickToBottom] = useState(true);
 
   const clearFileReferences = () => setFileReferences([]);
-  const fileReferencesMap = useCallback(() => {
+  const fileReferencesMap = useMemo(() => {
     const fileMap: Record<string, any> = {};
     fileReferences.forEach(fileRef => {
       fileMap[fileRef.id] = {
@@ -44,10 +44,7 @@ export default function ChatContent() {
     return fileMap;
   }, [fileReferences]);
 
-  const {
-    isLoading: isLoadingMessages,
-    formatMessagesForChat
-  } = useMessages(activeConversation?.id);
+  const initialMessages = useMemo(() => messagesFromStore || [], [messagesFromStore]);
 
   const chatKey = `${activeConversation?.id || 'default'}-${activeSpace?.provider || ''}-${activeSpace?.model || ''}`;
   
@@ -84,18 +81,10 @@ export default function ChatContent() {
     return fetch(url, updatedOptions); 
   };
 
-  const {
-    messages,
-    input,
-    status,
-    handleInputChange,
-    handleSubmit,
-    data,
-    setData,
-  } = useChat({
+  const chatConfig = useMemo(() => ({
     id: chatKey,
     api: `${API_BASE_URL}/api/chat`,
-    initialMessages: formatMessagesForChat() || [],
+    initialMessages,
     fetch: customFetch,
     body: {
       spaceId: activeSpace?.id || '',
@@ -105,13 +94,35 @@ export default function ChatContent() {
       searchMode,
       chatMode: activeSpace?.chat_mode || 'ask',
       chatModeConfig: activeSpace?.chat_mode_config || { tools: [] },
-      files: fileReferencesMap(),
+      files: fileReferencesMap,
     },
     onFinish() {
       setData([]);
       clearFileReferences();
     },
-  });
+  }), [
+    chatKey,
+    initialMessages,
+    customFetch,
+    activeSpace?.id,
+    activeConversation?.id,
+    activeSpace?.provider,
+    activeSpace?.model,
+    searchMode,
+    activeSpace?.chat_mode,
+    activeSpace?.chat_mode_config,
+    fileReferencesMap,
+  ]);
+
+  const {
+    messages,
+    input,
+    status,
+    handleInputChange,
+    handleSubmit,
+    data,
+    setData,
+  } = useChat(chatConfig);
 
   const handleStickToBottomChange = useCallback((isAtBottom: boolean) => {
     setIsStickToBottom(isAtBottom);
@@ -199,7 +210,7 @@ export default function ChatContent() {
           onStickToBottomChange={handleStickToBottomChange}
           onScrollToBottom={handleScrollToBottom}
           ref={messagesContainerRef}
-          isLoading={status !== 'ready' || isSpaceLoading || isLoadingMessages}
+          isLoading={status !== 'ready' || isSpaceLoading}
           streamData={data}
         />
         <div className="fixed left-1/2 bottom-8 -translate-x-1/2 w-[800px] z-50">

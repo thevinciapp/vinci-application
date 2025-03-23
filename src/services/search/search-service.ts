@@ -1,10 +1,7 @@
 import { API_BASE_URL } from '../../core/auth/auth-service';
-import { Message } from 'vinci-common';
 import { fetchWithAuth } from '../api/api-service';
+import { Message } from '@/types';
 
-/**
- * Search for messages across all conversations
- */
 export async function searchAllMessages(query: string): Promise<Message[]> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/search/messages?q=${encodeURIComponent(query)}`);
@@ -21,9 +18,7 @@ export async function searchAllMessages(query: string): Promise<Message[]> {
   }
 }
 
-/**
- * Search for messages in a specific space
- */
+
 export async function searchSpaceMessages(spaceId: string, query: string): Promise<Message[]> {
   try {
     const response = await fetchWithAuth(
@@ -42,9 +37,6 @@ export async function searchSpaceMessages(spaceId: string, query: string): Promi
   }
 }
 
-/**
- * Search for messages in a specific conversation
- */
 export async function searchConversationMessages(conversationId: string, query: string): Promise<Message[]> {
   try {
     const response = await fetchWithAuth(
@@ -63,9 +55,6 @@ export async function searchConversationMessages(conversationId: string, query: 
   }
 }
 
-/**
- * Find similar messages to a given message
- */
 export async function findSimilarMessages(messageId: string, limit: number = 5): Promise<Message[]> {
   try {
     const response = await fetchWithAuth(

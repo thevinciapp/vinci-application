@@ -12,6 +12,11 @@ import {
   ChatEvents
 } from '@/core/ipc/constants';
 
+export * from './api';
+export * from './auth';
+export * from './spaces';
+export * from './conversations';
+
 export type AuthEventType = typeof AuthEvents[keyof typeof AuthEvents];
 export type AppStateEventType = typeof AppStateEvents[keyof typeof AppStateEvents];
 export type CommandCenterEventType = typeof CommandCenterEvents[keyof typeof CommandCenterEvents];
@@ -39,7 +44,6 @@ export interface IpcStateResponse extends IpcResponse {
   };
 }
 
-// Chat Stream Event Types
 export interface ChatStreamStartEvent {
   chatId: string;
 }
@@ -94,13 +98,11 @@ export interface Conversation {
   lastMessage?: string;
 }
 
-// Message Types
 export interface Message {
   id: string;
   content: string;
   role: 'user' | 'assistant' | 'system';
-  conversation_id?: string;  // For compatibility with electron types
-  conversationId?: string;   // For frontend usage
+  conversation_id?: string; 
   conversationName?: string;
   created_at?: string;
   updated_at?: string;
@@ -117,9 +119,8 @@ export interface SimilarMessage {
   metadata?: Record<string, any>;
 }
 
-// Command Center Types
 export type CommandType = 
-  | 'unified'  // Main command center with all groups
+  | 'unified'
   | 'spaces'
   | 'conversations'
   | 'models'
@@ -165,7 +166,6 @@ export type ShortcutKey =
   | 'CommandOrControl+Option+W'
   | 'CommandOrControl+Option+E';
 
-// Dialog Types
 export interface DialogData {
   title?: string;
   message?: string;
@@ -173,7 +173,6 @@ export interface DialogData {
   [key: string]: any;
 }
 
-// Component Props Types
 export type ProviderComponentProps = {
   searchQuery: string;
   onSelect?: (item: any) => void;
@@ -225,7 +224,6 @@ export interface ModelsByProvider {
   [key: string]: Model[];
 }
 
-// Provider and Model Types
 export const PROVIDER_DESCRIPTIONS: Record<Provider, string> = {
   groq: 'Ultra-fast inference optimized for real-time applications',
   anthropic: 'Advanced language models with strong reasoning capabilities',

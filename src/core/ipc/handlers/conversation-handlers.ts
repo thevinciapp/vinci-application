@@ -8,20 +8,9 @@ import {
 import { fetchMessages } from '../../../services/messages/message-service';
 import { ConversationResponse, MessageResponse } from './index';
 import { ConversationEvents, SpaceEvents, MessageEvents } from '../constants';
-import {
-  Conversation,
-  Message,
-  CreateConversationRequest,
-  UpdateConversationRequest
-} from 'vinci-common';
+import { CreateConversationRequest } from '@/types';
 
-/**
- * Register conversation-related IPC handlers
- */
 export function registerConversationHandlers() {
-  // Note: SpaceEvents.GET_SPACE_CONVERSATIONS is registered in space-handlers.ts
-
-  // Handle conversation-to-message relationship
   ipcMain.handle(MessageEvents.GET_CONVERSATION_MESSAGES, async (_event: IpcMainInvokeEvent, conversationId: string): Promise<MessageResponse> => {
     try {
       const messages = await fetchMessages(conversationId);
@@ -61,7 +50,7 @@ export function registerConversationHandlers() {
 
   ipcMain.handle(ConversationEvents.CREATE_CONVERSATION, async (_event: IpcMainInvokeEvent, data: CreateConversationRequest): Promise<ConversationResponse> => {
     try {
-      const result = await createConversation(data.spaceId, data.title);
+      const result = await createConversation(data.space_id, data.title);
       
       // Emit an event to notify all renderers that conversations have been updated
       const updatedConversations = await fetchConversations('');
