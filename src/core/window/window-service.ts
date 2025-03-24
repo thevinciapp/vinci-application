@@ -33,6 +33,7 @@ const COMMAND_CENTER_CONFIG = {
   alwaysOnTop: true,
   hasShadow: true,
   skipTaskbar: true,
+  resizable: false,
   show: false,
   webPreferences: {
     preload: join(app.getAppPath(), 'out', 'preload', 'index.js'),
@@ -162,7 +163,7 @@ function setupWindowEvents(window: BrowserWindow, commandType: CommandType) {
   window.once('ready-to-show', () => {});
   
   window.on('close', event => {
-    if (!WINDOW_STATE.main?.isDestroyed() && !WINDOW_STATE.main?.isVisible()) {
+    if (WINDOW_STATE.main?.isVisible()) {
       event.preventDefault();
       window.hide();
     }

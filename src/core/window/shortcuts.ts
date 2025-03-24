@@ -19,16 +19,16 @@ const SHORTCUT_CONFIG = {
 } as const;
 
 const COMMAND_SHORTCUTS: Record<ShortcutKey, CommandType> = {
-  "CommandOrControl+Option+A": "spaces",
-  "CommandOrControl+Option+S": "conversations",
-  "CommandOrControl+Option+C": "models",
+  "CommandOrControl+Option+S": "spaces",
+  "CommandOrControl+Option+C": "conversations",
+  "CommandOrControl+Option+M": "models",
   "CommandOrControl+Option+T": "backgroundTasks",
   "CommandOrControl+Option+G": "suggestions",
   "CommandOrControl+Option+H": "actions",
   "CommandOrControl+Option+Q": "chatModes",
   "CommandOrControl+Option+W": "messageSearch",
   "CommandOrControl+Option+E": "similarMessages",
-  "CommandOrControl+Option+M": "models",
+  "CommandOrControl+Option+A": "actions",
 } as const;
 
 function hideAllWindowsExcept(commandType: CommandType) {

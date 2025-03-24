@@ -17,26 +17,22 @@ export const AuthEvents = {
  * Command center-related IPC events
  */
 export const CommandCenterEvents = {
-  OPEN_DIALOG: 'open-dialog',
-  DIALOG_OPENED: 'dialog-opened',
-  DIALOG_CLOSED: 'dialog-closed',
-  TOGGLE: 'toggle-command-center',
-  SHOW: 'show-command-center',
-  CLOSE: 'close-command-center',
-  SET_TYPE: 'set-command-type',
-  ON_SET_TYPE: 'on-set-command-type',
-  ON_DIALOG_OPEN: 'on-open-dialog',
-  SYNC_STATE: 'sync-command-center-state',
-  REFRESH: 'refresh-command-center',
-  ON_REFRESH: 'on-refresh-command-center',
-  CHECK_TYPE: 'check-command-type',
-  ON_CHECK_TYPE: 'on-check-command-type',
-  ON_RESIZE: 'on-window-resize',
-  REMOVE_RESIZE_LISTENER: 'remove-window-resize-listener',
-  SEARCH_FILES: 'search-files',
-  READ_FILE: 'read-file',
-  PING: 'ping'
+  TOGGLE: 'command-center:toggle',
+  SHOW: 'command-center:show',
+  CLOSE: 'command-center:close',
+  OPEN_DIALOG: 'command-center:open-dialog',
+  DIALOG_CLOSED: 'command-center:dialog-closed',
+  REFRESH: 'command-center:refresh',
+  CHECK_TYPE: 'command-center:check-type',
+  SET_TYPE: 'command-center:set-type',
+  SYNC_STATE: 'command-center:sync-state',
+  ON_RESIZE: 'command-center:on-resize',
+  SEARCH_FILES: 'command-center:search-files',
+  READ_FILE: 'command-center:read-file',
+  PING: 'command-center:ping'
 } as const;
+
+export type CommandCenterEvent = keyof typeof CommandCenterEvents;
 
 /**
  * Space-related IPC events

@@ -12,15 +12,19 @@ import { SpaceTab } from '@/components/chat/ui/space-tab';
 import { ModelTab } from '@/components/chat/ui/model-tab';
 import { ChatModeTab } from '@/components/chat/ui/chat-mode-tab';
 import { toast } from '@/components/chat/ui/toast';
-import { ConversationTab } from '../conversation/conversation-tab';
-import { QuickActionsTab, BackgroundTasksTab, SuggestionsTab } from './quick-actions-tab';
+import { QuickActionsTab } from '@/components/chat/ui/quick-actions-tab';
+import { BackgroundTasksTab } from '@/components/chat/ui/background-tasks-tab';
+import { SuggestionsTab } from '@/components/chat/ui/suggestions-tab';
 import { useRendererStore } from '@/store/renderer';
 import { API_BASE_URL } from '@/config/api';
+import { useCommandWindow } from '@/hooks/use-command-window';
+import { ConversationTab } from './ui/conversation-tab';
 
 export default function ChatContent() {
   const { user, messages: messagesFromStore } = useRendererStore();
   const { activeSpace, isLoading: isSpaceLoading } = useSpaces();
   const { activeConversation, createConversation } = useConversations();
+  const { handleCommandWindowToggle } = useCommandWindow();
 
   const [searchMode, setSearchMode] = useState<'chat' | 'search' | 'semantic' | 'hybrid'>('chat');
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -228,6 +232,7 @@ export default function ChatContent() {
                     icon={<Search className="w-3 h-3" />}
                     label="Messages"
                     shortcut="F"
+                    onClick={() => handleCommandWindowToggle('messageSearch')}
                   />
                 </div>
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
