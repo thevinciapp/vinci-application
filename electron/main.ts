@@ -1,12 +1,12 @@
 import { app, safeStorage, BrowserWindow } from 'electron';
 import { join } from 'path';
-import { isMac } from '@utils/env-utils';
-import { registerIpcHandlers } from '@core/ipc/ipc-handlers';
-import { registerGlobalShortcuts } from '@core/window/shortcuts';
-import { loadAuthData, refreshTokens } from '@core/auth/auth-service';
-import { createMainWindow, preloadCommandWindows } from '@core/window/window-service';
-import { fetchInitialAppData } from '@services/app-data/app-data-service';
-import { useStore } from '@/store';
+import { isMac } from '@/lib/utils/env-utils';
+import { registerIpcHandlers } from '@/core/ipc/ipc-handlers';
+import { registerGlobalShortcuts } from '@/core/window/shortcuts';
+import { loadAuthData, refreshTokens } from '@/core/auth/auth-service';
+import { createMainWindow, preloadCommandWindows } from '@/core/window/window-service';
+import { fetchInitialAppData } from '@/services/app-data/app-data-service';
+import { useMainStore } from '@/store/main';
 
 const ROUTES = {
   SIGN_IN: '/sign-in',
@@ -28,7 +28,7 @@ function getAppUrl(route: string): string {
 }
 
 async function handleAuth(): Promise<boolean> {
-  const store = useStore.getState();
+  const store = useMainStore.getState();
   const { accessToken, refreshToken, tokenExpiryTime } = await loadAuthData(safeStorage);
   
   if (tokenExpiryTime) store.setTokenExpiryTime(tokenExpiryTime);
@@ -43,7 +43,7 @@ async function handleAppData(): Promise<boolean> {
     const data = await fetchInitialAppData();
     if (data.error) return false;
     
-    useStore.getState().setAppState(data);
+    useMainStore.getState().setAppState(data);
     return true;
   } catch {
     return false;

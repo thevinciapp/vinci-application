@@ -8,6 +8,8 @@ import { Markdown } from './markdown';
 import { Message, MessageAnnotation, SimilarMessage } from '@/types/message';
 import { Provider } from '@/types/provider';
 import DotSphere from '../space/planet-icon';
+import { ModelDisplay } from '@/components/shared/model-display';
+import { getModelDisplayInfo } from '@/utils/model-utils';
 
 interface ChatMessageProps {
   message: Message;
@@ -60,11 +62,7 @@ const UserAvatar = ({ avatarUrl }: { avatarUrl?: string }) => (
 );
 
 const AIAvatar = ({ spaceId }: { spaceId?: string }) => (
-  <div className="relative group">
-    <div className="absolute -inset-2 bg-linear-to-r from-cyan-500/10 via-indigo-400/10 to-purple-500/10 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-    <div className="absolute -inset-4 opacity-0 group-hover:opacity-70 transition-opacity duration-500">
-      <div className="absolute inset-0 rounded-full bg-linear-to-r from-cyan-500/8 to-indigo-500/8 animate-pulse-slow" />
-    </div>
+  <div className="relative">
     <div className="relative h-12 w-12 flex items-center justify-center">
       <DotSphere size={40} seed={spaceId || "default-space"} dotCount={80} dotSize={0.9} expandFactor={1.15} transitionSpeed={400} highPerformance={true} />
     </div>
@@ -79,17 +77,11 @@ const ModelInfo = ({ provider, modelName, similarMessages, chatMode }: {
 }) => {
   const ModeModeIcon = Sparkles;
   const similarMessagesCount = similarMessages?.length ?? 0;
+  const modelInfo = getModelDisplayInfo(modelName);
   
   return (
     <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
-      {provider && (
-        <div className="px-2 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-linear-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10">
-          <ProviderIcon provider={provider} size={14} />
-        </div>
-      )}
-      <div className="px-2.5 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-linear-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10">
-        <span className="text-white">{modelName}</span>
-      </div>
+      {modelInfo && <ModelDisplay modelInfo={modelInfo} showIcon={true} />}
       {chatMode && (
         <div className="px-2.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit">
           <ModeModeIcon size={11} />

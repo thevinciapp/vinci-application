@@ -1,17 +1,16 @@
-
-
 import React from "react";
 import { Command } from 'cmdk';
 import { ProviderIcon } from "@lobehub/icons";
 import { useSpaces } from "@/hooks/use-spaces";
 import { toast } from "@/components/chat/ui/toast";
-import { Model, ModelsByProvider, Provider, AVAILABLE_MODELS, ProviderComponentProps } from "@/types";
+import { ProviderComponentProps, Model, Provider, AVAILABLE_MODELS, AvailableModel } from "@/types/provider";
 
-export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect }) => {
+export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery = '', onSelect }) => {
   const { activeSpace, updateSpaceModel } = useSpaces();
   
-  const modelsByProvider = Object.entries(AVAILABLE_MODELS).reduce<Record<string, Model[]>>((acc, [provider, models]) => {
-    const filteredModels = models.filter(model =>
+  const modelsByProvider = Object.entries(AVAILABLE_MODELS).reduce<Record<string, Model[]>>((acc, [providerName, models]) => {
+    const provider = providerName as Provider;
+    const filteredModels = (models as ReadonlyArray<AvailableModel>).filter(model =>
       model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       model.description?.toLowerCase().includes(searchQuery.toLowerCase())
     );
