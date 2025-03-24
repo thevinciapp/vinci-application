@@ -12,6 +12,8 @@ import { fetchConversations } from '@/services/conversations/conversation-servic
 import { SpaceEvents } from '@/core/ipc/constants';
 import { SpaceResponse } from '@/types/space';
 import { Space } from '@/types/space';
+import { fetchMessages } from '@/services/messages/message-service';
+import { Message } from '@/types/message';
 
 export function registerSpaceHandlers() {
   ipcMain.handle(SpaceEvents.GET_SPACE_CONVERSATIONS, async (_event: IpcMainInvokeEvent, spaceId: string): Promise<SpaceResponse> => {
@@ -65,26 +67,38 @@ export function registerSpaceHandlers() {
 
   ipcMain.handle(SpaceEvents.SET_ACTIVE_SPACE, async (_event: IpcMainInvokeEvent, spaceId: string): Promise<SpaceResponse> => {
     try {
-      console.log('[ELECTRON] set-active-space handler received raw input:', spaceId);
-      
       const spaceIdStr = String(spaceId || '').trim();
       
       if (!spaceIdStr) {
-        console.error('[ELECTRON] Invalid space ID in set-active-space handler after conversion:', spaceIdStr);
         return { success: false, error: 'Space ID is required' };
       }
       
-      console.log('[ELECTRON] set-active-space handler calling setActiveSpace with ID:', spaceIdStr);
-      
-      const result = await setActiveSpaceInAPI(spaceIdStr);
-      console.log('[ELECTRON] setActiveSpace result:', result);
-      
+      await setActiveSpaceInAPI(spaceIdStr);
       const activeSpace = await fetchActiveSpace();
-      if (activeSpace) {
-        ipcMain.emit(SpaceEvents.SPACE_UPDATED, null, { space: activeSpace });
-      }
       
-      return { success: true, data: result };
+      if (!activeSpace) {
+        return { success: false, error: 'Failed to fetch active space' };
+      }
+
+      const conversations = await fetchConversations(spaceIdStr);
+      let firstConversationMessages: Message[] = [];
+      
+      if (conversations && conversations.length > 0) {
+        firstConversationMessages = await fetchMessages(conversations[0].id);
+      }
+
+      const responseData = {
+        space: activeSpace,
+        conversations: conversations || [],
+        messages: firstConversationMessages || []
+      };
+
+      ipcMain.emit(SpaceEvents.SPACE_UPDATED, null, responseData);
+      
+      return { 
+        success: true, 
+        data: responseData
+      };
     } catch (error) {
       console.error('[ELECTRON] Error in set-active-space handler:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

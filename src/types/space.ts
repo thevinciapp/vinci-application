@@ -1,5 +1,7 @@
 import { Provider } from '@/types/provider';
 import { IpcResponse } from '@/types/ipc';
+import { Conversation } from './conversation';
+import { Message } from './message';
 
 export interface Space {
   id: string;
@@ -18,8 +20,14 @@ export interface Space {
   isActive?: boolean;
 }
 
-export interface SpaceResponse extends IpcResponse {
-  data?: Space | Space[] | { deleted: boolean } | { updated: boolean };
+export interface SpaceResponse {
+  success: boolean;
+  error?: string;
+  data?: {
+    space: Space;
+    conversations: Conversation[];
+    messages: Message[];
+  } | Space[];
 }
 
 export interface ActiveSpace {

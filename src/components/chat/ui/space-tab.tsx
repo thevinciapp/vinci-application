@@ -23,20 +23,12 @@ export function SpaceTab({ activeSpace }: SpaceTabProps) {
 
   const handleSpaceSelect = async (space: Space) => {
     try {
-      const success = await setActiveSpaceById(space.id);
-      if (success) {
-        toast({
-          title: "Success",
-          description: `Switched to ${space.name}`,
-          variant: "default",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to switch space",
-          variant: "destructive",
-        });
-      }
+      await setActiveSpaceById(space.id);
+      toast({
+        title: "Success",
+        description: `Switched to ${space.name}`,
+        variant: "default",
+      });
     } catch (error) {
       console.error('Error switching space:', error);
       toast({

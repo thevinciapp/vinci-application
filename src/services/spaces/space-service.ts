@@ -149,14 +149,11 @@ export async function deleteSpace(spaceId: string): Promise<boolean> {
   }
 }
 
-/**
- * Update the active space model
- */
+
 export async function updateSpaceModel(spaceId: string, modelId: string, provider: string): Promise<boolean> {
   try {
     console.log(`[ELECTRON] Updating space ${spaceId} with model ID: ${modelId}, provider: ${provider}`);
     
-    // Use the standard space update endpoint
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}`, {
       method: 'PATCH',
       headers: {
@@ -166,7 +163,7 @@ export async function updateSpaceModel(spaceId: string, modelId: string, provide
     });
     
     const { status, error } = await response.json();
-    
+
     if (status !== 'success') {
       throw new Error(error || 'Failed to update space model');
     }
