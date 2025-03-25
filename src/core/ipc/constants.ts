@@ -100,6 +100,7 @@ export const ConversationEvents = {
   CREATE_CONVERSATION: 'create-conversation',
   UPDATE_CONVERSATION: 'update-conversation',
   DELETE_CONVERSATION: 'delete-conversation',
+  SET_ACTIVE_CONVERSATION: 'set-active-conversation',
   CONVERSATIONS_UPDATED: 'conversations-updated'
 } as const;
 

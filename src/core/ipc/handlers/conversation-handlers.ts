@@ -3,7 +3,8 @@ import {
   fetchConversations,
   createConversation,
   updateConversation,
-  deleteConversation
+  deleteConversation,
+  setActiveConversationInAPI
 } from '@/services/conversations/conversation-service';
 import { fetchMessages } from '@/services/messages/message-service';
 import { ConversationResponse } from '@/types/conversation';
@@ -19,7 +20,6 @@ export function registerConversationHandlers() {
     } catch (error) {
       console.error('[ELECTRON] Error in get-conversation-messages handler:', error);
       
-      // Improved error serialization
       let errorMessage: string;
       if (error instanceof Error) {
         errorMessage = error.message;
@@ -37,10 +37,8 @@ export function registerConversationHandlers() {
     }
   });
 
-  // Handle conversation-specific operations
   ipcMain.handle(ConversationEvents.GET_CONVERSATIONS, async (_event: IpcMainInvokeEvent): Promise<ConversationResponse> => {
     try {
-      // Pass empty string as space ID to get all conversations
       const conversations = await fetchConversations('');
       return { success: true, data: conversations, status: 'success' };
     } catch (error) {
@@ -90,6 +88,28 @@ export function registerConversationHandlers() {
       return { success: true, data: { deleted: result }, status: 'success' };
     } catch (error) {
       console.error('[ELECTRON] Error in delete-conversation handler:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error', status: 'error' };
+    }
+  });
+
+  ipcMain.handle(ConversationEvents.SET_ACTIVE_CONVERSATION, async (_event: IpcMainInvokeEvent, conversationId: string): Promise<ConversationResponse> => {
+    try {
+      if (!conversationId) {
+        return { success: false, error: 'Conversation ID is required', status: 'error' };
+      }
+      
+      await setActiveConversationInAPI(conversationId);
+      const messages = await fetchMessages(conversationId);
+      
+      return { 
+        success: true, 
+        data: {
+          messages
+        },
+        status: 'success'
+      };
+    } catch (error) {
+      console.error('[ELECTRON] Error in set-active-conversation handler:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error', status: 'error' };
     }
   });

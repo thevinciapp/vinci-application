@@ -50,6 +50,16 @@ export const conversationApi = {
     }
   },
 
+  setActiveConversation: async (conversationId: string) => {
+    try {
+      const response = await ipcRenderer.invoke(ConversationEvents.SET_ACTIVE_CONVERSATION, conversationId);
+      return response;
+    } catch (error) {
+      console.error("[ELECTRON PRELOAD] setActiveConversation error:", error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  },
+
   onConversationsUpdated: (callback: (conversations: any[]) => void) => {
     const handler = (_event: any, response: any) => {
       if (response.success && response.data) {

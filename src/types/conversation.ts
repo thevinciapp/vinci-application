@@ -12,7 +12,7 @@ export interface Conversation {
 }
 
 export interface ConversationResponse extends IpcResponse {
-  data?: Conversation | Conversation[] | { deleted: boolean } | { updated: boolean };
+  data?: Conversation | Conversation[] | { deleted: boolean } | { updated: boolean } | { messages: any[] };
 }
 
 export interface ActiveConversation {

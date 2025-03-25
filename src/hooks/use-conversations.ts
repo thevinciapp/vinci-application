@@ -41,15 +41,32 @@ export function useConversations() {
     };
   }, [rendererStore]);
 
-  const setActiveConversation = useCallback(async (conversation: Conversation | null): Promise<boolean> => {
+  const setActiveConversation = useCallback(async (conversation: Conversation): Promise<boolean> => {
     try {
       setIsLoading(true);
-      rendererStore.setConversations(
-        rendererStore.conversations.map(c => ({
-          ...c,
-          active: c.id === conversation?.id
-        }))
-      );
+      setError(null);
+      
+      const response = await window.electron.invoke(ConversationEvents.SET_ACTIVE_CONVERSATION, conversation.id);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to set active conversation');
+      }
+
+      if (conversation) {
+        rendererStore.setConversations(
+          rendererStore.conversations.map(c => ({
+            ...c,
+            active: c.id === conversation.id
+          }))
+        );
+      }
+
+      if (response.data) {
+        rendererStore.setMessages(response.data.messages);
+      } else {
+        rendererStore.setMessages([]);
+      }
+
       return true;
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to set active conversation');

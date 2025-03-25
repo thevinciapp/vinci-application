@@ -1,6 +1,6 @@
 import { useMainStore } from '@/store/main';
 import { fetchSpaces, fetchActiveSpace } from '@/services/spaces/space-service';
-import { fetchConversations } from '@/services/conversations/conversation-service';
+import { fetchActiveConversation, fetchConversations } from '@/services/conversations/conversation-service';
 import { fetchMessages } from '@/services/messages/message-service';
 import { fetchUserProfile } from '@/services/user/user-service';
 import { checkServerHealth } from '@/services/api/api-service';
@@ -74,13 +74,10 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
     
     if (activeSpace) {
       conversations = await fetchConversations(activeSpace.id);
-        
-      if (conversations.length > 0) {
-        try {
-          messages = await fetchMessages(conversations[0].id);
-        } catch (error) {
-          console.error('[ELECTRON] Error fetching messages for most recent conversation:', error);
-        }
+      const activeConversation = await fetchActiveConversation();
+
+      if (activeConversation) {
+        messages = await fetchMessages(activeConversation.id);
       }
     }
 

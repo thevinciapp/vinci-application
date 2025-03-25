@@ -73,7 +73,6 @@ export function ConversationTab({
     }
   };
 
-  // Sort conversations by most recent first
   const sortedConversations = [...conversations].sort((a, b) => {
     return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
   });
@@ -146,9 +145,9 @@ export function ConversationTab({
                 onSelect={() => handleSelectConversation(conversation)}
               >
                 <span className="text-sm font-medium">{conversation.title}</span>
-                {conversation.last_message && (
+                {conversation.lastMessage && (
                   <span className="text-xs text-muted-foreground line-clamp-1">
-                    {conversation.last_message}
+                    {conversation.lastMessage}
                   </span>
                 )}
                 <span className="text-xs text-muted-foreground mt-1">

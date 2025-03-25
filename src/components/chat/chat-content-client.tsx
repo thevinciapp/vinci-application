@@ -19,11 +19,16 @@ import { useCommandWindow } from '@/hooks/use-command-window';
 import { ConversationTab } from '@/components/chat/ui/conversation-tab';
 import { BaseTab } from '@/components/ui/base-tab';
 import { toast } from '@/hooks/use-toast';
+import { Conversation } from '@/types/conversation';
 
 export default function ChatContent() {
   const { user, messages: messagesFromStore } = useRendererStore();
   const { activeSpace, isLoading: isSpaceLoading } = useSpaces();
-  const { activeConversation, createConversation } = useConversations();
+  const { 
+    activeConversation, 
+    setActiveConversation,
+    createConversation 
+  } = useConversations();
   const { handleCommandWindowToggle } = useCommandWindow();
 
   const [searchMode, setSearchMode] = useState<'chat' | 'search' | 'semantic' | 'hybrid'>('chat');
@@ -163,6 +168,19 @@ export default function ChatContent() {
     }
   };
 
+  const handleSelectConversation = async (conversation: Conversation) => {
+    try {
+      await setActiveConversation(conversation);
+    } catch (error) {
+      console.error('Error selecting conversation:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to select conversation',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="h-full w-full">
       <div className="fixed top-4 right-4 z-50">
@@ -233,6 +251,7 @@ export default function ChatContent() {
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
                   <ConversationTab
                     onCreateConversation={handleCreateConversation}
+                    onSelectConversation={handleSelectConversation}
                     activeConversation={activeConversation}
                   />
                 </div>
