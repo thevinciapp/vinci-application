@@ -1,10 +1,9 @@
 import React from "react";
 import { PencilLine, Trash, MessageSquare, Plus } from "lucide-react";
 import { Command } from 'cmdk';
-import { Button } from "vinci-ui";
-
-import { Conversation } from '@/types';
-import { ProviderComponentProps } from "../../types";
+import { Button } from "@/components/ui/button";
+import { Conversation } from '@/types/conversation';
+import { ProviderComponentProps } from "@/types/provider";
 import { useSpaces } from '@/hooks/use-spaces';
 import { useConversations } from '@/hooks/use-conversations';
 import { useMessages } from '@/hooks/use-messages';

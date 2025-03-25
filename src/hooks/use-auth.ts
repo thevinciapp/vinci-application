@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useToast } from 'vinci-ui';
+import { useToast } from '@/hooks/use-toast';
 import { AuthEvents, AppStateEvents } from '@/core/ipc/constants';
 
 interface AuthSession {

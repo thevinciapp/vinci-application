@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { BaseTab } from 'vinci-ui';
-import { toast } from '@/components/chat/ui/toast';
+import { BaseTab } from '@/components/ui/base-tab';
 import { MessageSquare, Edit, Trash, Archive, Share2 } from 'lucide-react';
 import { Conversation } from '@/types/conversation';
+import { useRendererStore } from '@/store/renderer';
+import { formatDistanceToNow } from 'date-fns';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,17 +11,25 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Button
-} from 'vinci-ui';
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import { toast } from '@/hooks/use-toast';
 
 export interface ConversationTabProps {
   activeConversation: Conversation | null;
   onCreateConversation?: (title: string) => Promise<void>;
+  onSelectConversation?: (conversation: Conversation) => void;
   onClick?: () => void;
 }
 
-export function ConversationTab({ activeConversation, onCreateConversation, onClick }: ConversationTabProps) {
+export function ConversationTab({ 
+  activeConversation, 
+  onCreateConversation, 
+  onSelectConversation,
+  onClick 
+}: ConversationTabProps) {
   const [isCreating, setIsCreating] = useState(false);
+  const { conversations } = useRendererStore();
 
   const handleClick = async () => {
     if (onClick) {
@@ -58,26 +67,16 @@ export function ConversationTab({ activeConversation, onCreateConversation, onCl
     }
   };
 
-  const recentConversations = [
-    {
-      id: 'conv-1',
-      title: 'Project Setup',
-      preview: 'Last message about setup instructions...',
-      timestamp: new Date(Date.now() - 3600000).toISOString(),
-    },
-    {
-      id: 'conv-2',
-      title: 'API Integration',
-      preview: 'We need to connect to the database first...',
-      timestamp: new Date(Date.now() - 7200000).toISOString(),
-    },
-    {
-      id: 'conv-3',
-      title: 'UI Design Discussion',
-      preview: 'What do you think about using dark mode as default?',
-      timestamp: new Date(Date.now() - 86400000).toISOString(),
+  const handleSelectConversation = (conversation: Conversation) => {
+    if (onSelectConversation) {
+      onSelectConversation(conversation);
     }
-  ];
+  };
+
+  // Sort conversations by most recent first
+  const sortedConversations = [...conversations].sort((a, b) => {
+    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+  });
 
   return (
     <DropdownMenu>
@@ -136,19 +135,24 @@ export function ConversationTab({ activeConversation, onCreateConversation, onCl
           <span>New Conversation</span>
         </DropdownMenuItem>
         
-        {recentConversations.length > 0 && (
+        {sortedConversations.length > 0 && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-xs">Recent Conversations</DropdownMenuLabel>
-            {recentConversations.map((conversation) => (
+            {sortedConversations.map((conversation) => (
               <DropdownMenuItem
                 key={conversation.id}
-                className="flex flex-col items-start px-2 py-2"
+                className="flex flex-col items-start px-2 py-2 cursor-pointer"
+                onSelect={() => handleSelectConversation(conversation)}
               >
                 <span className="text-sm font-medium">{conversation.title}</span>
-                <span className="text-xs text-muted-foreground line-clamp-1">{conversation.preview}</span>
+                {conversation.last_message && (
+                  <span className="text-xs text-muted-foreground line-clamp-1">
+                    {conversation.last_message}
+                  </span>
+                )}
                 <span className="text-xs text-muted-foreground mt-1">
-                  {new Date(conversation.timestamp).toLocaleString()}
+                  {formatDistanceToNow(new Date(conversation.updated_at), { addSuffix: true })}
                 </span>
               </DropdownMenuItem>
             ))}

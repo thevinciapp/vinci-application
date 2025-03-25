@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { CommandType } from '@/types/command';
-import { toast } from '@/components/chat/ui/toast';
+import { toast } from '@/hooks/use-toast';
 
 export function useCommandWindow() {
   const handleCommandWindowToggle = useCallback(async (commandType: CommandType) => {

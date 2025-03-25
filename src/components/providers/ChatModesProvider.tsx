@@ -1,67 +1,53 @@
-
-
 import React from 'react';
-import { MessageSquare, Plus, Settings, Check, Trash, PencilLine } from 'lucide-react';
+import { Settings, PencilLine, Trash, Plus } from 'lucide-react';
 import { Command } from 'cmdk';
-import { Button } from "vinci-ui";
+import { Button } from "@/components/ui/button";
 import { ProviderComponentProps } from '@/types/provider';
+import { getAllChatModes, ChatModeConfig } from '@/config/chat-modes';
+import { useSpaces } from '@/hooks/use-spaces';
 
-interface ChatMode {
-  id: string;
-  name: string;
-  description: string;
-  isActive: boolean;
-  createdAt: number;
-  settings?: Record<string, any>;
-}
-
-export function ChatModesProvider({ searchQuery, onSelect, onAction }: ProviderComponentProps) {
-  const chatModes: ChatMode[] = [
-    {
-      id: 'default',
-      name: 'Default Mode',
-      description: 'Standard chat interaction mode',
-      isActive: true,
-      createdAt: Date.now(),
-    },
-    {
-      id: 'code-review',
-      name: 'Code Review',
-      description: 'Focused on reviewing and improving code',
-      isActive: false,
-      createdAt: Date.now(),
-    },
-    {
-      id: 'brainstorm',
-      name: 'Brainstorm',
-      description: 'Creative ideation and problem-solving mode',
-      isActive: false,
-      createdAt: Date.now(),
-    }
-  ];
+export function ChatModesProvider({ searchQuery = '', onSelect, onAction }: ProviderComponentProps) {
+  const { activeSpace, updateSpace } = useSpaces();
+  const chatModes = getAllChatModes();
+  const currentMode = activeSpace?.chat_mode || 'ask';
 
   const filteredModes = chatModes.filter(mode => 
     mode.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     mode.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleSelect = (mode: ChatMode) => {
-    if (onSelect) onSelect({...mode, closeOnSelect: true});
+  const handleSelect = async (mode: ChatModeConfig) => {
+    if (!activeSpace) return;
+    
+    try {
+      await updateSpace(activeSpace.id, {
+        chat_mode: mode.id
+      });
+      
+      if (onSelect) onSelect({
+        id: mode.id,
+        name: mode.name,
+        description: mode.description,
+        closeOnSelect: true
+      });
+    } catch (error) {
+      console.error('Failed to update chat mode:', error);
+    }
   };
 
-  const handleSettings = (e: React.MouseEvent, mode: ChatMode) => {
+  const handleSettings = (e: React.MouseEvent, mode: ChatModeConfig) => {
     e.stopPropagation();
     e.preventDefault();
     if (onAction) onAction('settings', mode);
   };
   
-  const handleEdit = (e: React.MouseEvent, mode: ChatMode) => {
+  const handleEdit = (e: React.MouseEvent, mode: ChatModeConfig) => {
     e.stopPropagation();
     e.preventDefault();
     if (onAction) onAction('edit', mode);
   };
   
-  const handleDelete = (e: React.MouseEvent, mode: ChatMode) => {
+  const handleDelete = (e: React.MouseEvent, mode: ChatModeConfig) => {
     e.stopPropagation();
     e.preventDefault();
     if (onAction) onAction('delete', mode);
@@ -77,47 +63,52 @@ export function ChatModesProvider({ searchQuery, onSelect, onAction }: ProviderC
         {filteredModes.length === 0 ? (
           <Command.Empty>No chat modes found</Command.Empty>
         ) : (
-          filteredModes.map(mode => (
-            <Command.Item
-              key={mode.id}
-              value={mode.name}
-              onSelect={() => handleSelect(mode)}
-            >
-              <MessageSquare size={16} className={mode.isActive ? undefined : "text-muted-foreground"} />
-              <div>
-                {mode.name}
-                <span className="cmdk-meta">{mode.description}</span>
-              </div>
-              <div className="cmdk-actions">
-                {mode.isActive && (
-                  <span className="text-primary">Active</span>
-                )}
-                <Button 
-                  variant="ghost"
-                  size="icon"
-                  onClick={(e) => handleSettings(e, mode)}
-                >
-                  <Settings size={14} />
-                </Button>
-                <Button 
-                  variant="ghost"
-                  size="icon"
-                  onClick={(e) => handleEdit(e, mode)}
-                >
-                  <PencilLine size={14} />
-                </Button>
-                {!mode.isActive && (
+          filteredModes.map(mode => {
+            const Icon = mode.icon;
+            const isActive = mode.id === currentMode;
+            
+            return (
+              <Command.Item
+                key={mode.id}
+                value={mode.name}
+                onSelect={() => handleSelect(mode)}
+              >
+                <Icon className={isActive ? undefined : "text-muted-foreground w-4 h-4"} />
+                <div>
+                  {mode.name}
+                  <span className="cmdk-meta">{mode.description}</span>
+                </div>
+                <div className="cmdk-actions">
+                  {isActive && (
+                    <span className="text-primary">Active</span>
+                  )}
                   <Button 
                     variant="ghost"
                     size="icon"
-                    onClick={(e) => handleDelete(e, mode)}
+                    onClick={(e) => handleSettings(e, mode)}
                   >
-                    <Trash size={14} />
+                    <Settings size={14} />
                   </Button>
-                )}
-              </div>
-            </Command.Item>
-          ))
+                  <Button 
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => handleEdit(e, mode)}
+                  >
+                    <PencilLine size={14} />
+                  </Button>
+                  {!isActive && (
+                    <Button 
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => handleDelete(e, mode)}
+                    >
+                      <Trash size={14} />
+                    </Button>
+                  )}
+                </div>
+              </Command.Item>
+            );
+          })
         )}
       </Command.Group>
       <Command.Separator />

@@ -1,6 +1,6 @@
 import { User } from '@supabase/supabase-js';
 import { useAuth } from '@/hooks/use-auth';
-import { Button } from 'vinci-ui';
+import { Button } from '@/components/ui/button';
 import { useState, useRef, useEffect } from 'react';
 
 interface UserProfileDropdownProps {

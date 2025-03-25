@@ -1,4 +1,4 @@
-import { BaseTab } from 'vinci-ui';
+import { BaseTab } from '@/components/ui/base-tab';
 import { Space } from '@/types/space';
 import DotSphere from '@/components/space/planet-icon';
 import { Plus } from 'lucide-react';
@@ -9,10 +9,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-  Button
-} from 'vinci-ui';
+} from '@/components/ui/dropdown-menu';
 import { useSpaces } from '@/hooks/use-spaces';
-import { toast } from '@/components/chat/ui/toast';
+import { Button } from '@/components/ui/button';
+import { toast } from '@/hooks/use-toast';
 
 export interface SpaceTabProps {
   activeSpace: Space | null;

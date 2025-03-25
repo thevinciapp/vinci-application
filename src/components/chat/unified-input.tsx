@@ -1,9 +1,8 @@
-
-
 import React, { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { File, Loader2, MessageSquare, X } from 'lucide-react';
-import { Button, cn } from "vinci-ui";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils/utils";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from 'cmdk';
 import path from 'path';
 import { CommandCenterEvents, SearchEvents, MessageEvents } from '@/core/ipc/constants';
@@ -514,12 +513,13 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
 
   return (
     <div
-  className={cn(
-    "command-glass-effect relative rounded-2xl",
-    "transition-all duration-300",
-    isFocused && "bg-white/[0.05] border-white/[0.1]"
-  )}
->
+      className={cn(
+        "command-glass-effect relative rounded-2xl",
+        "transition-all duration-300",
+        "divide-y divide-white/[0.05]",
+        isFocused && "bg-white/[0.03]"
+      )}
+    >
       {children}
       
       {/* Suggestions Popover (Files & Messages) */}
@@ -528,7 +528,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
           className="absolute bottom-full left-0 right-0 z-50 mb-2 file-suggestions-menu"
           style={{ display: showSuggestions ? 'block' : 'none' }}
         >
-          <div className="max-h-60 rounded-md bg-white/10 backdrop-blur-xl border border-white/10 shadow-lg">
+          <div className="max-h-60 rounded-md bg-white/[0.03] backdrop-blur-xl">
             <Command className="bg-transparent">
               <CommandList className="max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                 {isSearching ? (
@@ -550,7 +550,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
                             key={file.id} 
                             value={file.path} 
                             onSelect={() => selectFile(file)}
-                            className="text-white/80 hover:bg-white/10"
+                            className="text-white/80 hover:bg-white/[0.05] hover:text-white/95 transition-all duration-200"
                           >
                             <File className="mr-2 h-4 w-4 text-white/60" />
                             <span>{file.name}</span>
@@ -568,14 +568,14 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
                             key={message.id} 
                             value={message.name} 
                             onSelect={() => selectMessage(message)}
-                            className="text-white/80 hover:bg-white/10"
+                            className="text-white/80 hover:bg-white/[0.05] hover:text-white/95 transition-all duration-200"
                           >
                             <MessageSquare className={`mr-2 h-4 w-4 ${message.role === 'assistant' ? 'text-cyan-400' : 'text-white/60'}`} />
                             <div className="flex flex-col">
                               <span className="truncate max-w-[300px]">{message.name}</span>
                               <span className="text-xs text-white/40">From: {message.conversationTitle}</span>
                             </div>
-                            <span className="ml-auto text-xs px-1.5 py-0.5 rounded bg-white/10 text-white/60">
+                            <span className="ml-auto text-xs px-1.5 py-0.5 rounded bg-white/[0.05] text-white/60">
                               {message.role === 'assistant' ? 'AI' : 'User'}
                             </span>
                           </CommandItem>
@@ -590,15 +590,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
         </div>
       )}
       
-      <div
-        className={`
-          relative rounded-b-2xl
-          bg-white/[0.03] border border-white/[0.05]
-          transition-all duration-300
-          overflow-hidden backdrop-blur-xl
-          ${isFocused ? 'bg-white/[0.05] border-white/[0.1]' : ''}
-        `}
-      >
+      <div>
         <div className="flex items-center">
           <div className="flex-1">
             <div 

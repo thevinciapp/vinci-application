@@ -1,8 +1,11 @@
 
 
 import React from "react";
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, toast } from "vinci-ui";
-import { DialogComponentProps, Space } from "@/types";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Toast } from "@/components/ui/toast";
+import { DialogComponentProps } from "@/types/dialog";
+import { Space } from "@/types/space";
 import { useSpaces } from "@/hooks/use-spaces";
 import { useCommandCenter } from "@/hooks/use-command-center";
 

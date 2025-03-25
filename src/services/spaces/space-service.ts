@@ -5,6 +5,7 @@ import { fetchWithAuth } from '@/services/api/api-service';
 import { fetchConversations } from '@/services/conversations/conversation-service';
 import { fetchMessages } from '@/services/messages/message-service';
 import { Provider } from '@/types/provider';
+
 export async function fetchSpaces(): Promise<Space[]> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces`);
@@ -53,7 +54,7 @@ export async function fetchActiveSpace(): Promise<Space | null> {
 export async function updateSpace(spaceId: string, spaceData: Partial<Space>): Promise<Space> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json'
       },

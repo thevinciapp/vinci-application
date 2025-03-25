@@ -85,13 +85,6 @@ function getCommandGroups(state: any): CommandGroup[] {
       icon: 'ModelIcon',
       description: 'Available AI models'
     },
-    {
-      type: 'chat-modes',
-      title: 'Chat Modes',
-      items: state.chatModes || [],
-      icon: 'MessageSquare',
-      description: 'Available chat modes'
-    }
   ];
 }
 
@@ -190,7 +183,7 @@ function getWindowUrl(commandType: CommandType): string {
 }
 
 export async function preloadCommandWindows() {
-  const commandTypes: CommandType[] = ['spaces', 'conversations', 'models'];
+  const commandTypes: CommandType[] = ['spaces', 'conversations', 'models', 'chatModes'];
   
   return Promise.all(commandTypes.map(async (type) => {
     if (!WINDOW_STATE.commandWindows.has(type)) {

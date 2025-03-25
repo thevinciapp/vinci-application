@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { Lightbulb, Check, X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Command } from 'cmdk';
-import { Button } from "vinci-ui";
+import { Button } from "@/components/ui/button";
+import { ProviderComponentProps } from "@/types/provider";
 
 interface Suggestion {
   id: string;

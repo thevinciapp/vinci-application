@@ -2,7 +2,7 @@ import React from "react";
 import { Command } from 'cmdk';
 import { ProviderIcon } from "@lobehub/icons";
 import { useSpaces } from "@/hooks/use-spaces";
-import { toast } from "@/components/chat/ui/toast";
+import { toast } from "@/hooks/use-toast";
 import { ProviderComponentProps, Model, Provider, AVAILABLE_MODELS, AvailableModel } from "@/types/provider";
 
 export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery = '', onSelect }) => {

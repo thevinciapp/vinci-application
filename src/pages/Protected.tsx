@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import ChatContentClient from '@/components/chat/chat-content-client';
 import { useNavigate } from 'react-router-dom';
 import { useAppState } from '@/hooks/use-app-state';
-import { toast } from 'vinci-ui';
+import { Toast } from '@/components/ui/toast';
 
 export default function Protected() {
   const navigate = useNavigate();

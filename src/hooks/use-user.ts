@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useToast } from 'vinci-ui';
+import { useToast } from '@/hooks/use-toast';
 import { UserEvents, AppStateEvents, AuthEvents } from '@/core/ipc/constants';
 import { UserProfile, UserUpdateData, EmailPreferences } from '@/services/user/user-service';
 import { useRendererStore } from '@/store/renderer';

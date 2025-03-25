@@ -2,7 +2,7 @@ import { marked } from "marked"
 import { memo, useId, useMemo } from "react"
 import ReactMarkdown, { Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { CodeBlock } from "vinci-ui"
+import { CodeBlock } from "@/components/ui/code-block"
 import { cn } from "@/types/utils"
 import { FileText, Folder, Hash, Code, Clock } from "lucide-react"
 

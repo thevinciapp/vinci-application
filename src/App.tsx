@@ -7,7 +7,7 @@ import ResetPassword from '@/pages/ResetPassword';
 import CommandCenter from '@/pages/CommandCenter';
 import AuthLayout from '@/layouts/AuthLayout';
 import ProtectedLayout from '@/layouts/ProtectedLayout';
-import { Toaster } from 'vinci-ui';
+import { Toaster } from '@/components/ui/toaster';
 
 function App() {
   return (

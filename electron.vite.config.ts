@@ -86,7 +86,6 @@ export default defineConfig({
       rollupOptions: {
         input: path.resolve(__dirname, 'index.html'),
         external: [
-          'vinci-ui',
           'electron',
           '@electron/remote'
         ]
@@ -108,7 +107,6 @@ export default defineConfig({
         'react-router-dom',
         'zustand'
       ],
-      exclude: ['vinci-ui']
     },
   },
 });

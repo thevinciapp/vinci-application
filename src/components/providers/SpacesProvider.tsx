@@ -3,9 +3,10 @@
 import React from "react";
 import { PencilLine, Trash, Globe, Plus } from "lucide-react";
 import { Command } from 'cmdk';
-import { Button } from "vinci-ui";
+import { Button } from "@/components/ui/button";
 import { Space } from '@/types/space';
 import { useSpaces } from '@/hooks/use-spaces';
+import { ProviderComponentProps } from "@/types/provider";
 
 export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect, onAction }) => {
   const { spaces, setActiveSpaceById } = useSpaces();

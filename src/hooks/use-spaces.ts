@@ -140,6 +140,10 @@ export function useSpaces() {
     try {
       setIsLoading(true);
       const result = await window.electron.invoke(SpaceEvents.CREATE_SPACE, spaceData);
+      if (result.success && result.data) {
+        const spaces = [...rendererStore.spaces, result.data];
+        rendererStore.setSpaces(spaces);
+      }
       return result.success;
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to create space');
@@ -153,6 +157,13 @@ export function useSpaces() {
     try {
       setIsLoading(true);
       const result = await window.electron.invoke(SpaceEvents.DELETE_SPACE, spaceId);
+      if (result.success) {
+        const spaces = rendererStore.spaces.filter(s => s.id !== spaceId);
+        rendererStore.setSpaces(spaces);
+        if (rendererStore.activeSpace?.id === spaceId) {
+          rendererStore.setActiveSpace(null);
+        }
+      }
       return result.success;
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to delete space');
@@ -166,6 +177,16 @@ export function useSpaces() {
     try {
       setIsLoading(true);
       const result = await window.electron.invoke(SpaceEvents.UPDATE_SPACE, spaceId, spaceData);
+      if (result.success && result.data) {
+        const spaces = rendererStore.spaces.map(s => 
+          s.id === spaceId ? { ...s, ...result.data.space } : s
+        );
+        rendererStore.setSpaces(spaces);
+        
+        if (rendererStore.activeSpace?.id === spaceId) {
+          rendererStore.setActiveSpace({ ...rendererStore.activeSpace, ...result.data.space });
+        }
+      }
       return result.success;
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to update space');
@@ -180,10 +201,16 @@ export function useSpaces() {
       setIsLoading(true);
       const result = await window.electron.invoke(SpaceEvents.UPDATE_SPACE_MODEL, spaceId, modelId, provider);
       if (result.success) {
-        const currentSpace = useRendererStore.getState().activeSpace;
-        if (currentSpace) {
-          useRendererStore.getState().setActiveSpace({
-            ...currentSpace,
+        // Update spaces list
+        const spaces = rendererStore.spaces.map(s => 
+          s.id === spaceId ? { ...s, model: modelId, provider: provider as Provider } : s
+        );
+        rendererStore.setSpaces(spaces);
+        
+        // Update active space if this is the active one
+        if (rendererStore.activeSpace?.id === spaceId) {
+          rendererStore.setActiveSpace({
+            ...rendererStore.activeSpace,
             model: modelId,
             provider: provider as Provider
           });

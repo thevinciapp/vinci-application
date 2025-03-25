@@ -1,8 +1,14 @@
 
 
 import React, { useState } from "react";
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea, toast } from "vinci-ui";
-import { DialogComponentProps, Space } from "@/types";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Toast } from "@/components/ui/toast";
+import { DialogComponentProps } from "@/types/dialog";
+import { Space } from "@/types/space";
 import { useSpaces } from "@/hooks/use-spaces";
 import { useCommandCenter } from "@/hooks/use-command-center";
 

@@ -1,11 +1,12 @@
 
 
 import React from "react";
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "vinci-ui";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from 'sonner';
 import { useConversations } from "@/hooks/use-conversations";
 import { useCommandCenter } from "@/hooks/use-command-center";
-import { DialogComponentProps } from "@/types";
+import { DialogComponentProps } from "@/types/dialog";
 
 export const DeleteConversationDialog: React.FC<DialogComponentProps> = ({ data, onClose, onConfirm }) => {
   const { deleteConversation, isLoading: isDeleting } = useConversations();

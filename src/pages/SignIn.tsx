@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { SubmitButton } from '@/components/auth/submit-button';
-import { Input, Label, toast } from 'vinci-ui';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Toast } from '@/components/ui/toast';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 import { useRendererStore } from '@/store/renderer';

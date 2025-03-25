@@ -1,5 +1,5 @@
 import { Bell, Lightbulb, ExternalLink } from 'lucide-react';
-import { BaseTab } from 'vinci-ui';
+import { BaseTab } from '@/components/ui/base-tab';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,9 +7,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Button
-} from 'vinci-ui';
-import { toast } from '@/components/chat/ui/toast';
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import { toast } from '@/hooks/use-toast';
 
 export interface SuggestionsTabProps {
   onClick?: () => void;

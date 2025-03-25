@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bell, LogOut, User as UserIcon, Settings } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "vinci-ui";
-import { Button } from "vinci-ui";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,7 +11,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "vinci-ui";
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils/utils";
 import { User } from '@supabase/supabase-js';
 import { useUser } from '@/hooks/use-user';

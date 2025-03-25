@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Clock, Check, X } from 'lucide-react';
 import { Command } from 'cmdk';
-import { Progress } from "vinci-ui";
+import { Progress } from "@/components/ui/progress";
 import { ProviderComponentProps } from '@/types/provider';
 
 interface BackgroundTask {

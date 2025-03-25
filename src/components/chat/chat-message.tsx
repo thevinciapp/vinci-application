@@ -2,7 +2,7 @@ import { User, MessageSquareIcon, Sparkles, FileText, File } from 'lucide-react'
 import { memo, useMemo } from 'react';
 import { ProviderIcon } from './provider-icon';
 import { JSONValue } from 'ai';
-import { Avatar, AvatarFallback, AvatarImage } from 'vinci-ui';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { StreamStatus } from './stream-status';
 import { Markdown } from './markdown';
 import { Message, MessageAnnotation, SimilarMessage } from '@/types/message';

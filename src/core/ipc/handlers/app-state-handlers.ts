@@ -1,5 +1,5 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
-import { useMainStore, getMainStoreState } from '@/store/main';
+import { getMainStoreState, useMainStore } from '@/store/main';
 import {
   fetchInitialAppData,
   refreshAppData
@@ -68,7 +68,7 @@ export function registerAppStateHandlers() {
         };
       }
       
-      const currentState = getMainStoreState();
+      const currentState = useMainStore.getState();
       const mergedState = { ...currentState, ...state };
       
       Object.keys(state).forEach(key => {

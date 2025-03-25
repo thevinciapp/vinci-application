@@ -1,5 +1,6 @@
-import { BaseTab } from 'vinci-ui'
+import { BaseTab } from '@/components/ui/base-tab'
 import DotSphere from './planet-icon'
+
 
 export function ServerDrivenSpaceTab({ 
   activeSpace,

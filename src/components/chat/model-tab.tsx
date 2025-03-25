@@ -2,8 +2,7 @@
 
 import { getModelName, type Provider } from '@/config/models';
 import { ProviderIcon } from './provider-icon';
-import React from 'react';
-import { BaseTab } from 'vinci-ui';
+import { BaseTab } from '@/components/ui/base-tab';
 import { useSpaces } from '@/hooks/use-spaces';
 import { Cpu } from 'lucide-react';
 

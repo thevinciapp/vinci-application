@@ -1,5 +1,5 @@
 import { Space } from '@/types/space';
-import { BaseTab } from 'vinci-ui';
+import { BaseTab } from '@/components/ui/base-tab';
 import { ProviderIcon } from '@lobehub/icons';
 import { getModelDisplayInfo } from '@/utils/model-utils';
 import {
@@ -9,11 +9,11 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-  Button
-} from 'vinci-ui';
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 import { AVAILABLE_MODELS, Model, Provider } from '@/types/provider';
 import { useSpaces } from '@/hooks/use-spaces';
-import { toast } from '@/components/chat/ui/toast';
+import { toast } from '@/hooks/use-toast';
 
 export interface ModelTabProps {
   space: Space | null;

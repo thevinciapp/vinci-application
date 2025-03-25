@@ -2,23 +2,23 @@ import { useChat } from '@ai-sdk/react';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 
 import { ArrowDown, Search } from 'lucide-react';
-import { BaseTab } from 'vinci-ui';
 import { useSpaces } from '@/hooks/use-spaces';
 import { useConversations } from '@/hooks/use-conversations';
 import { UnifiedInput } from './unified-input';
 import { ChatMessages } from './chat-messages';
-import { UserProfileDropdown } from '@/components/chat/ui/user-profile-dropdown';
+import { UserProfileDropdown } from '@/components/auth/user-profile-dropdown';
 import { SpaceTab } from '@/components/chat/ui/space-tab';
 import { ModelTab } from '@/components/chat/ui/model-tab';
 import { ChatModeTab } from '@/components/chat/ui/chat-mode-tab';
-import { toast } from '@/components/chat/ui/toast';
 import { QuickActionsTab } from '@/components/chat/ui/quick-actions-tab';
 import { BackgroundTasksTab } from '@/components/chat/ui/background-tasks-tab';
 import { SuggestionsTab } from '@/components/chat/ui/suggestions-tab';
 import { useRendererStore } from '@/store/renderer';
 import { API_BASE_URL } from '@/config/api';
 import { useCommandWindow } from '@/hooks/use-command-window';
-import { ConversationTab } from './ui/conversation-tab';
+import { ConversationTab } from '@/components/chat/ui/conversation-tab';
+import { BaseTab } from '@/components/ui/base-tab';
+import { toast } from '@/hooks/use-toast';
 
 export default function ChatContent() {
   const { user, messages: messagesFromStore } = useRendererStore();
@@ -170,13 +170,7 @@ export default function ChatContent() {
       </div>
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
         <div
-          className="relative p-1 rounded-full bg-black/20 border border-white/[0.08] backdrop-blur-xl"
-          style={{
-            background: `color-mix(in srgb, ${activeSpace?.color || '#3ecfff'}10, transparent)`,
-            boxShadow: `0 0 20px ${activeSpace?.color || '#3ecfff'}10, inset 0 0 20px ${activeSpace?.color || '#3ecfff'
-              }05`,
-          }}
-        >
+          className="relative p-1 rounded-full command-glass-effect">
           <div className="flex items-center divide-x divide-white/[0.08]">
             <div className="px-1 first:pl-1 last:pr-1">
               <SpaceTab activeSpace={activeSpace} />
@@ -202,11 +196,6 @@ export default function ChatContent() {
         </div>
       </div>
       <div className="flex-1 w-full h-full flex flex-col">
-        <div className="absolute top-0 left-0 w-full h-screen pointer-events-none">
-          <div className="absolute top-0 left-[20%] w-[500px] h-[500px] bg-[#3ecfff]/[0.015] blur-[120px] rounded-full" />
-          <div className="absolute top-[20%] right-[20%] w-[400px] h-[400px] bg-[#D4966A]/[0.015] blur-[100px] rounded-full" />
-          <div className="absolute bottom-[10%] left-[30%] w-[600px] h-[600px] bg-[#3ecfff]/[0.01] blur-[130px] rounded-full" />
-        </div>
         <ChatMessages
           messages={messages}
           onStickToBottomChange={handleStickToBottomChange}
@@ -223,7 +212,7 @@ export default function ChatContent() {
               onSubmit={handleSubmit}
               disabled={!activeSpace || !activeConversation || status !== 'ready'}
             >
-              <div className="flex items-center divide-x divide-white/[0.05] bg-white/[0.03] border-t border-l border-r border-white/[0.05] rounded-t-2xl overflow-hidden backdrop-blur-xl w-full shadow-[0_-4px_20px_rgba(62,207,255,0.03)]">
+              <div className="flex items-center divide-x divide-white/[0.05]">
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
                   <QuickActionsTab onCreateConversation={handleCreateConversation} />
                 </div>

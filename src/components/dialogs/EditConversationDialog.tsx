@@ -1,11 +1,14 @@
 
 
 import React, { useState } from "react";
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label } from "vinci-ui";
-import { toast } from 'sonner';
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Toast } from "@/components/ui/toast";
 import { useConversations } from "@/hooks/use-conversations";
 import { useCommandCenter } from "@/hooks/use-command-center";
-import { DialogComponentProps } from "@/types";
+import { DialogComponentProps } from "@/types/dialog";
 
 export const EditConversationDialog: React.FC<DialogComponentProps> = ({ data, onClose, onConfirm }) => {
   const [title, setTitle] = useState(data.title || "");
