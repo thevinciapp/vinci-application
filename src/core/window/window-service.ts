@@ -35,6 +35,8 @@ const COMMAND_CENTER_CONFIG = {
   skipTaskbar: true,
   resizable: false,
   show: false,
+  fullscreenable: false,
+  type: 'panel',
   webPreferences: {
     preload: join(app.getAppPath(), 'out', 'preload', 'index.js'),
     nodeIntegration: false,
@@ -45,7 +47,9 @@ const COMMAND_CENTER_CONFIG = {
 const CONTEXT_COMMAND_CONFIG = {
   ...COMMAND_CENTER_CONFIG,
   width: 580,
-  height: 500
+  height: 500,
+  fullscreenable: false,
+  type: 'panel'
 } as const;
 
 const MAIN_WINDOW_CONFIG = {
@@ -81,6 +85,13 @@ function getCommandGroups(state: any): CommandGroup[] {
       icon: 'ModelIcon',
       description: 'Available AI models'
     },
+    {
+      type: 'chat-modes',
+      title: 'Chat Modes',
+      items: state.chatModes || [],
+      icon: 'MessageSquare',
+      description: 'Available chat modes'
+    }
   ];
 }
 
@@ -252,12 +263,15 @@ export async function createCommandCenterWindow(commandType: CommandType): Promi
     const window = new BrowserWindow({
       ...config,
       show: false,
+      fullscreenable: false,
       webPreferences: {
         ...config.webPreferences,
         backgroundThrottling: false
       }
     });
     
+    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    window.setAlwaysOnTop(true, 'floating', 1);
     WINDOW_STATE.commandWindows.set(commandType, window);
     
     window.loadURL(getWindowUrl(commandType));
@@ -297,6 +311,14 @@ export async function createMainWindow(): Promise<BrowserWindow | null> {
       } catch (error) {
         console.error('Failed to fetch initial app data:', error);
       }
+    });
+
+    window.on('enter-full-screen', () => {
+      getAllVisibleCommandWindows().forEach(([_, win]) => {
+        if (!win.isDestroyed()) {
+          win.hide();
+        }
+      });
     });
 
     return window;

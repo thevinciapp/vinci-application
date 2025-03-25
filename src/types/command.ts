@@ -6,6 +6,7 @@ export type CommandType =
   | 'suggestions'
   | 'actions'
   | 'chatModes'
+  | 'chat-modes'
   | 'messageSearch'
   | 'similarMessages'
   | 'application'
