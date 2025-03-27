@@ -13,6 +13,7 @@ import { ChatModeTab } from '@/components/chat/ui/chat-mode-tab';
 import { QuickActionsTab } from '@/components/chat/ui/quick-actions-tab';
 import { BackgroundTasksTab } from '@/components/chat/ui/background-tasks-tab';
 import { SuggestionsTab } from '@/components/chat/ui/suggestions-tab';
+import { MessagesTab } from '@/components/chat/ui/messages-tab';
 import { useRendererStore } from '@/store/renderer';
 import { API_BASE_URL } from '@/config/api';
 import { useCommandWindow } from '@/hooks/use-command-window';
@@ -231,24 +232,51 @@ export default function ChatContent() {
               disabled={!activeSpace || !activeConversation || status !== 'ready'}
             >
               <div className="flex items-center divide-x divide-white/[0.05]">
-                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
+                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5 min-w-0 max-w-1/5 flex-shrink-0">
                   <QuickActionsTab onCreateConversation={handleCreateConversation} />
                 </div>
-                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
-                  <BaseTab
-                    icon={<Search className="w-3 h-3" />}
-                    label="Messages"
-                    shortcut="F"
-                    onClick={() => handleCommandWindowToggle('messageSearch')}
+                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5 min-w-0 max-w-1/5 flex-shrink-0">
+                  <MessagesTab
+                    messages={messages.filter(m => m.role === 'user' || m.role === 'assistant').map(m => ({
+                      id: m.id || '',
+                      content: typeof m.content === 'string' ? m.content : '',
+                      role: m.role as 'user' | 'assistant',
+                      timestamp: m.createdAt ? new Date(m.createdAt) : new Date(),
+                      annotations: m.annotations || []
+                    }))}
+                    conversationId={activeConversation?.id}
+                    conversationName={activeConversation?.title}
+                    spaceId={activeSpace?.id}
+                    spaceName={activeSpace?.name}
+                    onCommandWindowToggle={(mode) => handleCommandWindowToggle(mode as any)}
+                    onMessageSearch={(query, searchScope) => {
+                      if (searchScope === 'space') {
+                        toast({
+                          title: "Space Search",
+                          description: `Searching entire space for "${query}"`,
+                          variant: "default",
+                        });
+                      } else {
+                        handleCommandWindowToggle('messageSearch');
+                      }
+                    }}
                   />
                 </div>
-                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
+                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5 min-w-0 max-w-1/5 flex-shrink-0">
                   <BackgroundTasksTab />
                 </div>
-                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
-                  <SuggestionsTab />
+                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5 min-w-0 max-w-1/5 flex-shrink-0">
+                  <SuggestionsTab 
+                    currentConversationId={activeConversation?.id}
+                    messages={messages.filter(m => m.role === 'user' || m.role === 'assistant').map(m => ({
+                      id: m.id || '',
+                      content: typeof m.content === 'string' ? m.content : '',
+                      role: m.role as 'user' | 'assistant',
+                      timestamp: new Date()
+                    }))}
+                  />
                 </div>
-                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5">
+                <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5 min-w-0 max-w-1/5 flex-shrink-0">
                   <ConversationTab
                     onCreateConversation={handleCreateConversation}
                     onSelectConversation={handleSelectConversation}

@@ -1,10 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
@@ -13,6 +9,8 @@ import { getChatModeConfig, getAllChatModes } from '@/config/chat-modes';
 import { Space } from '@/types/space';
 import { useSpaces } from '@/hooks/use-spaces';
 import { toast } from '@/hooks/use-toast';
+import { Settings, RefreshCw } from 'lucide-react';
+import { DropdownList, DropdownSection, DropdownItem, DropdownFooterAction } from '@/components/shared/dropdown-list';
 
 export interface ChatModeTabProps {
   space?: Space | null;
@@ -20,6 +18,7 @@ export interface ChatModeTabProps {
 
 export function ChatModeTab({ space }: ChatModeTabProps) {
   const { updateSpace } = useSpaces();
+  const [isUpdating, setIsUpdating] = useState(false);
   const chatMode = space?.chat_mode || 'ask';
   const modeConfig = getChatModeConfig(chatMode);
   const Icon = modeConfig.icon;
@@ -28,13 +27,18 @@ export function ChatModeTab({ space }: ChatModeTabProps) {
   const handleModeSelect = async (modeId: string) => {
     if (!space?.id) {
       toast({
-        title: "Error",
-        description: "No active space selected",
+        title: "No Active Space",
+        description: "Please select a space first",
         variant: "destructive",
       });
       return;
     }
 
+    if (modeId === chatMode) {
+      return; // Don't update if it's the same mode
+    }
+
+    setIsUpdating(true);
     try {
       await updateSpace(space.id, {
         chat_mode: modeId,
@@ -42,59 +46,99 @@ export function ChatModeTab({ space }: ChatModeTabProps) {
       });
       
       toast({
-        title: "Success",
-        description: `Mode updated to ${getChatModeConfig(modeId).name}`,
+        title: "Mode Updated",
+        description: `Now using ${getChatModeConfig(modeId).name}`,
         variant: "default",
       });
     } catch (error) {
       console.error('Error updating chat mode:', error);
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        title: "Update Failed",
+        description: error instanceof Error ? error.message : "Please try again",
         variant: "destructive",
       });
+    } finally {
+      setIsUpdating(false);
     }
   };
   
+  const handleModeSettings = (modeId: string) => {
+    const mode = getChatModeConfig(modeId);
+    
+    toast({
+      title: "Coming Soon",
+      description: `${mode.name} settings will be available soon!`,
+      variant: "default",
+    });
+  };
+
+  // Build sections for dropdown
+  const chatModeSections: DropdownSection[] = [
+    {
+      title: "Chat Modes",
+      items: chatModes.map((mode): DropdownItem => ({
+        id: mode.id,
+        isActive: mode.id === chatMode,
+        isDisabled: isUpdating,
+        onSelect: () => handleModeSelect(mode.id),
+        content: (
+          <div className="flex w-full">
+            <div className="flex-shrink-0 mr-2.5">
+              <mode.icon className="w-4 h-4 text-white/60" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="text-sm font-medium text-white/90 truncate">{mode.name}</span>
+                {mode.id === chatMode && (
+                  <span className="text-xs bg-white/10 text-white/80 px-1.5 py-0.5 rounded-full">
+                    {isUpdating ? 'Updating...' : 'Current'}
+                  </span>
+                )}
+              </div>
+              <span className="text-xs text-white/60 line-clamp-1 w-full">
+                {mode.description}
+              </span>
+            </div>
+          </div>
+        )
+      }))
+    }
+  ];
+
+  // Define footer actions
+  const footerActions: DropdownFooterAction[] = [
+    {
+      icon: <Settings className="w-3.5 h-3.5" />,
+      label: "Configure mode",
+      onClick: (modeId) => handleModeSettings(modeId),
+    }
+  ];
+  
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger>
-        <Button variant="ghost" className="p-0 h-auto hover:bg-transparent">
+      <DropdownMenuTrigger asChild>
+        <Button 
+          variant="transparent" 
+          className="p-0 h-auto rounded-sm transition-all duration-200 group"
+          aria-label={`Current chat mode: ${modeConfig.name}`}
+        >
           <BaseTab
-            icon={<Icon className="w-3.5 h-3.5" />}
+            icon={
+              <div className="flex items-center justify-center w-5 h-5 group-hover:scale-110 transition-transform duration-300">
+                <Icon className="w-3.5 h-3.5" />
+              </div>
+            }
             label={modeConfig.name}
             isActive={!!chatMode}
           />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="center"
-        className="w-64 mt-1.5"
-        style={{ maxHeight: '60vh', overflowY: 'auto' }}
-        sideOffset={4}
-      >
-        <DropdownMenuLabel>Select Chat Mode</DropdownMenuLabel>
-        <DropdownMenuGroup>
-          {chatModes.map((mode) => {
-            const ModeIcon = mode.icon;
-            return (
-              <DropdownMenuItem
-                key={mode.id}
-                onSelect={() => handleModeSelect(mode.id)}
-                textValue={mode.name}
-              >
-                <div className="flex items-center gap-2">
-                  <ModeIcon className="w-4 h-4" />
-                  <div className="flex flex-col">
-                    <span>{mode.name}</span>
-                    <span className="text-xs text-white/40">{mode.description}</span>
-                  </div>
-                </div>
-              </DropdownMenuItem>
-            );
-          })}
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
+      
+      <DropdownList 
+        sections={chatModeSections}
+        footerActions={footerActions}
+        emptyState={<div className="text-sm text-white/50">No chat modes available</div>}
+      />
     </DropdownMenu>
   );
 }
