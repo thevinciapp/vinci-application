@@ -31,7 +31,8 @@ export interface DropdownFooterAction {
   label: string;
   onClick: (itemId: string) => void;
   variant?: 'default' | 'destructive';
-  isDisabled?: boolean;
+  isDisabled?: boolean | ((itemId: string) => boolean);
+  shouldShow?: (itemId: string) => boolean;
 }
 
 export interface DropdownListProps {
@@ -117,21 +118,21 @@ export function DropdownList({
   return (
     <DropdownMenuContent 
       align="center" 
-      className={`w-[340px] max-h-[480px] py-2 border border-white/10 shadow-xl ${className} relative`}
+      className={`w-[340px] max-h-[480px] flex flex-col p-0 border border-white/10 shadow-xl ${className}`}
       sideOffset={4}
       onKeyDown={handleKeyDown}
       onMouseDown={handleMouseDown}
     >
       {headerContent && (
-        <>
+        <div className="flex-shrink-0 pt-2">
           {headerContent}
           {hasItems && <DropdownMenuSeparator className="my-1.5" />}
-        </>
+        </div>
       )}
       
-      <div className="overflow-y-auto" style={{ maxHeight: "calc(480px - 60px)" }}>
+      <div className="flex-1 overflow-y-auto py-2 px-0 min-h-0">
         {hasItems ? (
-          <div className="pt-1" role="menu">
+          <div role="menu">
             {sections.map((section, sectionIndex) => (
               <div key={section.title || sectionIndex} className="mb-3">
                 <div className="px-3 mb-1 flex items-center justify-between">
@@ -186,33 +187,39 @@ export function DropdownList({
             ))}
           </div>
         ) : (
-          <div className="px-3 py-6 text-center">
+          <div className="px-3 py-6 flex-1 flex items-center justify-center">
             {emptyState || <span className="text-sm text-white/50">No items available</span>}
           </div>
         )}
       </div>
       
-      {/* Footer with actions - sticky and always visible */}
-      {hasItems && (
-        <div className="sticky bottom-0 left-0 right-0 bg-[#0e0e10] border-t border-white/[0.08] pt-1.5 mt-1">
+      {/* Footer with actions */}
+      {hasItems && footerActions.length > 0 && (
+        <div className="flex-shrink-0 w-full bg-[#0e0e10] border-t border-white/[0.08] pt-1.5 pb-1.5">
           <div className="px-3 py-1.5 flex justify-center items-center">
-            {footerActions.map((action, index) => (
-              <Button
-                key={index}
-                variant={action.variant === 'destructive' ? 'ghost' : 'ghost'}
-                size="sm"
-                className={`text-xs ${
-                  action.variant === 'destructive' 
-                    ? 'text-red-400/80 hover:text-red-400 hover:bg-red-400/10' 
-                    : 'text-white/50 hover:text-white/90 hover:bg-white/[0.05]'
-                } h-7 px-2 ${index > 0 ? 'ml-2' : ''}`}
-                onClick={() => action.onClick(highlightedItemId || '')}
-                disabled={action.isDisabled || !highlightedItemId}
-              >
-                {action.icon && <span className="mr-1.5">{action.icon}</span>}
-                <span>{action.label}</span>
-              </Button>
-            ))}
+            {footerActions
+              .filter(action => !action.shouldShow || action.shouldShow(highlightedItemId || ''))
+              .map((action, index) => (
+                <Button
+                  key={index}
+                  variant={action.variant === 'destructive' ? 'ghost' : 'ghost'}
+                  size="sm"
+                  className={`text-xs ${
+                    action.variant === 'destructive' 
+                      ? 'text-red-400/80 hover:text-red-400 hover:bg-red-400/10' 
+                      : 'text-white/50 hover:text-white/90 hover:bg-white/[0.05]'
+                  } h-7 px-2 ${index > 0 ? 'ml-2' : ''}`}
+                  onClick={() => action.onClick(highlightedItemId || '')}
+                  disabled={
+                    typeof action.isDisabled === 'function' 
+                      ? action.isDisabled(highlightedItemId || '') 
+                      : action.isDisabled || !highlightedItemId
+                  }
+                >
+                  {action.icon && <span className="mr-1.5">{action.icon}</span>}
+                  <span>{action.label}</span>
+                </Button>
+              ))}
           </div>
         </div>
       )}

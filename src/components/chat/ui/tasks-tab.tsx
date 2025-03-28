@@ -9,13 +9,13 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { DropdownList, DropdownSection, DropdownItem, DropdownFooterAction } from '@/components/shared/dropdown-list';
 
-export interface BackgroundTasksTabProps {
+export interface TasksTabProps {
   onClick?: () => void;
 }
 
-export function BackgroundTasksTab({ onClick }: BackgroundTasksTabProps) {
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+export function TasksTab({ onClick }: TasksTabProps) {
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'running' | 'completed' | 'failed'>('all');
   
   const handleTaskAction = async (taskId: string, action: 'cancel' | 'retry') => {
     try {
@@ -23,11 +23,22 @@ export function BackgroundTasksTab({ onClick }: BackgroundTasksTabProps) {
       const task = tasks.find(t => t.id === taskId);
       if (!task) return;
       
-      toast({
-        title: action === 'cancel' ? 'Task Cancelled' : 'Task Retried',
-        description: `"${task.name}" ${action === 'cancel' ? 'cancelled' : 'retried'} successfully`,
-        variant: 'default',
-      });
+      switch (action) {
+        case 'cancel':
+          toast({
+            title: 'Task Cancelled',
+            description: `"${task.name}" cancelled successfully`,
+            variant: 'default',
+          });
+          break;
+        case 'retry':
+          toast({
+            title: 'Task Retried',
+            description: `"${task.name}" retried successfully`,
+            variant: 'default',
+          });
+          break;
+      }
     } catch (error) {
       toast({
         title: 'Operation Failed',
@@ -61,15 +72,25 @@ export function BackgroundTasksTab({ onClick }: BackgroundTasksTabProps) {
     }
   ];
   
-  // Filter tasks based on search query
+  // Filter tasks based on search query and status filter
   const filterTasks = () => {
-    if (!searchQuery.trim()) return tasks;
+    let filtered = [...tasks];
     
-    const query = searchQuery.toLowerCase().trim();
-    return tasks.filter(task => 
-      task.name.toLowerCase().includes(query) ||
-      task.status.toLowerCase().includes(query)
-    );
+    // Apply text search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(task => 
+        task.name.toLowerCase().includes(query) ||
+        task.status.toLowerCase().includes(query)
+      );
+    }
+    
+    // Apply status filter
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(task => task.status === filterStatus);
+    }
+    
+    return filtered;
   };
   
   const filteredTasks = filterTasks();
@@ -87,8 +108,7 @@ export function BackgroundTasksTab({ onClick }: BackgroundTasksTabProps) {
       title: `Running Tasks (${runningTasks.length})`,
       items: runningTasks.map((task): DropdownItem => ({
         id: task.id,
-        isActive: selectedTaskId === task.id,
-        onSelect: () => setSelectedTaskId(task.id),
+        onSelect: () => {}, // No need to track selection, handled by footer actions
         content: (
           <div className="flex w-full">
             <div className="flex-shrink-0 mr-2.5 mt-0.5">
@@ -128,8 +148,7 @@ export function BackgroundTasksTab({ onClick }: BackgroundTasksTabProps) {
       title: `Completed Tasks (${completedTasks.length})`,
       items: completedTasks.map((task): DropdownItem => ({
         id: task.id,
-        isActive: selectedTaskId === task.id,
-        onSelect: () => setSelectedTaskId(task.id),
+        onSelect: () => {}, // No need to track selection, handled by footer actions
         content: (
           <div className="flex w-full">
             <div className="flex-shrink-0 mr-2.5 mt-0.5">
@@ -169,8 +188,7 @@ export function BackgroundTasksTab({ onClick }: BackgroundTasksTabProps) {
       title: `Failed Tasks (${failedTasks.length})`,
       items: failedTasks.map((task): DropdownItem => ({
         id: task.id,
-        isActive: selectedTaskId === task.id,
-        onSelect: () => setSelectedTaskId(task.id),
+        onSelect: () => {}, // No need to track selection, handled by footer actions
         content: (
           <div className="flex w-full">
             <div className="flex-shrink-0 mr-2.5 mt-0.5">
@@ -205,74 +223,53 @@ export function BackgroundTasksTab({ onClick }: BackgroundTasksTabProps) {
     });
   }
 
-  // Define footer actions based on selected task
+  // Define footer actions based on task status
   const getFooterActions = (): DropdownFooterAction[] => {
-    // If a task is selected, show task-specific actions
-    if (selectedTaskId) {
-      const selectedTask = tasks.find(task => task.id === selectedTaskId);
-      if (selectedTask) {
-        if (selectedTask.status === 'running') {
-          return [
-            {
-              icon: <XCircle className="w-3.5 h-3.5" />,
-              label: "Cancel task",
-              onClick: () => handleTaskAction(selectedTaskId, 'cancel'),
-              variant: 'destructive'
-            }
-          ];
-        } else if (selectedTask.status === 'failed') {
-          return [
-            {
-              icon: <ArrowRight className="w-3.5 h-3.5" />,
-              label: "Retry task",
-              onClick: () => handleTaskAction(selectedTaskId, 'retry')
-            }
-          ];
-        } else {
-          return [
-            {
-              icon: <FolderOpen className="w-3.5 h-3.5" />,
-              label: "View results",
-              onClick: () => {
-                toast({
-                  title: "Results Opened",
-                  description: `Viewing results for "${selectedTask.name}"`,
-                  variant: 'default',
-                })
-              }
-            }
-          ];
-        }
-      }
-    }
-    
-    // Default actions when no task is selected
     return [
       {
-        icon: <CheckCircle className="w-3.5 h-3.5" />,
-        label: "Clear completed",
-        onClick: () => {
-          toast({
-            title: "Tasks Cleared",
-            description: "Completed tasks have been cleared",
-            variant: 'default',
-          });
+        icon: <XCircle className="w-3.5 h-3.5" />,
+        label: "Cancel task",
+        onClick: (taskId: string) => {
+          handleTaskAction(taskId, 'cancel');
+        },
+        variant: 'destructive',
+        shouldShow: (taskId: string) => {
+          const task = tasks.find(t => t.id === taskId);
+          return task?.status === 'running';
         }
       },
       {
-        icon: <XCircle className="w-3.5 h-3.5" />,
-        label: "Cancel all",
-        onClick: () => {
-          toast({
-            title: "All Tasks Cancelled",
-            description: "All running tasks have been cancelled",
-            variant: 'destructive',
-          });
+        icon: <ArrowRight className="w-3.5 h-3.5" />,
+        label: "Retry task",
+        onClick: (taskId: string) => {
+          handleTaskAction(taskId, 'retry');
         },
-        variant: 'destructive'
+        shouldShow: (taskId: string) => {
+          const task = tasks.find(t => t.id === taskId);
+          return task?.status === 'failed';
+        }
       }
     ];
   };
+  
+  // Calculate filter summary for display
+  const getFilterSummary = () => {
+    if (filterStatus === 'all' && !searchQuery) return null;
+    
+    const parts = [];
+    if (filterStatus !== 'all') {
+      parts.push(filterStatus === 'running' ? 'Running tasks' : 
+                filterStatus === 'completed' ? 'Completed tasks' : 'Failed tasks');
+    }
+    
+    if (searchQuery) {
+      parts.push(`"${searchQuery}"`);
+    }
+    
+    return parts.join(' with ');
+  };
+  
+  const filterSummary = getFilterSummary();
 
   return (
     <DropdownMenu>
@@ -280,7 +277,7 @@ export function BackgroundTasksTab({ onClick }: BackgroundTasksTabProps) {
         <Button 
           variant="ghost" 
           className="p-0 h-auto hover:bg-white/[0.05] rounded-sm transition-all duration-200 group w-full"
-          aria-label="Background tasks menu"
+          aria-label="Tasks menu"
         >
           <BaseTab
             icon={
@@ -288,8 +285,8 @@ export function BackgroundTasksTab({ onClick }: BackgroundTasksTabProps) {
                 <Loader2 className={`w-3 h-3 ${runningTasks.length > 0 ? 'animate-spin text-blue-400' : 'text-white/60'}`} />
               </div>
             }
-            label="Background Tasks"
-            shortcut="B"
+            label="Tasks"
+            shortcut="T"
             className="w-full"
           />
         </Button>
@@ -318,27 +315,73 @@ export function BackgroundTasksTab({ onClick }: BackgroundTasksTabProps) {
                   className="absolute inset-y-0 right-2 flex items-center text-white/40 hover:text-white/60"
                 >
                   <span className="sr-only">Clear search</span>
-                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <XCircle className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
             
-            {/* Search feedback */}
-            {searchQuery && (
-              <div className="flex justify-between items-center text-xs text-white/50 mt-1.5 px-1">
-                <span>
+            {/* Filters */}
+            <div className="mt-2.5 flex space-x-1.5">
+              <button
+                onClick={() => setFilterStatus('all')}
+                className={`px-2 py-1 text-xs rounded-md flex items-center gap-1 flex-1 justify-center transition-all ${
+                  filterStatus === 'all' 
+                    ? 'bg-white/10 text-white/90' 
+                    : 'bg-white/[0.03] hover:bg-white/[0.05] text-white/60'
+                }`}
+              >
+                <Loader2 className="w-2.5 h-2.5" />
+                All
+              </button>
+              <button
+                onClick={() => setFilterStatus('running')}
+                className={`px-2 py-1 text-xs rounded-md flex items-center gap-1 flex-1 justify-center transition-all ${
+                  filterStatus === 'running' 
+                    ? 'bg-white/10 text-white/90' 
+                    : 'bg-white/[0.03] hover:bg-white/[0.05] text-white/60'
+                }`}
+              >
+                <Loader2 className="w-2.5 h-2.5 text-blue-400" />
+                Running
+              </button>
+              <button
+                onClick={() => setFilterStatus('completed')}
+                className={`px-2 py-1 text-xs rounded-md flex items-center gap-1 flex-1 justify-center transition-all ${
+                  filterStatus === 'completed' 
+                    ? 'bg-white/10 text-white/90' 
+                    : 'bg-white/[0.03] hover:bg-white/[0.05] text-white/60'
+                }`}
+              >
+                <CheckCircle className="w-2.5 h-2.5 text-green-400" />
+                Done
+              </button>
+              <button
+                onClick={() => setFilterStatus('failed')}
+                className={`px-2 py-1 text-xs rounded-md flex items-center gap-1 flex-1 justify-center transition-all ${
+                  filterStatus === 'failed' 
+                    ? 'bg-white/10 text-white/90' 
+                    : 'bg-white/[0.03] hover:bg-white/[0.05] text-white/60'
+                }`}
+              >
+                <XCircle className="w-2.5 h-2.5 text-red-400" />
+                Failed
+              </button>
+            </div>
+            
+            {/* Filter summary */}
+            {(filterStatus !== 'all' || searchQuery) && (
+              <div className="flex justify-between items-center text-xs text-white/50 mt-2 px-1">
+                {filterSummary && (
+                  <div className="flex items-center">
+                    <Search className="w-3 h-3 mr-1" />
+                    <span>Filtering: {filterSummary}</span>
+                  </div>
+                )}
+                <span className="ml-auto">
                   {filteredTasks.length === 0 
-                    ? 'No matches found' 
-                    : `Found ${filteredTasks.length} match${filteredTasks.length === 1 ? '' : 'es'}`}
+                    ? 'No matches' 
+                    : `${filteredTasks.length} match${filteredTasks.length === 1 ? '' : 'es'}`}
                 </span>
-                <button 
-                  className="hover:text-white/70 transition-colors text-xs"
-                  onClick={() => setSearchQuery('')}
-                >
-                  Clear search
-                </button>
               </div>
             )}
           </div>
@@ -347,18 +390,32 @@ export function BackgroundTasksTab({ onClick }: BackgroundTasksTabProps) {
         footerActions={getFooterActions()}
         emptyState={
           <div className="text-sm text-white/50 flex flex-col items-center py-4">
-            {searchQuery ? (
+            {searchQuery || filterStatus !== 'all' ? (
               <>
                 <Search className="w-8 h-8 text-white/20 mb-2" />
-                <p>No tasks match your search</p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="mt-3 text-xs" 
-                  onClick={() => setSearchQuery('')}
-                >
-                  Clear search
-                </Button>
+                <p>No tasks match your filters</p>
+                <div className="flex space-x-2 mt-4">
+                  {searchQuery && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-xs" 
+                      onClick={() => setSearchQuery('')}
+                    >
+                      Clear search
+                    </Button>
+                  )}
+                  {filterStatus !== 'all' && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-xs" 
+                      onClick={() => setFilterStatus('all')}
+                    >
+                      Clear filters
+                    </Button>
+                  )}
+                </div>
               </>
             ) : (
               <>

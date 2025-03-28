@@ -10,8 +10,8 @@ import { UserProfileDropdown } from '@/components/auth/user-profile-dropdown';
 import { SpaceTab } from '@/components/chat/ui/space-tab';
 import { ModelTab } from '@/components/chat/ui/model-tab';
 import { ChatModeTab } from '@/components/chat/ui/chat-mode-tab';
-import { QuickActionsTab } from '@/components/chat/ui/quick-actions-tab';
-import { BackgroundTasksTab } from '@/components/chat/ui/background-tasks-tab';
+import { ActionsTab } from '@/components/chat/ui/actions-tab';
+import { TasksTab } from '@/components/chat/ui/tasks-tab';
 import { SuggestionsTab } from '@/components/chat/ui/suggestions-tab';
 import { MessagesTab } from '@/components/chat/ui/messages-tab';
 import { useRendererStore } from '@/store/renderer';
@@ -233,7 +233,7 @@ export default function ChatContent() {
             >
               <div className="flex items-center divide-x divide-white/[0.05]">
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5 min-w-0 max-w-1/5 flex-shrink-0">
-                  <QuickActionsTab onCreateConversation={handleCreateConversation} />
+                  <ActionsTab onCreateConversation={handleCreateConversation} />
                 </div>
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5 min-w-0 max-w-1/5 flex-shrink-0">
                   <MessagesTab
@@ -263,18 +263,10 @@ export default function ChatContent() {
                   />
                 </div>
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5 min-w-0 max-w-1/5 flex-shrink-0">
-                  <BackgroundTasksTab />
+                  <TasksTab />
                 </div>
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5 min-w-0 max-w-1/5 flex-shrink-0">
-                  <SuggestionsTab 
-                    currentConversationId={activeConversation?.id}
-                    messages={messages.filter(m => m.role === 'user' || m.role === 'assistant').map(m => ({
-                      id: m.id || '',
-                      content: typeof m.content === 'string' ? m.content : '',
-                      role: m.role as 'user' | 'assistant',
-                      timestamp: new Date()
-                    }))}
-                  />
+                  <SuggestionsTab />
                 </div>
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5 min-w-0 max-w-1/5 flex-shrink-0">
                   <ConversationTab

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Bell, Lightbulb, ExternalLink, Check, Star, Code, BookOpen, PenTool, Search } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Brain, Check, Clock, Calendar, Info, Search, XCircle, FileText, Code, Globe, MessageSquare, Lightbulb, ShoppingCart } from 'lucide-react';
 import { BaseTab } from '@/components/ui/base-tab';
 import {
   DropdownMenu,
@@ -9,397 +9,261 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { DropdownList, DropdownSection, DropdownItem, DropdownFooterAction } from '@/components/shared/dropdown-list';
 
-export interface Suggestion {
-  id: string;
-  type: 'code' | 'learning' | 'feature';
-  title: string;
-  description: string;
-  preview: string;
-  context?: string; // Conversation context that triggered this suggestion
-}
-
 export interface SuggestionsTabProps {
   onClick?: () => void;
-  currentConversationId?: string;
-  messages?: Array<{
-    id: string;
-    content: string;
-    role: 'user' | 'assistant';
-    timestamp: Date;
-  }>;
-  isGeneratingSuggestions?: boolean;
 }
 
-export function SuggestionsTab({ 
-  onClick, 
-  currentConversationId, 
-  messages = [],
-  isGeneratingSuggestions = false
-}: SuggestionsTabProps) {
-  const [selectedSuggestionId, setSelectedSuggestionId] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+type SuggestionType = 
+  | 'calendar'
+  | 'research'
+  | 'tasks'
+  | 'development'
+  | 'meeting'
+  | 'travel'
+  | 'document'
+  | 'shopping'
+  | 'communication'
+  | 'learning';
+
+interface Suggestion {
+  id: string;
+  title: string;
+  description: string;
+  type: SuggestionType;
+  timestamp: string;
+}
+
+export function SuggestionsTab({ onClick }: SuggestionsTabProps) {
   const [searchQuery, setSearchQuery] = useState<string>('');
-
-  // Fetch suggestions when conversation changes
-  useEffect(() => {
-    if (currentConversationId && messages.length > 0) {
-      setIsLoading(true);
-      
-      // Simulate fetching suggestions based on conversation
-      // In a real implementation, this would call an API endpoint
-      setTimeout(() => {
-        // Generate suggestions based on latest messages
-        const newSuggestions = generateSuggestionsFromMessages(messages);
-        setSuggestions(newSuggestions);
-        setIsLoading(false);
-      }, 600);
-    }
-  }, [currentConversationId, messages]);
-
-  // Example function to generate suggestions from messages
-  const generateSuggestionsFromMessages = (messages: Array<{id: string; content: string; role: string; timestamp: Date}>) => {
-    // This is a placeholder. In a real implementation, this would analyze message
-    // content and generate relevant suggestions, possibly calling an API
-    
-    const lastMessages = messages.slice(-3); // Consider last 3 messages
-    const lastContent = lastMessages.map(m => m.content).join(' ').toLowerCase();
-    
-    const suggestionsToShow: Suggestion[] = [];
-    
-    // Example rules - in reality this would be much more sophisticated
-    if (lastContent.includes('performance') || lastContent.includes('slow')) {
-      suggestionsToShow.push({
-        id: 'suggestion-perf-1',
-        type: 'code',
-        title: 'Optimize Query Performance',
-        description: 'Refactor database queries for better performance',
-        preview: 'Add index to frequently queried columns',
-        context: 'Based on discussion about performance issues'
-      });
-    }
-    
-    if (lastContent.includes('type') || lastContent.includes('error')) {
-      suggestionsToShow.push({
-        id: 'suggestion-type-1',
-        type: 'code',
-        title: 'Fix Type Errors',
-        description: 'Address TypeScript errors in current file',
-        preview: 'Use proper interface for component props',
-        context: 'Based on discussion about type errors'
-      });
-    }
-    
-    if (lastContent.includes('learn') || lastContent.includes('documentation')) {
-      suggestionsToShow.push({
-        id: 'suggestion-learn-1',
-        type: 'learning',
-        title: 'Advanced TypeScript Features',
-        description: 'Learn about utility types and type manipulation',
-        preview: 'Check out TypeScript documentation',
-        context: 'Based on learning questions in conversation'
-      });
-    }
-    
-    if (lastContent.includes('dark') || lastContent.includes('theme') || lastContent.includes('mode')) {
-      suggestionsToShow.push({
-        id: 'suggestion-feature-1',
-        type: 'feature',
-        title: 'Implement Dark Mode Toggle',
-        description: 'Add user preference for display theme',
-        preview: 'Use CSS variables for theme colors',
-        context: 'Based on discussion about UI themes'
-      });
-    }
-    
-    // If no specific suggestions match, return some general ones
-    if (suggestionsToShow.length === 0) {
-      suggestionsToShow.push({
-        id: 'suggestion-general-1',
-        type: 'code',
-        title: 'Improve Code Organization',
-        description: 'Refactor for better maintainability',
-        preview: 'Extract common logic into hooks',
-        context: 'General improvement suggestion'
-      });
-      
-      if (lastMessages.length > 2) {
-        suggestionsToShow.push({
-          id: 'suggestion-general-2',
-          type: 'learning',
-          title: 'React Optimization Techniques',
-          description: 'Learn about memoization and performance',
-          preview: 'Explore React.memo and useMemo',
-          context: 'Ongoing conversation might benefit from optimization knowledge'
-        });
-      }
-    }
-    
-    return suggestionsToShow;
-  };
-
-  const handleSuggestionSelect = async (suggestionId: string) => {
-    // Find the suggestion
-    const suggestion = suggestions.find(s => s.id === suggestionId);
-    if (!suggestion) return;
-    
+  
+  const handleSuggestionAction = async (suggestionId: string, action: 'accept' | 'dismiss') => {
     try {
-      // In a real implementation, this would apply the suggestion
-      // (e.g., insert code, open documentation, etc.)
-      setIsLoading(true);
+      const suggestion = suggestions.find(s => s.id === suggestionId);
+      if (!suggestion) return;
       
-      // Simulate applying a suggestion
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      toast({
-        title: 'Suggestion Applied',
-        description: `Applied: ${suggestion.title}`,
-        variant: 'default',
-      });
-      
-      setIsLoading(false);
+      switch (action) {
+        case 'accept':
+          toast({
+            title: 'Suggestion Accepted',
+            description: `"${suggestion.title}" accepted`,
+            variant: 'default',
+          });
+          break;
+        case 'dismiss':
+          toast({
+            title: 'Suggestion Dismissed',
+            description: `"${suggestion.title}" dismissed`,
+            variant: 'default',
+          });
+          break;
+      }
     } catch (error) {
-      setIsLoading(false);
       toast({
-        title: 'Error',
-        description: 'Failed to apply suggestion',
+        title: 'Operation Failed',
+        description: `Failed to ${action} suggestion. Please try again.`,
         variant: 'destructive',
       });
     }
   };
 
-  // Get icon based on suggestion type
-  const getSuggestionIcon = (type: string) => {
-    switch (type) {
-      case 'code':
-        return <Code className="w-4 h-4 text-blue-400" />;
-      case 'learning':
-        return <BookOpen className="w-4 h-4 text-purple-400" />;
-      case 'feature':
-        return <PenTool className="w-4 h-4 text-green-400" />;
-      default:
-        return <Lightbulb className="w-4 h-4 text-yellow-500" />;
+  const suggestions: Suggestion[] = [
+    {
+      id: 'suggestion-1',
+      title: 'Schedule 1-on-1 with Dallen',
+      description: 'Based on your conversation, would you like to schedule a 1-on-1 meeting with Dallen for 2:30pm today?',
+      type: 'calendar',
+      timestamp: new Date(Date.now() - 300000).toISOString()
+    },
+    {
+      id: 'suggestion-2',
+      title: 'Research Tesla Models',
+      description: 'I noticed you mentioned buying a Tesla. Would you like me to research current models and pricing?',
+      type: 'research',
+      timestamp: new Date(Date.now() - 600000).toISOString()
+    },
+    {
+      id: 'suggestion-3',
+      title: 'Set Up Project Reminders',
+      description: 'You mentioned deadlines for the frontend tasks. Should I create reminders for these deadlines?',
+      type: 'tasks',
+      timestamp: new Date(Date.now() - 900000).toISOString()
+    },
+    {
+      id: 'suggestion-4',
+      title: 'Create API Integration',
+      description: 'Would you like me to generate boilerplate code for integrating with the payment API you discussed?',
+      type: 'development',
+      timestamp: new Date(Date.now() - 1200000).toISOString()
+    },
+    {
+      id: 'suggestion-5',
+      title: 'Book Team Meeting Room',
+      description: 'Should I reserve a conference room for your team standup mentioned in the conversation?',
+      type: 'meeting',
+      timestamp: new Date(Date.now() - 1500000).toISOString()
+    },
+    {
+      id: 'suggestion-6',
+      title: 'Check Flight Prices',
+      description: 'I noticed you mentioned traveling to San Francisco. Would you like me to check flight options?',
+      type: 'travel',
+      timestamp: new Date(Date.now() - 1800000).toISOString()
+    },
+    {
+      id: 'suggestion-7',
+      title: 'Draft Project Proposal',
+      description: 'Based on your ideas, would you like me to create a draft proposal document for your client?',
+      type: 'document',
+      timestamp: new Date(Date.now() - 2100000).toISOString()
+    },
+    {
+      id: 'suggestion-8',
+      title: 'Compare Laptop Models',
+      description: 'You mentioned needing a new laptop. Would you like me to research and compare options?',
+      type: 'shopping',
+      timestamp: new Date(Date.now() - 2400000).toISOString()
+    },
+    {
+      id: 'suggestion-9',
+      title: 'Draft Email Response',
+      description: 'Would you like me to help draft a response to the client email you mentioned?',
+      type: 'communication',
+      timestamp: new Date(Date.now() - 2700000).toISOString()
+    },
+    {
+      id: 'suggestion-10',
+      title: 'Find TypeScript Tutorials',
+      description: 'I noticed you had questions about TypeScript. Would you like me to find relevant learning resources?',
+      type: 'learning',
+      timestamp: new Date(Date.now() - 3000000).toISOString()
     }
-  };
-
-  // Filter suggestions based on search query
+  ];
+  
   const filterSuggestions = () => {
-    let filtered = [...suggestions];
-    
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(s => 
-        s.title.toLowerCase().includes(query) || 
-        s.description.toLowerCase().includes(query) ||
-        s.preview.toLowerCase().includes(query)
-      );
+    if (!searchQuery.trim()) {
+      return [...suggestions];
     }
     
-    return filtered;
+    const query = searchQuery.toLowerCase().trim();
+    return suggestions.filter(suggestion => 
+      suggestion.title.toLowerCase().includes(query) ||
+      suggestion.description.toLowerCase().includes(query)
+    );
   };
   
-  // Group filtered suggestions by type
   const filteredSuggestions = filterSuggestions();
-  const codeSuggestions = filteredSuggestions.filter(s => s.type === 'code');
-  const learningSuggestions = filteredSuggestions.filter(s => s.type === 'learning');
-  const featureSuggestions = filteredSuggestions.filter(s => s.type === 'feature');
-
-  // Build sections for dropdown
-  const suggestionSections: DropdownSection[] = [];
   
-  if (codeSuggestions.length > 0) {
-    suggestionSections.push({
-      title: `Code Improvements (${codeSuggestions.length})`,
-      items: codeSuggestions.map((suggestion): DropdownItem => ({
-        id: suggestion.id,
-        isActive: selectedSuggestionId === suggestion.id,
-        onSelect: () => setSelectedSuggestionId(suggestion.id),
-        content: (
-          <div className="flex w-full">
-            <div className="flex-shrink-0 mr-2.5 mt-0.5">
-              {getSuggestionIcon(suggestion.type)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-0.5">
-                <span className="text-sm font-medium text-white/90 truncate">{suggestion.title}</span>
-              </div>
-              <span className="text-xs text-white/60 line-clamp-1 w-full">
-                {suggestion.description}
-              </span>
-              <div className="mt-1.5 p-1.5 text-xs rounded bg-white/[0.03] border border-white/[0.06] text-white/80">
-                {suggestion.preview}
-              </div>
-              {suggestion.context && (
-                <div className="mt-1 text-xs italic text-white/40">
-                  {suggestion.context}
-                </div>
-              )}
-            </div>
-          </div>
-        )
-      }))
-    });
-  }
-  
-  if (learningSuggestions.length > 0) {
-    suggestionSections.push({
-      title: `Learning Resources (${learningSuggestions.length})`,
-      items: learningSuggestions.map((suggestion): DropdownItem => ({
-        id: suggestion.id,
-        isActive: selectedSuggestionId === suggestion.id,
-        onSelect: () => setSelectedSuggestionId(suggestion.id),
-        content: (
-          <div className="flex w-full">
-            <div className="flex-shrink-0 mr-2.5 mt-0.5">
-              {getSuggestionIcon(suggestion.type)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-0.5">
-                <span className="text-sm font-medium text-white/90 truncate">{suggestion.title}</span>
-              </div>
-              <span className="text-xs text-white/60 line-clamp-1 w-full">
-                {suggestion.description}
-              </span>
-              <div className="mt-1.5 p-1.5 text-xs rounded bg-white/[0.03] border border-white/[0.06] text-white/80">
-                {suggestion.preview}
-              </div>
-              {suggestion.context && (
-                <div className="mt-1 text-xs italic text-white/40">
-                  {suggestion.context}
-                </div>
-              )}
-            </div>
-          </div>
-        )
-      }))
-    });
-  }
-  
-  if (featureSuggestions.length > 0) {
-    suggestionSections.push({
-      title: `Feature Ideas (${featureSuggestions.length})`,
-      items: featureSuggestions.map((suggestion): DropdownItem => ({
-        id: suggestion.id,
-        isActive: selectedSuggestionId === suggestion.id,
-        onSelect: () => setSelectedSuggestionId(suggestion.id),
-        content: (
-          <div className="flex w-full">
-            <div className="flex-shrink-0 mr-2.5 mt-0.5">
-              {getSuggestionIcon(suggestion.type)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-0.5">
-                <span className="text-sm font-medium text-white/90 truncate">{suggestion.title}</span>
-              </div>
-              <span className="text-xs text-white/60 line-clamp-1 w-full">
-                {suggestion.description}
-              </span>
-              <div className="mt-1.5 p-1.5 text-xs rounded bg-white/[0.03] border border-white/[0.06] text-white/80">
-                {suggestion.preview}
-              </div>
-              {suggestion.context && (
-                <div className="mt-1 text-xs italic text-white/40">
-                  {suggestion.context}
-                </div>
-              )}
-            </div>
-          </div>
-        )
-      }))
-    });
-  }
-
-  // Get footer actions based on selected suggestion
-  const getFooterActions = (): DropdownFooterAction[] => {
-    if (selectedSuggestionId && !isLoading) {
-      const selectedSuggestion = suggestions.find(s => s.id === selectedSuggestionId);
-      if (selectedSuggestion) {
-        if (selectedSuggestion.type === 'code') {
-          return [
-            {
-              icon: <Check className="w-3.5 h-3.5" />,
-              label: "Apply suggestion",
-              onClick: () => handleSuggestionSelect(selectedSuggestionId)
-            },
-            {
-              icon: <ExternalLink className="w-3.5 h-3.5" />,
-              label: "Learn more",
-              onClick: () => {
-                window.open('https://docs.example.com', '_blank');
-              }
-            }
-          ];
-        } else if (selectedSuggestion.type === 'learning') {
-          return [
-            {
-              icon: <ExternalLink className="w-3.5 h-3.5" />,
-              label: "View resource",
-              onClick: () => {
-                window.open('https://docs.example.com', '_blank');
-              }
-            },
-            {
-              icon: <Star className="w-3.5 h-3.5" />,
-              label: "Save for later",
-              onClick: () => {
-                toast({
-                  title: "Saved",
-                  description: "Learning resource saved for later",
-                  variant: "default",
-                });
-              }
-            }
-          ];
-        } else {
-          return [
-            {
-              icon: <Check className="w-3.5 h-3.5" />,
-              label: "Implement feature",
-              onClick: () => handleSuggestionSelect(selectedSuggestionId)
-            }
-          ];
-        }
-      }
-    }
+  // Group suggestions by type
+  const groupedSuggestions = useMemo(() => {
+    const groups: Record<string, Suggestion[]> = {};
     
-    // Default actions when no suggestion is selected or loading
+    filteredSuggestions.forEach(suggestion => {
+      if (!groups[suggestion.type]) {
+        groups[suggestion.type] = [];
+      }
+      groups[suggestion.type].push(suggestion);
+    });
+    
+    return groups;
+  }, [filteredSuggestions]);
+  
+  // Get appropriate icon for each suggestion type
+  const getTypeIcon = (type: SuggestionType) => {
+    switch (type) {
+      case 'calendar':
+        return <Calendar className="w-4 h-4 text-blue-400" />;
+      case 'research':
+        return <Info className="w-4 h-4 text-purple-400" />;
+      case 'tasks':
+        return <Check className="w-4 h-4 text-green-400" />;
+      case 'development':
+        return <Code className="w-4 h-4 text-cyan-400" />;
+      case 'meeting':
+        return <MessageSquare className="w-4 h-4 text-yellow-400" />;
+      case 'travel':
+        return <Globe className="w-4 h-4 text-blue-500" />;
+      case 'document':
+        return <FileText className="w-4 h-4 text-orange-400" />;
+      case 'shopping':
+        return <ShoppingCart className="w-4 h-4 text-pink-400" />;
+      case 'communication':
+        return <MessageSquare className="w-4 h-4 text-indigo-400" />;
+      case 'learning':
+        return <Lightbulb className="w-4 h-4 text-yellow-400" />;
+      default:
+        return <Brain className="w-4 h-4 text-gray-400" />;
+    }
+  };
+
+  // Get appropriate label for each type (capitalize first letter)
+  const getTypeLabel = (type: SuggestionType) => {
+    return type.charAt(0).toUpperCase() + type.slice(1);
+  };
+  
+  const getSuggestionSections = (): DropdownSection[] => {
+    return Object.entries(groupedSuggestions).map(([type, suggestions]) => ({
+      title: `${getTypeLabel(type as SuggestionType)} (${suggestions.length})`,
+      items: suggestions.map((suggestion): DropdownItem => ({
+        id: suggestion.id,
+        onSelect: () => {}, 
+        content: (
+          <div className="flex w-full">
+            <div className="flex-shrink-0 mr-2.5 mt-0.5">
+              {getTypeIcon(suggestion.type)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="mb-0.5">
+                <span className="text-sm font-medium text-white/90 block">{suggestion.title}</span>
+              </div>
+              <p className="text-xs text-white/70 leading-relaxed">{suggestion.description}</p>
+              <div className="flex mt-1.5">
+                <span className="text-xs text-white/50">
+                  <Clock className="w-3 h-3 inline mr-1 align-text-bottom" />
+                  {new Date(suggestion.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                </span>
+              </div>
+            </div>
+          </div>
+        )
+      }))
+    }));
+  };
+
+  const getFooterActions = (): DropdownFooterAction[] => {
     return [
       {
-        icon: <Lightbulb className="w-3.5 h-3.5" />,
-        label: isGeneratingSuggestions ? "Generating..." : "Generate more suggestions",
-        onClick: () => {
-          if (!isGeneratingSuggestions) {
-            onClick?.();
-            toast({
-              title: "Generating Suggestions",
-              description: "New suggestions will appear shortly",
-              variant: "default",
-            });
-          }
+        icon: <Check className="w-3.5 h-3.5" />,
+        label: "Execute this",
+        onClick: (suggestionId: string) => {
+          handleSuggestionAction(suggestionId, 'accept');
         },
-        isDisabled: isGeneratingSuggestions
+        variant: 'default'
+      },
+      {
+        icon: <XCircle className="w-3.5 h-3.5" />,
+        label: "Dismiss",
+        onClick: (suggestionId: string) => {
+          handleSuggestionAction(suggestionId, 'dismiss');
+        },
+        variant: 'destructive'
       }
     ];
   };
-
-  const footerActions = getFooterActions();
   
-  // Count for notification badge
-  const newSuggestionsCount = suggestions.length;
+  const suggestionSections = getSuggestionSections();
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button 
           variant="ghost" 
-          className="p-0 h-auto hover:bg-white/[0.05] rounded-sm transition-all duration-200 group relative w-full"
-          aria-label="AI suggestions"
+          className="p-0 h-auto hover:bg-white/[0.05] rounded-sm transition-all duration-200 group w-full"
+          aria-label="Suggestions menu"
         >
           <BaseTab
             icon={
               <div className="flex items-center justify-center w-5 h-5 group-hover:scale-110 transition-transform duration-300">
-                <Lightbulb className="w-3 h-3 text-yellow-400" />
+                <Brain className="w-3 h-3 text-purple-400" />
               </div>
             }
             label="Suggestions"
@@ -412,7 +276,6 @@ export function SuggestionsTab({
       <DropdownList 
         headerContent={
           <div className="px-2 pt-1.5 pb-2">
-            {/* Search input */}
             <div className="relative">
               <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none">
                 <Search className="h-3.5 w-3.5 text-white/40" />
@@ -432,71 +295,49 @@ export function SuggestionsTab({
                   className="absolute inset-y-0 right-2 flex items-center text-white/40 hover:text-white/60"
                 >
                   <span className="sr-only">Clear search</span>
-                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <XCircle className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
             
-            {/* Search feedback */}
             {searchQuery && (
-              <div className="flex justify-between items-center text-xs text-white/50 mt-1.5 px-1">
-                <span>
+              <div className="flex justify-between items-center text-xs text-white/50 mt-2 px-1">
+                <div className="flex items-center">
+                  <Search className="w-3 h-3 mr-1" />
+                  <span>Searching: "{searchQuery}"</span>
+                </div>
+                <span className="ml-auto">
                   {filteredSuggestions.length === 0 
-                    ? 'No matches found' 
-                    : `Found ${filteredSuggestions.length} match${filteredSuggestions.length === 1 ? '' : 'es'}`}
+                    ? 'No matches' 
+                    : `${filteredSuggestions.length} match${filteredSuggestions.length === 1 ? '' : 'es'}`}
                 </span>
-                <button 
-                  className="hover:text-white/70 transition-colors text-xs"
-                  onClick={() => setSearchQuery('')}
-                >
-                  Clear search
-                </button>
               </div>
             )}
           </div>
         }
         sections={suggestionSections}
-        footerActions={footerActions}
+        footerActions={getFooterActions()}
         emptyState={
           <div className="text-sm text-white/50 flex flex-col items-center py-4">
-            {isLoading ? (
+            {searchQuery ? (
               <>
-                <div className="w-8 h-8 mb-3 rounded-full border-2 border-white/10 border-t-white/40 animate-spin" />
-                <p>Analyzing conversation...</p>
+                <Search className="w-8 h-8 text-white/20 mb-2" />
+                <p>No suggestions match your search</p>
+                <div className="flex space-x-2 mt-4">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-xs" 
+                    onClick={() => setSearchQuery('')}
+                  >
+                    Clear search
+                  </Button>
+                </div>
               </>
             ) : (
               <>
-                <Lightbulb className="w-8 h-8 text-white/20 mb-2" />
-                {searchQuery ? (
-                  <>
-                    <p>No suggestions match your search</p>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="mt-3 text-xs" 
-                      onClick={() => setSearchQuery('')}
-                    >
-                      Clear search
-                    </Button>
-                  </>
-                ) : currentConversationId ? (
-                  <>
-                    <p>No suggestions available</p>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="mt-3 text-xs" 
-                      onClick={onClick}
-                      disabled={isGeneratingSuggestions}
-                    >
-                      {isGeneratingSuggestions ? "Generating..." : "Generate suggestions"}
-                    </Button>
-                  </>
-                ) : (
-                  <p>Start a conversation to get suggestions</p>
-                )}
+                <Brain className="w-8 h-8 text-white/20 mb-2" />
+                <p>No suggestions available</p>
               </>
             )}
           </div>
