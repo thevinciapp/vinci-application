@@ -8,7 +8,7 @@ import {
   Together, 
   DeepSeek, 
   Perplexity, 
-  Groq 
+  Groq
 } from '@lobehub/icons';
 import { Provider } from '@/config/models';
 
