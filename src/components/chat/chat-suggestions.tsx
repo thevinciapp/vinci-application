@@ -676,10 +676,10 @@ export function ChatSuggestions({
 
   return (
     <div 
-      className="absolute bottom-full left-0 right-0 z-[100] mb-4 file-suggestions-menu"
+      className="absolute bottom-full left-0 right-0 z-[100] mb-2 file-suggestions-menu"
       style={{ display: showSuggestions ? 'block' : 'none' }}
     >
-      <div className="max-h-[480px] w-full overflow-hidden rounded-md border border-white/10 bg-black/90 backdrop-blur-xl shadow-xl">
+      <div className="max-h-[480px] w-full overflow-hidden command-glass-effect rounded-md">
         <div className="flex-shrink-0 pt-2">
           <div className="px-3 py-1.5 flex justify-between items-center text-xs text-white/50">
             <span className="text-xs uppercase tracking-wider text-white/40 font-medium">
