@@ -1,7 +1,7 @@
-export interface IpcResponse {
+export interface IpcResponse<T = any> {
   success: boolean;
   status?: string;
-  data?: any;
+  data?: T;
   error?: string;
 }
 

@@ -1,7 +1,7 @@
 import { useChat } from '@ai-sdk/react';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 
-import { ArrowDown, Search } from 'lucide-react';
+import { ArrowDown, Search, File, Loader2, MessageSquare } from 'lucide-react';
 import { useSpaces } from '@/hooks/use-spaces';
 import { useConversations } from '@/hooks/use-conversations';
 import { UnifiedInput } from './unified-input';
@@ -21,6 +21,23 @@ import { ConversationTab } from '@/components/chat/ui/conversation-tab';
 import { BaseTab } from '@/components/ui/base-tab';
 import { toast } from '@/hooks/use-toast';
 import { Conversation } from '@/types/conversation';
+import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from 'cmdk';
+import path from 'path';
+import { CommandCenterEvents, MessageEvents } from '@/core/ipc/constants';
+
+type FileTag = {
+  id: string
+  name: string
+  path: string
+}
+
+type MessageTag = {
+  id: string
+  name: string
+  conversationTitle: string
+  role: 'user' | 'assistant' | 'system'
+  conversationId: string
+}
 
 export default function ChatContent() {
   const { user, messages: messagesFromStore } = useRendererStore();
@@ -36,6 +53,14 @@ export default function ChatContent() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [fileReferences, setFileReferences] = useState<any[]>([]);
   const [isStickToBottom, setIsStickToBottom] = useState(true);
+
+  // Suggestion states
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionQuery, setSuggestionQuery] = useState("");
+  const [fileResults, setFileResults] = useState<FileTag[]>([]);
+  const [messageResults, setMessageResults] = useState<MessageTag[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [atCaretPosition, setAtCaretPosition] = useState<{x: number, y: number} | null>(null);
 
   const clearFileReferences = () => setFileReferences([]);
   const fileReferencesMap = useMemo(() => {
@@ -57,7 +82,7 @@ export default function ChatContent() {
   const chatKey = `${activeConversation?.id || 'default'}-${activeSpace?.provider || ''}-${activeSpace?.model || ''}`;
   
   async function getHeaders() {
-    const response = await window.electron.getAuthToken();
+    const response = await window.electron.invoke('AUTH_TOKEN');
     console.log('Get auth token response:', response);
     if (!response.success || !response.data) {
       throw new Error('Failed to get access token');
@@ -92,7 +117,7 @@ export default function ChatContent() {
   const chatConfig = useMemo(() => ({
     id: chatKey,
     api: `${API_BASE_URL}/api/chat`,
-    initialMessages,
+    initialMessages: initialMessages as any,
     fetch: customFetch,
     body: {
       spaceId: activeSpace?.id || '',
@@ -131,6 +156,140 @@ export default function ChatContent() {
     data,
     setData,
   } = useChat(chatConfig);
+
+  // Search for files using CommandCenterEvents
+  const searchFiles = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setFileResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+
+    try {
+      const response = await window.electron.invoke(CommandCenterEvents.SEARCH_FILES, {
+        query,
+        limit: 10,
+        type: 'file',
+        includeContent: false,
+      });
+      
+      if (response.success && response.data) {
+        const fileTags: FileTag[] = response.data
+          .filter((item: any) => item && item.path)
+          .map((item: any) => ({
+            id: item.id || `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            name: item.name || item.fileName || path.basename(item.path),
+            path: item.path,
+          }));
+        
+        setFileResults(fileTags);
+      } else {
+        console.error("Error searching files:", response.error);
+        setFileResults([]);
+      }
+    } catch (error) {
+      console.error("Error searching files:", error);
+      setFileResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  // Select a file from suggestions
+  const selectFile = async (file: FileTag) => {
+    setIsSearching(true);
+    
+    try {
+      let fileContent = '';
+      
+      try {
+        const response = await window.electron.invoke(CommandCenterEvents.READ_FILE, {
+          filePath: file.path,
+          maxSize: 1024 * 1024,
+        });
+        
+        if (response.success && response.data) {
+          fileContent = response.data.content;
+        } else {
+          fileContent = `[Error loading file content: ${response.error}]`;
+        }
+      } catch (error) {
+        fileContent = `[Error loading file content: ${error instanceof Error ? error.message : String(error)}]`;
+      }
+      
+      // Create a unique ID for this file if it doesn't have one
+      const fileId = file.id || `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      // Add the file reference with content
+      setFileReferences(prev => {
+        const existingFileIndex = prev.findIndex(ref => ref.id === fileId);
+        if (existingFileIndex !== -1) {
+          const updatedReferences = [...prev];
+          updatedReferences[existingFileIndex] = {
+            id: fileId,
+            path: file.path,
+            name: file.name,
+            content: fileContent,
+            type: 'file'
+          };
+          return updatedReferences;
+        } else {
+          return [...prev, {
+            id: fileId,
+            path: file.path,
+            name: file.name,
+            content: fileContent,
+            type: 'file'
+          }];
+        }
+      });
+      
+      // Process input to replace @query with empty string
+      if (input.includes('@')) {
+        const atIndex = input.lastIndexOf('@');
+        const newInput = input.substring(0, atIndex);
+        handleInputChange({ target: { value: newInput } } as any);
+      }
+      
+    } catch (error) {
+      console.error("Error selecting file:", error);
+    } finally {
+      setShowSuggestions(false);
+      setIsSearching(false);
+    }
+  };
+
+  // Track suggestion-related actions
+  const handleSuggestionQueryChange = (query: string, caretPosition: { x: number, y: number } | null) => {
+    setSuggestionQuery(query);
+    setAtCaretPosition(caretPosition);
+    
+    if (query.trim()) {
+      setShowSuggestions(true);
+      searchFiles(query);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  // Effect to update search results when query changes
+  useEffect(() => {
+    if (suggestionQuery) {
+      searchFiles(suggestionQuery);
+    }
+  }, [suggestionQuery, searchFiles]);
+
+  // Create memoized filtered results for both files and messages
+  const filteredFiles = useMemo(() => {
+    if (!suggestionQuery) return fileResults;
+    return fileResults;
+  }, [suggestionQuery, fileResults]);
+
+  const filteredMessages = useMemo(() => {
+    if (!suggestionQuery) return messageResults;
+    return messageResults;
+  }, [suggestionQuery, messageResults]);
 
   const handleStickToBottomChange = useCallback((isAtBottom: boolean) => {
     setIsStickToBottom(isAtBottom);
@@ -182,6 +341,38 @@ export default function ChatContent() {
     }
   };
 
+  // Select a message from suggestions
+  const selectMessage = async (message: MessageTag) => {
+    setIsSearching(true);
+    
+    try {
+      let messageContent = '';
+      
+      try {
+        const messageId = message.id.replace('message-', '');
+        const response = await window.electron.invoke(MessageEvents.GET_CONVERSATION_MESSAGES, message.conversationId, messageId);
+        
+        if (response.success && response.data?.length > 0) {
+          const messageData = response.data[0];
+          messageContent = messageData.content;
+        } else {
+          messageContent = `[Error loading message content]`;
+        }
+      } catch (error) {
+        messageContent = `[Error loading message content: ${error instanceof Error ? error.message : String(error)}]`;
+      }
+      
+      // Add reference as needed
+      // You could store message references similar to file references if needed
+      
+    } catch (error) {
+      console.error("Error selecting message:", error);
+    } finally {
+      setShowSuggestions(false);
+      setIsSearching(false);
+    }
+  };
+
   return (
     <div className="h-full w-full">
       <div className="fixed top-4 right-4 z-50">
@@ -225,11 +416,82 @@ export default function ChatContent() {
         />
         <div className="fixed left-1/2 bottom-8 -translate-x-1/2 w-[800px] z-50">
           <div className="relative w-full">
+            {showSuggestions && (
+              <div 
+                className="absolute bottom-full left-0 right-0 z-[100] mb-4 file-suggestions-menu"
+                style={{ display: showSuggestions ? 'block' : 'none' }}
+              >
+                <div className="max-h-60 rounded-md bg-white/[0.03] backdrop-blur-xl">
+                  <Command className="bg-transparent">
+                    <CommandList className="max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                      {isSearching ? (
+                        <div className="flex items-center justify-center py-6">
+                          <Loader2 className="h-6 w-6 text-cyan-500 animate-spin" />
+                          <span className="ml-2 text-white/60">Searching files and messages...</span>
+                        </div>
+                      ) : filteredFiles.length === 0 && filteredMessages.length === 0 ? (
+                        <CommandEmpty className="text-white/60 text-sm py-2 px-4">
+                          No results found. Try a different search term.
+                        </CommandEmpty>
+                      ) : (
+                        <>
+                          {filteredFiles.length > 0 && (
+                            <CommandGroup heading="Files" className="text-white/80">
+                              {filteredFiles.map((file) => (
+                                <CommandItem 
+                                  key={file.id} 
+                                  value={file.path} 
+                                  onSelect={() => selectFile(file)}
+                                  className="text-white/80 hover:bg-white/[0.05] hover:text-white/95 transition-all duration-200"
+                                >
+                                  <File className="mr-2 h-4 w-4 text-white/60" />
+                                  <span>{file.name}</span>
+                                  <span className="ml-2 text-xs text-white/40 truncate max-w-[200px]">{file.path}</span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          )}
+                          
+                          {filteredMessages.length > 0 && (
+                            <CommandGroup heading="Messages" className="text-white/80">
+                              {filteredMessages.map((message) => (
+                                <CommandItem 
+                                  key={message.id} 
+                                  value={message.name} 
+                                  onSelect={() => selectMessage(message)}
+                                  className="text-white/80 hover:bg-white/[0.05] hover:text-white/95 transition-all duration-200"
+                                >
+                                  <MessageSquare className={`mr-2 h-4 w-4 ${message.role === 'assistant' ? 'text-cyan-400' : 'text-white/60'}`} />
+                                  <div className="flex flex-col">
+                                    <span className="truncate max-w-[300px]">{message.name}</span>
+                                    <span className="text-xs text-white/40">From: {message.conversationTitle}</span>
+                                  </div>
+                                  <span className="ml-auto text-xs px-1.5 py-0.5 rounded bg-white/[0.05] text-white/60">
+                                    {message.role === 'assistant' ? 'AI' : 'User'}
+                                  </span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          )}
+                        </>
+                      )}
+                    </CommandList>
+                  </Command>
+                </div>
+              </div>
+            )}
+
             <UnifiedInput
               value={input}
               onChange={handleInputChange}
               onSubmit={handleSubmit}
               disabled={!activeSpace || !activeConversation || status !== 'ready'}
+              externalFileReferences={fileReferences}
+              onFileReferencesChange={setFileReferences}
+              onSuggestionQueryChange={handleSuggestionQueryChange}
+              onSelectFile={selectFile}
+              showSuggestions={showSuggestions}
+              setShowSuggestions={setShowSuggestions}
             >
               <div className="flex items-center divide-x divide-white/[0.05]">
                 <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5 min-w-0 max-w-1/5 flex-shrink-0">

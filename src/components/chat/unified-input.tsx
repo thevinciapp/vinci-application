@@ -1,4 +1,4 @@
-import React, { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
+import React, { ChangeEvent, useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { File, Loader2, MessageSquare, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,20 @@ interface UnifiedInputProps {
   onSubmit: () => void;
   disabled?: boolean;
   children?: React.ReactNode;
+  externalFileReferences?: FileReference[];
+  onFileReferencesChange?: (fileReferences: FileReference[]) => void;
+  onSuggestionQueryChange?: (query: string, caretPosition: {x: number, y: number} | null) => void;
+  onSelectFile?: (file: FileTag) => void;
+  showSuggestions?: boolean;
+  setShowSuggestions?: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+interface FileReference {
+  id: string;
+  name: string;
+  path: string;
+  content?: string;
+  type?: string;
 }
 
 export const UnifiedInput: React.FC<UnifiedInputProps> = ({
@@ -43,131 +57,68 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
   onChange,
   onSubmit,
   disabled = false,
-  children
+  children,
+  externalFileReferences,
+  onFileReferencesChange,
+  onSuggestionQueryChange,
+  onSelectFile,
+  showSuggestions,
+  setShowSuggestions
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const [tokens, setTokens] = useState<Token[]>([{ id: "initial", type: "text", content: "" }]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [suggestionQuery, setSuggestionQuery] = useState("");
+  
+  // Use external file references if provided, otherwise use internal state
+  const [internalFileReferences, setInternalFileReferences] = useState<FileReference[]>([]);
+  
+  // Determine which file references to use
+  const fileReferences = externalFileReferences || internalFileReferences;
+  
+  // Function to update file references
+  const updateFileReferences = useCallback((newFileReferences: FileReference[] | ((prev: FileReference[]) => FileReference[])) => {
+    if (onFileReferencesChange) {
+      // If using external state, call the change handler
+      const nextReferences = typeof newFileReferences === 'function' 
+        ? newFileReferences(fileReferences) 
+        : newFileReferences;
+      onFileReferencesChange(nextReferences);
+    } else {
+      // Otherwise update internal state
+      setInternalFileReferences(newFileReferences);
+    }
+  }, [fileReferences, onFileReferencesChange]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  interface FileReference {
-    id: string;
-    name: string;
-    path: string;
-    content?: string;
-    type?: string;
-  }
-
   const addFileReference = (file: FileReference) => {
-    // We'll handle this through props in the future
-    console.log('File reference added:', file);
+    updateFileReferences(prevReferences => {
+      const existingFileIndex = prevReferences.findIndex(ref => ref.id === file.id);
+      if (existingFileIndex !== -1) {
+        // Update existing file reference
+        const updatedReferences = [...prevReferences];
+        updatedReferences[existingFileIndex] = file;
+        return updatedReferences;
+      } else {
+        // Add new file reference
+        return [...prevReferences, file];
+      }
+    });
   };
-  
-  // These will come from props in the future
-  const spaceId = undefined;
-  const activeConversationId = undefined;
 
-  const [fileResults, setFileResults] = useState<FileTag[]>([]);
-  const [messageResults, setMessageResults] = useState<MessageTag[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-
-  // Search for files using CommandCenterEvents
-  const searchFiles = useCallback(async (query: string) => {
-    if (!query.trim()) {
-      setFileResults([]);
-      return;
-    }
-
-    setIsSearching(true);
-
-    try {
-      const response = await window.electron.invoke(CommandCenterEvents.SEARCH_FILES, query);
-      
-      if (response.success && response.data) {
-        // Convert to file tags
-        const fileTags: FileTag[] = response.data.map((item: any) => ({
-          id: item.id || `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          name: item.name || item.fileName || path.basename(item.path),
-          path: item.path || '',
-        }));
-        
-        setFileResults(fileTags);
-      } else {
-        console.error("Error searching files:", response.error);
-        setFileResults([]);
-      }
-    } catch (error) {
-      console.error("Error searching files:", error);
-      // Provide fallback results in case of error
-      setFileResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  }, []);
-
-  // Search for messages using SearchEvents
-  const searchMessages = useCallback(async (query: string) => {
-    if (!query.trim()) {
-      setMessageResults([]);
-      return;
-    }
-
-    setIsSearching(true);
-
-    try {
-      const searchOptions = {
-        query,
-        limit: 10,
-        conversationId: activeConversationId, // Optional filter by conversation
-        spaceId: spaceId // Optional filter by space
+  const fileReferencesMap = useMemo(() => {
+    const fileMap: Record<string, any> = {};
+    fileReferences.forEach(fileRef => {
+      fileMap[fileRef.id] = {
+        id: fileRef.id,
+        path: fileRef.path,
+        name: fileRef.name,
+        content: fileRef.content,
+        type: fileRef.type || 'file'
       };
-      
-      const response = await window.electron.invoke(SearchEvents.SEARCH_MESSAGES, searchOptions);
-      
-      if (response.success && response.data) {
-        // Convert to message tags
-        const messageTags: MessageTag[] = response.data.map((item: any) => ({
-          id: item.id || `message-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          name: item.content?.substring(0, 50) + (item.content?.length > 50 ? '...' : '') || 'Message',
-          conversationTitle: item.conversationTitle || 'Unknown conversation',
-          role: item.role || 'user',
-          conversationId: item.conversationId || ''
-        }));
-        
-        setMessageResults(messageTags);
-      } else {
-        console.error("Error searching messages:", response.error);
-        setMessageResults([]);
-      }
-    } catch (error) {
-      console.error("Error searching messages:", error);
-      setMessageResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  }, [activeConversationId, spaceId]);
-
-  useEffect(() => {
-    if (suggestionQuery) {
-      // Search both files and messages concurrently
-      searchFiles(suggestionQuery);
-      searchMessages(suggestionQuery);
-    }
-  }, [suggestionQuery, searchFiles, searchMessages]);
-
-  // Create memoized filtered results for both files and messages
-  const filteredFiles = React.useMemo(() => {
-    if (!suggestionQuery) return fileResults;
-    return fileResults;
-  }, [suggestionQuery, fileResults]);
-
-  const filteredMessages = React.useMemo(() => {
-    if (!suggestionQuery) return messageResults;
-    return messageResults;
-  }, [suggestionQuery, messageResults]);
+    });
+    return fileMap;
+  }, [fileReferences]);
 
   const focusInput = () => {
     inputRef.current?.focus();
@@ -184,27 +135,27 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     }
   };
 
-  const lastSearchTimeRef = useRef<number>(0);
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(e);
     
-    if (e.target.value.includes("@")) {
+    if (e.target.value.includes("@") && onSuggestionQueryChange) {
       const atIndex = e.target.value.lastIndexOf("@");
       const caretPosition = e.target.selectionStart || 0;
       
       if (caretPosition > atIndex && caretPosition <= atIndex + 20) {
         const query = e.target.value.substring(atIndex + 1, caretPosition);
         
-        if (query !== suggestionQuery) {
-          setSuggestionQuery(query);
-          setShowSuggestions(true);
-        }
-      } else if (caretPosition <= atIndex) {
+        const rect = inputRef.current?.getBoundingClientRect();
+        const position = rect ? { 
+          x: rect.left, 
+          y: rect.top 
+        } : null;
+        
+        onSuggestionQueryChange(query, position);
+      } else if (caretPosition <= atIndex && setShowSuggestions) {
         setShowSuggestions(false);
       }
-    } else {
+    } else if (setShowSuggestions) {
       setShowSuggestions(false);
     }
   };
@@ -218,192 +169,67 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
         newTokens.pop();
         setTokens(newTokens);
       }
-    } else if (e.key === "Escape" && showSuggestions) {
+    } else if (e.key === "Escape" && showSuggestions && setShowSuggestions) {
       setShowSuggestions(false);
       e.preventDefault();
-    } else if (e.key === "Enter" && showSuggestions) {
-      // Handle selecting the first suggestion based on available results
-      if (filteredFiles.length > 0) {
-        selectFile(filteredFiles[0]);
-        e.preventDefault();
-      } else if (filteredMessages.length > 0) {
-        selectMessage(filteredMessages[0]);
-        e.preventDefault();
-      }
     } else if (e.key === "Enter" && !e.shiftKey && !showSuggestions) {
       e.preventDefault();
       handleSubmit();
     }
   };
 
-  // Select a file from suggestions
-  const selectFile = async (file: FileTag) => {
-    // Start loading state for this file
-    setIsSearching(true);
+  // Handle a selected file from the parent component
+  const handleFileSelection = (file: FileTag) => {
+    if (!onSelectFile) return;
     
-    try {
-      // Read file content using CommandCenterEvents.READ_FILE
-      console.log(`Loading content for file: ${file.path}`);
-      let fileContent = '';
-      
-      try {
-        const response = await window.electron.invoke(CommandCenterEvents.READ_FILE, file.path);
-        if (response.success && response.data) {
-          fileContent = response.data.content;
-          console.log(`File content loaded, size: ${fileContent.length} bytes`);
-        } else {
-          console.error(`Error loading file content: ${response.error}`);
-          fileContent = `[Error loading file content: ${response.error}]`;
-        }
-      } catch (error) {
-        console.error(`Error loading file content for ${file.path}:`, error);
-        fileContent = `[Error loading file content: ${error instanceof Error ? error.message : String(error)}]`;
-      }
-      
-      // Create a new file token, properly formatted with content
-      const fileToken: Token = {
+    // Create a new file token
+    const fileToken: Token = {
+      id: file.id || `file-${Date.now()}`,
+      type: "file",
+      content: file.name,
+      file: {
         id: file.id || `file-${Date.now()}`,
-        type: "file",
-        content: file.name,
-        file: {
-          id: file.id || `file-${Date.now()}`,
-          name: file.name,
-          path: file.path
-        },
-      };
-      
-      // Add the file reference
-      addFileReference({
-        id: fileToken.id,
-        path: file.path,
         name: file.name,
-        content: fileContent || '',
-        type: 'file'
-      });
-      
-      console.log(`Added file reference: ${file.name} with content`);
-  
-      // Add the file token and a new empty text token
-      const newTextToken: Token = {
-        id: `text-${Date.now()}`,
-        type: "text",
-        content: "",
-      };
-  
-      // If the current input has an @ symbol, split it
-      if (value.includes("@")) {
-        const atIndex = value.lastIndexOf("@");
-        const textBefore = value.substring(0, atIndex);
-  
-        // Update the current text token with text before @
-        const newTokens = [...tokens];
-        if (newTokens[newTokens.length - 1].type === "text") {
-          newTokens[newTokens.length - 1].content = textBefore;
-        }
-  
-        // Add the file token and a new empty text token
-        setTokens([...newTokens, fileToken, newTextToken]);
-      } else {
-        // Just add the file token after the current text
-        setTokens([...tokens, fileToken, newTextToken]);
-      }
-      
-      // Clear the input after adding file token
-      const event = { target: { value: "" } } as ChangeEvent<HTMLInputElement>;
-      onChange(event);
-    } catch (error) {
-      console.error("Error selecting file:", error);
-    } finally {
-      setShowSuggestions(false);
-      setIsSearching(false);
-  
-      // Focus back on the input
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 0);
-    }
-  };
-
-  // Select a message from suggestions
-  const selectMessage = async (message: MessageTag) => {
-    setIsSearching(true);
+        path: file.path
+      },
+    };
     
-    try {
-      // Fetch the message content using the MessageEvents
-      console.log(`Loading content for message: ${message.id}`);
-      let messageContent = '';
-      
-      try {
-        // Get the message by its ID
-        const messageId = message.id.replace('message-', '');
-        const response = await window.electron.invoke(MessageEvents.GET_CONVERSATION_MESSAGES, message.conversationId, messageId);
-        
-        if (response.success && response.data?.length > 0) {
-          const messageData = response.data[0];
-          messageContent = messageData.content;
-          console.log(`Message content loaded, size: ${messageContent.length} bytes`);
-        } else {
-          console.error(`Error loading message data: ${response.error || 'Message not found'}`);
-          messageContent = `[Error loading message content]`;
-        }
-      } catch (error) {
-        console.error(`Error loading message content for ${message.id}:`, error);
-        messageContent = `[Error loading message content: ${error instanceof Error ? error.message : String(error)}]`;
+    // Add a new empty text token
+    const newTextToken: Token = {
+      id: `text-${Date.now()}`,
+      type: "text",
+      content: "",
+    };
+
+    // If the current input has an @ symbol, split it
+    if (value.includes("@")) {
+      const atIndex = value.lastIndexOf("@");
+      const textBefore = value.substring(0, atIndex);
+
+      // Update the current text token with text before @
+      const newTokens = [...tokens];
+      if (newTokens[newTokens.length - 1].type === "text") {
+        newTokens[newTokens.length - 1].content = textBefore;
       }
-      
-      // Create a new message token
-      const messageToken: Token = {
-        id: message.id || `message-${Date.now()}`,
-        type: "message",
-        content: messageContent.substring(0, 30) + (messageContent.length > 30 ? '...' : ''),
-        message: {
-          id: message.id,
-          name: message.name,
-          conversationTitle: message.conversationTitle,
-          role: message.role,
-          conversationId: message.conversationId
-        }
-      };
-      
-      // Add a new empty text token
-      const newTextToken: Token = {
-        id: `text-${Date.now()}`,
-        type: "text",
-        content: "",
-      };
-  
-      // If the current input has an @ symbol, split it
-      if (value.includes("@")) {
-        const atIndex = value.lastIndexOf("@");
-        const textBefore = value.substring(0, atIndex);
-  
-        // Update the current text token with text before @
-        const newTokens = [...tokens];
-        if (newTokens[newTokens.length - 1].type === "text") {
-          newTokens[newTokens.length - 1].content = textBefore;
-        }
-  
-        // Add the message token and a new empty text token
-        setTokens([...newTokens, messageToken, newTextToken]);
-      } else {
-        // Just add the message token after the current text
-        setTokens([...tokens, messageToken, newTextToken]);
-      }
-      
-      // Clear the input after adding message token
-      const event = { target: { value: "" } } as ChangeEvent<HTMLInputElement>;
-      onChange(event);
-    } catch (error) {
-      console.error("Error selecting message:", error);
-    } finally {
-      setShowSuggestions(false);
-      setIsSearching(false);
-  
-      // Focus back on the input
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 0);
+
+      // Add the file token and a new empty text token
+      setTokens([...newTokens, fileToken, newTextToken]);
+    } else {
+      // Just add the file token after the current text
+      setTokens([...tokens, fileToken, newTextToken]);
     }
+    
+    // Clear the input after adding file token
+    const event = { target: { value: "" } } as ChangeEvent<HTMLInputElement>;
+    onChange(event);
+    
+    // Call parent's onSelectFile
+    onSelectFile(file);
+    
+    // Focus back on the input
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
   };
 
   // Remove a token (file or message)
@@ -412,9 +238,17 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     if (tokenIndex === -1) return;
 
     const newTokens = [...tokens];
+    const removedToken = newTokens[tokenIndex];
 
     // Remove the token
     newTokens.splice(tokenIndex, 1);
+
+    // Remove associated file reference if it's a file token
+    if (removedToken.type === "file" && removedToken.file) {
+      updateFileReferences(prevReferences => 
+        prevReferences.filter(ref => ref.id !== removedToken.file?.id)
+      );
+    }
 
     // If there are two adjacent text tokens now, merge them
     if (
@@ -473,6 +307,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
         .join("") + value;
       
       console.log('[UnifiedInput] Submitting message:', displayMessage);
+      console.log('[UnifiedInput] File references:', fileReferencesMap);
       
       // Ensure non-empty message
       let finalMessage = displayMessage.trim() || " ";
@@ -486,8 +321,12 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
         onChange(event);
         await Promise.resolve(onSubmit());
         
-        // Only clear tokens after successful submission
+        // Only clear tokens and file references after successful submission
         setTokens([{ id: "initial", type: "text", content: "" }]);
+        // Clear file references only if using internal state
+        if (!externalFileReferences) {
+          updateFileReferences([]);
+        }
         console.log('[UnifiedInput] Message submitted successfully');
       } catch (error) {
         console.error('[UnifiedInput] Submission failed:', error);
@@ -504,12 +343,62 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
 
   // Cleanup function to remove timers when component unmounts
   useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
+    // If parent provided selected file, handle it
+    if (onSelectFile && showSuggestions === false) {
+      // Clear the input
+      inputRef.current?.focus();
+    }
+  }, [showSuggestions, onSelectFile]);
+
+  // Effect to sync external file references with tokens
+  useEffect(() => {
+    if (externalFileReferences && externalFileReferences.length > 0) {
+      // Check if we need to add new file tokens for any references not yet in tokens
+      const existingFileTokenIds = tokens
+        .filter(token => token.type === 'file' && token.file)
+        .map(token => token.file?.id);
+      
+      // Find file references not yet in tokens
+      const newFileReferences = externalFileReferences.filter(
+        ref => !existingFileTokenIds.includes(ref.id)
+      );
+      
+      if (newFileReferences.length > 0) {
+        // Add new tokens for each new file reference
+        const updatedTokens = [...tokens];
+        
+        // If the last token is an empty text token, remove it first
+        if (updatedTokens.length > 0 && 
+            updatedTokens[updatedTokens.length - 1].type === 'text' && 
+            updatedTokens[updatedTokens.length - 1].content === '') {
+          updatedTokens.pop();
+        }
+        
+        // Add file tokens
+        newFileReferences.forEach(fileRef => {
+          updatedTokens.push({
+            id: `token-${fileRef.id}`,
+            type: 'file',
+            content: fileRef.name,
+            file: {
+              id: fileRef.id,
+              name: fileRef.name,
+              path: fileRef.path
+            }
+          });
+        });
+        
+        // Add an empty text token at the end
+        updatedTokens.push({
+          id: `text-${Date.now()}`,
+          type: 'text',
+          content: ''
+        });
+        
+        setTokens(updatedTokens);
       }
-    };
-  }, []);
+    }
+  }, [externalFileReferences]);
 
   return (
     <div
@@ -521,74 +410,6 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
       )}
     >
       {children}
-      
-      {/* Suggestions Popover (Files & Messages) */}
-      {showSuggestions && (
-        <div 
-          className="absolute bottom-full left-0 right-0 z-50 mb-2 file-suggestions-menu"
-          style={{ display: showSuggestions ? 'block' : 'none' }}
-        >
-          <div className="max-h-60 rounded-md bg-white/[0.03] backdrop-blur-xl">
-            <Command className="bg-transparent">
-              <CommandList className="max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                {isSearching ? (
-                  <div className="flex items-center justify-center py-6">
-                    <Loader2 className="h-6 w-6 text-cyan-500 animate-spin" />
-                    <span className="ml-2 text-white/60">Searching files and messages...</span>
-                  </div>
-                ) : filteredFiles.length === 0 && filteredMessages.length === 0 ? (
-                  <CommandEmpty className="text-white/60 text-sm py-2 px-4">
-                    No results found. Try a different search term.
-                  </CommandEmpty>
-                ) : (
-                  <>
-                    {/* File search results */}
-                    {filteredFiles.length > 0 && (
-                      <CommandGroup heading="Files" className="text-white/80">
-                        {filteredFiles.map((file) => (
-                          <CommandItem 
-                            key={file.id} 
-                            value={file.path} 
-                            onSelect={() => selectFile(file)}
-                            className="text-white/80 hover:bg-white/[0.05] hover:text-white/95 transition-all duration-200"
-                          >
-                            <File className="mr-2 h-4 w-4 text-white/60" />
-                            <span>{file.name}</span>
-                            <span className="ml-2 text-xs text-white/40 truncate max-w-[200px]">{file.path}</span>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    )}
-                    
-                    {/* Message search results */}
-                    {filteredMessages.length > 0 && (
-                      <CommandGroup heading="Messages" className="text-white/80">
-                        {filteredMessages.map((message) => (
-                          <CommandItem 
-                            key={message.id} 
-                            value={message.name} 
-                            onSelect={() => selectMessage(message)}
-                            className="text-white/80 hover:bg-white/[0.05] hover:text-white/95 transition-all duration-200"
-                          >
-                            <MessageSquare className={`mr-2 h-4 w-4 ${message.role === 'assistant' ? 'text-cyan-400' : 'text-white/60'}`} />
-                            <div className="flex flex-col">
-                              <span className="truncate max-w-[300px]">{message.name}</span>
-                              <span className="text-xs text-white/40">From: {message.conversationTitle}</span>
-                            </div>
-                            <span className="ml-auto text-xs px-1.5 py-0.5 rounded bg-white/[0.05] text-white/60">
-                              {message.role === 'assistant' ? 'AI' : 'User'}
-                            </span>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    )}
-                  </>
-                )}
-              </CommandList>
-            </Command>
-          </div>
-        </div>
-      )}
       
       <div>
         <div className="flex items-center">
@@ -615,7 +436,7 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
                         setTimeout(() => {
                           if (!document.activeElement?.closest('.file-suggestions-menu')) {
                             setIsFocused(false);
-                            setShowSuggestions(false);
+                            if (setShowSuggestions) setShowSuggestions(false);
                           }
                         }, 200);
                       }}
