@@ -131,7 +131,7 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
             readFile(STORAGE_REFRESH_TOKEN_PATH, (err, encryptedRefreshToken) => {
               if (err) {
                 console.log('[ELECTRON] Error reading refresh token file:', err);
-                resolve({ accessToken: null, refreshToken: null });
+                resolve({ accessToken: null, refreshToken: null, tokenExpiryTime: null });
                 return;
               }
               
@@ -165,11 +165,11 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
                 }
               } catch (decryptError) {
                 console.error('[ELECTRON] Failed to decrypt refresh token:', decryptError);
-                resolve({ accessToken: null, refreshToken: null });
+                resolve({ accessToken: null, refreshToken: null, tokenExpiryTime: null });
               }
             });
           } else {
-            resolve({ accessToken: null, refreshToken: null });
+            resolve({ accessToken: null, refreshToken: null, tokenExpiryTime: null });
           }
           
           return;
@@ -185,7 +185,7 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
             readFile(STORAGE_REFRESH_TOKEN_PATH, (err, encryptedRefreshToken) => {
               if (err) {
                 console.log('[ELECTRON] Error reading refresh token file:', err);
-                resolve({ accessToken, refreshToken: null });
+                resolve({ accessToken, refreshToken: null, tokenExpiryTime: null });
                 return;
               }
               
@@ -231,7 +231,7 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
             readFile(STORAGE_REFRESH_TOKEN_PATH, (err, encryptedRefreshToken) => {
               if (err) {
                 console.log('[ELECTRON] Error reading refresh token file:', err);
-                resolve({ accessToken: null, refreshToken: null });
+                resolve({ accessToken: null, refreshToken: null, tokenExpiryTime: null });
                 return;
               }
               
@@ -264,11 +264,11 @@ export async function loadAuthData(safeStorage: Electron.SafeStorage): Promise<{
                 }
               } catch (decryptError) {
                 console.error('[ELECTRON] Failed to decrypt refresh token:', decryptError);
-                resolve({ accessToken: null, refreshToken: null });
+                resolve({ accessToken: null, refreshToken: null, tokenExpiryTime: null });
               }
             });
           } else {
-            resolve({ accessToken: null, refreshToken: null });
+            resolve({ accessToken: null, refreshToken: null, tokenExpiryTime: null });
           }
         }
       });
@@ -470,30 +470,30 @@ export async function refreshTokens(safeStorage: Electron.SafeStorage): Promise<
       return false;
     }
     
-    const { status, error, data } = await response.json();
+    const { status, error, session } = await response.json();
     
-    if (status !== 'success' || !data?.session?.access_token) {
+    if (status !== 'success' || !session?.access_token) {
       console.error('[ELECTRON] Invalid response from refresh endpoint:', error || 'No session data');
       return false;
     }
     
-    store.setAccessToken(data.session.access_token);
+    store.setAccessToken(session.access_token);
     
-    if (data.session.refresh_token) {
-      store.setRefreshToken(data.session.refresh_token);
+    if (session.refresh_token) {
+      store.setRefreshToken(session.refresh_token);
     }
     
-    if (!data.session.expires_at) {
+    if (!session.expires_at) {
       console.error('[ELECTRON] No expires_at received from refresh endpoint');
       return false;
     }
     
-    store.setTokenExpiryTime(data.session.expires_at);
+    store.setTokenExpiryTime(session.expires_at);
     
-    console.log('[ELECTRON] Token expiry set from API:', new Date(data.session.expires_at * 1000).toISOString());
+    console.log('[ELECTRON] Token expiry set from API:', new Date(session.expires_at * 1000).toISOString());
     
-    if (data.session.refresh_token && safeStorage) {
-      await saveAuthData(data.session.access_token, data.session.refresh_token, safeStorage, data.session.expires_at);
+    if (session.refresh_token && safeStorage) {
+      await saveAuthData(session.access_token, session.refresh_token, safeStorage, session.expires_at);
     } else {
       console.log('[ELECTRON] Safe storage not available or encryption not available, skipping token save');
     }
@@ -514,13 +514,10 @@ export function isTokenExpiringSoon(): boolean {
   const tokenExpiryTime = store.tokenExpiryTime;
   const accessToken = store.accessToken;
   
-  // If there's no access token, no need to check expiry
   if (!accessToken) {
     return false;
   }
   
-  // If there's no expiry time, but there is an access token, 
-  // we should refresh to be safe and to get a proper expiry time
   if (!tokenExpiryTime) {
     console.warn('[ELECTRON] No token expiry time found for existing access token');
     return true;
@@ -532,9 +529,6 @@ export function isTokenExpiringSoon(): boolean {
   return tokenExpiryTime <= fiveMinutesFromNow;
 }
 
-/**
- * Helper to check server availability
- */
 export async function checkServerAvailable(): Promise<boolean> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/health`);
@@ -545,9 +539,6 @@ export async function checkServerAvailable(): Promise<boolean> {
   }
 }
 
-/**
- * Sign in user and get auth tokens
- */
 export async function signIn(email: string, password: string, safeStorage?: Electron.SafeStorage): Promise<{ success: boolean; error?: string; data?: any }> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/auth/sign-in`, {
@@ -563,9 +554,9 @@ export async function signIn(email: string, password: string, safeStorage?: Elec
       };
     }
 
-    const { status, error, data } = await response.json();
+    const { status, error, session } = await response.json();
 
-    if (status !== 'success' || !data?.session?.access_token || !data?.session?.refresh_token || !data?.session?.expires_at) {
+    if (status !== 'success' || !session?.access_token || !session?.refresh_token || !session?.expires_at) {
       return { 
         success: false, 
         error: error || 'Invalid response from server'
@@ -573,22 +564,18 @@ export async function signIn(email: string, password: string, safeStorage?: Elec
     }
 
     const store = useMainStore.getState();
-    store.setAccessToken(data.session.access_token);
-    store.setRefreshToken(data.session.refresh_token);
-    store.setTokenExpiryTime(data.session.expires_at);
-    
-    if (data.session.user) {
-      store.setUser(data.session.user);
-    }
+    store.setAccessToken(session.access_token);
+    store.setRefreshToken(session.refresh_token);
+    store.setTokenExpiryTime(session.expires_at);
     
     // Save tokens and expiry time to secure storage
     try {
       if (safeStorage && safeStorage.isEncryptionAvailable()) {
         await saveAuthData(
-          data.session.access_token, 
-          data.session.refresh_token, 
+          session.access_token, 
+          session.refresh_token, 
           safeStorage,
-          data.session.expires_at
+          session.expires_at
         );
         console.log('[ELECTRON] Auth data saved to secure storage after sign-in');
       } else {
@@ -601,7 +588,7 @@ export async function signIn(email: string, password: string, safeStorage?: Elec
 
     return {
       success: true,
-      data
+      data: { session }
     };
   } catch (error) {
     console.error('[ELECTRON] Sign in error:', error);
@@ -612,12 +599,10 @@ export async function signIn(email: string, password: string, safeStorage?: Elec
   }
 }
 
-// Get current auth data
 export async function getAuthData() {
   const store = useMainStore.getState();
   const { accessToken, refreshToken } = store;
   return { accessToken, refreshToken };
 }
 
-// Expose constants
 export { API_BASE_URL, APP_BASE_URL };

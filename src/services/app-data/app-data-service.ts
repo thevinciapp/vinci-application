@@ -69,12 +69,12 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
     const spaces = await fetchSpaces();
     const activeSpace = await fetchActiveSpace();
     
-    let conversations: any[] = [];
-    let messages: any[] = [];
+    let conversations: Conversation[] = [];
+    let messages: Message[] = [];
     
     if (activeSpace) {
       conversations = await fetchConversations(activeSpace.id);
-      const activeConversation = await fetchActiveConversation();
+      const activeConversation = await fetchActiveConversation(activeSpace.id);
 
       if (activeConversation) {
         messages = await fetchMessages(activeConversation.id);

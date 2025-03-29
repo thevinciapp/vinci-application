@@ -11,20 +11,21 @@ export async function fetchMessages(conversationId: string): Promise<Message[]> 
     }
 
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}/conversations/${conversationId}/messages`);
-    const { status, error, data } = await response.json();
+    const { status, error, messages: messagesData } = await response.json();
 
-    console.log('[ELECTRON] Messages response:', data);
+    console.log('[ELECTRON] Messages response:', messagesData);
     
     if (status !== 'success') {
       throw new Error(error || 'Failed to fetch messages');
     }
 
-    const messages = data?.data || [];
-    console.log(`[ELECTRON] Fetched ${messages.length} messages for conversation ${conversationId}`);
+    const messageItems = messagesData?.items || [];
     
-    useMainStore.getState().updateMessages(messages);
+    console.log(`[ELECTRON] Fetched ${messageItems.length} messages for conversation ${conversationId}`);
     
-    return messages;
+    useMainStore.getState().updateMessages(messageItems);
+    
+    return messageItems;
   } catch (error) {
     console.error(`[ELECTRON] Error fetching messages for conversation ${conversationId}:`, error);
     if (error instanceof Error) {
@@ -87,7 +88,7 @@ export async function deleteMessage(conversationId: string, messageId: string): 
       { method: 'DELETE' }
     );
     
-    const { status, error } = await response.json();
+    const { status, error, result } = await response.json();
     
     if (status !== 'success') {
       throw new Error(error || 'Failed to delete message');
@@ -123,7 +124,7 @@ export async function updateMessage(conversationId: string, messageId: string, c
       }
     );
     
-    const { status, error, data: message } = await response.json();
+    const { status, error, message } = await response.json();
     
     if (status !== 'success' || !message) {
       throw new Error(error || 'Failed to update message');
@@ -146,13 +147,13 @@ export async function updateMessage(conversationId: string, messageId: string, c
 export async function searchMessages(query: string): Promise<Message[]> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/search/messages?q=${encodeURIComponent(query)}`);
-    const { status, error, data: messages } = await response.json();
+    const { status, error, searchResult } = await response.json();
     
     if (status !== 'success') {
       throw new Error(error || 'Failed to search messages');
     }
     
-    return messages || [];
+    return searchResult?.results || [];
   } catch (error) {
     console.error('[ELECTRON] Error searching messages:', error);
     throw error;

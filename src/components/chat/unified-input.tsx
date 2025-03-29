@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils/utils";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from 'cmdk';
 import path from 'path';
 import { CommandCenterEvents, SearchEvents, MessageEvents } from '@/core/ipc/constants';
+import { toast } from "@/hooks/use-toast";
 
 
 type FileTag = {

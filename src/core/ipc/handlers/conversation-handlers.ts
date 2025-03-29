@@ -92,14 +92,18 @@ export function registerConversationHandlers() {
     }
   });
 
-  ipcMain.handle(ConversationEvents.SET_ACTIVE_CONVERSATION, async (_event: IpcMainInvokeEvent, conversationId: string): Promise<ConversationResponse> => {
+  ipcMain.handle(ConversationEvents.SET_ACTIVE_CONVERSATION, async (_event: IpcMainInvokeEvent, data: { conversationId: string, spaceId: string }): Promise<ConversationResponse> => {
     try {
-      if (!conversationId) {
+      if (!data.conversationId) {
         return { success: false, error: 'Conversation ID is required', status: 'error' };
       }
+
+      if (!data.spaceId) {
+        return { success: false, error: 'Space ID is required', status: 'error' };
+      }
       
-      await setActiveConversationInAPI(conversationId);
-      const messages = await fetchMessages(conversationId);
+      await setActiveConversationInAPI(data.conversationId, data.spaceId);
+      const messages = await fetchMessages(data.conversationId);
       
       return { 
         success: true, 

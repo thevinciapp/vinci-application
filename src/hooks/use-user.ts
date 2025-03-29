@@ -12,9 +12,12 @@ export function useUser() {
 
   const setupProfileListener = useCallback((callback?: (profile: UserProfile | null) => void) => {
     const handleStateUpdate = (event: any, response: any) => {
-      if (response.success && response.data?.profile) {
-        rendererStore.setProfile(response.data.profile);
-        if (callback) callback(response.data.profile);
+      if (response.success && response.user) {
+        rendererStore.setProfile(response.user);
+        if (callback) callback(response.user);
+      } else if (response.success && response.user === null) {
+        rendererStore.setProfile(null);
+        if (callback) callback(null);
       }
     };
     
@@ -32,9 +35,9 @@ export function useUser() {
       
       const response = await window.electron.invoke(UserEvents.GET_PROFILE);
       
-      if (response.success && response.data?.profile) {
-        rendererStore.setProfile(response.data.profile);
-        return response.data.profile;
+      if (response.success && response.user) {
+        rendererStore.setProfile(response.user);
+        return response.user;
       }
       
       return null;
@@ -80,8 +83,8 @@ export function useUser() {
         throw new Error(response.error || 'Failed to update profile');
       }
 
-      if (response.data?.profile) {
-        rendererStore.setProfile(response.data.profile);
+      if (response.user) {
+        rendererStore.setProfile(response.user);
       }
 
       return handleSuccess("Profile updated successfully");

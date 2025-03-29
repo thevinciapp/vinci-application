@@ -137,176 +137,199 @@ export function ChatSuggestions({
       } else {
         console.error("Error searching files:", response.error);
         setFileResults([]);
+        toast({
+          title: "File Search Error",
+          description: `Could not search files: ${response.error || 'Unknown error'}`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error searching files:", error);
       setFileResults([]);
+      toast({
+        title: "File Search Failed",
+        description: `An unexpected error occurred while searching files: ${error instanceof Error ? error.message : String(error)}`,
+        variant: "destructive",
+      });
     } finally {
       setIsSearching(false);
     }
   }, [selectedCategory]);
 
   const fetchDefaultItems = useCallback(async () => {
-    if (defaultFiles.length === 0) {
-      setIsSearching(true);
-      try {
-        const response = await window.electron.invoke(CommandCenterEvents.SEARCH_FILES, {
-          query: '',
-          limit: 5,
-          type: 'file',
-          includeContent: false,
-          sortBy: 'recentlyUsed'
+    if (defaultFiles.length > 0 || defaultCalendarEvents.length > 0 || defaultGithubItems.length > 0 || defaultGmailItems.length > 0 || defaultSlackMessages.length > 0 || defaultLinearItems.length > 0) {
+      return;
+    }
+    
+    setIsSearching(true);
+    try {
+      const fileResponse = await window.electron.invoke(CommandCenterEvents.SEARCH_FILES, {
+        query: '',
+        limit: 5,
+        type: 'file',
+        includeContent: false,
+        sortBy: 'recentlyUsed'
+      });
+      
+      if (fileResponse.success && fileResponse.data) {
+        const fileTags: FileTag[] = fileResponse.data
+          .filter((item: any) => item && item.path)
+          .map((item: any) => ({
+            id: item.id || `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            name: item.name || item.fileName || path.basename(item.path),
+            path: item.path,
+          }));
+        setDefaultFiles(fileTags);
+      } else {
+        console.error("Error fetching default files:", fileResponse.error);
+        toast({
+          title: "Error Fetching Recent Files",
+          description: `Could not load recent files: ${fileResponse.error || 'Unknown error'}`,
+          variant: "default",
         });
-        
-        if (response.success && response.data) {
-          const fileTags: FileTag[] = response.data
-            .filter((item: any) => item && item.path)
-            .map((item: any) => ({
-              id: item.id || `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              name: item.name || item.fileName || path.basename(item.path),
-              path: item.path,
-            }));
-          
-          setDefaultFiles(fileTags);
-        }
-        
-        if (defaultCalendarEvents.length === 0) {
-          const mockCalendarEvents: CalendarEvent[] = [
-            {
-              id: 'cal-1',
-              title: 'Team Standup',
-              date: '2023-10-09',
-              time: '10:00 AM',
-              attendees: 5
-            },
-            {
-              id: 'cal-2',
-              title: 'Product Review',
-              date: '2023-10-09',
-              time: '2:00 PM',
-              attendees: 8
-            }
-          ];
-          setDefaultCalendarEvents(mockCalendarEvents);
-        }
-        
-        if (defaultGithubItems.length === 0) {
-          const mockGithubItems: GithubItem[] = [
-            {
-              id: 'gh-1',
-              name: 'vinci-application',
-              type: 'repository',
-              owner: 'spatial',
-              description: 'Main application repository'
-            },
-            {
-              id: 'gh-2',
-              name: 'Fix dropdown menu styling',
-              type: 'issue',
-              owner: 'spatial',
-              description: 'Issue #42'
-            }
-          ];
-          setDefaultGithubItems(mockGithubItems);
-        }
-        
-        if (defaultGmailItems.length === 0) {
-          const mockGmailItems: GmailItem[] = [
-            {
-              id: 'gm-1',
-              subject: 'Weekly Product Update',
-              sender: 'product@company.com',
-              date: '2023-10-08',
-              preview: 'Here are this week\'s product updates...',
-              isUnread: true
-            },
-            {
-              id: 'gm-2',
-              subject: 'Meeting Notes: Design Review',
-              sender: 'design@company.com',
-              date: '2023-10-07',
-              preview: 'Attached are the notes from our design review session.'
-            }
-          ];
-          setDefaultGmailItems(mockGmailItems);
-        }
-        
-        if (defaultSlackMessages.length === 0) {
-          const mockSlackMessages: SlackMessage[] = [
-            {
-              id: 'sl-1',
-              content: 'Has anyone started looking at the new file suggestion dropdown?',
-              sender: 'Dallin Pyrah',
-              channel: 'project-vinci',
-              workspace: 'Spatial',
-              timestamp: '10:32 AM',
-              hasThread: true,
-              replyCount: 3
-            },
-            {
-              id: 'sl-2',
-              content: 'I pushed the design updates to the staging environment, please review',
-              sender: 'Alex Chen',
-              channel: 'design-feedback',
-              workspace: 'Spatial',
-              timestamp: 'Yesterday at 4:15 PM'
-            },
-            {
-              id: 'sl-3',
-              content: 'Reminder: Team sync at 3PM today',
-              sender: 'Sarah Kim',
-              channel: 'team-announcements',
-              workspace: 'Spatial',
-              timestamp: 'Yesterday at 9:00 AM'
-            }
-          ];
-          setDefaultSlackMessages(mockSlackMessages);
-        }
-        
-        if (defaultLinearItems.length === 0) {
-          const mockLinearItems: LinearItem[] = [
-            {
-              id: 'ln-1',
-              title: 'Implement file suggestion dropdown',
-              type: 'issue',
-              status: 'inProgress',
-              team: 'Frontend',
-              assignee: 'You',
-              priority: 'high'
-            },
-            {
-              id: 'ln-2',
-              title: 'Fix dropdown menu styling',
-              type: 'issue',
-              status: 'todo',
-              team: 'Frontend',
-              priority: 'medium'
-            },
-            {
-              id: 'ln-3',
-              title: 'Q4 Platform Improvements',
-              type: 'project',
-              status: 'inProgress',
-              team: 'Product',
-              assignee: 'Sarah Kim'
-            }
-          ];
-          setDefaultLinearItems(mockLinearItems);
-        }
-        
-      } catch (error) {
-        console.error("Error fetching default items:", error);
-      } finally {
-        setIsSearching(false);
       }
+
+      if (defaultCalendarEvents.length === 0) {
+        const mockCalendarEvents: CalendarEvent[] = [
+          {
+            id: 'cal-1',
+            title: 'Team Standup',
+            date: '2023-10-09',
+            time: '10:00 AM',
+            attendees: 5
+          },
+          {
+            id: 'cal-2',
+            title: 'Product Review',
+            date: '2023-10-09',
+            time: '2:00 PM',
+            attendees: 8
+          }
+        ];
+        setDefaultCalendarEvents(mockCalendarEvents);
+      }
+      
+      if (defaultGithubItems.length === 0) {
+        const mockGithubItems: GithubItem[] = [
+          {
+            id: 'gh-1',
+            name: 'vinci-application',
+            type: 'repository',
+            owner: 'spatial',
+            description: 'Main application repository'
+          },
+          {
+            id: 'gh-2',
+            name: 'Fix dropdown menu styling',
+            type: 'issue',
+            owner: 'spatial',
+            description: 'Issue #42'
+          }
+        ];
+        setDefaultGithubItems(mockGithubItems);
+      }
+      
+      if (defaultGmailItems.length === 0) {
+        const mockGmailItems: GmailItem[] = [
+          {
+            id: 'gm-1',
+            subject: 'Weekly Product Update',
+            sender: 'product@company.com',
+            date: '2023-10-08',
+            preview: 'Here are this week\'s product updates...',
+            isUnread: true
+          },
+          {
+            id: 'gm-2',
+            subject: 'Meeting Notes: Design Review',
+            sender: 'design@company.com',
+            date: '2023-10-07',
+            preview: 'Attached are the notes from our design review session.'
+          }
+        ];
+        setDefaultGmailItems(mockGmailItems);
+      }
+      
+      if (defaultSlackMessages.length === 0) {
+        const mockSlackMessages: SlackMessage[] = [
+          {
+            id: 'sl-1',
+            content: 'Has anyone started looking at the new file suggestion dropdown?',
+            sender: 'Dallin Pyrah',
+            channel: 'project-vinci',
+            workspace: 'Spatial',
+            timestamp: '10:32 AM',
+            hasThread: true,
+            replyCount: 3
+          },
+          {
+            id: 'sl-2',
+            content: 'I pushed the design updates to the staging environment, please review',
+            sender: 'Alex Chen',
+            channel: 'design-feedback',
+            workspace: 'Spatial',
+            timestamp: 'Yesterday at 4:15 PM'
+          },
+          {
+            id: 'sl-3',
+            content: 'Reminder: Team sync at 3PM today',
+            sender: 'Sarah Kim',
+            channel: 'team-announcements',
+            workspace: 'Spatial',
+            timestamp: 'Yesterday at 9:00 AM'
+          }
+        ];
+        setDefaultSlackMessages(mockSlackMessages);
+      }
+      
+      if (defaultLinearItems.length === 0) {
+        const mockLinearItems: LinearItem[] = [
+          {
+            id: 'ln-1',
+            title: 'Implement file suggestion dropdown',
+            type: 'issue',
+            status: 'inProgress',
+            team: 'Frontend',
+            assignee: 'You',
+            priority: 'high'
+          },
+          {
+            id: 'ln-2',
+            title: 'Fix dropdown menu styling',
+            type: 'issue',
+            status: 'todo',
+            team: 'Frontend',
+            priority: 'medium'
+          },
+          {
+            id: 'ln-3',
+            title: 'Q4 Platform Improvements',
+            type: 'project',
+            status: 'inProgress',
+            team: 'Product',
+            assignee: 'Sarah Kim'
+          }
+        ];
+        setDefaultLinearItems(mockLinearItems);
+      }
+      
+    } catch (error) {
+      console.error("Error fetching default items:", error);
+      toast({
+        title: "Error Loading Suggestions",
+        description: `An unexpected error occurred while loading default suggestions: ${error instanceof Error ? error.message : String(error)}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSearching(false);
     }
   }, [
-    defaultFiles.length, 
-    defaultCalendarEvents.length, 
-    defaultGithubItems.length, 
-    defaultGmailItems.length,
-    defaultSlackMessages.length,
-    defaultLinearItems.length
+    setDefaultFiles, 
+    setDefaultCalendarEvents, 
+    setDefaultGithubItems, 
+    setDefaultGmailItems,
+    setDefaultSlackMessages,
+    setDefaultLinearItems
   ]);
 
   useEffect(() => {

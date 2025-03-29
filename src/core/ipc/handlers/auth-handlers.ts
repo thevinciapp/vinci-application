@@ -14,7 +14,6 @@ import {
 import { AuthEvents } from '@/core/ipc/constants';
 import { AuthResponse } from '@/types/auth';
 import { useMainStore } from '@/store/main';
-import { useStore } from 'zustand';
 
 interface SessionResponse {
   status: string;
@@ -44,6 +43,15 @@ export function registerAuthHandlers() {
     } catch (error) {
       console.error('[ELECTRON] Sign in handler error:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Failed to sign in', status: 'error' };
+    }
+  });
+
+  ipcMain.handle(AuthEvents.SIGN_UP, async (_event: IpcMainInvokeEvent, data: { email: string, password: string }): Promise<AuthResponse> => {
+    try {
+      return await signUp(data.email, data.password);
+    } catch (error) {
+      console.error('Error signing up:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to sign up', status: 'error' };
     }
   });
 
@@ -83,15 +91,6 @@ export function registerAuthHandlers() {
         error: error instanceof Error ? error.message : 'Failed to verify token', 
         status: 'error' 
       };
-    }
-  });
-
-  ipcMain.handle(AuthEvents.SIGN_UP, async (_event: IpcMainInvokeEvent, email: string, password: string): Promise<AuthResponse> => {
-    try {
-      return await signUp(email, password);
-    } catch (error) {
-      console.error('Error signing up:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Failed to sign up', status: 'error' };
     }
   });
 

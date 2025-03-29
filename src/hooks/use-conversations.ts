@@ -13,9 +13,9 @@ export function useConversations() {
       setIsLoading(true);
       setError(null);
       const response = await window.electron.invoke(ConversationEvents.GET_CONVERSATIONS);
-      if (response && response.conversations) {
-        rendererStore.setConversations(response.conversations);
-        return response.conversations;
+      if (response?.success && response.conversations?.items) {
+        rendererStore.setConversations(response.conversations.items);
+        return response.conversations.items;
       }
       return [];
     } catch (error) {
@@ -46,7 +46,10 @@ export function useConversations() {
       setIsLoading(true);
       setError(null);
       
-      const response = await window.electron.invoke(ConversationEvents.SET_ACTIVE_CONVERSATION, conversation.id);
+      const response = await window.electron.invoke(ConversationEvents.SET_ACTIVE_CONVERSATION, {
+        conversationId: conversation.id,
+        spaceId: conversation.space_id
+      });
       
       if (!response.success) {
         throw new Error(response.error || 'Failed to set active conversation');

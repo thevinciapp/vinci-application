@@ -50,7 +50,7 @@ export function useAuth() {
       
       const verifyResponse = await window.electron.invoke(AuthEvents.VERIFY_TOKEN);
       
-      if (verifyResponse.success && verifyResponse.data?.isValid) {
+      if (verifyResponse.success && verifyResponse.verification?.isValid) {
         const tokenResponse = await window.electron.invoke(AuthEvents.GET_AUTH_TOKEN);
         
         if (tokenResponse?.success && tokenResponse.data) {
@@ -116,26 +116,22 @@ export function useAuth() {
         throw new Error(response.error || 'Authentication failed');
       }
 
-      if (response.data?.session) {
-        setSession(response.data.session);
+      if (response.session) {
+        setSession(response.session);
       }
 
-      // Sync state and wait for the complete data to be loaded
       try {
         const syncResponse = await window.electron.invoke(AppStateEvents.SYNC_STATE);
         if (!syncResponse.success) {
           console.warn("State sync was not successful after login:", syncResponse.error);
         }
         
-        // Get the complete state data after syncing
         const stateResponse = await window.electron.invoke(AppStateEvents.GET_STATE);
         if (!stateResponse.success) {
           console.warn("Failed to get app state after login:", stateResponse.error);
         }
       } catch (syncError) {
         console.error("Error during state synchronization after login:", syncError);
-        // We don't throw here because we want to return successful login
-        // The UI layer will handle data loading errors separately
       }
 
       return handleSuccess("Successfully signed in");
@@ -159,33 +155,30 @@ export function useAuth() {
         throw new Error("Password must be at least 6 characters");
       }
 
-      // Check if Electron API is available
       if (typeof window === 'undefined' || !window.electron) {
         throw new Error("Electron API not available");
       }
 
+      console.log("Sign up request:", { email, password });
       const response = await window.electron.invoke(AuthEvents.SIGN_UP, { email, password });
+      console.log("Sign up response:", response);
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to create account');
       }
 
-      // Sync state and wait for the complete data to be loaded
       try {
         const syncResponse = await window.electron.invoke(AppStateEvents.SYNC_STATE);
         if (!syncResponse.success) {
           console.warn("State sync was not successful after signup:", syncResponse.error);
         }
         
-        // Get the complete state data after syncing
         const stateResponse = await window.electron.invoke(AppStateEvents.GET_STATE);
         if (!stateResponse.success) {
           console.warn("Failed to get app state after signup:", stateResponse.error);
         }
       } catch (syncError) {
         console.error("Error during state synchronization after signup:", syncError);
-        // We don't throw here because we want to return successful signup
-        // The UI layer will handle data loading errors separately
       }
 
       return handleSuccess("Successfully signed up");
@@ -203,11 +196,6 @@ export function useAuth() {
 
       if (!email) {
         throw new Error("Please provide an email address");
-      }
-
-      // Check if Electron API is available
-      if (typeof window === 'undefined' || !window.electron) {
-        throw new Error("Electron API not available");
       }
 
       const response = await window.electron.invoke(AuthEvents.RESET_PASSWORD, { email });
@@ -292,7 +280,6 @@ export function useAuth() {
     }
   };
 
-  // Helper property to check if user is authenticated
   const isAuthenticated = !!session?.access_token;
 
   return {

@@ -1,4 +1,4 @@
-import { useChat } from '@ai-sdk/react';
+import { Message, useChat } from '@ai-sdk/react';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 
 import { useSpaces } from '@/hooks/use-spaces';
@@ -9,8 +9,7 @@ import { API_BASE_URL } from '@/config/api';
 import { useCommandWindow } from '@/hooks/use-command-window';
 import { toast } from '@/hooks/use-toast';
 import { Conversation } from '@/types/conversation';
-import path from 'path';
-import { CommandCenterEvents, MessageEvents } from '@/core/ipc/constants';
+import { CommandCenterEvents, AuthEvents } from '@/core/ipc/constants';
 import { useFileReferences } from '@/hooks/use-file-references';
 import { ChatTopBar } from './ui/chat-top-bar';
 import { ChatInputArea } from './chat-input-area';
@@ -41,42 +40,52 @@ export default function ChatContent() {
   const chatKey = `${activeConversation?.id || 'default'}-${activeSpace?.provider || ''}-${activeSpace?.model || ''}`;
   
   async function getHeaders() {
-    const response = await window.electron.invoke('AUTH_TOKEN');
-    console.log('Get auth token response:', response);
-    if (!response.success || !response.data) {
-      throw new Error('Failed to get access token');
+    try {
+      const response = await window.electron.invoke(AuthEvents.GET_AUTH_TOKEN);
+      if (!response.success || !response.data?.accessToken) {
+        console.error('Failed to get access token:', response.error || 'No data returned');
+        throw new Error('Failed to get access token');
+      }
+      return {
+        Authorization: `Bearer ${response.data.accessToken}`,
+      };
+    } catch (error) {
+      console.error('Error fetching auth token:', error);
+      throw new Error(`Authentication error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-    return {
-      Authorization: `Bearer ${response.data.accessToken}`,
-    };
   }
 
   const customFetch: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-    console.log('Custom fetch called with URL:', input);
-    console.log('Custom fetch called with init:', init);
-    const headers = await getHeaders(); 
+    try {
+      const headers = await getHeaders();
 
-    console.log('Headers:', headers);
+      const url = typeof input === 'string' ? input : input.toString();
 
-    const url = typeof input === 'string' ? input : input.toString();
+      const updatedOptions: RequestInit = {
+        ...init,
+        headers: {
+          ...(init?.headers || {}),
+          ...headers,
+        },
+      };
 
-    const updatedOptions: RequestInit = {
-      ...init,
-      headers: {
-        ...(init?.headers || {}),
-        ...headers,
-      },
-    };
-
-    console.log('Custom fetch called with updated URL:', url);
-
-    return fetch(url, updatedOptions); 
+      return fetch(url, updatedOptions);
+    } catch (error) {
+      console.error('Failed to prepare fetch request due to auth error:', error);
+      toast({
+        title: 'Authentication Error',
+        description: `Could not retrieve authentication token. Please try logging out and back in. Details: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: 'destructive',
+        duration: 9000,
+      });
+      throw new Error('Failed to prepare request due to authentication error.');
+    }
   };
 
   const chatConfig = useMemo(() => ({
     id: chatKey,
     api: `${API_BASE_URL}/api/chat`,
-    initialMessages: initialMessages as any,
+    initialMessages: initialMessages as Message[],
     fetch: customFetch,
     body: {
       spaceId: activeSpace?.id || '',
@@ -131,9 +140,19 @@ export default function ChatContent() {
           fileContent = response.data.content;
         } else {
           fileContent = `[Error loading file content: ${response.error}]`;
+          toast({
+            title: "Error Reading File",
+            description: `Could not read file content for "${file.name}": ${response.error || 'Unknown error'}`,
+            variant: "destructive",
+          });
         }
       } catch (error) {
         fileContent = `[Error loading file content: ${error instanceof Error ? error.message : String(error)}]`;
+        toast({
+          title: "Error Reading File",
+          description: `An unexpected error occurred while reading "${file.name}": ${error instanceof Error ? error.message : String(error)}`,
+          variant: "destructive",
+        });
       }
       
       const fileId = file.id || `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -168,7 +187,12 @@ export default function ChatContent() {
       }
       
     } catch (error) {
-      console.error("Error selecting file:", error);
+      console.error("Error processing selected file:", error);
+      toast({
+        title: "Error Processing File",
+        description: `An unexpected error occurred while processing the file reference for "${file.name}".`,
+        variant: "destructive",
+      });
     }
   };
 

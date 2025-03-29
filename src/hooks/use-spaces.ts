@@ -17,8 +17,8 @@ export function useSpaces() {
       setError(null);
       const response = await window.electron.invoke(SpaceEvents.GET_SPACES);
       if (response && response.success) {
-        rendererStore.setSpaces(response.data);
-        return response.data;
+        rendererStore.setSpaces(response.spaces || []);
+        return response.spaces || [];
       }
       return [];
     } catch (error) {
@@ -36,10 +36,17 @@ export function useSpaces() {
       setIsLoading(true);
       setError(null);
       const space = await window.electron.invoke(SpaceEvents.GET_ACTIVE_SPACE);
-      if (space) {
-        rendererStore.setActiveSpace(space);
+      if (space?.success && space.space) {
+        rendererStore.setActiveSpace(space.space);
+        return space.space;
       }
-      return space;
+      if (space?.success && space.space === null) {
+        rendererStore.setActiveSpace(null);
+        return null;
+      }
+      console.warn('Unexpected response structure for GET_ACTIVE_SPACE:', space);
+      rendererStore.setActiveSpace(null);
+      return null;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch active space';
       setError(errorMessage);
@@ -54,8 +61,8 @@ export function useSpaces() {
     try {
       const response = await window.electron.invoke(SpaceEvents.GET_SPACE_CONVERSATIONS, spaceId);
       if (response && response.success) {
-        rendererStore.setConversations(response.data);
-        return response.data;
+        rendererStore.setConversations(response.conversations?.items || []);
+        return response.conversations?.items || [];
       }
       return [];
     } catch (error) {
@@ -69,8 +76,8 @@ export function useSpaces() {
     try {
       const response = await window.electron.invoke(MessageEvents.GET_CONVERSATION_MESSAGES, conversationId);
       if (response && response.success) {
-        rendererStore.setMessages(response.data);
-        return response.data;
+        rendererStore.setMessages(response.messages?.items || []);
+        return response.messages?.items || [];
       }
       return [];
     } catch (error) {
@@ -140,8 +147,8 @@ export function useSpaces() {
     try {
       setIsLoading(true);
       const result = await window.electron.invoke(SpaceEvents.CREATE_SPACE, spaceData);
-      if (result.success && result.data) {
-        const spaces = [...rendererStore.spaces, result.data];
+      if (result.success && result.space) {
+        const spaces = [...rendererStore.spaces, result.space];
         rendererStore.setSpaces(spaces);
       }
       return result.success;
@@ -177,14 +184,14 @@ export function useSpaces() {
     try {
       setIsLoading(true);
       const result = await window.electron.invoke(SpaceEvents.UPDATE_SPACE, spaceId, spaceData);
-      if (result.success && result.data) {
+      if (result.success && result.space) {
         const spaces = rendererStore.spaces.map(s => 
-          s.id === spaceId ? { ...s, ...result.data.space } : s
+          s.id === spaceId ? { ...s, ...result.space } : s
         );
         rendererStore.setSpaces(spaces);
         
         if (rendererStore.activeSpace?.id === spaceId) {
-          rendererStore.setActiveSpace({ ...rendererStore.activeSpace, ...result.data.space });
+          rendererStore.setActiveSpace({ ...rendererStore.activeSpace, ...result.space });
         }
       }
       return result.success;

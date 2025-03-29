@@ -56,15 +56,15 @@ export async function fetchUserProfile(): Promise<UserProfile> {
       }
     }
 
-    const { status, error, data } = await response.json();
+    // API returns { status: 'success', user: {...} }
+    const { status, error, user } = await response.json();
     
-    console.log('[ELECTRON] User profile response:', data);
+    console.log('[ELECTRON] User profile response:', { user }); // Log the user object
 
     if (status !== 'success') {
       throw new Error(error || 'Failed to fetch user profile');
     }
 
-    const user = data?.user;
     if (!user) {
       throw new Error('User profile not found in response');
     }
@@ -92,7 +92,8 @@ export async function updateUserProfile(data: UserUpdateData): Promise<UserProfi
       body: JSON.stringify(data)
     });
     
-    const { status, error, data: profile } = await response.json();
+    // Revert: Assuming structure might be different until API is verified
+    const { status, error, data: profile } = await response.json(); 
     
     if (status !== 'success') {
       throw new Error(error || 'Failed to update user profile');
@@ -112,20 +113,25 @@ export async function updateUserProfile(data: UserUpdateData): Promise<UserProfi
  */
 export async function signUp(email: string, password: string): Promise<any> {
   try {
+    console.log('[ELECTRON] Signing up with email:', email, 'and password:', password);
+    
     const response = await fetch(`${API_BASE_URL}/api/auth/sign-up`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
     
+    // API returns { status: 'success', authResult: { user: ..., session: {...} } }
     const data = await response.json();
     
-    if (data.status === 'success' && data.data?.session?.access_token && data.data?.session?.refresh_token && data.data?.session?.expires_at) {
+    // API returns { status: 'success', authResult: { user: ..., session: {...} } }
+    const session = data.authResult?.session;
+    if (data.status === 'success' && session?.access_token && session?.refresh_token && session?.expires_at) {
       const store = useMainStore.getState();
-      store.setAccessToken(data.data.session.access_token);
-      store.setRefreshToken(data.data.session.refresh_token);
-      store.setTokenExpiryTime(data.data.session.expires_at);
-      console.log('[ELECTRON] Sign-up: Token expiry set from API:', new Date(data.data.session.expires_at * 1000).toISOString());
+      store.setAccessToken(session.access_token);
+      store.setRefreshToken(session.refresh_token);
+      store.setTokenExpiryTime(session.expires_at);
+      console.log('[ELECTRON] Sign-up: Token expiry set from API:', new Date(session.expires_at * 1000).toISOString());
     }
     
     return data;
@@ -159,7 +165,8 @@ export async function resetPassword(email: string): Promise<any> {
 export async function getUserSettings(): Promise<any> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/users/settings`);
-    const { status, error, data: settings } = await response.json();
+    // Revert: Assuming structure might be different until API is verified
+    const { status, error, data: settings } = await response.json(); 
     
     if (status !== 'success') {
       throw new Error(error || 'Failed to fetch user settings');
@@ -185,7 +192,8 @@ export async function updateUserSettings(settings: any): Promise<any> {
       body: JSON.stringify(settings)
     });
     
-    const { status, error, data: updatedSettings } = await response.json();
+    // Revert: Assuming structure might be different until API is verified
+    const { status, error, data: updatedSettings } = await response.json(); 
     
     if (status !== 'success') {
       throw new Error(error || 'Failed to update user settings');
@@ -211,7 +219,8 @@ export async function updateUserPassword(data: PasswordUpdateData): Promise<void
       body: JSON.stringify(data)
     });
 
-    const { status, error } = await response.json();
+    // Revert: Assuming structure might be different until API is verified
+    const { status, error } = await response.json(); 
     
     if (status !== 'success') {
       throw new Error(error || 'Failed to update password');
@@ -235,7 +244,8 @@ export async function updateUserEmailPreferences(preferences: EmailPreferences):
       body: JSON.stringify({ preferences })
     });
 
-    const { status, error, data: user } = await response.json();
+    // Revert: Assuming structure might be different until API is verified
+    const { status, error, data: user } = await response.json(); 
     
     if (status !== 'success') {
       throw new Error(error || 'Failed to update email preferences');

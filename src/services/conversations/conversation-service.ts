@@ -6,20 +6,16 @@ import { Conversation } from '@/types/conversation';
 export async function fetchConversations(spaceId: string): Promise<Conversation[]> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}/conversations`);
-    const { status, error, data } = await response.json();
+    const { status, error, conversations: conversationsData } = await response.json();
 
-    console.log('[ELECTRON] Conversations response:', data);
-    
     if (status !== 'success') {
       throw new Error(error || 'Failed to fetch conversations');
     }
 
-    const conversations = data?.data || [];
-    console.log(`[ELECTRON] Fetched ${conversations.length} conversations for space ${spaceId}`);
+    const conversationItems = conversationsData?.items || [];
+    useMainStore.getState().updateConversations(conversationItems);
     
-    useMainStore.getState().updateConversations(conversations);
-    
-    return conversations;
+    return conversationItems;
   } catch (error) {
     console.error(`[ELECTRON] Error fetching conversations for space ${spaceId}:`, error);
     throw error;
@@ -37,7 +33,7 @@ export async function createConversation(spaceId: string, title: string): Promis
       body: JSON.stringify({ title })
     });
     
-    const { status, error, data: conversation } = await response.json();
+    const { status, error, conversation } = await response.json();
     
     if (status !== 'success') {
       throw new Error(error || 'Failed to create conversation');
@@ -65,7 +61,7 @@ export async function updateConversation(spaceId: string, conversationId: string
       body: JSON.stringify({ title })
     });
     
-    const { status, error, data: updatedConversation } = await response.json();
+    const { status, error, conversation: updatedConversation } = await response.json();
     
     if (status !== 'success') {
       throw new Error(error || 'Failed to update conversation');
@@ -108,15 +104,17 @@ export async function deleteConversation(spaceId: string, conversationId: string
 }
 
 
-export async function setActiveConversationInAPI(conversationId: string) {
+export async function setActiveConversationInAPI(conversationId: string, spaceId: string) {
   try {
     if (!conversationId) {
       throw new Error('Conversation ID is required');
     }
 
-    console.log(`[ELECTRON] Setting active conversation: ${conversationId}`);
+    if (!spaceId) {
+      throw new Error('Space ID is required');
+    }
     
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/user/active-conversation`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}/active-conversation`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -135,7 +133,7 @@ export async function setActiveConversationInAPI(conversationId: string) {
       throw new Error('Invalid response from server');
     }
     
-    const { status, error, data } = parsedResponse;
+    const { status, error, conversation: apiConversation } = parsedResponse;
     
     if (status !== 'success') {
       console.error('[ELECTRON] API error response:', parsedResponse);
@@ -155,23 +153,23 @@ export async function setActiveConversationInAPI(conversationId: string) {
       console.warn(`[ELECTRON] Conversation with ID ${conversationId} not found in Zustand store`);
     }
     
-    return data;
+    return apiConversation;
   } catch (error) {
     console.error(`[ELECTRON] Error setting active conversation ${conversationId}:`, error);
     throw error;
   }
 }
 
-export async function fetchActiveConversation(): Promise<Conversation | null> {
+export async function fetchActiveConversation(spaceId: string): Promise<Conversation | null> {
   try {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/user/active-conversation`);
-    const { status, error, data } = await response.json();
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}/active-conversation`);
+    const { status, error, conversation } = await response.json();
 
     if (status !== 'success') {
       throw new Error(error || 'Failed to fetch active conversation');
     }
 
-    return data?.data || null;
+    return conversation || null;
   } catch (error) {
     console.error('[ELECTRON] Error fetching active conversation:', error);
     throw error;

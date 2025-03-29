@@ -43,6 +43,7 @@ async function handleAppData(): Promise<boolean> {
     const data = await fetchInitialAppData();
     if (data.error) return false;
     
+    console.log('App data:', data);
     useMainStore.getState().setAppState(data);
     return true;
   } catch {

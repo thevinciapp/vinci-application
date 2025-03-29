@@ -50,9 +50,12 @@ export const conversationApi = {
     }
   },
 
-  setActiveConversation: async (conversationId: string) => {
+  setActiveConversation: async (conversationId: string, spaceId: string) => {
     try {
-      const response = await ipcRenderer.invoke(ConversationEvents.SET_ACTIVE_CONVERSATION, conversationId);
+      const response = await ipcRenderer.invoke(ConversationEvents.SET_ACTIVE_CONVERSATION, { 
+        conversationId, 
+        spaceId 
+      });
       return response;
     } catch (error) {
       console.error("[ELECTRON PRELOAD] setActiveConversation error:", error);

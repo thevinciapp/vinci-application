@@ -24,10 +24,10 @@ export function useMessages(conversationId: string | undefined | null) {
       
       const response = await window.electron.invoke(MessageEvents.GET_CONVERSATION_MESSAGES, id);
       
-      if (response.success && response.data) {
-        rendererStore.setMessages(response.data as Message[]);
+      if (response.success && response.messages?.items) {
+        rendererStore.setMessages(response.messages.items as Message[]);
         setHasFetched(true);
-        return response.data;
+        return response.messages.items;
       } else {
         let errorMsg = response.error || 'Failed to fetch messages';
         if (errorMsg.includes('[object Object]')) {

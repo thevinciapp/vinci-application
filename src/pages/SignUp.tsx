@@ -8,9 +8,9 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRendererStore } from '@/store/renderer';
 import { useToast } from '@/hooks/use-toast';
 
-export default function SignIn() {
+export default function SignUp() {
   const navigate = useNavigate();
-  const { signIn, isLoading, error } = useAuth();
+  const { signUp, isLoading, error } = useAuth();
   const rendererStore = useRendererStore();
   const [loadingData, setLoadingData] = useState(false);
   const { toast } = useToast();
@@ -20,7 +20,7 @@ export default function SignIn() {
       <form className="w-full max-w-[480px]">
         <div className="bg-black/20 border border-white/[0.05] backdrop-blur-xl rounded-xl p-8">
           <div className="flex flex-col gap-2 mb-8">
-            <h1 className="text-2xl font-medium text-white/90">Sign in</h1>
+            <h1 className="text-2xl font-medium text-white/90">Sign up</h1>
           </div>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
@@ -33,19 +33,11 @@ export default function SignIn() {
               />
             </div>
             <div className="flex flex-col gap-2">
-              <div className="flex justify-between items-center">
-                <Label htmlFor="password" className="text-white/60">Password</Label>
-                <Link
-                  className="text-xs text-[#3ecfff]/60 hover:text-[#3ecfff]/80 transition-colors"
-                  to="/forgot-password"
-                >
-                  Forgot Password?
-                </Link>
-              </div>
+              <Label htmlFor="password" className="text-white/60">Password</Label>
               <Input
                 type="password"
                 name="password"
-                placeholder="Your password"
+                placeholder="Create a password"
                 required
                 className="bg-white/[0.03] border border-white/[0.08] backdrop-blur-xl text-white/90 h-11 px-4 py-2 rounded-lg focus:border-[#3ecfff]/50 focus:ring-0 transition-colors placeholder:text-white/20"
               />
@@ -54,11 +46,11 @@ export default function SignIn() {
               <div className="text-red-500 text-sm mb-4">{error}</div>
             )}
             <SubmitButton 
-              pendingText="Signing in..." 
+              pendingText="Creating account..." 
               formAction={async (formData: FormData) => {
                 const email = formData.get('email') as string;
                 const password = formData.get('password') as string;
-                const success = await signIn({ email, password });
+                const success = await signUp({ email, password });
                 
                 if (success) {
                   try {
@@ -67,10 +59,10 @@ export default function SignIn() {
                     if (dataLoaded) {
                       navigate('/protected');
                     } else {
-                      console.error("Failed to load application data after login");
+                      console.error("Failed to load application data after signup");
                       toast({
                         title: "Error",
-                        description: "Successfully signed in, but failed to load your data. Please try again.",
+                        description: "Successfully signed up, but failed to load your data. Please try again.",
                         variant: "destructive"
                       });
                     }
@@ -78,7 +70,7 @@ export default function SignIn() {
                     console.error("Error loading application data:", error);
                     toast({
                       title: "Error",
-                      description: "Failed to load application data after login. Please try again.",
+                      description: "Failed to load application data after signup. Please try again.",
                       variant: "destructive"
                     });
                   } finally {
@@ -89,15 +81,15 @@ export default function SignIn() {
               variant="cyan"
               disabled={isLoading || loadingData}
             >
-              {isLoading || loadingData ? "Signing in..." : "Sign in"}
+              {isLoading || loadingData ? "Creating account..." : "Sign up"}
             </SubmitButton>
             <div className="mt-4 text-center">
-              <span className="text-white/60 text-sm">Don't have an account? </span>
+              <span className="text-white/60 text-sm">Already have an account? </span>
               <Link
                 className="text-sm text-[#3ecfff]/60 hover:text-[#3ecfff]/80 transition-colors"
-                to="/sign-up"
+                to="/sign-in"
               >
-                Sign up
+                Sign in
               </Link>
             </div>
           </div>
@@ -105,4 +97,4 @@ export default function SignIn() {
       </form>
     </div>
   );
-}
+} 
