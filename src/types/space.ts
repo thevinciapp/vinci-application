@@ -106,4 +106,26 @@ export interface DeleteSpaceResponse {
 
 export interface GetSpaceHistoryResponse {
   history: SpaceHistory[];
+}
+
+export type Provider = 'openai' | 'anthropic' | /* other providers */;
+
+// Define and export ChatMode type
+export type ChatMode = 'ask' | 'tool' | 'agent';
+
+export interface Space {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  model: string;
+  provider: Provider;
+  chat_mode: string;
+  chat_mode_config: Record<string, any>;
+  is_archived: boolean;
+  is_deleted: boolean;
+  created_at: string;
+  updated_at: string;
+  color?: string;
+  isActive?: boolean;
 } 

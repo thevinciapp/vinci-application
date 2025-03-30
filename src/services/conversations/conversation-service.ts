@@ -160,7 +160,7 @@ export async function setActiveConversationInAPI(conversationId: string, spaceId
   }
 }
 
-export async function fetchActiveConversation(spaceId: string): Promise<Conversation | null> {
+export async function fetchActiveConversation(spaceId: string): Promise<Conversation> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}/active-conversation`);
     const { status, error, conversation } = await response.json();
@@ -169,7 +169,7 @@ export async function fetchActiveConversation(spaceId: string): Promise<Conversa
       throw new Error(error || 'Failed to fetch active conversation');
     }
 
-    return conversation || null;
+    return conversation;
   } catch (error) {
     console.error('[ELECTRON] Error fetching active conversation:', error);
     throw error;

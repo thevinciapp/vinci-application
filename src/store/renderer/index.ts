@@ -11,6 +11,7 @@ export interface RendererProcessState {
   activeSpace: Space | null;
   conversations: Conversation[];
   messages: Message[];
+  activeConversation: Conversation | null;
   initialDataLoaded: boolean;
   isLoading: boolean;
   error: string | null;
@@ -24,6 +25,7 @@ const initialState: RendererProcessState = {
   activeSpace: null,
   conversations: [],
   messages: [],
+  activeConversation: null,
   initialDataLoaded: false,
   isLoading: false,
   error: null,
@@ -35,9 +37,12 @@ const initialState: RendererProcessState = {
 export const useRendererStore = create<RendererProcessState & {
   setAppState: (state: Partial<RendererProcessState>) => void;
   setSpaces: (spaces: Space[]) => void;
+  addSpace: (space: Space) => void;
+  removeSpace: (spaceId: string) => void;
   setActiveSpace: (space: Space | null) => void;
   setConversations: (conversations: Conversation[]) => void;
   setMessages: (messages: Message[]) => void;
+  setActiveConversation: (conversation: Conversation | null) => void;
   setUser: (user: User | null) => void;
   setProfile: (profile: UserProfile | null) => void;
   setLoading: (isLoading: boolean) => void;
@@ -56,9 +61,12 @@ export const useRendererStore = create<RendererProcessState & {
   })),
   
   setSpaces: (spaces) => set((state) => ({ ...state, spaces })),
+  addSpace: (space: Space) => set((state) => ({ ...state, spaces: [space, ...state.spaces] })),
+  removeSpace: (spaceId: string) => set((state) => ({ ...state, spaces: state.spaces.filter(s => s.id !== spaceId) })),
   setActiveSpace: (activeSpace) => set((state) => ({ ...state, activeSpace })),
   setConversations: (conversations) => set((state) => ({ ...state, conversations })),
   setMessages: (messages) => set((state) => ({ ...state, messages })),
+  setActiveConversation: (activeConversation) => set((state) => ({ ...state, activeConversation })),
   setUser: (user) => set((state) => ({ ...state, user })),
   setProfile: (profile) => set((state) => ({ ...state, profile })),
   setLoading: (isLoading) => set((state) => ({ ...state, isLoading })),
@@ -67,10 +75,7 @@ export const useRendererStore = create<RendererProcessState & {
   fetchAppState: async () => {
     try {
       const response = await window.electron.invoke(AppStateEvents.GET_STATE);
-      console.log('App state response', response);
       if (response.success && response.data) {
-        console.log('App state data', response.data);
-        
         const {
           spaces = [],
           activeSpace = null,
@@ -80,15 +85,6 @@ export const useRendererStore = create<RendererProcessState & {
           profile = null,
           initialDataLoaded = false
         } = response.data;
-
-        console.log('[RENDERER] Setting state with:', {
-          spaces,
-          activeSpace,
-          conversations: conversations.length,
-          messages: messages.length,
-          user: user?.email,
-          initialDataLoaded
-        });
 
         set((state) => ({
           ...state,

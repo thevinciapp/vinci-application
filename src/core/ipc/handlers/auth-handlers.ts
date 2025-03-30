@@ -15,16 +15,6 @@ import { AuthEvents } from '@/core/ipc/constants';
 import { AuthResponse } from '@/types/auth';
 import { useMainStore } from '@/store/main';
 
-interface SessionResponse {
-  status: string;
-  data?: {
-    session?: {
-      user?: any;
-    };
-  };
-  error?: string;
-}
-
 
 export function registerAuthHandlers() {
   ipcMain.handle(AuthEvents.SIGN_IN, async (_event: IpcMainInvokeEvent, email: string, password: string): Promise<AuthResponse> => {

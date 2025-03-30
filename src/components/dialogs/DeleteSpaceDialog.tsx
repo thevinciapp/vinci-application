@@ -1,9 +1,7 @@
-
-
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Toast } from "@/components/ui/toast";
+import { useToast } from "@/hooks/use-toast";
 import { DialogComponentProps } from "@/types/dialog";
 import { Space } from "@/types/space";
 import { useSpaces } from "@/hooks/use-spaces";
@@ -13,6 +11,7 @@ export const DeleteSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClos
   const space = data as Space;
   const { deleteSpace, isLoading: isDeleting } = useSpaces();
   const { refreshCommandCenter } = useCommandCenter();
+  const { toast } = useToast();
 
   const handleDelete = async () => {
     if (!space || !space.id) return;

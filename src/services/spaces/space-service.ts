@@ -1,10 +1,12 @@
 import { API_BASE_URL } from '@/core/auth/auth-service';
-import { Space } from '@/types/space';
+import { Space, SpaceResponse } from '@/types/space';
 import { useMainStore } from '@/store/main';
 import { fetchWithAuth } from '@/services/api/api-service';
-import { fetchConversations } from '@/services/conversations/conversation-service';
+import { fetchActiveConversation, fetchConversations } from '@/services/conversations/conversation-service';
 import { fetchMessages } from '@/services/messages/message-service';
 import { Provider } from '@/types/provider';
+import { Conversation } from '@/types/conversation';
+import { Message } from '@/types/message';  
 
 export async function fetchSpaces(): Promise<Space[]> {
   try {
@@ -86,7 +88,13 @@ export async function updateSpace(spaceId: string, spaceData: Partial<Space>): P
 /**
  * Create a new space
  */
-export async function createSpace(spaceData: Partial<Space>): Promise<Space> {
+export async function createSpace(spaceData: Partial<Space>): Promise<{
+  spaces: Space[];
+  activeSpace: Space;
+  conversations: Conversation[];
+  activeConversation: Conversation;
+  messages: Message[];
+}> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces`, {
       method: 'POST',
@@ -96,28 +104,47 @@ export async function createSpace(spaceData: Partial<Space>): Promise<Space> {
       body: JSON.stringify(spaceData)
     });
     
-    const { status, error, space: newSpace } = await response.json();
+    const { status, error, data: spaceResponse } = await response.json();
     
     if (status !== 'success') {
       throw new Error(error || 'Failed to create space');
     }
     
-    // Update Zustand store - add new space to list
     const store = useMainStore.getState();
-    const spaces = [...store.spaces, newSpace];
+    const spaces = [...store.spaces, spaceResponse.activeSpace];
+
     store.updateSpaces(spaces);
-    
-    return newSpace;
+
+    if (spaceResponse.activeSpace) {
+      store.setActiveSpace(spaceResponse.activeSpace);
+    }
+
+    if (spaceResponse.conversations) {
+      store.updateConversations(spaceResponse.conversations);
+    }
+
+    if (spaceResponse.activeConversation) {
+      store.updateActiveConversation(spaceResponse.activeConversation);
+    }
+
+    if (spaceResponse.messages) {
+      store.updateMessages(spaceResponse.messages);
+    }
+
+    return spaceResponse;
   } catch (error) {
     console.error('[ELECTRON] Error creating space:', error);
     throw error;
   }
 }
 
-/**
- * Delete a space
- */
-export async function deleteSpace(spaceId: string): Promise<boolean> {
+export async function deleteSpace(spaceId: string): Promise<{
+  spaces: Space[];
+  activeSpace: Space | null;
+  activeConversation: Conversation | null;
+  conversations: Conversation[];
+  messages: Message[];
+}> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/spaces/${spaceId}`, {
       method: 'DELETE'
@@ -129,17 +156,27 @@ export async function deleteSpace(spaceId: string): Promise<boolean> {
       throw new Error(error || 'Failed to delete space');
     }
     
-    // Update Zustand store - remove deleted space
     const store = useMainStore.getState();
     const spaces = store.spaces.filter(s => s.id !== spaceId);
     store.updateSpaces(spaces);
     
-    // If this was the active space, clear it
     if (store.activeSpace && store.activeSpace.id === spaceId) {
-      store.setActiveSpace(null);
+     const activeSpace = await setActiveSpaceInAPI(spaces[0].id);
+     store.setActiveSpace(activeSpace);
+
+     const conversations = await fetchConversations(activeSpace.id);
+     const activeConversation = await fetchActiveConversation(activeSpace.id);
+
+     store.updateConversations(conversations);
+     store.updateActiveConversation(activeConversation);
+
+     const messages = await fetchMessages(activeConversation.id);
+     store.updateMessages(messages);
+
+     return { spaces, activeSpace: activeSpace, conversations: conversations, activeConversation: activeConversation,  messages: messages };
     }
     
-    return true;
+    return { spaces, activeSpace: store.activeSpace, conversations: store.conversations, activeConversation: store.activeConversation, messages: store.messages };
   } catch (error) {
     console.error(`[ELECTRON] Error deleting space ${spaceId}:`, error);
     throw error;
@@ -193,13 +230,10 @@ export async function updateSpaceModel(spaceId: string, modelId: string, provide
  */
 export async function setActiveSpaceInAPI(spaceId: string) {
   try {
-    // Validate space ID
     if (!spaceId) {
       throw new Error('Space ID is required');
     }
 
-    console.log(`[ELECTRON] Setting active space: ${spaceId}`);
-    
     const response = await fetchWithAuth(`${API_BASE_URL}/api/user/active-space`, {
       method: 'POST',
       headers: {
@@ -208,49 +242,13 @@ export async function setActiveSpaceInAPI(spaceId: string) {
       body: JSON.stringify({ spaceId })
     });
     
-    const responseText = await response.text();
-    console.log(`[ELECTRON] Active space API response status: ${response.status}`);
-    
-    let parsedResponse;
-    try {
-      parsedResponse = JSON.parse(responseText);
-    } catch (e) {
-      console.error('[ELECTRON] Failed to parse response as JSON:', e);
-      throw new Error('Invalid response from server');
-    }
-    
-    const { status, error, space } = parsedResponse;
-    
+    const { status, error, space } = await response.json();
+
     if (status !== 'success') {
-      console.error('[ELECTRON] API error response:', parsedResponse);
       throw new Error(error || 'Failed to set active space');
     }
     
-    // Find the space in our spaces array from Zustand store
-    const store = useMainStore.getState();
-    const spaceFromStore = store.spaces?.find(s => s.id === spaceId);
-    
-    if (spaceFromStore) {
-      // Update the active space in our Zustand store
-      store.setActiveSpace(spaceFromStore);
-      
-      // Also fetch the conversations for this space
-      const conversations = await fetchConversations(spaceId);
-      
-      // If we have conversations, fetch messages for the most recent one
-      if (conversations.length > 0) {
-        try {
-          await fetchMessages(conversations[0].id);
-        } catch (error) {
-          console.error(`[ELECTRON] Error fetching messages for conversation ${conversations[0].id}:`, error);
-        }
-      }
-      
-      // State is automatically synchronized with Zustand
-    } else {
-      console.warn(`[ELECTRON] Space with ID ${spaceId} not found in Zustand store`);
-    }
-    
+    console.log(`[ELECTRON] Active space`, space);
     return space;
   } catch (error) {
     console.error(`[ELECTRON] Error setting active space ${spaceId}:`, error);

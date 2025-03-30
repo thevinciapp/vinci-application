@@ -9,6 +9,7 @@ export interface MainProcessState {
   activeSpace: Space | null;
   conversations: Conversation[];
   messages: Message[];
+  activeConversation: Conversation | null;
   initialDataLoaded: boolean;
   lastFetched: number | null;
   user: User | null;
@@ -21,6 +22,7 @@ const initialState: MainProcessState = {
   spaces: [],
   activeSpace: null,
   conversations: [],
+  activeConversation: null,
   messages: [],
   initialDataLoaded: false,
   lastFetched: null,
@@ -35,6 +37,7 @@ export const useMainStore = create<MainProcessState & {
   updateSpaces: (spaces: MainProcessState['spaces']) => void;
   setActiveSpace: (space: MainProcessState['activeSpace']) => void;
   updateConversations: (conversations: MainProcessState['conversations']) => void;
+  updateActiveConversation: (conversation: MainProcessState['activeConversation']) => void;
   updateMessages: (messages: MainProcessState['messages']) => void;
   setUser: (user: MainProcessState['user']) => void;
   setAccessToken: (token: MainProcessState['accessToken']) => void;
@@ -46,6 +49,7 @@ export const useMainStore = create<MainProcessState & {
   updateSpaces: (spaces) => set({ spaces }),
   setActiveSpace: (activeSpace) => set({ activeSpace }),
   updateConversations: (conversations) => set({ conversations }),
+  updateActiveConversation: (activeConversation) => set({ activeConversation }),
   updateMessages: (messages) => set({ messages }),
   setUser: (user) => set({ user }),
   setAccessToken: (accessToken) => set({ accessToken }),

@@ -22,7 +22,7 @@ type FileTag = {
 
 export default function ChatContent() {
   const { user, messages: messagesFromStore } = useRendererStore();
-  const { activeSpace, isLoading: isSpaceLoading } = useSpaces();
+  const { spaces, activeSpace, setActiveSpaceById, isLoading: isSpaceLoading } = useSpaces();
   const { 
     activeConversation, 
     setActiveConversation,
@@ -255,6 +255,8 @@ export default function ChatContent() {
       <ChatTopBar
         user={user}
         activeSpace={activeSpace}
+        spaces={spaces}
+        setActiveSpaceById={setActiveSpaceById}
         isStickToBottom={isStickToBottom}
         messagesLength={messages.length}
         onScrollToBottom={scrollToBottom}

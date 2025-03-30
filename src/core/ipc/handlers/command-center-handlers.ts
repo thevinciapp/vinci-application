@@ -17,11 +17,9 @@ import { promisify } from 'util';
 
 const exec = promisify(execCallback);
 
-// Cache for storing search results
 const searchCache = new Map();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes TTL for cache entries
+const CACHE_TTL = 5 * 60 * 1000; 
 
-// Supported file extensions
 const SUPPORTED_EXTENSIONS = [
   '.txt', '.md', '.pdf', '.doc', '.docx',
   '.rtf', '.odt', '.html', '.htm', '.xml',

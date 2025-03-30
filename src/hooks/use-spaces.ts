@@ -147,9 +147,15 @@ export function useSpaces() {
     try {
       setIsLoading(true);
       const result = await window.electron.invoke(SpaceEvents.CREATE_SPACE, spaceData);
-      if (result.success && result.space) {
-        const spaces = [...rendererStore.spaces, result.space];
-        rendererStore.setSpaces(spaces);
+      if (result.success && result.data) {
+        const { activeSpace, conversations, messages, activeConversation } = result.data;
+        if (activeSpace) {
+          rendererStore.addSpace(activeSpace);
+        }
+        rendererStore.setActiveSpace(activeSpace);
+        rendererStore.setActiveConversation(activeConversation);
+        rendererStore.setConversations(conversations || []);
+        rendererStore.setMessages(messages || []);
       }
       return result.success;
     } catch (error) {
@@ -163,15 +169,23 @@ export function useSpaces() {
   const deleteSpace = async (spaceId: string): Promise<boolean> => {
     try {
       setIsLoading(true);
-      const result = await window.electron.invoke(SpaceEvents.DELETE_SPACE, spaceId);
-      if (result.success) {
-        const spaces = rendererStore.spaces.filter(s => s.id !== spaceId);
-        rendererStore.setSpaces(spaces);
-        if (rendererStore.activeSpace?.id === spaceId) {
-          rendererStore.setActiveSpace(null);
-        }
+      const spaces = rendererStore.spaces;
+      if (spaces.length === 1) {
+        setError('Cannot delete the last space');
+        return false;
       }
-      return result.success;
+      
+      const response = await window.electron.invoke(SpaceEvents.DELETE_SPACE, spaceId);
+      if (response.success) {
+        const { spaces, activeSpace, conversations, messages } = response.data;
+        rendererStore.setSpaces(spaces);
+        rendererStore.setActiveSpace(activeSpace);
+        rendererStore.setConversations(conversations);
+        rendererStore.setMessages(messages);
+      } else {
+        setError(response.error || 'Failed to delete space');
+      }
+      return response.success;
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to delete space');
       return false;
@@ -184,14 +198,15 @@ export function useSpaces() {
     try {
       setIsLoading(true);
       const result = await window.electron.invoke(SpaceEvents.UPDATE_SPACE, spaceId, spaceData);
-      if (result.success && result.space) {
+      if (result.success && result.data) {
+        const updatedSpace = result.data;
         const spaces = rendererStore.spaces.map(s => 
-          s.id === spaceId ? { ...s, ...result.space } : s
+          s.id === spaceId ? { ...s, ...updatedSpace } : s
         );
         rendererStore.setSpaces(spaces);
         
         if (rendererStore.activeSpace?.id === spaceId) {
-          rendererStore.setActiveSpace({ ...rendererStore.activeSpace, ...result.space });
+          rendererStore.setActiveSpace({ ...rendererStore.activeSpace, ...updatedSpace });
         }
       }
       return result.success;

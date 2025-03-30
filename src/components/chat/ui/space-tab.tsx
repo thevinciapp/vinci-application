@@ -7,15 +7,26 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useSpaces } from '@/hooks/use-spaces';
 import { Button } from '@/components/ui/button';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { DropdownList, DropdownSection, DropdownItem, DropdownFooterAction } from '@/components/shared/dropdown-list';
 
+import { CreateSpaceDialog } from '@/components/dialogs/CreateSpaceDialog';
+import { EditSpaceDialog } from '@/components/dialogs/EditSpaceDialog';
+import { DeleteSpaceDialog } from '@/components/dialogs/DeleteSpaceDialog';
+
 // Utility function to generate consistent space colors based on ID
-const getSpaceColor = (id: string) => {
+const getSpaceColor = (id: string | undefined | null) => {
   // Simple hash function for the ID to get consistent colors
+  if (typeof id !== 'string' || !id) {
+    // Return a default gray color if id is invalid
+    return {
+      primary: 'hsl(0, 0%, 60%)',
+      secondary: 'hsl(0, 0%, 40%)',
+      gradient: 'linear-gradient(135deg, hsl(0, 0%, 60%), hsl(0, 0%, 40%))',
+    };
+  }
   const hash = Array.from(id).reduce((acc, char, i) => acc + char.charCodeAt(0) * (i + 1), 0);
   const hue = hash % 360;
   return {
@@ -27,14 +38,19 @@ const getSpaceColor = (id: string) => {
 
 export interface SpaceTabProps {
   activeSpace: Space | null;
+  spaces: Space[];
+  setActiveSpaceById: (id: string) => Promise<void>;
 }
 
-export function SpaceTab({ activeSpace }: SpaceTabProps) {
-  const { spaces, setActiveSpaceById } = useSpaces();
-  const [isCreating, setIsCreating] = useState(false);
+export function SpaceTab({ activeSpace, spaces, setActiveSpaceById }: SpaceTabProps) {
+  const { toast } = useToast();
+  
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [spaceToEdit, setSpaceToEdit] = useState<Space | null>(null);
+  const [spaceToDelete, setSpaceToDelete] = useState<Space | null>(null);
+
   const [searchQuery, setSearchQuery] = useState<string>('');
   
-  // Pre-compute colors for all spaces to avoid recalculation
   const spaceColors = useMemo(() => {
     const colors = new Map();
     spaces.forEach(space => {
@@ -61,52 +77,38 @@ export function SpaceTab({ activeSpace }: SpaceTabProps) {
     }
   };
 
-  const handleCreateSpace = () => {
-    setIsCreating(true);
-    // Add actual creation logic or navigation here
-    toast({
-      title: "Coming Soon",
-      description: "Space creation feature will be available soon!",
-      variant: "default",
-    });
-    setIsCreating(false);
+  const handleOpenCreateDialog = () => {
+    setIsCreateDialogOpen(true);
   };
 
-  const handleManageSpace = () => {
-    toast({
-      title: "Coming Soon",
-      description: "Space management feature will be available soon!",
-      variant: "default",
-    });
-  };
-
-  const handleSpaceAction = async (action: string, spaceId?: string) => {
-    // Find the space if an ID is provided
-    const targetSpace = spaceId 
-      ? spaces.find(s => s.id === spaceId) 
-      : activeSpace;
-      
-    if (!targetSpace) return;
-    
-    try {
-      // Here you would implement the actual action logic
-      console.log(`${action} space: ${targetSpace.name} (${targetSpace.id})`);
-      
-      toast({
-        title: 'Success',
-        description: `Space "${targetSpace.name}" ${action.toLowerCase()}`,
-        variant: 'default',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: `Failed to ${action.toLowerCase()} space`,
-        variant: 'destructive',
-      });
+  const handleOpenEditDialog = (spaceId: string | undefined) => {
+    if (!spaceId) return;
+    const space = spaces.find(s => s.id === spaceId);
+    if (space) {
+      setSpaceToEdit(space);
     }
   };
 
-  // Filter spaces based on search query
+  const handleOpenDeleteDialog = (spaceId: string | undefined) => {
+    if (!spaceId) return;
+    const space = spaces.find(s => s.id === spaceId);
+    if (space) {
+      setSpaceToDelete(space);
+    }
+  };
+
+  const handleCloseCreateDialog = () => {
+    setIsCreateDialogOpen(false);
+  };
+
+  const handleCloseEditDialog = () => {
+    setSpaceToEdit(null);
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setSpaceToDelete(null);
+  };
+
   const filterSpaces = () => {
     if (!searchQuery.trim()) return spaces;
     
@@ -117,17 +119,17 @@ export function SpaceTab({ activeSpace }: SpaceTabProps) {
     );
   };
 
-  // Sort spaces by most recently updated
   const sortedSpaces = [...filterSpaces()].sort((a, b) => {
     return new Date(b.updated_at || b.created_at).getTime() - 
            new Date(a.updated_at || a.created_at).getTime();
   });
 
-  // Build sections for dropdown
-  const spaceSections: DropdownSection[] = [
+  const validSortedSpaces = sortedSpaces.filter(space => typeof space.id === 'string' && space.id);
+
+  const spaceSections = useMemo(() => ([
     {
-      title: `Your Spaces ${sortedSpaces.length > 0 ? `(${sortedSpaces.length})` : ''}`,
-      items: sortedSpaces.map((space): DropdownItem => ({
+      title: `Your Spaces ${validSortedSpaces.length > 0 ? `(${validSortedSpaces.length})` : ''}`,
+      items: validSortedSpaces.map((space): DropdownItem => ({
         id: space.id,
         isActive: activeSpace?.id === space.id,
         onSelect: () => activeSpace?.id !== space.id && handleSpaceSelect(space),
@@ -173,149 +175,172 @@ export function SpaceTab({ activeSpace }: SpaceTabProps) {
         )
       })),
       actionButton: {
-        icon: isCreating ? 
-          <RefreshCw className="w-3.5 h-3.5 text-white/70 animate-spin" /> : 
-          <Plus className="w-3.5 h-3.5 text-white/70" />,
-        onClick: handleCreateSpace,
-        isLoading: isCreating,
+        icon: <Plus className="w-3.5 h-3.5 text-white/70" />,
+        onClick: handleOpenCreateDialog,
+        isLoading: false,
         ariaLabel: "Create new space"
       }
     }
-  ];
+  ]), [validSortedSpaces, activeSpace, spaceColors, handleSpaceSelect, handleOpenCreateDialog]);
 
-  // Define footer actions
   const footerActions: DropdownFooterAction[] = [
     {
       icon: <Edit className="w-3.5 h-3.5" />,
       label: "Edit space",
-      onClick: (spaceId) => handleSpaceAction("Edited", spaceId)
+      onClick: () => {
+        if (activeSpace?.id) {
+          handleOpenEditDialog(activeSpace.id);
+        }
+      },
+      isDisabled: !activeSpace
     },
     {
       icon: <Trash className="w-3.5 h-3.5" />,
       label: "Delete space",
-      onClick: (spaceId) => handleSpaceAction("Deleted", spaceId),
-      variant: "destructive"
+      onClick: () => {
+        if (activeSpace?.id) {
+          handleOpenDeleteDialog(activeSpace.id);
+        }
+      },
+      variant: "destructive",
+      isDisabled: !activeSpace
     }
   ];
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button 
-          variant="ghost" 
-          className="p-0 h-auto hover:bg-white/[0.05] rounded-sm transition-all duration-200 group"
-          aria-label={activeSpace ? `Current space: ${activeSpace.name}` : "Select space"}
-        >
-          <BaseTab
-            icon={
-              activeSpace ? (
-                <div className="flex items-center justify-center w-5 h-5 group-hover:scale-110 transition-transform duration-300">
-                  <DotSphere 
-                    size={20} 
-                    seed={activeSpace.id} 
-                    dotCount={80} 
-                    dotSize={0.8} 
-                    expandFactor={1.15} 
-                    transitionSpeed={400}
-                    highPerformance={true}
-                  />
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button 
+            variant="ghost" 
+            className="p-0 h-auto hover:bg-white/[0.05] rounded-sm transition-all duration-200 group"
+            aria-label={activeSpace ? `Current space: ${activeSpace.name}` : "Select space"}
+          >
+            <BaseTab
+              icon={
+                activeSpace ? (
+                  <div className="flex items-center justify-center w-5 h-5 group-hover:scale-110 transition-transform duration-300">
+                    <DotSphere 
+                      size={20} 
+                      seed={activeSpace.id} 
+                      dotCount={80} 
+                      dotSize={0.8} 
+                      expandFactor={1.15} 
+                      transitionSpeed={400}
+                      highPerformance={true}
+                    />
+                  </div>
+                ) : (
+                  <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-blue-500/20 to-purple-500/20 flex items-center justify-center border border-white/10 group-hover:border-white/20 transition-all duration-200">
+                    <Plus size={12} className="text-white/60 group-hover:text-white/80 transition-colors duration-200" />
+                  </div>
+                )
+              }
+              label={activeSpace?.name || 'Select Space'}
+              isActive={!!activeSpace}
+            />
+          </Button>
+        </DropdownMenuTrigger>
+        
+        <DropdownList 
+          headerContent={
+            <div className="px-2 pt-1.5 pb-2">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none">
+                  <Search className="h-3.5 w-3.5 text-white/40" />
                 </div>
-              ) : (
-                <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-blue-500/20 to-purple-500/20 flex items-center justify-center border border-white/10 group-hover:border-white/20 transition-all duration-200">
-                  <Plus size={12} className="text-white/60 group-hover:text-white/80 transition-colors duration-200" />
-                </div>
-              )
-            }
-            label={activeSpace?.name || 'Select Space'}
-            isActive={!!activeSpace}
-          />
-        </Button>
-      </DropdownMenuTrigger>
-      
-      <DropdownList 
-        headerContent={
-          <div className="px-2 pt-1.5 pb-2">
-            {/* Search input */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none">
-                <Search className="h-3.5 w-3.5 text-white/40" />
+                <input
+                  type="text"
+                  placeholder="Search spaces..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-white/[0.05] rounded-md py-1.5 pl-8 pr-3 text-sm text-white/80 placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-white/20 focus:bg-white/[0.07]"
+                  aria-label="Search spaces"
+                  autoFocus
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute inset-y-0 right-2 flex items-center text-white/40 hover:text-white/60"
+                  >
+                    <span className="sr-only">Clear search</span>
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
               </div>
-              <input
-                type="text"
-                placeholder="Search spaces..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white/[0.05] rounded-md py-1.5 pl-8 pr-3 text-sm text-white/80 placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-white/20 focus:bg-white/[0.07]"
-                aria-label="Search spaces"
-                autoFocus
-              />
+              
               {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute inset-y-0 right-2 flex items-center text-white/40 hover:text-white/60"
-                >
-                  <span className="sr-only">Clear search</span>
-                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <div className="flex justify-between items-center text-xs text-white/50 mt-1.5 px-1">
+                  <span>
+                    {validSortedSpaces.length === 0 
+                      ? 'No matches found' 
+                      : `Found ${validSortedSpaces.length} match${validSortedSpaces.length === 1 ? '' : 'es'}`}
+                  </span>
+                  <button 
+                    className="hover:text-white/70 transition-colors text-xs"
+                    onClick={() => setSearchQuery('')}
+                  >
+                    Clear search
+                  </button>
+                </div>
               )}
             </div>
-            
-            {/* Search feedback */}
-            {searchQuery && (
-              <div className="flex justify-between items-center text-xs text-white/50 mt-1.5 px-1">
-                <span>
-                  {sortedSpaces.length === 0 
-                    ? 'No matches found' 
-                    : `Found ${sortedSpaces.length} match${sortedSpaces.length === 1 ? '' : 'es'}`}
-                </span>
-                <button 
-                  className="hover:text-white/70 transition-colors text-xs"
-                  onClick={() => setSearchQuery('')}
-                >
-                  Clear search
-                </button>
-              </div>
-            )}
-          </div>
-        }
-        sections={spaceSections}
-        footerActions={footerActions}
-        emptyState={
-          <div className="text-sm text-white/50 flex flex-col items-center py-4">
-            {searchQuery ? (
-              <>
-                <Search className="w-8 h-8 text-white/20 mb-2" />
-                <p>No spaces match your search</p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="mt-3 text-xs" 
-                  onClick={() => setSearchQuery('')}
-                >
-                  Clear search
-                </Button>
-              </>
-            ) : (
-              <>
-                <div className="w-12 h-12 rounded-full mb-2 bg-gradient-to-r from-blue-400/20 to-purple-400/20 flex items-center justify-center">
-                  <Plus className="w-6 h-6 text-white/40" />
-                </div>
-                <p>No spaces available</p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="mt-3 text-xs" 
-                  onClick={handleCreateSpace}
-                >
-                  Create your first space
-                </Button>
-              </>
-            )}
-          </div>
-        }
+          }
+          sections={spaceSections}
+          footerActions={footerActions}
+          emptyState={
+            <div className="text-sm text-white/50 flex flex-col items-center py-4">
+              {searchQuery ? (
+                <>
+                  <Search className="w-8 h-8 text-white/20 mb-2" />
+                  <p>No spaces match your search</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-3 text-xs" 
+                    onClick={() => setSearchQuery('')}
+                  >
+                    Clear search
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="w-12 h-12 rounded-full mb-2 bg-gradient-to-r from-blue-400/20 to-purple-400/20 flex items-center justify-center">
+                    <Plus className="w-6 h-6 text-white/40" />
+                  </div>
+                  <p>No spaces available</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-3 text-xs" 
+                    onClick={handleOpenCreateDialog}
+                  >
+                    Create your first space
+                  </Button>
+                </>
+              )}
+            </div>
+          }
+        />
+      </DropdownMenu>
+
+      <CreateSpaceDialog 
+        open={isCreateDialogOpen} 
+        onClose={handleCloseCreateDialog} 
+        data={null} 
       />
-    </DropdownMenu>
+
+      <EditSpaceDialog 
+        onClose={handleCloseEditDialog} 
+        data={spaceToEdit} 
+      />
+
+      <DeleteSpaceDialog 
+        onClose={handleCloseDeleteDialog} 
+        data={spaceToDelete} 
+      />
+    </>
   );
 }
