@@ -1,23 +1,27 @@
-
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Toast } from "@/components/ui/toast";
+import { Label } from "@/components/ui/label";  
+import { toast } from 'sonner';
 import { useConversations } from "@/hooks/use-conversations";
 import { useCommandCenter } from "@/hooks/use-command-center";
 import { DialogComponentProps } from "@/types/dialog";
 
 export const EditConversationDialog: React.FC<DialogComponentProps> = ({ data, onClose, onConfirm }) => {
-  const [title, setTitle] = useState(data.title || "");
+  const [title, setTitle] = useState(data?.title || "");
   const { updateConversation, isLoading: isSubmitting } = useConversations();
   const { refreshCommandCenter } = useCommandCenter();
 
+  useEffect(() => {
+    if (data) {
+      setTitle(data.title || "");
+    }
+  }, [data]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting) return;
+    if (isSubmitting || !data) return;
 
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
@@ -26,15 +30,13 @@ export const EditConversationDialog: React.FC<DialogComponentProps> = ({ data, o
     }
 
     try {
-      const success = await updateConversation(data.spaceId, data.id, trimmedTitle);
+      const success = await updateConversation({ id: data.id, title: trimmedTitle, space_id: data.space_id });
       
       if (success) {
         toast.success('Conversation updated successfully');
         
-        // Refresh command center
         refreshCommandCenter();
         
-        // Pass updated data with new title
         onConfirm?.({ ...data, title: trimmedTitle });
         onClose();
       } else {
@@ -46,13 +48,8 @@ export const EditConversationDialog: React.FC<DialogComponentProps> = ({ data, o
     }
   };
 
-  // Don't render if no data or ID provided
-  if (!data || !data.id) {
-    return null;
-  }
-
   return (
-    <Dialog open={!!data.id} onOpenChange={onClose}>
+    <Dialog open={!!data?.id} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit Conversation</DialogTitle>

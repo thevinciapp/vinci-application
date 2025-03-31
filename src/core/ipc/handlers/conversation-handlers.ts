@@ -62,14 +62,9 @@ export function registerConversationHandlers() {
     }
   });
 
-  ipcMain.handle(ConversationEvents.UPDATE_CONVERSATION, async (_event: IpcMainInvokeEvent, data: { spaceId: string, id: string, title: string }): Promise<ConversationResponse> => {
+  ipcMain.handle(ConversationEvents.UPDATE_CONVERSATION, async (_event: IpcMainInvokeEvent, data: { id: string, title: string, space_id: string }): Promise<ConversationResponse> => {
     try {
-      const result = await updateConversation(data.spaceId, data.id, data.title);
-      
-      // Emit an event to notify all renderers that conversations have been updated
-      const updatedConversations = await fetchConversations('');
-      ipcMain.emit(ConversationEvents.CONVERSATIONS_UPDATED, null, { conversations: updatedConversations });
-      
+      const result = await updateConversation(data.space_id, data.id, data.title);
       return { success: true, data: result, status: 'success' };
     } catch (error) {
       console.error('[ELECTRON] Error in update-conversation handler:', error);
@@ -77,14 +72,9 @@ export function registerConversationHandlers() {
     }
   });
 
-  ipcMain.handle(ConversationEvents.DELETE_CONVERSATION, async (_event: IpcMainInvokeEvent, data: { spaceId: string, conversationId: string }): Promise<ConversationResponse> => {
+  ipcMain.handle(ConversationEvents.DELETE_CONVERSATION, async (_event: IpcMainInvokeEvent, data: { space_id: string, id: string }): Promise<ConversationResponse> => {
     try {
-      const result = await deleteConversation(data.spaceId, data.conversationId);
-      
-      // Emit an event to notify all renderers that conversations have been updated
-      const updatedConversations = await fetchConversations('');
-      ipcMain.emit(ConversationEvents.CONVERSATIONS_UPDATED, null, { conversations: updatedConversations });
-      
+      const result = await deleteConversation(data.space_id, data.id);
       return { success: true, data: { deleted: result }, status: 'success' };
     } catch (error) {
       console.error('[ELECTRON] Error in delete-conversation handler:', error);

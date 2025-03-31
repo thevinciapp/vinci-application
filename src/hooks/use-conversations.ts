@@ -93,10 +93,16 @@ export function useConversations() {
     }
   }, []);
 
-  const deleteConversation = useCallback(async (conversationId: string): Promise<boolean> => {
+  const deleteConversation = useCallback(async (conversation: Conversation): Promise<boolean> => {
     try {
       setIsLoading(true);
-      const response = await window.electron.invoke(ConversationEvents.DELETE_CONVERSATION, conversationId);
+      const response = await window.electron.invoke(ConversationEvents.DELETE_CONVERSATION, conversation);
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to delete conversation');
+      }
+
+      rendererStore.setConversations(rendererStore.conversations.filter(c => c.id !== conversation.id));
+
       return response.success;
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to delete conversation');
@@ -106,10 +112,18 @@ export function useConversations() {
     }
   }, []);
 
-  const updateConversation = useCallback(async (conversationId: string, data: Partial<Conversation>): Promise<boolean> => {
+  const updateConversation = useCallback(async (conversation: Conversation): Promise<boolean> => {
     try {
       setIsLoading(true);
-      const response = await window.electron.invoke(ConversationEvents.UPDATE_CONVERSATION, conversationId, data);
+      const response = await window.electron.invoke(ConversationEvents.UPDATE_CONVERSATION, conversation);
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to update conversation');
+      }
+
+      rendererStore.setConversations(rendererStore.conversations.map(c => 
+        c.id === conversation.id ? { ...c, title: conversation.title } : c
+      ));
+
       return response.success;
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to update conversation');

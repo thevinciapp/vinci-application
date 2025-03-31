@@ -1,5 +1,3 @@
-
-
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -13,13 +11,12 @@ export const DeleteConversationDialog: React.FC<DialogComponentProps> = ({ data,
   const { refreshCommandCenter } = useCommandCenter();
 
   const handleDelete = async () => {
-    if (isDeleting) return;
+    if (isDeleting || !data?.id) return;
     
     try {
-      const success = await deleteConversation(data.spaceId, data.id);
+      const success = await deleteConversation({ id: data.id, space_id: data.space_id });
       
       if (success) {
-        // Refresh command center
         refreshCommandCenter();
         
         toast.success('Conversation deleted successfully');
@@ -34,13 +31,12 @@ export const DeleteConversationDialog: React.FC<DialogComponentProps> = ({ data,
     }
   };
 
-  // Don't show the dialog if there's no data or ID
   if (!data || !data.id) {
     return null;
   }
 
   return (
-    <Dialog open={!!data.id} onOpenChange={onClose}>
+    <Dialog open={!!data?.id} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Delete Conversation</DialogTitle>

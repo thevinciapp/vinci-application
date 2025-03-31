@@ -2,19 +2,18 @@ import { useState, useMemo } from 'react';
 import { BaseTab } from '@/components/ui/base-tab';
 import { Space } from '@/types/space';
 import DotSphere from '@/components/space/planet-icon';
-import { Plus, Settings, RefreshCw, Users, Clock, Edit, Trash, Search } from 'lucide-react';
+import { Plus, Edit, Trash, Search } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { formatDistanceToNow } from 'date-fns';
 import { DropdownList, DropdownSection, DropdownItem, DropdownFooterAction } from '@/components/shared/dropdown-list';
-
 import { CreateSpaceDialog } from '@/components/dialogs/CreateSpaceDialog';
 import { EditSpaceDialog } from '@/components/dialogs/EditSpaceDialog';
 import { DeleteSpaceDialog } from '@/components/dialogs/DeleteSpaceDialog';
+import { useSpaces } from '@/hooks/use-spaces';
 
 // Utility function to generate consistent space colors based on ID
 const getSpaceColor = (id: string | undefined | null) => {
@@ -37,13 +36,14 @@ const getSpaceColor = (id: string | undefined | null) => {
 };
 
 export interface SpaceTabProps {
-  activeSpace: Space | null;
-  spaces: Space[];
-  setActiveSpaceById: (id: string) => Promise<void>;
+  // activeSpace: Space | null;
+  // spaces: Space[];
+  // setActiveSpaceById: (id: string) => Promise<void>;
 }
 
-export function SpaceTab({ activeSpace, spaces, setActiveSpaceById }: SpaceTabProps) {
+export function SpaceTab({ /* Remove props */ }: SpaceTabProps) {
   const { toast } = useToast();
+  const { spaces, activeSpace, setActiveSpaceById, createSpace } = useSpaces();
   
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [spaceToEdit, setSpaceToEdit] = useState<Space | null>(null);
@@ -61,12 +61,20 @@ export function SpaceTab({ activeSpace, spaces, setActiveSpaceById }: SpaceTabPr
 
   const handleSpaceSelect = async (space: Space) => {
     try {
-      await setActiveSpaceById(space.id);
-      toast({
-        title: "Success",
-        description: `Switched to ${space.name}`,
-        variant: "default",
-      });
+      const success = await setActiveSpaceById(space.id);
+      if (success) {
+        toast({
+          title: "Success",
+          description: `Switched to ${space.name}`,
+          variant: "default",
+        });
+      } else {
+         toast({
+          title: "Error",
+          description: "Failed to switch space",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error('Error switching space:', error);
       toast({
