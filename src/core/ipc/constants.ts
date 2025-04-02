@@ -55,6 +55,7 @@ export const SpaceEvents = {
 export const MessageEvents = {
   GET_CONVERSATION_MESSAGES: 'get-conversation-messages',
   SEND_MESSAGE: 'send-message',
+  ADD_MESSAGE: 'message:add',
   DELETE_MESSAGE: 'delete-message',
   UPDATE_MESSAGE: 'update-message'
 } as const;

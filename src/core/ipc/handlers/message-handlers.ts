@@ -13,6 +13,10 @@ import { IpcResponse } from '@/types/ipc';
 import { MessageEvents, SearchEvents, AppStateEvents } from '@/core/ipc/constants';
 import { useMainStore, getMainStoreState } from '@/store/main';
 import { sanitizeStateForIPC } from '@/core/utils/state-utils';
+import { Logger } from '@/utils/logger';
+
+// Create logger instance for this handler
+const logger = new Logger('MessageHandler');
 
 function broadcastStateUpdate() {
   const state = getMainStoreState();
@@ -89,6 +93,36 @@ export function registerMessageHandlers() {
     } catch (error) {
       console.error('Error updating message:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Failed to update message' };
+    }
+  });
+
+  // Handler for adding a single message to the store
+  ipcMain.handle(MessageEvents.ADD_MESSAGE, async (_event: IpcMainInvokeEvent, message: Message): Promise<IpcResponse<{ message: Message }>> => {
+    try {
+      if (!message || !message.id || !message.conversation_id) {
+        throw new Error('Invalid message object received');
+      }
+      
+      const store = useMainStore.getState();
+      
+      // Avoid adding duplicates if the message somehow already exists
+      if (store.messages.some(m => m.id === message.id)) {
+        logger.warn('Attempted to add duplicate message:', { messageId: message.id });
+        return { success: true, data: { message } }; // Return success, but don't modify state
+      }
+
+      // Add the new message to the existing messages array
+      const updatedMessages = [...store.messages, message];
+      useMainStore.setState({ messages: updatedMessages });
+      
+      // Broadcast the state update to all renderers
+      broadcastStateUpdate();
+      
+      logger.info('Added user message to store via ADD_MESSAGE', { messageId: message.id, conversationId: message.conversation_id });
+      return { success: true, data: { message } };
+    } catch (error) {
+      logger.error('Error adding message via ADD_MESSAGE:', { error: error instanceof Error ? error.message : error });
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to add message to store' };
     }
   });
 }

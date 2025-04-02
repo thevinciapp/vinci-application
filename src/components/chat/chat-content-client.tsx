@@ -7,13 +7,14 @@ import { useMessages } from '@/hooks/use-messages';
 import { useCommandWindow } from '@/hooks/use-command-window';
 import { useToast } from '@/hooks/use-toast';
 import { Conversation } from '@/types/conversation';
-import { CommandCenterEvents, AppStateEvents, ChatEvents } from '@/core/ipc/constants';
+import { CommandCenterEvents, AppStateEvents, ChatEvents, MessageEvents } from '@/core/ipc/constants';
 import { useFileReferences } from '@/hooks/use-file-references';
 import { ChatTopBar } from './ui/chat-top-bar';
 import { ChatInputArea } from './chat-input-area';
 import { Message } from '@/types/message';
 import { Logger } from '@/utils/logger';
 import { Message as VercelMessage } from '@ai-sdk/react';
+import { IpcResponse } from '@/types/ipc';
 
 const logger = new Logger('ChatContentClient');
 
@@ -68,47 +69,57 @@ export default function ChatContent() {
 
   useEffect(() => {
     type StreamChunkData = { chunk: string; messageId?: string };
-    const cleanupChunk = window.electron.on(ChatEvents.CHAT_STREAM_CHUNK, (data: StreamChunkData) => {
-      const textChunk = data?.chunk || '';
-      setStreamingMessage((prev: Message | null): Message => {
-        const now = new Date().toISOString();
-        return {
-          id: prev?.id || data?.messageId || `streaming_${Date.now()}`,
-          role: 'assistant',
-          content: (prev?.content || '') + textChunk,
-          created_at: prev?.created_at || now,
-          updated_at: now,
-          conversation_id: prev?.conversation_id || activeConversation?.id || '',
-          user_id: prev?.user_id || 'assistant_id',
-          is_deleted: false,
-          annotations: prev?.annotations || [],
-        };
-      });
+    const cleanupChunk = window.electron.on(ChatEvents.CHAT_STREAM_CHUNK, (_event: Electron.IpcRendererEvent, response: IpcResponse<StreamChunkData>) => {
+       if (response.success && response.data) {
+          const { chunk, messageId } = response.data;
+          setStreamingMessage((prev: Message | null): Message => {
+            const now = new Date().toISOString();
+            return {
+              id: prev?.id || messageId || `streaming_${Date.now()}`,
+              role: 'assistant',
+              content: (prev?.content || '') + chunk,
+              created_at: prev?.created_at || now,
+              updated_at: now,
+              conversation_id: prev?.conversation_id || activeConversation?.id || '',
+              user_id: prev?.user_id || 'assistant_id',
+              is_deleted: false,
+              annotations: prev?.annotations || [],
+            };
+          });
+       } else if (!response.success) {
+         // Handle potential errors sent over the CHUNK channel if needed
+         logger.warn('[ChatClient] Received unsuccessful CHUNK event', { error: response.error });
+       }
     });
 
-    const cleanupFinish = window.electron.on(ChatEvents.CHAT_STREAM_FINISH, () => {
-      logger.debug('[ChatClient] Stream finished event received');
-      setStreamingMessage(null);
-      setChatStatus('idle');
+    const cleanupFinish = window.electron.on(ChatEvents.CHAT_STREAM_FINISH, (_event: Electron.IpcRendererEvent, response: IpcResponse) => {
+       if (response.success) {
+          logger.debug('[ChatClient] Stream finished event received');
+          setStreamingMessage(null);
+          setChatStatus('idle');
+       }
     });
 
-    const cleanupError = window.electron.on(ChatEvents.CHAT_STREAM_ERROR, (error: string) => {
-      logger.error('[ChatClient] Stream error event received:', { error });
-      setErrorMessage(error || 'An unknown error occurred during the chat.');
-      setChatStatus('error');
-      setStreamingMessage(null);
-      toast({
-        title: 'Chat Error',
-        description: error || 'Failed to get response from assistant.',
-        variant: 'destructive',
-      });
+    const cleanupError = window.electron.on(ChatEvents.CHAT_STREAM_ERROR, (_event: Electron.IpcRendererEvent, response: IpcResponse) => {
+       if (!response.success) {
+          const error = response.error || 'Unknown stream error';
+          logger.error('[ChatClient] Stream error event received:', { error });
+          setErrorMessage(error);
+          setChatStatus('error');
+          setStreamingMessage(null);
+          toast({
+            title: 'Chat Error',
+            description: error,
+            variant: 'destructive',
+          });
+       }
     });
 
     return () => {
-      logger.debug('Cleaning up chatApi listeners...');
-      cleanupChunk?.();
-      cleanupFinish?.();
-      cleanupError?.();
+      logger.debug('Cleaning up chat listeners...');
+      cleanupChunk(); 
+      cleanupFinish();
+      cleanupError();
     };
   }, [toast, activeConversation?.id, activeSpace?.id]);
 
@@ -135,10 +146,7 @@ export default function ChatContent() {
       return;
     }
 
-    setChatStatus('loading');
-    setErrorMessage(null);
-    setStreamingMessage(null);
-
+    // Prepare user message locally
     const now = new Date().toISOString();
     const userMessage: Message = {
       id: `user_${Date.now()}`,
@@ -152,32 +160,62 @@ export default function ChatContent() {
       annotations: [],
     };
 
-    const payload = {
-      messages: [...currentConversationMessages, userMessage],
-      spaceId: activeSpace.id,
-      conversationId: activeConversation.id,
-      provider: activeSpace.provider,
-      model: activeSpace.model,
-      searchMode,
-      chatMode: activeSpace.chat_mode || 'ask',
-      chatModeConfig: activeSpace.chat_mode_config || { tools: [] },
-      files: fileReferencesMap,
-    };
+    // Clear input immediately after preparing the message
+    const currentInput = input;
+    setInput(''); 
+    clearFileReferences(); 
+
+    // Set loading state AFTER clearing input, BEFORE async calls
+    setChatStatus('loading');
+    setErrorMessage(null);
+    setStreamingMessage(null);
 
     try {
-      logger.info('[ChatClient] Initiating chat stream via IPC', { conversationId: payload.conversationId });
-      await window.electron.invoke(ChatEvents.INITIATE_CHAT_STREAM, payload);
-      setInput('');
-      clearFileReferences();
+      // --- 1. Add user message via invoke --- 
+      logger.info('[ChatClient] Adding user message via IPC invoke', { messageId: userMessage.id });
+      // Use invoke with the event constant
+      const addResponse = await window.electron.invoke(MessageEvents.ADD_MESSAGE, userMessage); 
+      if (!addResponse.success) {
+        logger.error('[ChatClient] Failed to add user message via IPC', { error: addResponse.error });
+        toast({
+          title: 'Error Saving Message',
+          description: `Could not save your message: ${addResponse.error || 'Unknown error'}`,
+          variant: 'destructive',
+        });
+        setInput(currentInput); 
+        setChatStatus('idle');
+        return;
+      }
+
+      // --- 2. Prepare payload for chat stream initiation --- 
+      const payload = {
+        messages: [...currentConversationMessages, userMessage], // Send current context + new message
+        spaceId: activeSpace.id,
+        conversationId: activeConversation.id,
+        provider: activeSpace.provider,
+        model: activeSpace.model,
+        searchMode,
+        chatMode: activeSpace.chat_mode || 'ask',
+        chatModeConfig: activeSpace.chat_mode_config || { tools: [] },
+        files: fileReferencesMap, // Use the map which should be up-to-date
+      };
+
+      // --- 3. Initiate chat stream via invoke --- 
+      logger.info('[ChatClient] Initiating chat stream via IPC invoke', { conversationId: payload.conversationId });
+      // Use invoke with the event constant
+      await window.electron.invoke(ChatEvents.INITIATE_CHAT_STREAM, payload); 
+
     } catch (error: any) {
+      // This catch block now primarily handles errors from initiateChatStream
       logger.error('[ChatClient] Error initiating chat stream', { error: error?.message || error });
       setErrorMessage(error?.message || 'Failed to start chat.');
-      setChatStatus('error');
+      setChatStatus('error'); // Keep error status
       toast({
-        title: 'Error Sending Message',
-        description: error?.message || 'Could not send message to the main process.',
+        title: 'Error Getting Response',
+        description: `Assistant failed to respond: ${error?.message || 'Unknown error'}`,
         variant: 'destructive',
       });
+      // User message should already be visible due to the earlier ADD_MESSAGE call
     }
   };
 

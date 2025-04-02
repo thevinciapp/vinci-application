@@ -1,5 +1,6 @@
 import { ipcRenderer } from 'electron';
 import { MessageEvents, SearchEvents } from '@/core/ipc/constants';
+import { Message } from '@/types/message';
 
 export const messageApi = {
   getConversationMessages: async (conversationId: string) => {
@@ -26,4 +27,11 @@ export const messageApi = {
     const response = await ipcRenderer.invoke(MessageEvents.UPDATE_MESSAGE, { conversationId, messageId, content });
     return response.success ? response.data : null;
   },
+
+  /**
+   * Sends a single message to the main process to be added to the store.
+   */
+  addMessage: (message: Message): Promise<IpcResponse<{ message: Message }>> => {
+    return ipcRenderer.invoke(MessageEvents.ADD_MESSAGE, message);
+  }
 };
