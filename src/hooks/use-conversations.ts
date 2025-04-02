@@ -28,13 +28,14 @@ export function useConversations() {
     }
   }, [rendererStore]);
 
-  const setupConversationsListener = useCallback((callback?: (conversations: Conversation[]) => void) => {
+  const setupConversationsListener = useCallback((spaceId: string) => {
     const handleConversationsUpdate = (event: any, data: { conversations: Conversation[] }) => {
       rendererStore.setConversations(data.conversations);
-      if (callback) callback(data.conversations);
     };
 
     window.electron.on(ConversationEvents.CONVERSATIONS_UPDATED, handleConversationsUpdate);
+    
+    window.electron.invoke(ConversationEvents.GET_CONVERSATIONS, { spaceId });
     
     return () => {
       window.electron.off(ConversationEvents.CONVERSATIONS_UPDATED, handleConversationsUpdate);
@@ -55,14 +56,8 @@ export function useConversations() {
         throw new Error(response.error || 'Failed to set active conversation');
       }
 
-      if (conversation) {
-        rendererStore.setConversations(
-          rendererStore.conversations.map(c => ({
-            ...c,
-            active: c.id === conversation.id
-          }))
-        );
-      }
+      // Update active conversation in the store
+      rendererStore.setActiveConversation(conversation);
 
       if (response.data) {
         rendererStore.setMessages(response.data.messages);
@@ -83,7 +78,18 @@ export function useConversations() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await window.electron.invoke(ConversationEvents.CREATE_CONVERSATION, spaceId, title);
+      const response = await window.electron.invoke(ConversationEvents.CREATE_CONVERSATION, {
+        space_id: spaceId,
+        title
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create conversation');
+      }
+
+      rendererStore.setActiveConversation(response.data);
+      rendererStore.setConversations([...rendererStore.conversations, response.data]);
+
       return response.success;
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to create conversation');
@@ -91,7 +97,7 @@ export function useConversations() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [rendererStore]);
 
   const deleteConversation = useCallback(async (conversation: Conversation): Promise<boolean> => {
     try {
@@ -99,6 +105,11 @@ export function useConversations() {
       const response = await window.electron.invoke(ConversationEvents.DELETE_CONVERSATION, conversation);
       if (!response.success) {
         throw new Error(response.error || 'Failed to delete conversation');
+      }
+
+      // If we're deleting the active conversation, set active to null
+      if (rendererStore.activeConversation?.id === conversation.id) {
+        rendererStore.setActiveConversation(null);
       }
 
       rendererStore.setConversations(rendererStore.conversations.filter(c => c.id !== conversation.id));
@@ -110,7 +121,7 @@ export function useConversations() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [rendererStore]);
 
   const updateConversation = useCallback(async (conversation: Conversation): Promise<boolean> => {
     try {
@@ -120,9 +131,19 @@ export function useConversations() {
         throw new Error(response.error || 'Failed to update conversation');
       }
 
-      rendererStore.setConversations(rendererStore.conversations.map(c => 
+      const updatedConversations = rendererStore.conversations.map(c => 
         c.id === conversation.id ? { ...c, title: conversation.title } : c
-      ));
+      );
+      
+      rendererStore.setConversations(updatedConversations);
+
+      // If we're updating the active conversation, update it in the store
+      if (rendererStore.activeConversation?.id === conversation.id) {
+        const updatedActiveConversation = updatedConversations.find(c => c.id === conversation.id);
+        if (updatedActiveConversation) {
+          rendererStore.setActiveConversation(updatedActiveConversation);
+        }
+      }
 
       return response.success;
     } catch (error) {
@@ -131,10 +152,10 @@ export function useConversations() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [rendererStore]);
 
   const conversations = rendererStore.conversations;
-  const activeConversation = conversations[0] || null;
+  const activeConversation = rendererStore.activeConversation;
 
   return {
     conversations,

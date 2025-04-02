@@ -50,11 +50,6 @@ export function registerConversationHandlers() {
   ipcMain.handle(ConversationEvents.CREATE_CONVERSATION, async (_event: IpcMainInvokeEvent, data: CreateConversationRequest): Promise<ConversationResponse> => {
     try {
       const result = await createConversation(data.space_id, data.title);
-      
-      // Emit an event to notify all renderers that conversations have been updated
-      const updatedConversations = await fetchConversations('');
-      ipcMain.emit(ConversationEvents.CONVERSATIONS_UPDATED, null, { conversations: updatedConversations });
-      
       return { success: true, data: result, status: 'success' };
     } catch (error) {
       console.error('[ELECTRON] Error in create-conversation handler:', error);

@@ -87,26 +87,6 @@ export function useSpaces() {
     }
   }, [rendererStore]);
 
-  const updateStoreWithSpaceData = useCallback(async (space: Space | null) => {
-    if (!space) {
-      rendererStore.setConversations([]);
-      rendererStore.setMessages([]);
-      return;
-    }
-
-    try {
-      const conversations = await fetchSpaceConversations(space.id);
-      if (conversations.length > 0) {
-        await fetchConversationMessages(conversations[0].id);
-      } else {
-        rendererStore.setMessages([]);
-      }
-    } catch (error) {
-      console.error('Error updating store with space data:', error);
-      setError(error instanceof Error ? error.message : 'Failed to update store with space data');
-    }
-  }, [rendererStore, fetchSpaceConversations, fetchConversationMessages]);
-
   const setupSpaceListener = useCallback((callback?: (space: Space | null) => void) => {
     const handleSpaceUpdate = async (event: any, data: { space: Space | null; conversations: Conversation[]; messages: Message[] }) => {
       rendererStore.setActiveSpace(data.space);

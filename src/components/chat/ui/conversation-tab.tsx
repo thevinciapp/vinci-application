@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { BaseTab } from '@/components/ui/base-tab';
 import { MessageSquare, Edit, Trash, Plus, RefreshCw, Search } from 'lucide-react';
 import { Conversation } from '@/types/conversation';
-import { useRendererStore } from '@/store/renderer';
 import { formatDistanceToNow } from 'date-fns';
 import {
   DropdownMenu,
@@ -25,16 +24,27 @@ export function ConversationTab() {
   const [conversationToEdit, setConversationToEdit] = useState<Conversation | null>(null);
   const [conversationToDelete, setConversationToDelete] = useState<Conversation | null>(null);
 
+  // Set up the conversations listener when activeSpace changes
+  useEffect(() => {
+    if (activeSpace) {
+      const cleanupListener = setupConversationsListener(activeSpace.id);
+      return cleanupListener; // This will be called when component unmounts or dependencies change
+    }
+  }, [activeSpace, setupConversationsListener]);
+
   const handleCreateNewConversation = async () => {
     if (!activeSpace) {
       toast.error("Please select a space first.");
       return;
     }
+
     setIsCreating(true);
     try {
       const success = await createConversation(activeSpace.id, 'New Conversation');
       if (!success) {
         toast.error('Failed to create conversation');
+      }  else {
+        toast.success('Conversation created successfully');
       }
     } catch (error) {
       console.error('Error creating conversation:', error);
@@ -78,25 +88,11 @@ export function ConversationTab() {
     setConversationToDelete(null);
   };
 
-  const filterConversations = () => {
-    let filtered = [...conversations];
-    
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(conversation => 
-        (conversation.title?.toLowerCase().includes(query)) || 
-        (conversation.lastMessage && conversation.lastMessage.toLowerCase().includes(query))
-      );
-    }
-    
-    return filtered;
-  };
+  const sortedConversations = [...conversations].sort((a, b) => 
+    new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+  );
 
-  const sortedConversations = filterConversations().sort((a, b) => {
-    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-  });
-
-  const conversationSections: DropdownSection[] = [
+  const conversationSections: DropdownSection[] = useMemo(() => [
     {
       title: `Conversations ${sortedConversations.length > 0 ? `(${sortedConversations.length})` : ''}`,
       items: sortedConversations.map((conversation): DropdownItem => ({
@@ -140,7 +136,7 @@ export function ConversationTab() {
         ariaLabel: "Create new conversation"
       }
     }
-  ];
+  ], [conversations, sortedConversations, activeConversation, handleSelectConversation, isCreating, handleCreateNewConversation]);
 
   const footerActions: DropdownFooterAction[] = [
     {
@@ -177,7 +173,6 @@ export function ConversationTab() {
         </DropdownMenuTrigger>
         
         <DropdownList 
-          key={conversations.map(c => c.id).join(',')}
           headerContent={
             <div className="px-2 pt-1.5 pb-2">
               <div className="relative">

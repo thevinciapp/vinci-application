@@ -23,7 +23,7 @@ export interface ActiveConversation {
 }
 
 export interface CreateConversationRequest {
-  title?: string;
+  title: string;
   space_id: string;
 }
 

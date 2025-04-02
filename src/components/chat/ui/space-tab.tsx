@@ -15,11 +15,8 @@ import { EditSpaceDialog } from '@/components/dialogs/EditSpaceDialog';
 import { DeleteSpaceDialog } from '@/components/dialogs/DeleteSpaceDialog';
 import { useSpaces } from '@/hooks/use-spaces';
 
-// Utility function to generate consistent space colors based on ID
 const getSpaceColor = (id: string | undefined | null) => {
-  // Simple hash function for the ID to get consistent colors
   if (typeof id !== 'string' || !id) {
-    // Return a default gray color if id is invalid
     return {
       primary: 'hsl(0, 0%, 60%)',
       secondary: 'hsl(0, 0%, 40%)',
@@ -35,13 +32,8 @@ const getSpaceColor = (id: string | undefined | null) => {
   };
 };
 
-export interface SpaceTabProps {
-  // activeSpace: Space | null;
-  // spaces: Space[];
-  // setActiveSpaceById: (id: string) => Promise<void>;
-}
 
-export function SpaceTab({ /* Remove props */ }: SpaceTabProps) {
+export function SpaceTab() {
   const { toast } = useToast();
   const { spaces, activeSpace, setActiveSpaceById, createSpace } = useSpaces();
   
