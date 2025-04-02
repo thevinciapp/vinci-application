@@ -19,19 +19,11 @@ export function ConversationTab() {
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const { conversations, activeConversation, setActiveConversation, createConversation, deleteConversation, setupConversationsListener } = useConversations();
+  const { conversations, activeConversation, setActiveConversation, createConversation, deleteConversation } = useConversations();
   const { activeSpace } = useSpaces();
 
   const [conversationToEdit, setConversationToEdit] = useState<Conversation | null>(null);
   const [conversationToDelete, setConversationToDelete] = useState<Conversation | null>(null);
-
-  // Set up the conversations listener when activeSpace changes
-  useEffect(() => {
-    if (activeSpace) {
-      const cleanupListener = setupConversationsListener(activeSpace.id);
-      return cleanupListener; // This will be called when component unmounts or dependencies change
-    }
-  }, [activeSpace, setupConversationsListener]);
 
   const handleCreateNewConversation = async () => {
     if (!activeSpace) {

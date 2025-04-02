@@ -3,6 +3,7 @@ import { User } from '@supabase/supabase-js';
 import { Conversation } from '@/types/conversation';
 import { Message } from '@/types/message';
 import { Space } from '@/types/space';
+import { CommandType } from '@/types/command';
 
 export interface MainProcessState {
   spaces: Space[];
@@ -16,6 +17,10 @@ export interface MainProcessState {
   accessToken: string | null;
   refreshToken: string | null;
   tokenExpiryTime: number | null;
+  isCommandCenterOpen: boolean;
+  activeCommand?: CommandType;
+  dialogType?: string;
+  dialogData?: unknown;
 }
 
 const initialState: MainProcessState = {
@@ -29,7 +34,11 @@ const initialState: MainProcessState = {
   user: null,
   accessToken: null,
   refreshToken: null,
-  tokenExpiryTime: null
+  tokenExpiryTime: null,
+  isCommandCenterOpen: false,
+  activeCommand: undefined,
+  dialogType: undefined,
+  dialogData: undefined,
 };
 
 export const useMainStore = create<MainProcessState & {
@@ -43,6 +52,9 @@ export const useMainStore = create<MainProcessState & {
   setAccessToken: (token: MainProcessState['accessToken']) => void;
   setRefreshToken: (token: MainProcessState['refreshToken']) => void;
   setTokenExpiryTime: (time: MainProcessState['tokenExpiryTime']) => void;
+  setCommandCenterOpen: (isOpen: boolean) => void;
+  setActiveCommand: (command?: CommandType) => void;
+  setDialogState: (type?: string, data?: unknown) => void;
 }>((set) => ({
   ...initialState,
   setAppState: (newState) => set((state) => ({ ...state, ...newState, initialDataLoaded: true })),
@@ -54,7 +66,10 @@ export const useMainStore = create<MainProcessState & {
   setUser: (user) => set({ user }),
   setAccessToken: (accessToken) => set({ accessToken }),
   setRefreshToken: (refreshToken) => set({ refreshToken }),
-  setTokenExpiryTime: (tokenExpiryTime) => set({ tokenExpiryTime })
+  setTokenExpiryTime: (tokenExpiryTime) => set({ tokenExpiryTime }),
+  setCommandCenterOpen: (isOpen: boolean) => set({ isCommandCenterOpen: isOpen }),
+  setActiveCommand: (command?: CommandType) => set({ activeCommand: command }),
+  setDialogState: (type?: string, data?: unknown) => set({ dialogType: type, dialogData: data }),
 }));
 
 export const getMainStoreState = () => useMainStore.getState();

@@ -5,13 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
-import { useRendererStore } from '@/store/renderer';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SignIn() {
   const navigate = useNavigate();
   const { signIn, isLoading, error } = useAuth();
-  const rendererStore = useRendererStore();
   const [loadingData, setLoadingData] = useState(false);
   const { toast } = useToast();
   
@@ -58,32 +56,12 @@ export default function SignIn() {
               formAction={async (formData: FormData) => {
                 const email = formData.get('email') as string;
                 const password = formData.get('password') as string;
+                setLoadingData(true);
                 const success = await signIn({ email, password });
+                setLoadingData(false);
                 
                 if (success) {
-                  try {
-                    setLoadingData(true);
-                    const dataLoaded = await rendererStore.fetchAppState();
-                    if (dataLoaded) {
-                      navigate('/protected');
-                    } else {
-                      console.error("Failed to load application data after login");
-                      toast({
-                        title: "Error",
-                        description: "Successfully signed in, but failed to load your data. Please try again.",
-                        variant: "destructive"
-                      });
-                    }
-                  } catch (error) {
-                    console.error("Error loading application data:", error);
-                    toast({
-                      title: "Error",
-                      description: "Failed to load application data after login. Please try again.",
-                      variant: "destructive"
-                    });
-                  } finally {
-                    setLoadingData(false);
-                  }
+                  navigate('/protected');
                 }
               }}
               variant="cyan"

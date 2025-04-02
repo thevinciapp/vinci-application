@@ -2,7 +2,7 @@ import { BrowserWindow, screen, app } from 'electron';
 import { join } from 'path';
 import { CommandType } from '@/types/command';
 import { APP_BASE_URL } from '../auth/auth-service';
-import { CommandCenterEvents } from '../ipc/constants';
+import { CommandCenterEvents, AppStateEvents } from '../ipc/constants';
 import { useMainStore } from '@/store/main';
 import { sanitizeStateForIPC } from '../utils/state-utils';
 import { fetchInitialAppData } from '../../services/app-data/app-data-service';
@@ -285,6 +285,16 @@ export async function createCommandCenterWindow(commandType: CommandType): Promi
   }
 }
 
+function broadcastStateUpdate() {
+  const state = useMainStore.getState();
+  const serializableState = sanitizeStateForIPC(state);
+  BrowserWindow.getAllWindows().forEach((window: BrowserWindow) => {
+    if (window && window.webContents && !window.webContents.isDestroyed()) {
+      window.webContents.send(AppStateEvents.STATE_UPDATED, { success: true, data: serializableState });
+    }
+  });
+}
+
 export async function createMainWindow(): Promise<BrowserWindow | null> {
   try {
     const window = new BrowserWindow(MAIN_WINDOW_CONFIG);
@@ -298,9 +308,13 @@ export async function createMainWindow(): Promise<BrowserWindow | null> {
 
     window.webContents.once('did-finish-load', async () => {
       try {
+        console.log('[ELECTRON] Main window finished loading. Fetching initial data...');
         const freshData = await fetchInitialAppData();
+        console.log('[ELECTRON] Initial data fetched, updating store...');
         useMainStore.getState().setAppState(freshData);
-        window.webContents.send(CommandCenterEvents.SYNC_STATE, { success: true, data: sanitizeStateForIPC(useMainStore.getState()) });
+        console.log('[ELECTRON] Store updated, broadcasting state...');
+        broadcastStateUpdate(); 
+        console.log('[ELECTRON] Initial state broadcasted.');
       } catch (error) {
         console.error('Failed to fetch initial app data:', error);
       }

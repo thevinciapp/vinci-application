@@ -1,25 +1,17 @@
-import { useEffect } from 'react';
+import React from 'react';
+import { useUser } from '@/hooks/use-user';
 import ChatContentClient from '@/components/chat/chat-content-client';
-import { useNavigate } from 'react-router-dom';
-import { useAppState } from '@/hooks/use-app-state';
-import { Toast } from '@/components/ui/toast';
 
-export default function Protected() {
-  const navigate = useNavigate();
-  const { error } = useAppState();
+export const ProtectedPage: React.FC = () => {
+  const { profile, isLoading } = useUser();
 
-  useEffect(() => {
-    if (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load application data. Please sign in again.',
-        variant: 'destructive'
-      });
-      navigate('/sign-in');
-    }
-  }, [error, navigate]);
-
-  if (error) return null;
+  if (isLoading) {
+    return (
+      <div className="flex flex-col w-full h-full">
+        <ChatContentClient />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col w-full h-full">

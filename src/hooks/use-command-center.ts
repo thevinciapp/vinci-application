@@ -1,6 +1,9 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { CommandType } from '@/types/command';
 import { IpcResponse } from '@/types/ipc';
+import { MainProcessState } from '@/store/main';
+import { AppStateEvents, CommandCenterEvents } from '@/core/ipc/constants';
+import { useMainState } from '@/context/MainStateContext';
 
 interface CommandCenterDialog {
   type: string;
@@ -28,31 +31,22 @@ interface CommandCenterHookReturn {
   currentDialog: CommandCenterDialog | null;
 }
 
-const initialState: CommandCenterHookState = {
-  isOpen: false,
-  activeCommand: undefined,
-  dialogType: undefined,
-  dialogData: undefined,
-  isDataLoaded: false
-};
-
-type ElectronAPIKey = 'open-command-type' | 'open-dialog' | 'close-dialog' | 'close-command-center' | 'refresh-command-center';
-
 async function handleIpcRequest<T>(
-  request: () => Promise<IpcResponse<T>>,
+  eventName: string,
+  args: unknown[],
   setLoading: (loading: boolean) => void,
   setError: (error: string | null) => void
 ): Promise<T | null> {
   try {
     setLoading(true);
     setError(null);
-    const response = await request();
+    const response: IpcResponse<T> = await window.electron.invoke(eventName, ...args);
     
     if (!response?.success) {
       throw new Error(response?.error || 'Operation failed');
     }
     
-    return response.data || null;
+    return response.data === undefined ? null : response.data;
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'An error occurred';
     setError(errorMessage);
@@ -62,100 +56,83 @@ async function handleIpcRequest<T>(
   }
 }
 
-async function callElectronAPI<T>(
-  key: ElectronAPIKey,
-  args?: unknown[]
-): Promise<IpcResponse<T>> {
-  const api = window.electronAPI?.[key];
-  if (!api) {
-    return { success: false, error: `API ${key} not found` };
-  }
-  try {
-    return await api(...(args || []));
-  } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-}
-
 export function useCommandCenter(): CommandCenterHookReturn {
-  const [state, setState] = useState<CommandCenterHookState>(initialState);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const { state: globalState, isLoading: isGlobalLoading, error: globalError } = useMainState();
+
+  const [isActionLoading, setIsActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const derivedState = useMemo(() => ({
+    isOpen: globalState.isCommandCenterOpen || false,
+    activeCommand: globalState.activeCommand,
+    dialogType: globalState.dialogType,
+    dialogData: globalState.dialogData,
+    isDataLoaded: !isGlobalLoading
+  }), [
+    isGlobalLoading,
+    globalState.isCommandCenterOpen,
+    globalState.activeCommand,
+    globalState.dialogType,
+    globalState.dialogData
+  ]);
 
   const updateState = useCallback(async (newState: Partial<CommandCenterHookState>) => {
-    if (newState.activeCommand && newState.activeCommand !== state.activeCommand) {
+    if (newState.activeCommand && newState.activeCommand !== derivedState.activeCommand) {
       await handleIpcRequest(
-        () => callElectronAPI('open-command-type', [newState.activeCommand]),
-        setIsLoading,
-        setError
+        CommandCenterEvents.SET_TYPE,
+        [newState.activeCommand],
+        setIsActionLoading,
+        setActionError
       );
     }
-    setState(prevState => ({ ...prevState, ...newState }));
-  }, [state.activeCommand]);
+  }, [derivedState.activeCommand]);
 
   const openDialog = useCallback(async (dialogType: string, data: unknown) => {
-    const response = await handleIpcRequest(
-      () => callElectronAPI('open-dialog', [dialogType, data]),
-      setIsLoading,
-      setError
+    await handleIpcRequest(
+      CommandCenterEvents.OPEN_DIALOG,
+      [dialogType, data],
+      setIsActionLoading,
+      setActionError
     );
-    
-    if (response) {
-      setState(prevState => ({
-        ...prevState,
-        dialogType,
-        dialogData: data
-      }));
-    }
   }, []);
 
   const closeDialog = useCallback(async () => {
-    const response = await handleIpcRequest(
-      () => callElectronAPI('close-dialog'),
-      setIsLoading,
-      setError
+    await handleIpcRequest(
+      CommandCenterEvents.DIALOG_CLOSED,
+      [],
+      setIsActionLoading,
+      setActionError
     );
-    
-    if (response) {
-      setState(prevState => ({
-        ...prevState,
-        dialogType: undefined,
-        dialogData: undefined
-      }));
-    }
   }, []);
 
   const close = useCallback(async () => {
-    const response = await handleIpcRequest(
-      () => callElectronAPI('close-command-center'),
-      setIsLoading,
-      setError
+    await handleIpcRequest(
+      CommandCenterEvents.CLOSE,
+      [],
+      setIsActionLoading,
+      setActionError
     );
-    
-    if (response) {
-      setState(prev => ({ ...prev, isOpen: false, activeCommand: undefined, dialogType: undefined, dialogData: undefined }));
-    }
   }, []);
 
   const refreshCommandCenter = useCallback(async () => {
     await handleIpcRequest(
-      () => callElectronAPI('refresh-command-center'),
-      setIsLoading,
-      setError
+      CommandCenterEvents.REFRESH,
+      [],
+      setIsActionLoading,
+      setActionError
     );
   }, []);
 
   return {
-    state,
-    isLoading,
-    error,
+    state: derivedState,
+    isLoading: isGlobalLoading || isActionLoading,
+    error: actionError || globalError,
     updateState,
     openDialog,
     closeDialog,
     close,
     refreshCommandCenter,
-    currentProvider: state.activeCommand,
-    currentDialog: state.dialogType ? { type: state.dialogType, data: state.dialogData } : null
+    currentProvider: derivedState.activeCommand,
+    currentDialog: derivedState.dialogType ? { type: derivedState.dialogType, data: derivedState.dialogData } : null
   };
 }

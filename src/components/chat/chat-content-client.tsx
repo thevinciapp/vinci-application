@@ -1,137 +1,199 @@
-import { Message, useChat } from '@ai-sdk/react';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-
 import { useSpaces } from '@/hooks/use-spaces';
 import { useConversations } from '@/hooks/use-conversations';
 import { ChatMessages } from './chat-messages';
-import { useRendererStore } from '@/store/renderer';
-import { API_BASE_URL } from '@/config/api';
+import { useUser } from '@/hooks/use-user';
+import { useMessages } from '@/hooks/use-messages';
 import { useCommandWindow } from '@/hooks/use-command-window';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { Conversation } from '@/types/conversation';
-import { CommandCenterEvents, AuthEvents } from '@/core/ipc/constants';
+import { CommandCenterEvents, AppStateEvents } from '@/core/ipc/constants';
 import { useFileReferences } from '@/hooks/use-file-references';
 import { ChatTopBar } from './ui/chat-top-bar';
 import { ChatInputArea } from './chat-input-area';
+import { Message } from '@/types/message';
+import { Logger } from '@/utils/logger';
+import { Message as VercelMessage } from '@ai-sdk/react';
+
+const logger = new Logger('ChatContentClient');
 
 type FileTag = {
-  id: string
-  name: string
-  path: string
-}
+  id: string;
+  name: string;
+  path: string;
+};
 
 export default function ChatContent() {
-  const { user, messages: messagesFromStore } = useRendererStore();
+  const { profile: user } = useUser();
+  const { messages: allMessages, isLoading: messagesLoading } = useMessages();
   const { spaces, activeSpace, setActiveSpaceById, isLoading: isSpaceLoading } = useSpaces();
-  const { 
-    activeConversation, 
+  const {
+    activeConversation,
     setActiveConversation,
-    createConversation 
+    createConversation,
   } = useConversations();
   const { handleCommandWindowToggle } = useCommandWindow();
   const { fileReferences, setFileReferences, clearFileReferences, fileReferencesMap } = useFileReferences();
+  const { toast } = useToast();
+
+  const [input, setInput] = useState('');
+  const [chatStatus, setChatStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [streamingMessage, setStreamingMessage] = useState<Message | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [searchMode, setSearchMode] = useState<'chat' | 'search' | 'semantic' | 'hybrid'>('chat');
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isStickToBottom, setIsStickToBottom] = useState(true);
 
-  const initialMessages = useMemo(() => messagesFromStore || [], [messagesFromStore]);
+  const currentConversationMessages = useMemo(() => {
+    return allMessages?.filter(m => m.conversation_id === activeConversation?.id) || [];
+  }, [allMessages, activeConversation?.id]);
 
-  const chatKey = `${activeConversation?.id || 'default'}-${activeSpace?.provider || ''}-${activeSpace?.model || ''}`;
-  
-  async function getHeaders() {
-    try {
-      const response = await window.electron.invoke(AuthEvents.GET_AUTH_TOKEN);
-      if (!response.success || !response.data?.accessToken) {
-        console.error('Failed to get access token:', response.error || 'No data returned');
-        throw new Error('Failed to get access token');
-      }
-      return {
-        Authorization: `Bearer ${response.data.accessToken}`,
-      };
-    } catch (error) {
-      console.error('Error fetching auth token:', error);
-      throw new Error(`Authentication error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  const displayMessages = useMemo(() => {
+    const combined: Message[] = [...currentConversationMessages];
+    if (chatStatus === 'loading' && streamingMessage) {
+      combined.push(streamingMessage);
     }
-  }
+    return combined;
+  }, [currentConversationMessages, chatStatus, streamingMessage]);
 
-  const customFetch: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-    try {
-      const headers = await getHeaders();
+  const mappedDisplayMessages: VercelMessage[] = useMemo(() => {
+    return displayMessages.map(msg => ({
+      id: msg.id,
+      role: msg.role,
+      content: msg.content,
+      createdAt: new Date(msg.created_at),
+    }));
+  }, [displayMessages]);
 
-      const url = typeof input === 'string' ? input : input.toString();
+  useEffect(() => {
+    if (!window.electron?.chatApi) {
+      logger.warn('window.electron.chatApi not available yet.');
+      return;
+    }
 
-      const updatedOptions: RequestInit = {
-        ...init,
-        headers: {
-          ...(init?.headers || {}),
-          ...headers,
-        },
-      };
+    logger.debug('Setting up chatApi listeners...');
 
-      return fetch(url, updatedOptions);
-    } catch (error) {
-      console.error('Failed to prepare fetch request due to auth error:', error);
-      toast({
-        title: 'Authentication Error',
-        description: `Could not retrieve authentication token. Please try logging out and back in. Details: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        variant: 'destructive',
-        duration: 9000,
+    type StreamChunkData = { chunk: string; messageId?: string };
+    const cleanupChunk = window.electron.chatApi.onChatStreamChunk((data: StreamChunkData) => {
+      const textChunk = data?.chunk || '';
+      setStreamingMessage((prev: Message | null): Message => {
+        const now = new Date().toISOString();
+        return {
+          id: prev?.id || data?.messageId || `streaming_${Date.now()}`,
+          role: 'assistant',
+          content: (prev?.content || '') + textChunk,
+          created_at: prev?.created_at || now,
+          updated_at: now,
+          conversation_id: prev?.conversation_id || activeConversation?.id || '',
+          user_id: prev?.user_id || 'assistant_id',
+          is_deleted: false,
+          annotations: prev?.annotations || [],
+        };
       });
-      throw new Error('Failed to prepare request due to authentication error.');
+    });
+
+    const cleanupFinish = window.electron.chatApi.onChatStreamFinish(() => {
+      logger.debug('[ChatClient] Stream finished event received');
+      setStreamingMessage(null);
+      setChatStatus('idle');
+    });
+
+    const cleanupError = window.electron.chatApi.onChatStreamError((error: string) => {
+      logger.error('[ChatClient] Stream error event received:', { error });
+      setErrorMessage(error || 'An unknown error occurred during the chat.');
+      setChatStatus('error');
+      setStreamingMessage(null);
+      toast({
+        title: 'Chat Error',
+        description: error || 'Failed to get response from assistant.',
+        variant: 'destructive',
+      });
+    });
+
+    return () => {
+      logger.debug('Cleaning up chatApi listeners...');
+      cleanupChunk?.();
+      cleanupFinish?.();
+      cleanupError?.();
+    };
+  }, [toast, activeConversation?.id, activeSpace?.id]);
+
+  useEffect(() => {
+    if (isStickToBottom && messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
+  }, [mappedDisplayMessages, chatStatus, isStickToBottom]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setInput(e.target.value);
   };
 
-  const chatConfig = useMemo(() => ({
-    id: chatKey,
-    api: `${API_BASE_URL}/api/chat`,
-    initialMessages: initialMessages as Message[],
-    fetch: customFetch,
-    body: {
-      spaceId: activeSpace?.id || '',
-      conversationId: activeConversation?.id || null,
-      provider: activeSpace?.provider || '',
-      model: activeSpace?.model || '',
-      searchMode,
-      chatMode: activeSpace?.chat_mode || 'ask',
-      chatModeConfig: activeSpace?.chat_mode_config || { tools: [] },
-      files: fileReferencesMap,
-    },
-    onFinish() {
-      setData([]);
-      clearFileReferences();
-    },
-  }), [
-    chatKey,
-    initialMessages,
-    customFetch,
-    activeSpace?.id,
-    activeConversation?.id,
-    activeSpace?.provider,
-    activeSpace?.model,
-    searchMode,
-    activeSpace?.chat_mode,
-    activeSpace?.chat_mode_config,
-    fileReferencesMap,
-    clearFileReferences
-  ]);
+  const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
+    e?.preventDefault();
+    if (!input.trim() || chatStatus === 'loading' || !activeSpace || !activeConversation || !user) {
+      logger.warn('[ChatClient] Submission prevented', { 
+        hasInput: !!input.trim(), 
+        chatStatus, 
+        hasActiveSpace: !!activeSpace, 
+        hasActiveConversation: !!activeConversation, 
+        hasUser: !!user 
+      });
+      return;
+    }
 
-  const {
-    messages,
-    input,
-    status,
-    handleInputChange,
-    handleSubmit,
-    data,
-    setData,
-  } = useChat(chatConfig);
+    setChatStatus('loading');
+    setErrorMessage(null);
+    setStreamingMessage(null);
+
+    const now = new Date().toISOString();
+    const userMessage: Message = {
+      id: `user_${Date.now()}`,
+      role: 'user',
+      content: input,
+      created_at: now,
+      updated_at: now,
+      conversation_id: activeConversation.id,
+      user_id: user.id,
+      is_deleted: false,
+      annotations: [],
+    };
+
+    const payload = {
+      messages: [...currentConversationMessages, userMessage],
+      spaceId: activeSpace.id,
+      conversationId: activeConversation.id,
+      provider: activeSpace.provider,
+      model: activeSpace.model,
+      searchMode,
+      chatMode: activeSpace.chat_mode || 'ask',
+      chatModeConfig: activeSpace.chat_mode_config || { tools: [] },
+      files: fileReferencesMap,
+    };
+
+    try {
+      logger.info('[ChatClient] Initiating chat stream via IPC', { conversationId: payload.conversationId });
+      await window.electron.chatApi.initiateChatStream(payload);
+      setInput('');
+      clearFileReferences();
+    } catch (error: any) {
+      logger.error('[ChatClient] Error initiating chat stream', { error: error?.message || error });
+      setErrorMessage(error?.message || 'Failed to start chat.');
+      setChatStatus('error');
+      toast({
+        title: 'Error Sending Message',
+        description: error?.message || 'Could not send message to the main process.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const selectFile = async (file: FileTag) => {
     try {
       let fileContent = '';
       
       try {
-        const response = await window.electron.invoke(CommandCenterEvents.READ_FILE, {
+        const response = await window.electron.invoke(CommandCenterEvents.READ_FILE, { 
           filePath: file.path,
           maxSize: 1024 * 1024,
         });
@@ -139,55 +201,42 @@ export default function ChatContent() {
         if (response.success && response.data) {
           fileContent = response.data.content;
         } else {
-          fileContent = `[Error loading file content: ${response.error}]`;
-          toast({
-            title: "Error Reading File",
-            description: `Could not read file content for "${file.name}": ${response.error || 'Unknown error'}`,
-            variant: "destructive",
-          });
+          throw new Error(response.error || 'Unknown error reading file');
         }
       } catch (error) {
-        fileContent = `[Error loading file content: ${error instanceof Error ? error.message : String(error)}]`;
-        toast({
-          title: "Error Reading File",
-          description: `An unexpected error occurred while reading "${file.name}": ${error instanceof Error ? error.message : String(error)}`,
-          variant: "destructive",
-        });
+         const errorMsg = error instanceof Error ? error.message : String(error);
+         fileContent = `[Error loading file content: ${errorMsg}]`;
+         logger.error(`Error reading file`, { path: file.path, error: errorMsg });
+         toast({
+           title: "Error Reading File",
+           description: `Could not read file content for "${file.name}": ${errorMsg}`,
+           variant: "destructive",
+         });
       }
       
-      const fileId = file.id || `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const fileId = file.id || `file-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
       setFileReferences(prev => {
-        const existingFileIndex = prev.findIndex(ref => ref.id === fileId);
-        if (existingFileIndex !== -1) {
-          const updatedReferences = [...prev];
-          updatedReferences[existingFileIndex] = {
+        const newRef = {
             id: fileId,
             path: file.path,
             name: file.name,
             content: fileContent,
-            type: 'file'
-          };
-          return updatedReferences;
-        } else {
-          return [...prev, {
-            id: fileId,
-            path: file.path,
-            name: file.name,
-            content: fileContent,
-            type: 'file'
-          }];
+            type: 'file' as const
+        };
+        if (!prev.some(ref => ref.path === file.path)) {
+            return [...prev, newRef];
         }
+        return prev;
       });
       
       if (input.includes('@')) {
         const atIndex = input.lastIndexOf('@');
-        const newInput = input.substring(0, atIndex);
-        handleInputChange({ target: { value: newInput } } as any);
+        setInput(input.substring(0, atIndex));
       }
       
     } catch (error) {
-      console.error("Error processing selected file:", error);
+      logger.error("Error processing selected file", { fileName: file.name, error });
       toast({
         title: "Error Processing File",
         description: `An unexpected error occurred while processing the file reference for "${file.name}".`,
@@ -200,40 +249,25 @@ export default function ChatContent() {
     setIsStickToBottom(isAtBottom);
   }, []);
 
-  const scrollToBottomHandler = useRef<() => void>(() => {
-    messagesContainerRef.current?.scrollTo({
-      top: messagesContainerRef.current.scrollHeight,
-      behavior: 'smooth',
-    });
-  });
-
-  const handleScrollToBottom = useCallback((callback: () => void) => {
-    scrollToBottomHandler.current = callback;
-  }, []);
-
   const scrollToBottom = useCallback(() => {
-    scrollToBottomHandler.current();
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
   }, []);
-
+  
   const handleCreateConversation = async (title: string = 'New Conversation') => {
     if (!activeSpace?.id) {
-      toast({
-        title: 'Error',
-        description: 'Please select a space first',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Please select a space first', variant: 'destructive' });
       return;
     }
-
     try {
       await createConversation(activeSpace.id, title);
     } catch (error) {
-      console.error('Error creating conversation:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to create conversation',
-        variant: 'destructive',
-      });
+      logger.error('Error creating conversation', { spaceId: activeSpace?.id, title, error });
+      toast({ title: 'Error', description: 'Failed to create conversation', variant: 'destructive' });
     }
   };
 
@@ -241,53 +275,56 @@ export default function ChatContent() {
     try {
       await setActiveConversation(conversation);
     } catch (error) {
-      console.error('Error selecting conversation:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to select conversation',
-        variant: 'destructive',
-      });
+      logger.error('Error selecting conversation', { conversationId: conversation?.id, error });
+      toast({ title: 'Error', description: 'Failed to select conversation', variant: 'destructive' });
     }
   };
 
+  const handleSetActiveSpace = useCallback(async (id: string) => {
+    await setActiveSpaceById(id);
+  }, [setActiveSpaceById]);
+
   return (
-    <div className="h-full w-full">
+    <div className="h-full w-full flex flex-col">
       <ChatTopBar
         user={user}
         activeSpace={activeSpace}
         spaces={spaces}
-        setActiveSpaceById={setActiveSpaceById}
+        setActiveSpaceById={handleSetActiveSpace}
         isStickToBottom={isStickToBottom}
-        messagesLength={messages.length}
+        messagesLength={mappedDisplayMessages.length}
         onScrollToBottom={scrollToBottom}
       />
       
-      <div className="flex-1 w-full h-full flex flex-col">
+      <div className="flex-1 w-full overflow-hidden flex flex-col">
         <ChatMessages
-          messages={messages}
+          messages={mappedDisplayMessages}
           onStickToBottomChange={handleStickToBottomChange}
-          onScrollToBottom={handleScrollToBottom}
           ref={messagesContainerRef}
-          isLoading={status !== 'ready' || isSpaceLoading}
-          streamData={data}
+          isLoading={chatStatus === 'loading' || isSpaceLoading || messagesLoading}
         />
         
         <ChatInputArea
           input={input}
           handleInputChange={handleInputChange}
           handleSubmit={handleSubmit}
-              disabled={!activeSpace || !activeConversation || status !== 'ready'}
+          disabled={!activeSpace || !activeConversation || chatStatus === 'loading'}
           fileReferences={fileReferences}
           setFileReferences={setFileReferences}
-          messages={messages}
+          messages={mappedDisplayMessages}
           activeConversation={activeConversation}
           activeSpace={activeSpace}
-                    onCreateConversation={handleCreateConversation}
-                    onSelectConversation={handleSelectConversation}
+          onCreateConversation={handleCreateConversation}
+          onSelectConversation={handleSelectConversation}
           onCommandWindowToggle={handleCommandWindowToggle}
           onSelectFile={selectFile}
-                  />
+        />
       </div>
+      {errorMessage && (
+         <div className="p-2 text-center text-red-500 bg-red-100 border-t border-red-200">
+            Error: {errorMessage}
+         </div>
+       )}
     </div>
   );
 }

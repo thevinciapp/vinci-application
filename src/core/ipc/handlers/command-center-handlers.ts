@@ -7,13 +7,14 @@ import {
   setCommandType
 } from '@/core/window/window-service';
 import { CommandType } from '@/types/command';
-import { CommandCenterEvents } from '@/core/ipc/constants';
+import { CommandCenterEvents, AppStateEvents } from '@/core/ipc/constants';
 import { IpcResponse } from '@/types/ipc';
 import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
 import * as path from 'path';
 import { exec as execCallback } from 'child_process';
 import { promisify } from 'util';
+import { useMainStore, getMainStoreState, MainProcessState } from '@/store/main';
+import { sanitizeStateForIPC } from '@/core/utils/state-utils';
 
 const exec = promisify(execCallback);
 
@@ -66,7 +67,16 @@ interface FileSearchResult {
   content?: string;
 }
 
-// Start cache cleanup interval
+function broadcastStateUpdate() {
+  const state = getMainStoreState();
+  const serializableState = sanitizeStateForIPC(state);
+  BrowserWindow.getAllWindows().forEach((window: BrowserWindow) => {
+    if (window && window.webContents && !window.webContents.isDestroyed()) {
+      window.webContents.send(AppStateEvents.STATE_UPDATED, { success: true, data: serializableState });
+    }
+  });
+}
+
 const startCacheCleanup = () => {
   setInterval(() => {
     const now = Date.now();
@@ -79,26 +89,38 @@ const startCacheCleanup = () => {
 };
 
 export function registerCommandCenterHandlers(): void {
-  // Start cache cleanup
   startCacheCleanup();
 
-  ipcMain.handle(CommandCenterEvents.TOGGLE, async (_, commandType: CommandType = 'unified') => {
+  ipcMain.handle(CommandCenterEvents.TOGGLE, async (_, commandType: CommandType = 'unified'): Promise<IpcResponse<null>> => {
     try {
       const window = await toggleCommandCenterWindow(commandType);
-      return { success: true, window: window ? true : false };
+      const isOpen = !!window?.isVisible();
+
+      const storeActions = useMainStore.getState();
+      storeActions.setCommandCenterOpen(isOpen);
+      storeActions.setActiveCommand(isOpen ? commandType : undefined);
+      broadcastStateUpdate();
+
+      return { success: true };
     } catch (error) {
       console.error('Error toggling command center:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Failed to toggle command center' };
     }
   });
 
-  ipcMain.handle(CommandCenterEvents.SHOW, async (_, commandType: CommandType = 'unified') => {
+  ipcMain.handle(CommandCenterEvents.SHOW, async (_, commandType: CommandType = 'unified'): Promise<IpcResponse<null>> => {
     try {
       const window = await toggleCommandCenterWindow(commandType);
-      if (window) {
-        window.show();
-        window.focus();
+      if (window && !window.isVisible()) {
+         window.show();
+         window.focus();
       }
+
+      const storeActions = useMainStore.getState();
+      storeActions.setCommandCenterOpen(true);
+      storeActions.setActiveCommand(commandType);
+      broadcastStateUpdate();
+
       return { success: true };
     } catch (error) {
       console.error('Error showing command center:', error);
@@ -106,13 +128,20 @@ export function registerCommandCenterHandlers(): void {
     }
   });
 
-  ipcMain.handle(CommandCenterEvents.CLOSE, async (_, commandType: CommandType = 'unified') => {
+  ipcMain.handle(CommandCenterEvents.CLOSE, async (_, commandType: CommandType = 'unified'): Promise<IpcResponse<null>> => {
     try {
       const window = await getContextCommandWindow(commandType);
-
       if (window?.isVisible()) {
         window.hide();
       }
+
+      const storeActions = useMainStore.getState();
+      if (storeActions.activeCommand === commandType || commandType === 'unified') {
+         storeActions.setCommandCenterOpen(false);
+         storeActions.setActiveCommand(undefined);
+         broadcastStateUpdate();
+      }
+
       return { success: true };
     } catch (error) {
       console.error('Error closing command center:', error);
@@ -120,9 +149,11 @@ export function registerCommandCenterHandlers(): void {
     }
   });
 
-  ipcMain.handle(CommandCenterEvents.OPEN_DIALOG, async (_, dialogType: string, data: any) => {
+  ipcMain.handle(CommandCenterEvents.OPEN_DIALOG, async (_, dialogType: string, data: any): Promise<IpcResponse<null>> => {
     try {
       setDialogState(true);
+      useMainStore.getState().setDialogState(dialogType, data);
+      broadcastStateUpdate();
       return { success: true };
     } catch (error) {
       console.error('Error opening dialog:', error);
@@ -130,9 +161,11 @@ export function registerCommandCenterHandlers(): void {
     }
   });
 
-  ipcMain.handle(CommandCenterEvents.DIALOG_CLOSED, async () => {
+  ipcMain.handle(CommandCenterEvents.DIALOG_CLOSED, async (): Promise<IpcResponse<null>> => {
     try {
       setDialogState(false);
+      useMainStore.getState().setDialogState(undefined, undefined);
+      broadcastStateUpdate();
       return { success: true };
     } catch (error) {
       console.error('Error closing dialog:', error);
@@ -140,7 +173,7 @@ export function registerCommandCenterHandlers(): void {
     }
   });
 
-  ipcMain.handle(CommandCenterEvents.REFRESH, async (_, commandType: CommandType = 'unified') => {
+  ipcMain.handle(CommandCenterEvents.REFRESH, async (_, commandType: CommandType = 'unified'): Promise<IpcResponse<null>> => {
     try {
       const window = await getContextCommandWindow(commandType);
 
@@ -154,7 +187,7 @@ export function registerCommandCenterHandlers(): void {
     }
   });
 
-  ipcMain.handle(CommandCenterEvents.CHECK_TYPE, async (_, commandType: CommandType) => {
+  ipcMain.handle(CommandCenterEvents.CHECK_TYPE, async (_, commandType: CommandType): Promise<IpcResponse<{ type: CommandType, exists: boolean }>> => {
     try {
       const window = await getContextCommandWindow(commandType);
       return { success: true, data: { type: commandType, exists: window ? true : false } };
@@ -165,15 +198,8 @@ export function registerCommandCenterHandlers(): void {
   });
 
   ipcMain.on(CommandCenterEvents.SET_TYPE, (_event: IpcMainInvokeEvent, commandType: CommandType) => {
-    setCommandType(commandType);
-  });
-
-  ipcMain.on(CommandCenterEvents.SYNC_STATE, (_event: IpcMainInvokeEvent, action: string, data?: any) => {
-    BrowserWindow.getAllWindows().forEach((window) => {
-      if (!window.isDestroyed()) {
-        window.webContents.send(CommandCenterEvents.SYNC_STATE, action, data);
-      }
-    });
+    useMainStore.getState().setActiveCommand(commandType);
+    broadcastStateUpdate();
   });
 
   ipcMain.on(CommandCenterEvents.ON_RESIZE, (_event: IpcMainInvokeEvent, dimensions: { width: number; height: number }, commandType?: CommandType) => {
@@ -190,7 +216,6 @@ export function registerCommandCenterHandlers(): void {
     }
   });
 
-  // Spotlight-based file search implementation
   ipcMain.handle(CommandCenterEvents.SEARCH_FILES, async (_event: IpcMainInvokeEvent, options: string | FileSearchOptions): Promise<IpcResponse<FileSearchResult[]>> => {
     try {
       const searchOptions: FileSearchOptions = typeof options === 'string'
@@ -209,7 +234,6 @@ export function registerCommandCenterHandlers(): void {
 
       const searchTerm = query.toLowerCase().trim();
       
-      // Check cache for results
       const cacheKey = searchTerm;
       if (searchCache.has(cacheKey)) {
         const { results, timestamp } = searchCache.get(cacheKey);
@@ -219,11 +243,9 @@ export function registerCommandCenterHandlers(): void {
         }
       }
 
-      // Default to user's home directory if not specified
       const searchPath = directory || app.getPath('home');
       console.log(`[spotlight] Searching in: ${searchPath}`);
 
-      // Use simpler Spotlight query focused on file names
       const cmd = `mdfind "kMDItemFSName == '*${escapeMdfindQuery(searchTerm)}*'c" -onlyin ${escapeShellArg(searchPath)} | head -n ${limit}`;
       console.log(`[spotlight] Executing search: ${cmd}`);
 
@@ -247,7 +269,6 @@ export function registerCommandCenterHandlers(): void {
           const isDirectory = stats.isDirectory();
           const ext = path.extname(filePath).toLowerCase();
           
-          // Filter by supported extensions for files
           if (!isDirectory && !SUPPORTED_EXTENSIONS.includes(ext)) {
             continue;
           }
@@ -262,7 +283,6 @@ export function registerCommandCenterHandlers(): void {
           });
           
         } catch (statError) {
-          // Skip files that can't be accessed
           console.warn(`[spotlight] Could not access file ${filePath}`);
         }
         
@@ -271,7 +291,6 @@ export function registerCommandCenterHandlers(): void {
         }
       }
 
-      // Sort results by relevance (exact name match first)
       results.sort((a, b) => {
         const aNameLower = a.name.toLowerCase();
         const bNameLower = b.name.toLowerCase();
@@ -282,7 +301,6 @@ export function registerCommandCenterHandlers(): void {
         return aNameLower.localeCompare(bNameLower);
       });
 
-      // Cache the results
       if (results.length > 0) {
         searchCache.set(cacheKey, {
           results,
@@ -300,13 +318,13 @@ export function registerCommandCenterHandlers(): void {
     }
   });
 
-  ipcMain.handle(CommandCenterEvents.READ_FILE, async (_event: IpcMainInvokeEvent, options: string | FileReadOptions): Promise<IpcResponse> => {
+  ipcMain.handle(CommandCenterEvents.READ_FILE, async (_event: IpcMainInvokeEvent, options: string | FileReadOptions): Promise<IpcResponse<{ content: string, metadata: any }>> => {
     try {
       const readOptions: FileReadOptions = typeof options === 'string'
         ? { filePath: options }
         : options;
 
-      const { filePath, maxSize = 5 * 1024 * 1024 } = readOptions; // Default max 5MB
+      const { filePath, maxSize = 5 * 1024 * 1024 } = readOptions;
 
       if (!filePath) {
         return { success: false, error: 'No file path provided', status: 'error' };
@@ -385,5 +403,5 @@ export function registerCommandCenterHandlers(): void {
     }
   });
 
-  ipcMain.handle(CommandCenterEvents.PING, () => ({ success: true, data: 'pong', status: 'success' }) as IpcResponse<string>);
+  ipcMain.handle(CommandCenterEvents.PING, (): IpcResponse<string> => ({ success: true, data: 'pong' }));
 }

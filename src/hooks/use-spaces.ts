@@ -1,243 +1,119 @@
-import { useState, useCallback } from 'react';
-import { SpaceEvents, MessageEvents } from '@/core/ipc/constants';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { SpaceEvents, MessageEvents, AppStateEvents } from '@/core/ipc/constants';
 import { Space } from '@/types/space';
-import { useRendererStore } from '@/store/renderer';
-import { Conversation } from '@/types/conversation';
-import { Message } from '@/types/message';
-import { Provider } from '@/types/provider';
+import { useMainState } from '@/context/MainStateContext';
 
 export function useSpaces() {
-  const rendererStore = useRendererStore();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { state, isLoading: isGlobalLoading, error: globalError } = useMainState();
   
-  const fetchSpaces = useCallback(async (): Promise<Space[]> => {
+  const [isActionLoading, setIsActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const spaces = useMemo(() => state.spaces || [], [state.spaces]);
+  const activeSpace = useMemo(() => state.activeSpace || null, [state.activeSpace]);
+
+  const setActiveSpaceById = async (spaceId: string): Promise<boolean> => {
+    setIsActionLoading(true);
+    setActionError(null);
     try {
-      setIsLoading(true);
-      setError(null);
-      const response = await window.electron.invoke(SpaceEvents.GET_SPACES);
-      if (response && response.success) {
-        rendererStore.setSpaces(response.spaces || []);
-        return response.spaces || [];
-      }
-      return [];
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch spaces';
-      setError(errorMessage);
-      rendererStore.setError(errorMessage);
-      return [];
-    } finally {
-      setIsLoading(false);
-    }
-  }, [rendererStore]);
-
-  const fetchActiveSpace = useCallback(async (): Promise<Space | null> => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const space = await window.electron.invoke(SpaceEvents.GET_ACTIVE_SPACE);
-      if (space?.success && space.space) {
-        rendererStore.setActiveSpace(space.space);
-        return space.space;
-      }
-      if (space?.success && space.space === null) {
-        rendererStore.setActiveSpace(null);
-        return null;
-      }
-      console.warn('Unexpected response structure for GET_ACTIVE_SPACE:', space);
-      rendererStore.setActiveSpace(null);
-      return null;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch active space';
-      setError(errorMessage);
-      rendererStore.setError(errorMessage);
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [rendererStore]);
-
-  const fetchSpaceConversations = useCallback(async (spaceId: string): Promise<Conversation[]> => {
-    try {
-      const response = await window.electron.invoke(SpaceEvents.GET_SPACE_CONVERSATIONS, spaceId);
-      if (response && response.success) {
-        rendererStore.setConversations(response.conversations?.items || []);
-        return response.conversations?.items || [];
-      }
-      return [];
-    } catch (error) {
-      console.error('Error fetching conversations:', error);
-      setError(error instanceof Error ? error.message : 'Failed to fetch conversations');
-      return [];
-    }
-  }, [rendererStore]);
-
-  const fetchConversationMessages = useCallback(async (conversationId: string): Promise<Message[]> => {
-    try {
-      const response = await window.electron.invoke(MessageEvents.GET_CONVERSATION_MESSAGES, conversationId);
-      if (response && response.success) {
-        rendererStore.setMessages(response.messages?.items || []);
-        return response.messages?.items || [];
-      }
-      return [];
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-      setError(error instanceof Error ? error.message : 'Failed to fetch messages');
-      return [];
-    }
-  }, [rendererStore]);
-
-  const setupSpaceListener = useCallback((callback?: (space: Space | null) => void) => {
-    const handleSpaceUpdate = async (event: any, data: { space: Space | null; conversations: Conversation[]; messages: Message[] }) => {
-      rendererStore.setActiveSpace(data.space);
-      rendererStore.setConversations(data.conversations || []);
-      rendererStore.setMessages(data.messages || []);
-      if (callback) callback(data.space);
-    };
-
-    window.electron.on(SpaceEvents.SPACE_UPDATED, handleSpaceUpdate);
-    
-    return () => {
-      window.electron.off(SpaceEvents.SPACE_UPDATED, handleSpaceUpdate);
-    };
-  }, [rendererStore]);
-
-  const setActiveSpaceById = async (spaceId: string) => {
-    try {
-      setIsLoading(true);
       const response = await window.electron.invoke(SpaceEvents.SET_ACTIVE_SPACE, spaceId);
-      
-      if (response?.success && response.data && 'space' in response.data) {
-        const { space, conversations, messages } = response.data;
-        rendererStore.setActiveSpace(space);
-        rendererStore.setConversations(conversations || []);
-        rendererStore.setMessages(messages || []);
+      if (!response?.success) {
+        setActionError(response?.error || 'Failed to set active space');
       }
-
       return response?.success || false;
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to set active space');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to set active space';
+      setActionError(errorMessage);
       return false;
     } finally {
-      setIsLoading(false);
+      setIsActionLoading(false);
     }
   };
 
-  const createSpace = async (spaceData: Partial<Space>): Promise<boolean> => {
+  const createSpace = async (spaceData: Partial<Space>): Promise<{ success: boolean, data?: any, error?: string }> => {
+    setIsActionLoading(true);
+    setActionError(null);
     try {
-      setIsLoading(true);
-      const result = await window.electron.invoke(SpaceEvents.CREATE_SPACE, spaceData);
-      if (result.success && result.data) {
-        const { activeSpace, conversations, messages, activeConversation } = result.data;
-        if (activeSpace) {
-          rendererStore.addSpace(activeSpace);
-        }
-        rendererStore.setActiveSpace(activeSpace);
-        rendererStore.setActiveConversation(activeConversation);
-        rendererStore.setConversations(conversations || []);
-        rendererStore.setMessages(messages || []);
-      }
-      return result.success;
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to create space');
-      return false;
+       const result = await window.electron.invoke(SpaceEvents.CREATE_SPACE, spaceData);
+       if (!result.success) {
+         setActionError(result.error || 'Failed to create space');
+       }
+       return result;
+    } catch (err) {
+       const errorMessage = err instanceof Error ? err.message : 'Failed to create space';
+       setActionError(errorMessage);
+       return { success: false, error: errorMessage };
     } finally {
-      setIsLoading(false);
+       setIsActionLoading(false);
     }
   };
 
   const deleteSpace = async (spaceId: string): Promise<boolean> => {
-    try {
-      setIsLoading(true);
-      const spaces = rendererStore.spaces;
-      if (spaces.length === 1) {
-        setError('Cannot delete the last space');
+    setIsActionLoading(true);
+    setActionError(null);
+
+    if (spaces.length <= 1) {
+        setActionError('Cannot delete the last space');
+        setIsActionLoading(false);
         return false;
-      }
-      
+    }
+
+    try {
       const response = await window.electron.invoke(SpaceEvents.DELETE_SPACE, spaceId);
-      if (response.success) {
-        const { spaces, activeSpace, conversations, messages } = response.data;
-        rendererStore.setSpaces(spaces);
-        rendererStore.setActiveSpace(activeSpace);
-        rendererStore.setConversations(conversations);
-        rendererStore.setMessages(messages);
-      } else {
-        setError(response.error || 'Failed to delete space');
+      if (!response.success) {
+        setActionError(response.error || 'Failed to delete space');
       }
       return response.success;
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to delete space');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete space';
+      setActionError(errorMessage);
       return false;
     } finally {
-      setIsLoading(false);
+      setIsActionLoading(false);
     }
   };
 
   const updateSpace = async (spaceId: string, spaceData: Partial<Space>): Promise<boolean> => {
+    setIsActionLoading(true);
+    setActionError(null);
     try {
-      setIsLoading(true);
       const result = await window.electron.invoke(SpaceEvents.UPDATE_SPACE, spaceId, spaceData);
-      if (result.success && result.data) {
-        const updatedSpace = result.data;
-        const spaces = rendererStore.spaces.map(s => 
-          s.id === spaceId ? { ...s, ...updatedSpace } : s
-        );
-        rendererStore.setSpaces(spaces);
-        
-        if (rendererStore.activeSpace?.id === spaceId) {
-          rendererStore.setActiveSpace({ ...rendererStore.activeSpace, ...updatedSpace });
-        }
+      if (!result.success) {
+         setActionError(result.error || 'Failed to update space');
       }
       return result.success;
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to update space');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update space';
+      setActionError(errorMessage);
       return false;
     } finally {
-      setIsLoading(false);
+      setIsActionLoading(false);
     }
   };
 
   const updateSpaceModel = async (spaceId: string, modelId: string, provider: string): Promise<boolean> => {
+    setIsActionLoading(true);
+    setActionError(null);
     try {
-      setIsLoading(true);
-      const result = await window.electron.invoke(SpaceEvents.UPDATE_SPACE_MODEL, spaceId, modelId, provider);
-      if (result.success) {
-        // Update spaces list
-        const spaces = rendererStore.spaces.map(s => 
-          s.id === spaceId ? { ...s, model: modelId, provider: provider as Provider } : s
-        );
-        rendererStore.setSpaces(spaces);
-        
-        // Update active space if this is the active one
-        if (rendererStore.activeSpace?.id === spaceId) {
-          rendererStore.setActiveSpace({
-            ...rendererStore.activeSpace,
-            model: modelId,
-            provider: provider as Provider
-          });
-        }
-      }
-      return result.success;
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to update space model');
-      return false;
+       const result = await window.electron.invoke(SpaceEvents.UPDATE_SPACE_MODEL, spaceId, modelId, provider);
+       if (!result.success) {
+         setActionError(result.error || 'Failed to update space model');
+       }
+       return result.success;
+    } catch (err) {
+       const errorMessage = err instanceof Error ? err.message : 'Failed to update space model';
+       setActionError(errorMessage);
+       return false;
     } finally {
-      setIsLoading(false);
+       setIsActionLoading(false);
     }
   };
 
-  const spaces = rendererStore.spaces;
-  const activeSpace = rendererStore.activeSpace;
-
-  return { 
-    activeSpace, 
+  return {
+    activeSpace,
     spaces,
-    isLoading: isLoading || rendererStore.isLoading, 
-    error: error || rendererStore.error,
-    fetchSpaces,
-    fetchActiveSpace,
-    setupSpaceListener,
+    isLoading: isGlobalLoading || isActionLoading,
+    error: actionError || globalError,
     setActiveSpaceById,
     createSpace,
     deleteSpace,

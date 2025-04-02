@@ -5,8 +5,9 @@
  * and augments the Window interface to include our IPC communication types
  */
 
-import { AuthEvents, AppStateEvents, CommandCenterEvents, SpaceEvents, MessageEvents, NotificationEvents, ConversationEvents } from '@/core/ipc/constants';
+import { AuthEvents, AppStateEvents, CommandCenterEvents, SpaceEvents, MessageEvents, NotificationEvents, ConversationEvents, ChatEvents } from '@/core/ipc/constants';
 import { IpcResponse, IpcStateResponse } from '.';
+import { chatApi } from '../electron/preload/api/chat';
 
 // Types for API responses
 type ApiResponse<T = any> = {
@@ -58,6 +59,10 @@ type CommandCenterState = {
   dialogType?: string;
   dialogData?: any;
 };
+
+// Type definition for the chat API exposed via preload
+// Ensure the types match the implementation in electron/preload/api/chat.ts
+type ChatApi = typeof chatApi;
 
 /**
  * Main ElectronAPI interface that defines all available IPC methods
@@ -302,32 +307,14 @@ declare global {
     __SPATIAL_PLATFORM__: 'darwin' | 'win32' | 'linux';
     
     /**
-     * Zustand store access for internal use
-     * This allows direct access to the store for special cases
+     * Unified Electron interface exposed via contextBridge
      */
     electron: {
       invoke(channel: string, ...args: any[]): Promise<any>;
-      on(channel: string, listener: (event: any, ...args: any[]) => void): void;
+      on(channel: string, listener: (event: any, ...args: any[]) => void): () => void;
       off(channel: string, listener: Function): void;
-    };
-    
-    /**
-     * Direct access to the renderer store for reset operations
-     */
-    rendererStore?: {
-      getState(): any;
-      setState(state: any): void;
-      setAppState(state: any): void;
-      setSpaces(spaces: any[]): void;
-      setActiveSpace(space: any): void;
-      setConversations(conversations: any[]): void;
-      setMessages(messages: any[]): void;
-      setUser(user: any): void;
-      setProfile(profile: any): void;
-      setLoading(isLoading: boolean): void;
-      setError(error: string | null): void;
-      fetchAppState(): Promise<boolean>;
-      syncWithMainProcess(): Promise<boolean>;
+      removeAllListeners(channel: string): void;
+      chatApi: ChatApi;
     };
     
     /**

@@ -1,98 +1,28 @@
-import { ipcMain, IpcMainInvokeEvent } from 'electron';
+import { ipcMain, IpcMainInvokeEvent, BrowserWindow } from 'electron';
 import { getMainStoreState, useMainStore } from '@/store/main';
 import {
   fetchInitialAppData,
   refreshAppData
 } from '@/services/app-data/app-data-service';
 import { AppStateEvents } from '@/core/ipc/constants';
+import { IpcResponse } from '@/types/ipc';
+import { sanitizeStateForIPC } from '@/core/utils/state-utils';
 
-interface AppStateResponse {
-  success: boolean;
-  data?: any;
-  error?: string;
-}
-
-interface StateUpdate {
-  type: string;
-  payload: any;
-}
-
-function makeSerializable(obj: any): any {
-  if (obj === null || obj === undefined) {
-    return obj;
-  }
-  
-  if (Array.isArray(obj)) {
-    return obj.map(makeSerializable);
-  }
-  
-  if (obj instanceof Date) {
-    return obj.toISOString();
-  }
-  
-  if (typeof obj === 'object') {
-    const result: any = {};
-    for (const [key, value] of Object.entries(obj)) {
-      if (typeof value !== 'function' && key !== 'zustand' && key !== 'store') {
-        result[key] = makeSerializable(value);
-      }
+function broadcastStateUpdate() {
+  const state = getMainStoreState();
+  const serializableState = sanitizeStateForIPC(state);
+  BrowserWindow.getAllWindows().forEach((window: BrowserWindow) => {
+    if (window && window.webContents && !window.webContents.isDestroyed()) {
+      window.webContents.send(AppStateEvents.STATE_UPDATED, { success: true, data: serializableState });
     }
-    return result;
-  }
-  
-  return obj;
+  });
 }
 
 /**
  * Register app state-related IPC handlers
  */
 export function registerAppStateHandlers() {
-  ipcMain.on(AppStateEvents.STATE_UPDATED, (event: Electron.IpcMainEvent, update: StateUpdate) => {
-    console.log('[ELECTRON] Received state update from renderer:', update);
-    const store = useMainStore.getState();
-    const action = store[update.type as keyof typeof store];
-    if (typeof action === 'function') {
-      (action as Function)(update.payload);
-    }
-  });
-
-  ipcMain.handle(AppStateEvents.SYNC_STATE, async (_event: IpcMainInvokeEvent, state: any): Promise<AppStateResponse> => {
-    try {
-      console.log('[ELECTRON] Syncing app state from renderer');
-      
-      if (!state || typeof state !== 'object') {
-        console.log('[ELECTRON] Received invalid state object:', state);
-        return { 
-          success: false, 
-          error: 'Invalid state object received',
-        };
-      }
-      
-      const currentState = useMainStore.getState();
-      const mergedState = { ...currentState, ...state };
-      
-      Object.keys(state).forEach(key => {
-        const setter = `set${key.charAt(0).toUpperCase() + key.slice(1)}`;
-        const store = useMainStore.getState();
-        const setterFn = store[setter as keyof typeof store];
-        if (typeof setterFn === 'function') {
-          (setterFn as Function)(state[key]);
-        }
-      });
-      
-      return { 
-        success: true, 
-      };
-    } catch (error) {
-      console.error('[ELECTRON] Error syncing app state:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  });
-
-  ipcMain.handle(AppStateEvents.GET_STATE, async (_event: IpcMainInvokeEvent): Promise<AppStateResponse> => {
+  ipcMain.handle(AppStateEvents.GET_STATE, async (_event: IpcMainInvokeEvent): Promise<IpcResponse<Partial<ReturnType<typeof getMainStoreState>>>> => {
     try {
       const state = getMainStoreState();
       console.log('[ELECTRON] Getting app state from renderer, initialDataLoaded:', state.initialDataLoaded);
@@ -101,13 +31,14 @@ export function registerAppStateHandlers() {
       const needsFreshData = !state.initialDataLoaded || (accessTokenExists && (!state.spaces || state.spaces.length === 0));
       
       if (needsFreshData) {
+        console.log('[ELECTRON] GET_STATE triggered initial data fetch.');
         const freshData = await fetchInitialAppData();
         if (!freshData.error) {
           console.log('[ELECTRON] Successfully fetched fresh data after GET_STATE');
           useMainStore.getState().setAppState({ ...freshData, initialDataLoaded: true });
           return { 
             success: true, 
-            data: makeSerializable(getMainStoreState()),
+            data: sanitizeStateForIPC(getMainStoreState()),
           };
         }
         
@@ -116,7 +47,7 @@ export function registerAppStateHandlers() {
           error: freshData.error
         };
       }
-      const serializedState = makeSerializable(getMainStoreState());
+      const serializedState = sanitizeStateForIPC(state);
       return { 
         success: true, 
         data: serializedState
@@ -130,15 +61,14 @@ export function registerAppStateHandlers() {
     }
   });
 
-  // Handler for refreshing app data
-  ipcMain.handle(AppStateEvents.REFRESH_DATA, async (_event: IpcMainInvokeEvent): Promise<AppStateResponse> => {
+  ipcMain.handle(AppStateEvents.REFRESH_DATA, async (_event: IpcMainInvokeEvent): Promise<IpcResponse<null>> => {
     try {
       const refreshedData = await refreshAppData();
       if (!refreshedData.error) {
         useMainStore.getState().setAppState({ ...refreshedData });
+        broadcastStateUpdate();
         return {
           success: true,
-          data: makeSerializable(getMainStoreState())
         };
       }
       return {

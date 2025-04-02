@@ -63,12 +63,10 @@ export const MessageEvents = {
  * Chat-related IPC events
  */
 export const ChatEvents = {
-  CHAT_STREAM_START: 'chat-stream-start',
-  CHAT_STREAM_CHUNK: 'chat-stream-chunk',
-  CHAT_STREAM_FINISH: 'chat-stream-finish',
-  CHAT_STREAM_ERROR: 'chat-stream-error',
-  INITIATE_CHAT: 'initiate-chat',
-  CANCEL_CHAT: 'cancel-chat'
+  INITIATE_CHAT_STREAM: 'chat:initiate-stream',
+  CHAT_STREAM_CHUNK: 'chat:stream-chunk',
+  CHAT_STREAM_FINISH: 'chat:stream-finish',
+  CHAT_STREAM_ERROR: 'chat:stream-error',
 } as const;
 
 /**

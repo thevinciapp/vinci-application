@@ -6,6 +6,7 @@ import { registerCommandCenterHandlers } from '@/core/ipc/handlers/command-cente
 import { registerConversationHandlers } from '@/core/ipc/handlers/conversation-handlers';
 import { registerUserHandlers } from '@/core/ipc/handlers/user-handlers';
 import { registerNotificationHandlers } from '@/core/ipc/handlers/notification-handlers';
+import { registerChatHandlers } from '@/core/ipc/handlers/chat-handlers-register';
 
 export function registerIpcHandlers(): void {
   registerAuthHandlers();
@@ -16,4 +17,5 @@ export function registerIpcHandlers(): void {
   registerConversationHandlers();
   registerUserHandlers();
   registerNotificationHandlers();
+  registerChatHandlers();
 }

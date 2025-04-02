@@ -7,6 +7,7 @@ import { messageApi } from './preload/api/messages';
 import { userApi } from './preload/api/user';
 import { notificationApi } from './preload/api/notifications';
 import { conversationApi } from './preload/api/conversations';
+import { chatApi } from './preload/api/chat';
 import { ipcUtils } from './preload/utils/ipc';
 
 const updatedAuthApi = {
@@ -23,4 +24,5 @@ contextBridge.exposeInMainWorld("electron", {
   ...userApi,
   ...notificationApi,
   ...conversationApi,
+  ...chatApi,
 });

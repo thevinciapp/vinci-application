@@ -8,7 +8,8 @@ import {
   MessageEventType,
   UserEventType,
   NotificationEventType,
-  ConversationEventType
+  ConversationEventType,
+  ChatEventType
 } from '../../../src/types';
 
 export type IpcEventType = 
@@ -19,7 +20,8 @@ export type IpcEventType =
   | MessageEventType
   | UserEventType
   | NotificationEventType
-  | ConversationEventType;
+  | ConversationEventType
+  | ChatEventType;
 
 export type EventCallback = (event: IpcRendererEvent, response: IpcResponse) => void;
 
