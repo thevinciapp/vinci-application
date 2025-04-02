@@ -7,7 +7,6 @@
 
 import { AuthEvents, AppStateEvents, CommandCenterEvents, SpaceEvents, MessageEvents, NotificationEvents, ConversationEvents, ChatEvents } from '@/core/ipc/constants';
 import { IpcResponse, IpcStateResponse } from '.';
-import { chatApi } from '../electron/preload/api/chat';
 
 // Types for API responses
 type ApiResponse<T = any> = {
@@ -60,9 +59,6 @@ type CommandCenterState = {
   dialogData?: any;
 };
 
-// Type definition for the chat API exposed via preload
-// Ensure the types match the implementation in electron/preload/api/chat.ts
-type ChatApi = typeof chatApi;
 
 /**
  * Main ElectronAPI interface that defines all available IPC methods
@@ -314,7 +310,6 @@ declare global {
       on(channel: string, listener: (event: any, ...args: any[]) => void): () => void;
       off(channel: string, listener: Function): void;
       removeAllListeners(channel: string): void;
-      chatApi: ChatApi;
     };
     
     /**

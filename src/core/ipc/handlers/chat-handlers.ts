@@ -1,11 +1,9 @@
-import { IpcMainInvokeEvent } from 'electron';
+import { ipcMain, IpcMainInvokeEvent } from 'electron';
 import { ChatEvents, AppStateEvents } from '@/core/ipc/constants';
 import { Logger } from '@/utils/logger';
 import { IpcResponse } from '@/types/ipc';
 import { Message } from '@/types/message';
-import { Conversation } from '@/types/conversation'; 
-import { Space } from '@/types/space';
-import { WorkspaceWithAuth } from '@/services/api/workspace';
+import { initiateChatApiStream } from '@/services/chat/chat-service';
 import { useMainStore } from '@/store/main';
 import { makeSerializable } from '@/core/utils/state-utils';
 
@@ -22,8 +20,8 @@ interface ChatPayload {
   chatMode?: string;
 }
 
-export const chatHandlers = {
-  [ChatEvents.INITIATE_CHAT_STREAM]: async (
+export function registerChatHandlers(): void {
+  ipcMain.handle(ChatEvents.INITIATE_CHAT_STREAM, async (
     event: IpcMainInvokeEvent,
     payload: ChatPayload
   ): Promise<IpcResponse> => {
@@ -32,20 +30,21 @@ export const chatHandlers = {
 
     const currentMessages = messages; 
 
-    const requestBody = {
+    const requestPayload = {
       messages: currentMessages,
       spaceId,
       conversationId,
       provider,
       model,
       files,
-      stream: true, 
-      ...rest,
+      searchMode: rest.searchMode,
+      chatMode: rest.chatMode,
+      stream: true,
     };
 
     try {
-      logger.info(`Calling WorkspaceWithAuth`, { spaceId, conversationId });
-      const response = await WorkspaceWithAuth.chat(requestBody);
+      logger.info(`Calling initiateChatApiStream`, { spaceId: requestPayload.spaceId, conversationId: requestPayload.conversationId });
+      const response = await initiateChatApiStream(requestPayload);
 
       if (!response.body) {
         throw new Error('No response body from API');
@@ -81,10 +80,7 @@ export const chatHandlers = {
       event.sender.send(ChatEvents.CHAT_STREAM_FINISH, { success: true });
 
       try {
-        // Get current state from the store
         const store = useMainStore.getState();
-        
-        // Create the final assistant message
         const now = new Date().toISOString();
         const finalMessage: Message = {
           id: finalAssistantMessageId || `assistant_${Date.now()}`, 
@@ -98,14 +94,11 @@ export const chatHandlers = {
           annotations: [],
         };
 
-        // Update the store's messages array with the new message
-        // Based on patterns seen in other handlers
         const updatedMessages = [...store.messages, finalMessage];
         useMainStore.setState({ messages: updatedMessages });
         
         logger.info(`Updated main store with new message`, { conversationId, messageId: finalMessage.id });
         
-        // Broadcast state update to all renderers
         event.sender.send(AppStateEvents.STATE_UPDATED, {
           success: true,
           data: makeSerializable(useMainStore.getState()),
@@ -123,5 +116,5 @@ export const chatHandlers = {
       });
       return { success: false, error: error.message };
     }
-  },
-}; 
+  });
+} 

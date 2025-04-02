@@ -2,8 +2,6 @@ import { ipcRenderer } from 'electron';
 import { ChatEvents } from '@/core/ipc/constants';
 import { ipcUtils } from '../utils/ipc';
 
-// TODO: Define a proper type for the payload and chunk
-
 export const chatApi = {
   initiateChatStream: (payload: any): Promise<any> =>
     ipcUtils.invoke(ChatEvents.INITIATE_CHAT_STREAM, payload),
@@ -31,7 +29,6 @@ export const chatApi = {
      return ipcUtils.on(ChatEvents.CHAT_STREAM_ERROR, handler);
   },
   
-  // Expose off/removeAllListeners equivalents via ipcUtils
   offChatStreamChunk: (callback: Function): void => ipcUtils.off(ChatEvents.CHAT_STREAM_CHUNK, callback as any),
   offChatStreamFinish: (callback: Function): void => ipcUtils.off(ChatEvents.CHAT_STREAM_FINISH, callback as any),
   offChatStreamError: (callback: Function): void => ipcUtils.off(ChatEvents.CHAT_STREAM_ERROR, callback as any),

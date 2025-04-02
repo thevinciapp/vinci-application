@@ -7,7 +7,7 @@ import { useMessages } from '@/hooks/use-messages';
 import { useCommandWindow } from '@/hooks/use-command-window';
 import { useToast } from '@/hooks/use-toast';
 import { Conversation } from '@/types/conversation';
-import { CommandCenterEvents, AppStateEvents } from '@/core/ipc/constants';
+import { CommandCenterEvents, AppStateEvents, ChatEvents } from '@/core/ipc/constants';
 import { useFileReferences } from '@/hooks/use-file-references';
 import { ChatTopBar } from './ui/chat-top-bar';
 import { ChatInputArea } from './chat-input-area';
@@ -67,15 +67,8 @@ export default function ChatContent() {
   }, [displayMessages]);
 
   useEffect(() => {
-    if (!window.electron?.chatApi) {
-      logger.warn('window.electron.chatApi not available yet.');
-      return;
-    }
-
-    logger.debug('Setting up chatApi listeners...');
-
     type StreamChunkData = { chunk: string; messageId?: string };
-    const cleanupChunk = window.electron.chatApi.onChatStreamChunk((data: StreamChunkData) => {
+    const cleanupChunk = window.electron.on(ChatEvents.CHAT_STREAM_CHUNK, (data: StreamChunkData) => {
       const textChunk = data?.chunk || '';
       setStreamingMessage((prev: Message | null): Message => {
         const now = new Date().toISOString();
@@ -93,13 +86,13 @@ export default function ChatContent() {
       });
     });
 
-    const cleanupFinish = window.electron.chatApi.onChatStreamFinish(() => {
+    const cleanupFinish = window.electron.on(ChatEvents.CHAT_STREAM_FINISH, () => {
       logger.debug('[ChatClient] Stream finished event received');
       setStreamingMessage(null);
       setChatStatus('idle');
     });
 
-    const cleanupError = window.electron.chatApi.onChatStreamError((error: string) => {
+    const cleanupError = window.electron.on(ChatEvents.CHAT_STREAM_ERROR, (error: string) => {
       logger.error('[ChatClient] Stream error event received:', { error });
       setErrorMessage(error || 'An unknown error occurred during the chat.');
       setChatStatus('error');
@@ -173,7 +166,7 @@ export default function ChatContent() {
 
     try {
       logger.info('[ChatClient] Initiating chat stream via IPC', { conversationId: payload.conversationId });
-      await window.electron.chatApi.initiateChatStream(payload);
+      await window.electron.invoke(ChatEvents.INITIATE_CHAT_STREAM, payload);
       setInput('');
       clearFileReferences();
     } catch (error: any) {
