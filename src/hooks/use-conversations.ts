@@ -78,6 +78,10 @@ export function useConversations() {
     try {
       setIsLoading(true);
       setError(null);
+      
+      // Clear messages immediately to prevent showing messages from the previous conversation
+      rendererStore.setMessages([]);
+      
       const response = await window.electron.invoke(ConversationEvents.CREATE_CONVERSATION, {
         space_id: spaceId,
         title
@@ -87,8 +91,15 @@ export function useConversations() {
         throw new Error(response.error || 'Failed to create conversation');
       }
 
+      // Set the new conversation as active
       rendererStore.setActiveConversation(response.data);
-      rendererStore.setConversations([...rendererStore.conversations, response.data]);
+      
+      // Update the conversations list with the new conversation
+      const updatedConversations = [response.data, ...rendererStore.conversations];
+      rendererStore.setConversations(updatedConversations);
+
+      // Make sure messages are empty for the new conversation
+      rendererStore.setMessages([]);
 
       return response.success;
     } catch (error) {
@@ -102,17 +113,35 @@ export function useConversations() {
   const deleteConversation = useCallback(async (conversation: Conversation): Promise<boolean> => {
     try {
       setIsLoading(true);
+      setError(null);
+      
+      // Store a reference to whether this is the active conversation
+      const isActiveConversation = rendererStore.activeConversation?.id === conversation.id;
+      
       const response = await window.electron.invoke(ConversationEvents.DELETE_CONVERSATION, conversation);
       if (!response.success) {
         throw new Error(response.error || 'Failed to delete conversation');
       }
 
-      // If we're deleting the active conversation, set active to null
-      if (rendererStore.activeConversation?.id === conversation.id) {
+      // Remove the conversation from the list
+      const updatedConversations = rendererStore.conversations.filter(c => c.id !== conversation.id);
+      rendererStore.setConversations(updatedConversations);
+      
+      // If we deleted the active conversation
+      if (isActiveConversation) {
+        // Clear messages first
+        rendererStore.setMessages([]);
+        
+        // Set active conversation to null
         rendererStore.setActiveConversation(null);
+        
+        // If there are other conversations, set the first one as active
+        if (updatedConversations.length > 0) {
+          const newActiveConversation = updatedConversations[0];
+          // Call setActiveConversation to properly load messages for the new conversation
+          await setActiveConversation(newActiveConversation);
+        }
       }
-
-      rendererStore.setConversations(rendererStore.conversations.filter(c => c.id !== conversation.id));
 
       return response.success;
     } catch (error) {
@@ -121,11 +150,12 @@ export function useConversations() {
     } finally {
       setIsLoading(false);
     }
-  }, [rendererStore]);
+  }, [rendererStore, setActiveConversation]);
 
   const updateConversation = useCallback(async (conversation: Conversation): Promise<boolean> => {
     try {
       setIsLoading(true);
+      setError(null);
       const response = await window.electron.invoke(ConversationEvents.UPDATE_CONVERSATION, conversation);
       if (!response.success) {
         throw new Error(response.error || 'Failed to update conversation');

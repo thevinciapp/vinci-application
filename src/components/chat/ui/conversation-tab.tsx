@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { BaseTab } from '@/components/ui/base-tab';
 import { MessageSquare, Edit, Trash, Plus, RefreshCw, Search } from 'lucide-react';
 import { Conversation } from '@/types/conversation';
@@ -17,8 +17,9 @@ import { useSpaces } from '@/hooks/use-spaces';
 
 export function ConversationTab() {
   const [isCreating, setIsCreating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const { conversations, activeConversation, setActiveConversation, createConversation, setupConversationsListener } = useConversations();
+  const { conversations, activeConversation, setActiveConversation, createConversation, deleteConversation, setupConversationsListener } = useConversations();
   const { activeSpace } = useSpaces();
 
   const [conversationToEdit, setConversationToEdit] = useState<Conversation | null>(null);
@@ -43,7 +44,7 @@ export function ConversationTab() {
       const success = await createConversation(activeSpace.id, 'New Conversation');
       if (!success) {
         toast.error('Failed to create conversation');
-      }  else {
+      } else {
         toast.success('Conversation created successfully');
       }
     } catch (error) {
@@ -55,6 +56,8 @@ export function ConversationTab() {
   };
 
   const handleSelectConversation = async (conversation: Conversation) => {
+    if (activeConversation?.id === conversation.id) return;
+    
     try {
       const success = await setActiveConversation(conversation);
       if (!success) {
@@ -80,6 +83,26 @@ export function ConversationTab() {
     }
   };
 
+  const handleConfirmDelete = useCallback(async (conversation: Conversation) => {
+    if (!conversation) return;
+    
+    setIsDeleting(true);
+    try {
+      const success = await deleteConversation(conversation);
+      if (success) {
+        toast.success('Conversation deleted successfully');
+      } else {
+        toast.error('Failed to delete conversation');
+      }
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      toast.error('Failed to delete conversation');
+    } finally {
+      setIsDeleting(false);
+      setConversationToDelete(null);
+    }
+  }, [deleteConversation]);
+
   const handleCloseEditDialog = () => {
     setConversationToEdit(null);
   };
@@ -92,10 +115,19 @@ export function ConversationTab() {
     new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
   );
 
+  const filteredConversations = searchQuery
+    ? sortedConversations.filter(c => {
+        const title = c.title || ''; 
+        const lastMessage = c.lastMessage || '';
+        return title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+               lastMessage.toLowerCase().includes(searchQuery.toLowerCase());
+      })
+    : sortedConversations;
+
   const conversationSections: DropdownSection[] = useMemo(() => [
     {
-      title: `Conversations ${sortedConversations.length > 0 ? `(${sortedConversations.length})` : ''}`,
-      items: sortedConversations.map((conversation): DropdownItem => ({
+      title: `Conversations ${filteredConversations.length > 0 ? `(${filteredConversations.length})` : ''}`,
+      items: filteredConversations.map((conversation): DropdownItem => ({
         id: conversation.id,
         isActive: activeConversation?.id === conversation.id,
         onSelect: () => handleSelectConversation(conversation),
@@ -106,7 +138,7 @@ export function ConversationTab() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-0.5">
-                <span className="text-sm font-medium text-white/90 truncate">{conversation.title}</span>
+                <span className="text-sm font-medium text-white/90 truncate">{conversation.title || 'Untitled'}</span>
                 {activeConversation?.id === conversation.id && (
                   <span className="text-xs bg-white/10 text-white/80 px-1.5 py-0.5 rounded-full">
                     Current
@@ -136,7 +168,7 @@ export function ConversationTab() {
         ariaLabel: "Create new conversation"
       }
     }
-  ], [conversations, sortedConversations, activeConversation, handleSelectConversation, isCreating, handleCreateNewConversation]);
+  ], [filteredConversations, activeConversation, handleSelectConversation, isCreating, handleCreateNewConversation]);
 
   const footerActions: DropdownFooterAction[] = [
     {
@@ -150,7 +182,7 @@ export function ConversationTab() {
       label: "Delete",
       onClick: () => activeConversation && handleDeleteConversation(activeConversation.id),
       variant: "destructive",
-      isDisabled: !activeConversation
+      isDisabled: !activeConversation || isDeleting
     }
   ];
 
@@ -204,9 +236,9 @@ export function ConversationTab() {
               {searchQuery && (
                 <div className="flex justify-between items-center text-xs text-white/50 mt-1.5 px-1">
                   <span>
-                    {sortedConversations.length === 0 
+                    {filteredConversations.length === 0 
                       ? 'No matches found' 
-                      : `Found ${sortedConversations.length} match${sortedConversations.length === 1 ? '' : 'es'}`}
+                      : `Found ${filteredConversations.length} match${filteredConversations.length === 1 ? '' : 'es'}`}
                   </span>
                   <button 
                     className="hover:text-white/70 transition-colors text-xs"
@@ -261,6 +293,7 @@ export function ConversationTab() {
       <DeleteConversationDialog
         onClose={handleCloseDeleteDialog}
         data={conversationToDelete}
+        onConfirm={handleConfirmDelete}
       />
     </>
   );
