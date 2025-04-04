@@ -56,6 +56,7 @@ electron/
     api/
       app-state.ts
       auth.ts
+      chat.ts
       command-center.ts
       conversations.ts
       messages.ts
@@ -185,6 +186,7 @@ src/
       handlers/
         app-state-handlers.ts
         auth-handlers.ts
+        chat-handlers.ts
         command-center-handlers.ts
         conversation-handlers.ts
         message-handlers.ts
@@ -239,6 +241,8 @@ src/
       api-service.ts
     app-data/
       app-data-service.ts
+    chat/
+      chat-service.ts
     conversations/
       conversation-service.ts
     messages/
@@ -291,6 +295,7 @@ package.json
 postcss.config.js
 README.md
 refactor-store.md
+refactor-use-chat.md
 tsconfig.json
 
 ================================================================
@@ -1552,6 +1557,45 @@ export const authApi = {
 };
 
 ================
+File: electron/preload/api/chat.ts
+================
+import { ipcRenderer } from 'electron';
+import { ChatEvents } from '@/core/ipc/constants';
+import { ipcUtils } from '../utils/ipc';
+
+export const chatApi = {
+  initiateChatStream: (payload: any): Promise<any> =>
+    ipcUtils.invoke(ChatEvents.INITIATE_CHAT_STREAM, payload),
+
+  onChatStreamChunk: (callback: (chunk: any) => void): (() => void) => {
+    const handler = (_event: any, response: any): void => {
+      if (response.success && response.data) {
+        callback(response.data);
+      }
+    };
+    return ipcUtils.on(ChatEvents.CHAT_STREAM_CHUNK, handler);
+  },
+    
+  onChatStreamFinish: (callback: () => void): (() => void) => {
+    const handler = (_event: any, response: any): void => {
+       if (response.success) callback();
+    };
+     return ipcUtils.on(ChatEvents.CHAT_STREAM_FINISH, handler);
+  },
+
+  onChatStreamError: (callback: (error: string) => void): (() => void) => {
+    const handler = (_event: any, response: any): void => {
+       if (!response.success) callback(response.error || 'Unknown stream error');
+    };
+     return ipcUtils.on(ChatEvents.CHAT_STREAM_ERROR, handler);
+  },
+  
+  offChatStreamChunk: (callback: Function): void => ipcUtils.off(ChatEvents.CHAT_STREAM_CHUNK, callback as any),
+  offChatStreamFinish: (callback: Function): void => ipcUtils.off(ChatEvents.CHAT_STREAM_FINISH, callback as any),
+  offChatStreamError: (callback: Function): void => ipcUtils.off(ChatEvents.CHAT_STREAM_ERROR, callback as any),
+};
+
+================
 File: electron/preload/api/command-center.ts
 ================
 import { ipcRenderer } from 'electron';
@@ -1747,6 +1791,7 @@ File: electron/preload/api/messages.ts
 ================
 import { ipcRenderer } from 'electron';
 import { MessageEvents, SearchEvents } from '@/core/ipc/constants';
+import { Message } from '@/types/message';
 
 export const messageApi = {
   getConversationMessages: async (conversationId: string) => {
@@ -1773,6 +1818,13 @@ export const messageApi = {
     const response = await ipcRenderer.invoke(MessageEvents.UPDATE_MESSAGE, { conversationId, messageId, content });
     return response.success ? response.data : null;
   },
+
+  /**
+   * Sends a single message to the main process to be added to the store.
+   */
+  addMessage: (message: Message): Promise<IpcResponse<{ message: Message }>> => {
+    return ipcRenderer.invoke(MessageEvents.ADD_MESSAGE, message);
+  }
 };
 
 ================
@@ -1990,7 +2042,8 @@ import {
   MessageEventType,
   UserEventType,
   NotificationEventType,
-  ConversationEventType
+  ConversationEventType,
+  ChatEventType
 } from '../../../src/types';
 
 export type IpcEventType = 
@@ -2001,7 +2054,8 @@ export type IpcEventType =
   | MessageEventType
   | UserEventType
   | NotificationEventType
-  | ConversationEventType;
+  | ConversationEventType
+  | ChatEventType;
 
 export type EventCallback = (event: IpcRendererEvent, response: IpcResponse) => void;
 
@@ -2158,6 +2212,7 @@ import { messageApi } from './preload/api/messages';
 import { userApi } from './preload/api/user';
 import { notificationApi } from './preload/api/notifications';
 import { conversationApi } from './preload/api/conversations';
+import { chatApi } from './preload/api/chat';
 import { ipcUtils } from './preload/utils/ipc';
 
 const updatedAuthApi = {
@@ -2174,6 +2229,7 @@ contextBridge.exposeInMainWorld("electron", {
   ...userApi,
   ...notificationApi,
   ...conversationApi,
+  ...chatApi,
 });
 
 ================
@@ -5485,143 +5541,217 @@ export { ChatContainer, useAutoScroll }
 ================
 File: src/components/chat/chat-content-client.tsx
 ================
-import { Message, useChat } from '@ai-sdk/react';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-
 import { useSpaces } from '@/hooks/use-spaces';
 import { useConversations } from '@/hooks/use-conversations';
-import { ChatMessages } from './chat-messages';
+import { ChatMessages, ChatMessagesHandles } from './chat-messages';
 import { useUser } from '@/hooks/use-user';
 import { useMessages } from '@/hooks/use-messages';
-import { API_BASE_URL } from '@/config/api';
 import { useCommandWindow } from '@/hooks/use-command-window';
 import { useToast } from '@/hooks/use-toast';
 import { Conversation } from '@/types/conversation';
-import { CommandCenterEvents, AuthEvents } from '@/core/ipc/constants';
+import { CommandCenterEvents, AppStateEvents, ChatEvents, MessageEvents } from '@/core/ipc/constants';
 import { useFileReferences } from '@/hooks/use-file-references';
 import { ChatTopBar } from './ui/chat-top-bar';
 import { ChatInputArea } from './chat-input-area';
+import { Message } from '@/types/message';
+import { Logger } from '@/utils/logger';
+import { IpcResponse } from '@/types/ipc';
+
+const logger = new Logger('ChatContentClient');
 
 type FileTag = {
-  id: string
-  name: string
-  path: string
-}
+  id: string;
+  name: string;
+  path: string;
+};
 
 export default function ChatContent() {
   const { profile: user } = useUser();
-  const { messages: messagesFromHook } = useMessages();
+  const { messages: allMessages, isLoading: messagesLoading } = useMessages();
   const { spaces, activeSpace, setActiveSpaceById, isLoading: isSpaceLoading } = useSpaces();
-  const { 
-    activeConversation, 
+  const {
+    activeConversation,
     setActiveConversation,
-    createConversation 
+    createConversation,
   } = useConversations();
   const { handleCommandWindowToggle } = useCommandWindow();
   const { fileReferences, setFileReferences, clearFileReferences, fileReferencesMap } = useFileReferences();
   const { toast } = useToast();
 
+  const [input, setInput] = useState('');
+  const [chatStatus, setChatStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [streamingMessage, setStreamingMessage] = useState<Message | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const [searchMode, setSearchMode] = useState<'chat' | 'search' | 'semantic' | 'hybrid'>('chat');
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const chatMessagesRef = useRef<ChatMessagesHandles>(null);
   const [isStickToBottom, setIsStickToBottom] = useState(true);
 
-  const initialMessages = useMemo(() => messagesFromHook || [], [messagesFromHook]);
+  const currentConversationMessages = useMemo(() => {
+    return allMessages?.filter(m => m.conversation_id === activeConversation?.id) || [];
+  }, [allMessages, activeConversation?.id]);
 
-  const chatKey = `${activeConversation?.id || 'default'}-${activeSpace?.provider || ''}-${activeSpace?.model || ''}`;
-  
-  async function getHeaders() {
-    try {
-      const response = await window.electron.invoke(AuthEvents.GET_AUTH_TOKEN);
-      if (!response.success || !response.data?.accessToken) {
-        console.error('Failed to get access token:', response.error || 'No data returned');
-        throw new Error('Failed to get access token');
-      }
-      return {
-        Authorization: `Bearer ${response.data.accessToken}`,
-      };
-    } catch (error) {
-      console.error('Error fetching auth token:', error);
-      throw new Error(`Authentication error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  const displayMessages = useMemo(() => {
+    const combined: Message[] = [...currentConversationMessages];
+    if (chatStatus === 'loading' && streamingMessage) {
+      combined.push(streamingMessage);
     }
-  }
+    return combined;
+  }, [currentConversationMessages, chatStatus, streamingMessage]);
 
-  const customFetch: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-    try {
-      const headers = await getHeaders();
+  useEffect(() => {
+    type StreamChunkData = { chunk: string; messageId?: string };
+    const cleanupChunk = window.electron.on(ChatEvents.CHAT_STREAM_CHUNK, (_event: Electron.IpcRendererEvent, response: IpcResponse<StreamChunkData>) => {
+       if (response.success && response.data) {
+          const { chunk, messageId } = response.data;
+          setStreamingMessage((prev: Message | null): Message => {
+            const now = new Date().toISOString();
+            return {
+              id: prev?.id || messageId || `streaming_${Date.now()}`,
+              role: 'assistant',
+              content: (prev?.content || '') + chunk,
+              created_at: prev?.created_at || now,
+              updated_at: now,
+              conversation_id: prev?.conversation_id || activeConversation?.id || '',
+              user_id: prev?.user_id || 'assistant_id',
+              is_deleted: false,
+              annotations: prev?.annotations || [],
+            };
+          });
+       } else if (!response.success) {
+         // Handle potential errors sent over the CHUNK channel if needed
+         logger.warn('[ChatClient] Received unsuccessful CHUNK event', { error: response.error });
+       }
+    });
 
-      const url = typeof input === 'string' ? input : input.toString();
+    const cleanupFinish = window.electron.on(ChatEvents.CHAT_STREAM_FINISH, (_event: Electron.IpcRendererEvent, response: IpcResponse) => {
+       if (response.success) {
+          logger.debug('[ChatClient] Stream finished event received');
+          setStreamingMessage(null);
+          setChatStatus('idle');
+       }
+    });
 
-      const updatedOptions: RequestInit = {
-        ...init,
-        headers: {
-          ...(init?.headers || {}),
-          ...headers,
-        },
-      };
+    const cleanupError = window.electron.on(ChatEvents.CHAT_STREAM_ERROR, (_event: Electron.IpcRendererEvent, response: IpcResponse) => {
+       if (!response.success) {
+          const error = response.error || 'Unknown stream error';
+          logger.error('[ChatClient] Stream error event received:', { error });
+          setErrorMessage(error);
+          setChatStatus('error');
+          setStreamingMessage(null);
+          toast({
+            title: 'Chat Error',
+            description: error,
+            variant: 'destructive',
+          });
+       }
+    });
 
-      return fetch(url, updatedOptions);
-    } catch (error) {
-      console.error('Failed to prepare fetch request due to auth error:', error);
-      toast({
-        title: 'Authentication Error',
-        description: `Could not retrieve authentication token. Please try logging out and back in. Details: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        variant: 'destructive',
-        duration: 9000,
-      });
-      throw new Error('Failed to prepare request due to authentication error.');
-    }
+    return () => {
+      logger.debug('Cleaning up chat listeners...');
+      cleanupChunk(); 
+      cleanupFinish();
+      cleanupError();
+    };
+  }, [toast, activeConversation?.id, activeSpace?.id]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setInput(e.target.value);
   };
 
-  const chatConfig = useMemo(() => ({
-    id: chatKey,
-    api: `${API_BASE_URL}/api/chat`,
-    initialMessages: initialMessages as Message[],
-    fetch: customFetch,
-    body: {
-      spaceId: activeSpace?.id || '',
-      conversationId: activeConversation?.id || null,
-      provider: activeSpace?.provider || '',
-      model: activeSpace?.model || '',
-      searchMode,
-      chatMode: activeSpace?.chat_mode || 'ask',
-      chatModeConfig: activeSpace?.chat_mode_config || { tools: [] },
-      files: fileReferencesMap,
-    },
-    onFinish() {
-      setData([]);
-      clearFileReferences();
-    },
-  }), [
-    chatKey,
-    initialMessages,
-    customFetch,
-    activeSpace?.id,
-    activeConversation?.id,
-    activeSpace?.provider,
-    activeSpace?.model,
-    searchMode,
-    activeSpace?.chat_mode,
-    activeSpace?.chat_mode_config,
-    fileReferencesMap,
-    clearFileReferences
-  ]);
+  const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
+    e?.preventDefault();
+    if (!input.trim() || chatStatus === 'loading' || !activeSpace || !activeConversation || !user) {
+      logger.warn('[ChatClient] Submission prevented', { 
+        hasInput: !!input.trim(), 
+        chatStatus, 
+        hasActiveSpace: !!activeSpace, 
+        hasActiveConversation: !!activeConversation, 
+        hasUser: !!user 
+      });
+      return;
+    }
 
-  const {
-    messages,
-    input,
-    status,
-    handleInputChange,
-    handleSubmit,
-    data,
-    setData,
-  } = useChat(chatConfig);
+    // Prepare user message locally
+    const now = new Date().toISOString();
+    const userMessage: Message = {
+      id: `user_${Date.now()}`,
+      role: 'user',
+      content: input,
+      created_at: now,
+      updated_at: now,
+      conversation_id: activeConversation.id,
+      user_id: user.id,
+      is_deleted: false,
+      annotations: [],
+    };
+
+    // Clear input immediately after preparing the message
+    const currentInput = input;
+    setInput(''); 
+    clearFileReferences(); 
+
+    // Set loading state AFTER clearing input, BEFORE async calls
+    setChatStatus('loading');
+    setErrorMessage(null);
+    setStreamingMessage(null);
+
+    try {
+      // --- 1. Add user message via invoke --- 
+      logger.info('[ChatClient] Adding user message via IPC invoke', { messageId: userMessage.id });
+      // Use invoke with the event constant
+      const addResponse = await window.electron.invoke(MessageEvents.ADD_MESSAGE, userMessage); 
+      if (!addResponse.success) {
+        logger.error('[ChatClient] Failed to add user message via IPC', { error: addResponse.error });
+        toast({
+          title: 'Error Saving Message',
+          description: `Could not save your message: ${addResponse.error || 'Unknown error'}`,
+          variant: 'destructive',
+        });
+        setInput(currentInput); 
+        setChatStatus('idle');
+        return;
+      }
+
+      // --- 2. Prepare payload for chat stream initiation --- 
+      const payload = {
+        messages: [...currentConversationMessages, userMessage], // Send current context + new message
+        spaceId: activeSpace.id,
+        conversationId: activeConversation.id,
+        provider: activeSpace.provider,
+        model: activeSpace.model,
+        searchMode,
+        chatMode: activeSpace.chat_mode || 'ask',
+        chatModeConfig: activeSpace.chat_mode_config || { tools: [] },
+        files: fileReferencesMap, // Use the map which should be up-to-date
+      };
+
+      // --- 3. Initiate chat stream via invoke --- 
+      logger.info('[ChatClient] Initiating chat stream via IPC invoke', { conversationId: payload.conversationId });
+      // Use invoke with the event constant
+      await window.electron.invoke(ChatEvents.INITIATE_CHAT_STREAM, payload); 
+
+    } catch (error: any) {
+      // This catch block now primarily handles errors from initiateChatStream
+      logger.error('[ChatClient] Error initiating chat stream', { error: error?.message || error });
+      setErrorMessage(error?.message || 'Failed to start chat.');
+      setChatStatus('error'); // Keep error status
+      toast({
+        title: 'Error Getting Response',
+        description: `Assistant failed to respond: ${error?.message || 'Unknown error'}`,
+        variant: 'destructive',
+      });
+      // User message should already be visible due to the earlier ADD_MESSAGE call
+    }
+  };
 
   const selectFile = async (file: FileTag) => {
     try {
       let fileContent = '';
       
       try {
-        const response = await window.electron.invoke(CommandCenterEvents.READ_FILE, {
+        const response = await window.electron.invoke(CommandCenterEvents.READ_FILE, { 
           filePath: file.path,
           maxSize: 1024 * 1024,
         });
@@ -5629,55 +5759,42 @@ export default function ChatContent() {
         if (response.success && response.data) {
           fileContent = response.data.content;
         } else {
-          fileContent = `[Error loading file content: ${response.error}]`;
-          toast({
-            title: "Error Reading File",
-            description: `Could not read file content for "${file.name}": ${response.error || 'Unknown error'}`,
-            variant: "destructive",
-          });
+          throw new Error(response.error || 'Unknown error reading file');
         }
       } catch (error) {
-        fileContent = `[Error loading file content: ${error instanceof Error ? error.message : String(error)}]`;
-        toast({
-          title: "Error Reading File",
-          description: `An unexpected error occurred while reading "${file.name}": ${error instanceof Error ? error.message : String(error)}`,
-          variant: "destructive",
-        });
+         const errorMsg = error instanceof Error ? error.message : String(error);
+         fileContent = `[Error loading file content: ${errorMsg}]`;
+         logger.error(`Error reading file`, { path: file.path, error: errorMsg });
+         toast({
+           title: "Error Reading File",
+           description: `Could not read file content for "${file.name}": ${errorMsg}`,
+           variant: "destructive",
+         });
       }
       
-      const fileId = file.id || `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const fileId = file.id || `file-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
       setFileReferences(prev => {
-        const existingFileIndex = prev.findIndex(ref => ref.id === fileId);
-        if (existingFileIndex !== -1) {
-          const updatedReferences = [...prev];
-          updatedReferences[existingFileIndex] = {
+        const newRef = {
             id: fileId,
             path: file.path,
             name: file.name,
             content: fileContent,
-            type: 'file'
-          };
-          return updatedReferences;
-        } else {
-          return [...prev, {
-            id: fileId,
-            path: file.path,
-            name: file.name,
-            content: fileContent,
-            type: 'file'
-          }];
+            type: 'file' as const
+        };
+        if (!prev.some(ref => ref.path === file.path)) {
+            return [...prev, newRef];
         }
+        return prev;
       });
       
       if (input.includes('@')) {
         const atIndex = input.lastIndexOf('@');
-        const newInput = input.substring(0, atIndex);
-        handleInputChange({ target: { value: newInput } } as any);
+        setInput(input.substring(0, atIndex));
       }
       
     } catch (error) {
-      console.error("Error processing selected file:", error);
+      logger.error("Error processing selected file", { fileName: file.name, error });
       toast({
         title: "Error Processing File",
         description: `An unexpected error occurred while processing the file reference for "${file.name}".`,
@@ -5690,40 +5807,16 @@ export default function ChatContent() {
     setIsStickToBottom(isAtBottom);
   }, []);
 
-  const scrollToBottomHandler = useRef<() => void>(() => {
-    messagesContainerRef.current?.scrollTo({
-      top: messagesContainerRef.current.scrollHeight,
-      behavior: 'smooth',
-    });
-  });
-
-  const handleScrollToBottom = useCallback((callback: () => void) => {
-    scrollToBottomHandler.current = callback;
-  }, []);
-
-  const scrollToBottom = useCallback(() => {
-    scrollToBottomHandler.current();
-  }, []);
-
   const handleCreateConversation = async (title: string = 'New Conversation') => {
     if (!activeSpace?.id) {
-      toast({
-        title: 'Error',
-        description: 'Please select a space first',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Please select a space first', variant: 'destructive' });
       return;
     }
-
     try {
       await createConversation(activeSpace.id, title);
     } catch (error) {
-      console.error('Error creating conversation:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to create conversation',
-        variant: 'destructive',
-      });
+      logger.error('Error creating conversation', { spaceId: activeSpace?.id, title, error });
+      toast({ title: 'Error', description: 'Failed to create conversation', variant: 'destructive' });
     }
   };
 
@@ -5731,12 +5824,8 @@ export default function ChatContent() {
     try {
       await setActiveConversation(conversation);
     } catch (error) {
-      console.error('Error selecting conversation:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to select conversation',
-        variant: 'destructive',
-      });
+      logger.error('Error selecting conversation', { conversationId: conversation?.id, error });
+      toast({ title: 'Error', description: 'Failed to select conversation', variant: 'destructive' });
     }
   };
 
@@ -5745,43 +5834,47 @@ export default function ChatContent() {
   }, [setActiveSpaceById]);
 
   return (
-    <div className="h-full w-full">
+    <div className="h-full w-full flex flex-col">
       <ChatTopBar
         user={user}
         activeSpace={activeSpace}
         spaces={spaces}
         setActiveSpaceById={handleSetActiveSpace}
         isStickToBottom={isStickToBottom}
-        messagesLength={messages.length}
-        onScrollToBottom={scrollToBottom}
+        messagesLength={displayMessages.length}
+        onScrollToBottom={() => chatMessagesRef.current?.scrollToBottom()}
       />
       
-      <div className="flex-1 w-full h-full flex flex-col">
+      <div className="flex-1 w-full overflow-hidden flex flex-col">
         <ChatMessages
-          messages={messages}
+          messages={displayMessages}
           onStickToBottomChange={handleStickToBottomChange}
-          onScrollToBottom={handleScrollToBottom}
-          ref={messagesContainerRef}
-          isLoading={status !== 'ready' || isSpaceLoading}
-          streamData={data}
+          ref={chatMessagesRef}
+          isLoading={chatStatus === 'loading'}
+          spaceId={activeSpace?.id}
         />
         
         <ChatInputArea
           input={input}
           handleInputChange={handleInputChange}
           handleSubmit={handleSubmit}
-              disabled={!activeSpace || !activeConversation || status !== 'ready'}
+          disabled={!activeSpace || !activeConversation || chatStatus === 'loading'}
           fileReferences={fileReferences}
           setFileReferences={setFileReferences}
-          messages={messages}
+          messages={displayMessages}
           activeConversation={activeConversation}
           activeSpace={activeSpace}
-                    onCreateConversation={handleCreateConversation}
-                    onSelectConversation={handleSelectConversation}
+          onCreateConversation={handleCreateConversation}
+          onSelectConversation={handleSelectConversation}
           onCommandWindowToggle={handleCommandWindowToggle}
           onSelectFile={selectFile}
-                  />
+        />
       </div>
+      {errorMessage && (
+         <div className="p-2 text-center text-red-500 bg-red-100 border-t border-red-200">
+            Error: {errorMessage}
+         </div>
+       )}
     </div>
   );
 }
@@ -6108,16 +6201,19 @@ ChatMessage.displayName = 'ChatMessage';
 File: src/components/chat/chat-messages.tsx
 ================
 import { ChatContainer, useAutoScroll } from '@/components/chat/chat-container';
-import { useEffect, forwardRef, useRef, memo, useMemo } from 'react';
+import { useEffect, forwardRef, useRef, memo, useMemo, useImperativeHandle, useCallback } from 'react';
 import { ChatMessage } from './chat-message';
-import { JSONValue, Message } from 'ai';
+import { JSONValue } from 'ai';
+import { Message } from '@/types/message';
+
+export interface ChatMessagesHandles {
+  scrollToBottom: (behavior?: ScrollBehavior) => void;
+}
 
 interface ChatMessagesProps {
   messages: Message[];
   onStickToBottomChange?: (isStickToBottom: boolean) => void;
-  onScrollToBottom?: (callback: () => void) => void;
   isLoading?: boolean;
-  streamData?: JSONValue[] | undefined;
   spaceId?: string;
 }
 
@@ -6125,16 +6221,14 @@ const MemoizedMessage = memo(({
   message, 
   index, 
   isLoading, 
-  streamData, 
   messagesLength, 
   nextMessageRole, 
   shouldAddSeparator,
   spaceId 
 }: { 
-  message: Message; 
+  message: Message;
   index: number; 
   isLoading: boolean; 
-  streamData?: JSONValue[];
   messagesLength: number;
   nextMessageRole?: string;
   shouldAddSeparator: boolean;
@@ -6152,7 +6246,6 @@ const MemoizedMessage = memo(({
         <ChatMessage 
           message={message} 
           isLoading={isLoading}
-          streamData={streamData}
           spaceId={spaceId}
         />
       </div>
@@ -6167,11 +6260,10 @@ const MemoizedMessage = memo(({
   if (prevProps.message.id !== nextProps.message.id) return false;
   if (prevProps.message.content !== nextProps.message.content) return false;
   if (prevProps.isLoading !== nextProps.isLoading) return false;
+  if (prevProps.shouldAddSeparator !== nextProps.shouldAddSeparator) return false;
   
   if (prevProps.message.role === 'assistant' && prevProps.isLoading && nextProps.isLoading) {
-    const prevStreamLength = prevProps.streamData?.length || 0;
-    const nextStreamLength = nextProps.streamData?.length || 0;
-    return (nextStreamLength - prevStreamLength < 5);
+    return false;
   }
   
   return true;
@@ -6181,13 +6273,22 @@ MemoizedMessage.displayName = 'MemoizedMessage';
 
 const PlaceholderMessage = memo(({ 
   needsSeparator,
-  streamData,
   spaceId
 }: { 
   needsSeparator: boolean;
-  streamData?: JSONValue[];
   spaceId?: string;
 }) => {
+  const placeholderMsg: Message = useMemo(() => ({
+    id: 'placeholder-assistant',
+    role: 'assistant',
+    content: '',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    conversation_id: 'placeholder_convo',
+    user_id: 'assistant_placeholder_id',
+    is_deleted: false,
+  }), []);
+
   return (
     <div key="placeholder-assistant" className="space-y-2">
       {needsSeparator && (
@@ -6196,57 +6297,152 @@ const PlaceholderMessage = memo(({
         </div>
       )}
       <ChatMessage 
-        message={{
-          id: 'placeholder-assistant',
-          role: 'assistant',
-          content: '',
-        }}
+        message={placeholderMsg}
         isLoading={true}
-        streamData={streamData || [{ status: 'Processing...' }]}
         spaceId={spaceId}
       />
     </div>
   );
 }, (prevProps, nextProps) => {
-  const prevStreamLength = prevProps.streamData?.length || 0;
-  const nextStreamLength = nextProps.streamData?.length || 0;
-  return (nextStreamLength - prevStreamLength < 5);
+  return true;
 });
 
 PlaceholderMessage.displayName = 'PlaceholderMessage';
 
-const ChatMessagesComponent = forwardRef<HTMLDivElement, ChatMessagesProps>(
-  ({ messages, onStickToBottomChange, onScrollToBottom, isLoading, streamData, spaceId }, ref) => {
+const ChatMessagesComponent = forwardRef<ChatMessagesHandles, ChatMessagesProps>(
+  ({ messages, onStickToBottomChange, isLoading, spaceId }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
-    const actualRef = (ref as React.RefObject<HTMLDivElement>) || containerRef;
+    const actualRef = containerRef;
     const prevMessagesLengthRef = useRef(messages.length);
+    const prevLastMessageContentRef = useRef('');
+    const prevScrollHeightRef = useRef(0);
+    const isAutoScrollRestoredRef = useRef(false);
+    const lastAutoScrollEnabledRef = useRef(true);
+    const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     
+    // Debounce function to reduce frequency of scroll events
+    const debounce = useCallback((func: Function, delay: number) => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      
+      scrollTimeoutRef.current = setTimeout(() => {
+        func();
+      }, delay);
+    }, []);
+    
+    // Enhanced auto-scroll with better threshold detection
     const { 
       autoScrollEnabled, 
-      scrollToBottom 
+      scrollToBottom,
     } = useAutoScroll(actualRef, true);
     
+    // Manual function to set auto-scroll enabled state
+    // using the same isAtBottom logic as in useAutoScroll but with custom threshold
+    const checkAndRestoreAutoScroll = useCallback(() => {
+      if (!containerRef.current) return false;
+      
+      const container = containerRef.current;
+      // Use a more generous threshold (50px) to consider user "at bottom"
+      const isAtBottom = 
+        container.scrollHeight - container.scrollTop - container.clientHeight <= 50;
+        
+      return isAtBottom;
+    }, []);
+    
+    const enhancedScrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+      if (!containerRef.current) return;
+      
+      const el = containerRef.current;
+      const scrollHeight = el.scrollHeight;
+      
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      
+      scrollTimeoutRef.current = setTimeout(() => {
+        if (!containerRef.current) return;
+        
+        containerRef.current.scrollTo({
+          top: containerRef.current.scrollHeight,
+          behavior
+        });
+        
+        prevScrollHeightRef.current = containerRef.current.scrollHeight;
+      }, 10);
+    }, []);
+    
+    useImperativeHandle(ref, () => ({
+      scrollToBottom: enhancedScrollToBottom
+    }), [enhancedScrollToBottom]);
+    
     useEffect(() => {
-      if (onStickToBottomChange) {
+      if (onStickToBottomChange && lastAutoScrollEnabledRef.current !== autoScrollEnabled) {
+        lastAutoScrollEnabledRef.current = autoScrollEnabled;
         onStickToBottomChange(autoScrollEnabled);
       }
     }, [autoScrollEnabled, onStickToBottomChange]);
     
     useEffect(() => {
-      if (onScrollToBottom && scrollToBottom) {
-        const handleScrollToBottom = () => scrollToBottom("smooth");
-        onScrollToBottom(handleScrollToBottom);
+      const messagesChanged = prevMessagesLengthRef.current !== messages.length;
+      
+      const lastMessage = messages[messages.length - 1];
+      const lastMessageContent = lastMessage?.content || '';
+      const contentChanged = lastMessage && lastMessageContent !== prevLastMessageContentRef.current;
+      
+      if (containerRef.current) {
+        const el = containerRef.current;
+        const atBottom = checkAndRestoreAutoScroll();
+        
+        if (atBottom && !autoScrollEnabled && !isAutoScrollRestoredRef.current) {
+          // If user manually scrolled to bottom, trigger a scroll which will also
+          // indirectly update autoScrollEnabled in the useAutoScroll hook
+          scrollToBottom('auto');
+          isAutoScrollRestoredRef.current = true;
+        } else if (!atBottom) {
+          isAutoScrollRestoredRef.current = false;
+        }
       }
-    }, [onScrollToBottom, scrollToBottom]);
+      
+      // Apply debounce only when content is changing but not for new messages
+      if (autoScrollEnabled && messagesChanged) {
+        // For new messages, scroll immediately
+        enhancedScrollToBottom('smooth');
+      } else if (autoScrollEnabled && contentChanged && isLoading) {
+        // For content updates during streaming, use debounced scroll
+        debounce(() => enhancedScrollToBottom('smooth'), 100);
+      }
+      
+      prevMessagesLengthRef.current = messages.length;
+      prevLastMessageContentRef.current = lastMessageContent;
+    }, [messages, isLoading, autoScrollEnabled, enhancedScrollToBottom, scrollToBottom, checkAndRestoreAutoScroll, debounce]);
     
+    // Detect and handle scroll height changes (for images loading, etc)
     useEffect(() => {
-      if (prevMessagesLengthRef.current !== messages.length) {
-        prevMessagesLengthRef.current = messages.length;
-        console.log('[CLIENT] Chat messages count changed:', { 
-          count: messages.length
-        });
+      if (!containerRef.current) return;
+      
+      const observer = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const scrollHeight = containerRef.current?.scrollHeight || 0;
+          
+          // If content height changed and auto-scroll is enabled, scroll to bottom
+          if (autoScrollEnabled && scrollHeight !== prevScrollHeightRef.current) {
+            // Debounce resize-triggered scrolls to prevent excessive scrolling
+            debounce(() => enhancedScrollToBottom('auto'), 100);
+            prevScrollHeightRef.current = scrollHeight;
+          }
+        }
+      });
+      
+      // Observe the container and each message for height changes
+      if (containerRef.current) {
+        observer.observe(containerRef.current);
       }
-    }, [messages.length]);
+      
+      return () => {
+        observer.disconnect();
+      };
+    }, [autoScrollEnabled, enhancedScrollToBottom, debounce]);
 
     const messageSeparatorMap = useMemo(() => {
       const separators: Record<string, boolean> = {};
@@ -6284,8 +6480,7 @@ const ChatMessagesComponent = forwardRef<HTMLDivElement, ChatMessagesProps>(
                   key={message.id}
                   message={message}
                   index={index}
-                  isLoading={isLoading}
-                  streamData={index === messages.length - 1 && message.role === 'assistant' ? streamData : undefined}
+                  isLoading={!!(isLoading && index === messages.length - 1 && message.role === 'assistant')}
                   messagesLength={messages.length}
                   nextMessageRole={index < messages.length - 1 ? messages[index + 1].role : undefined}
                   shouldAddSeparator={messageSeparatorMap[message.id]}
@@ -6296,7 +6491,6 @@ const ChatMessagesComponent = forwardRef<HTMLDivElement, ChatMessagesProps>(
               {shouldShowPlaceholder && (
                 <PlaceholderMessage 
                   needsSeparator={needsPlaceholderSeparator}
-                  streamData={streamData}
                   spaceId={spaceId}
                 />
               )}
@@ -17410,6 +17604,130 @@ export function registerAuthHandlers() {
 }
 
 ================
+File: src/core/ipc/handlers/chat-handlers.ts
+================
+import { ipcMain, IpcMainInvokeEvent } from 'electron';
+import { ChatEvents, AppStateEvents } from '@/core/ipc/constants';
+import { Logger } from '@/utils/logger';
+import { IpcResponse } from '@/types/ipc';
+import { Message } from '@/types/message';
+import { initiateChatApiStream } from '@/services/chat/chat-service';
+import { useMainStore } from '@/store/main';
+import { makeSerializable } from '@/core/utils/state-utils';
+
+const logger = new Logger('ChatHandler');
+
+interface ChatPayload {
+  messages: Message[];
+  spaceId: string;
+  conversationId?: string;
+  provider?: string;
+  model?: string;
+  files?: any; 
+  searchMode?: string;
+  chatMode?: string;
+}
+
+export function registerChatHandlers(): void {
+  ipcMain.handle(ChatEvents.INITIATE_CHAT_STREAM, async (
+    event: IpcMainInvokeEvent,
+    payload: ChatPayload
+  ): Promise<IpcResponse> => {
+    logger.info(`[IPC Handler: ${ChatEvents.INITIATE_CHAT_STREAM}] Received request`, { spaceId: payload.spaceId, conversationId: payload.conversationId });
+    const { messages, spaceId, conversationId, provider, model, files, ...rest } = payload;
+
+    const currentMessages = messages; 
+
+    const requestPayload = {
+      messages: currentMessages,
+      spaceId,
+      conversationId,
+      provider,
+      model,
+      files,
+      searchMode: rest.searchMode,
+      chatMode: rest.chatMode,
+      stream: true,
+    };
+
+    try {
+      logger.info(`Calling initiateChatApiStream`, { spaceId: requestPayload.spaceId, conversationId: requestPayload.conversationId });
+      const response = await initiateChatApiStream(requestPayload);
+
+      if (!response.body) {
+        throw new Error('No response body from API');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
+      let finalAssistantMessageContent = '';
+      let finalAssistantMessageId = '';
+      let isFirstChunk = true;
+
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        if (value) {
+          const chunk = decoder.decode(value, { stream: true });
+          finalAssistantMessageContent += chunk; 
+
+          if (isFirstChunk) {
+            isFirstChunk = false;
+            finalAssistantMessageId = `assistant_${Date.now()}`;
+          }
+          
+          event.sender.send(ChatEvents.CHAT_STREAM_CHUNK, {
+            success: true,
+            data: { chunk: chunk, messageId: finalAssistantMessageId }, 
+          });
+        }
+      }
+
+      logger.info(`Stream finished`, { conversationId });
+      event.sender.send(ChatEvents.CHAT_STREAM_FINISH, { success: true });
+
+      try {
+        const store = useMainStore.getState();
+        const now = new Date().toISOString();
+        const finalMessage: Message = {
+          id: finalAssistantMessageId || `assistant_${Date.now()}`, 
+          content: finalAssistantMessageContent,
+          role: 'assistant',
+          created_at: now,
+          updated_at: now,
+          conversation_id: conversationId || '',
+          user_id: 'assistant_placeholder_id',
+          is_deleted: false,
+          annotations: [],
+        };
+
+        const updatedMessages = [...store.messages, finalMessage];
+        useMainStore.setState({ messages: updatedMessages });
+        
+        logger.info(`Updated main store with new message`, { conversationId, messageId: finalMessage.id });
+        
+        event.sender.send(AppStateEvents.STATE_UPDATED, {
+          success: true,
+          data: makeSerializable(useMainStore.getState()),
+        });
+      } catch (storeError: any) {
+        logger.error('Error updating main store after chat stream finish', { error: storeError.message || storeError });
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      logger.error(`[IPC Handler: ${ChatEvents.INITIATE_CHAT_STREAM}] Error`, { error: error.message || error });
+      event.sender.send(ChatEvents.CHAT_STREAM_ERROR, {
+        success: false,
+        error: error.message || 'Failed to process chat stream',
+      });
+      return { success: false, error: error.message };
+    }
+  });
+}
+
+================
 File: src/core/ipc/handlers/command-center-handlers.ts
 ================
 import { ipcMain, IpcMainInvokeEvent, BrowserWindow, app } from 'electron';
@@ -18018,6 +18336,10 @@ import { IpcResponse } from '@/types/ipc';
 import { MessageEvents, SearchEvents, AppStateEvents } from '@/core/ipc/constants';
 import { useMainStore, getMainStoreState } from '@/store/main';
 import { sanitizeStateForIPC } from '@/core/utils/state-utils';
+import { Logger } from '@/utils/logger';
+
+// Create logger instance for this handler
+const logger = new Logger('MessageHandler');
 
 function broadcastStateUpdate() {
   const state = getMainStoreState();
@@ -18094,6 +18416,36 @@ export function registerMessageHandlers() {
     } catch (error) {
       console.error('Error updating message:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Failed to update message' };
+    }
+  });
+
+  // Handler for adding a single message to the store
+  ipcMain.handle(MessageEvents.ADD_MESSAGE, async (_event: IpcMainInvokeEvent, message: Message): Promise<IpcResponse<{ message: Message }>> => {
+    try {
+      if (!message || !message.id || !message.conversation_id) {
+        throw new Error('Invalid message object received');
+      }
+      
+      const store = useMainStore.getState();
+      
+      // Avoid adding duplicates if the message somehow already exists
+      if (store.messages.some(m => m.id === message.id)) {
+        logger.warn('Attempted to add duplicate message:', { messageId: message.id });
+        return { success: true, data: { message } }; // Return success, but don't modify state
+      }
+
+      // Add the new message to the existing messages array
+      const updatedMessages = [...store.messages, message];
+      useMainStore.setState({ messages: updatedMessages });
+      
+      // Broadcast the state update to all renderers
+      broadcastStateUpdate();
+      
+      logger.info('Added user message to store via ADD_MESSAGE', { messageId: message.id, conversationId: message.conversation_id });
+      return { success: true, data: { message } };
+    } catch (error) {
+      logger.error('Error adding message via ADD_MESSAGE:', { error: error instanceof Error ? error.message : error });
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to add message to store' };
     }
   });
 }
@@ -18557,6 +18909,7 @@ export const SpaceEvents = {
 export const MessageEvents = {
   GET_CONVERSATION_MESSAGES: 'get-conversation-messages',
   SEND_MESSAGE: 'send-message',
+  ADD_MESSAGE: 'message:add',
   DELETE_MESSAGE: 'delete-message',
   UPDATE_MESSAGE: 'update-message'
 } as const;
@@ -18565,12 +18918,10 @@ export const MessageEvents = {
  * Chat-related IPC events
  */
 export const ChatEvents = {
-  CHAT_STREAM_START: 'chat-stream-start',
-  CHAT_STREAM_CHUNK: 'chat-stream-chunk',
-  CHAT_STREAM_FINISH: 'chat-stream-finish',
-  CHAT_STREAM_ERROR: 'chat-stream-error',
-  INITIATE_CHAT: 'initiate-chat',
-  CANCEL_CHAT: 'cancel-chat'
+  INITIATE_CHAT_STREAM: 'chat:initiate-stream',
+  CHAT_STREAM_CHUNK: 'chat:stream-chunk',
+  CHAT_STREAM_FINISH: 'chat:stream-finish',
+  CHAT_STREAM_ERROR: 'chat:stream-error',
 } as const;
 
 /**
@@ -18647,6 +18998,7 @@ import { registerCommandCenterHandlers } from '@/core/ipc/handlers/command-cente
 import { registerConversationHandlers } from '@/core/ipc/handlers/conversation-handlers';
 import { registerUserHandlers } from '@/core/ipc/handlers/user-handlers';
 import { registerNotificationHandlers } from '@/core/ipc/handlers/notification-handlers';
+import { registerChatHandlers } from '@/core/ipc/handlers/chat-handlers';
 
 export function registerIpcHandlers(): void {
   registerAuthHandlers();
@@ -18657,6 +19009,7 @@ export function registerIpcHandlers(): void {
   registerConversationHandlers();
   registerUserHandlers();
   registerNotificationHandlers();
+  registerChatHandlers();
 }
 
 ================
@@ -21334,6 +21687,47 @@ export async function refreshAppData(): Promise<AppStateResult> {
 }
 
 ================
+File: src/services/chat/chat-service.ts
+================
+import { fetchWithAuth } from '../api/api-service';
+import { API_BASE_URL } from '@/core/auth/auth-service';
+import { Message } from '@/types/message';
+
+// Define the expected structure of the payload for the chat API
+interface ChatApiPayload {
+  messages: Message[];
+  spaceId: string;
+  conversationId?: string;
+  provider?: string;
+  model?: string;
+  files?: any;
+  stream: boolean; // Ensure stream is explicitly part of the payload type
+  searchMode?: string;
+  chatMode?: string;
+  // Include any other fields expected by the /api/chat endpoint
+}
+
+/**
+ * Initiates a streaming chat request to the backend API.
+ * 
+ * @param payload The data payload for the chat request.
+ * @returns A Promise resolving to the raw Response object from the fetch call.
+ */
+export async function initiateChatApiStream(payload: ChatApiPayload): Promise<Response> {
+  const url = `${API_BASE_URL}/api/chat`;
+  
+  const requestPayload = { ...payload, stream: true };
+
+  return fetchWithAuth(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestPayload),
+  });
+}
+
+================
 File: src/services/conversations/conversation-service.ts
 ================
 import { API_BASE_URL } from '@/config/api';
@@ -23804,7 +24198,7 @@ File: src/types/electron.d.ts
  * and augments the Window interface to include our IPC communication types
  */
 
-import { AuthEvents, AppStateEvents, CommandCenterEvents, SpaceEvents, MessageEvents, NotificationEvents, ConversationEvents } from '@/core/ipc/constants';
+import { AuthEvents, AppStateEvents, CommandCenterEvents, SpaceEvents, MessageEvents, NotificationEvents, ConversationEvents, ChatEvents } from '@/core/ipc/constants';
 import { IpcResponse, IpcStateResponse } from '.';
 
 // Types for API responses
@@ -23857,6 +24251,7 @@ type CommandCenterState = {
   dialogType?: string;
   dialogData?: any;
 };
+
 
 /**
  * Main ElectronAPI interface that defines all available IPC methods
@@ -24101,32 +24496,13 @@ declare global {
     __SPATIAL_PLATFORM__: 'darwin' | 'win32' | 'linux';
     
     /**
-     * Zustand store access for internal use
-     * This allows direct access to the store for special cases
+     * Unified Electron interface exposed via contextBridge
      */
     electron: {
       invoke(channel: string, ...args: any[]): Promise<any>;
-      on(channel: string, listener: (event: any, ...args: any[]) => void): void;
+      on(channel: string, listener: (event: any, ...args: any[]) => void): () => void;
       off(channel: string, listener: Function): void;
-    };
-    
-    /**
-     * Direct access to the renderer store for reset operations
-     */
-    rendererStore?: {
-      getState(): any;
-      setState(state: any): void;
-      setAppState(state: any): void;
-      setSpaces(spaces: any[]): void;
-      setActiveSpace(space: any): void;
-      setConversations(conversations: any[]): void;
-      setMessages(messages: any[]): void;
-      setUser(user: any): void;
-      setProfile(profile: any): void;
-      setLoading(isLoading: boolean): void;
-      setError(error: string | null): void;
-      fetchAppState(): Promise<boolean>;
-      syncWithMainProcess(): Promise<boolean>;
+      removeAllListeners(channel: string): void;
     };
     
     /**
@@ -25633,6 +26009,132 @@ The goal is to eliminate the renderer-side Zustand store and make the main proce
     * **Serialization:** Data sent via IPC must be serializable. Avoid sending functions, complex classes, or non-serializable objects. Use utilities like `makeSerializable` [cite: 2110, 2286] or `sanitizeStateForIPC` [cite: 2288] before sending state over IPC.
 
 This approach centralizes your application state in the main process, providing a single source of truth and simplifying state management in the renderer process, relying purely on IPC for state access and updates.
+
+================
+File: refactor-use-chat.md
+================
+Okay, let's create a plan to refactor the `useChat` hook implementation within `src/components/chat/chat-content-client.tsx` [cite: 11137] to utilize Electron's IPC mechanism instead of making direct API calls from the renderer process.
+
+**Goal:** Move the responsibility of calling the `/api/chat` endpoint [cite: 11159] from the renderer process to the main process, using IPC for communication. This centralizes API interaction and authentication handling.
+
+**Current State:**
+
+* `chat-content-client.tsx` uses the `useChat` hook from `@ai-sdk/react`[cite: 11137, 11161].
+* This hook is configured with an `api` endpoint (`${API_BASE_URL}/api/chat`)[cite: 11159].
+* A `customFetch` function [cite: 11153] is provided to `useChat` which uses `window.electron.invoke(AuthEvents.GET_AUTH_TOKEN)` [cite: 11148] to get the auth token before making the actual `Workspace` request.
+* Messages are sourced from `useRendererStore` [cite: 11138] (Note: Assuming the previous request to consolidate stores is followed, this should ideally change to use the main store state later).
+* File references are managed by `useFileReferences` [cite: 11145] and included in the `useChat` body[cite: 11160].
+
+**Refactoring Plan:**
+
+1.  **Define New IPC Events for Chat:**
+    * Open `src/core/ipc/constants.ts`[cite: 12611].
+    * Ensure `ChatEvents` exist, or add them if they don't. We need events for initiating the chat and receiving stream data/status back from the main process. Example:
+        ```typescript
+        export const ChatEvents = {
+          INITIATE_CHAT_STREAM: 'chat:initiate-stream', // Renderer -> Main
+          CHAT_STREAM_CHUNK: 'chat:stream-chunk',       // Main -> Renderer
+          CHAT_STREAM_FINISH: 'chat:stream-finish',     // Main -> Renderer
+          CHAT_STREAM_ERROR: 'chat:stream-error',       // Main -> Renderer
+          // Add other chat-related events if needed
+        } as const;
+        ```
+    * Update the `IpcEventType` union in `electron/preload/utils/ipc.ts` [cite: 10558] to include `ChatEventType`.
+
+2.  **Update Preload API:**
+    * Open `electron/preload/api/messages.ts` [cite: 10509] or create a new `electron/preload/api/chat.ts`.
+    * **Add `initiateChatStream` Function:**
+        * This function will be called by the refactored renderer hook.
+        * It should take the chat payload (messages, config like `spaceId`, `conversationId`, `provider`, `model`, `files`, etc.) as an argument.
+        * It will use `ipcRenderer.invoke(ChatEvents.INITIATE_CHAT_STREAM, payload)`[cite: 10564].
+    * **Add Listeners for Stream Events:**
+        * Expose functions using `ipcUtils.on` [cite: 10562] for `CHAT_STREAM_CHUNK`, `CHAT_STREAM_FINISH`, and `CHAT_STREAM_ERROR`. These will allow the renderer hook to subscribe to updates sent from the main process. Example:
+          ```typescript
+          // In preload/api/chat.ts or messages.ts
+          import { ipcRenderer } from 'electron';
+          import { ChatEvents } from '@/core/ipc/constants';
+          import { ipcUtils } from '../utils/ipc';
+
+          export const chatApi = {
+            initiateChatStream: (payload: any) =>
+              ipcRenderer.invoke(ChatEvents.INITIATE_CHAT_STREAM, payload),
+
+            onChatStreamChunk: (callback: (chunk: any) => void) =>
+              ipcUtils.on(ChatEvents.CHAT_STREAM_CHUNK, (_event, response) => {
+                if (response.success && response.data) {
+                  callback(response.data);
+                }
+              }),
+              
+            onChatStreamFinish: (callback: () => void) =>
+              ipcUtils.on(ChatEvents.CHAT_STREAM_FINISH, (_event, response) => {
+                 if (response.success) callback();
+              }),
+
+            onChatStreamError: (callback: (error: string) => void) =>
+              ipcUtils.on(ChatEvents.CHAT_STREAM_ERROR, (_event, response) => {
+                 if (!response.success) callback(response.error || 'Unknown stream error');
+              }),
+            
+            // Make sure to expose off/removeAllListeners equivalents via ipcUtils
+            offChatStreamChunk: (callback: Function) => ipcUtils.off(ChatEvents.CHAT_STREAM_CHUNK, callback as any),
+            offChatStreamFinish: (callback: Function) => ipcUtils.off(ChatEvents.CHAT_STREAM_FINISH, callback as any),
+            offChatStreamError: (callback: Function) => ipcUtils.off(ChatEvents.CHAT_STREAM_ERROR, callback as any),
+          };
+          ```
+    * Update `electron/preload.ts` [cite: 10589] to expose the new `chatApi`.
+
+3.  **Create Main Process Chat Handlers:**
+    * Create a new file like `src/core/ipc/handlers/chat-handlers.ts`.
+    * Implement a handler for `ChatEvents.INITIATE_CHAT_STREAM`:
+        * This handler will receive the payload sent from the renderer (messages, config).
+        * It should use `WorkspaceWithAuth` [cite: 9602] (or similar main-process function) to call the backend chat API (`${API_BASE_URL}/api/chat`). Pass the necessary body parameters received from the renderer.
+        * Process the streaming response from the API.
+        * For each data chunk received:
+            * Use `event.sender.send(ChatEvents.CHAT_STREAM_CHUNK, { success: true, data: chunk })`.
+        * On stream completion:
+            * Send `event.sender.send(ChatEvents.CHAT_STREAM_FINISH, { success: true })`.
+            * **(Crucial for State Sync):** Update the main Zustand store (`useMainStore` [cite: 9878]) with the *complete* assistant message received. This should trigger the `broadcastStateUpdate` [cite: 9112, 9139, 9168] mechanism to update all renderers.
+        * On error:
+            * Send `event.sender.send(ChatEvents.CHAT_STREAM_ERROR, { success: false, error: errorMessage })`.
+    * Register these handlers in `src/core/ipc/ipc-handlers.ts`[cite: 9211].
+
+4.  **Refactor `src/components/chat/chat-content-client.tsx`:**
+    * **Remove `useChat`:** Delete the import and usage of the `@ai-sdk/react`'s `useChat` hook.
+    * **Remove `customFetch`:** This logic now resides in the main process handler via `WorkspaceWithAuth`.
+    * **Create Custom Hook/Logic:** Implement local state management for the chat interaction within the component or a new custom hook (e.g., `useIpcChat`).
+        * **State:**
+            * `messages`: Source this primarily from the global state (`useMainState` or `useRendererStore` depending on the chosen state architecture).
+            * `input`: Use `useState` for the input field value.
+            * `status`: Use `useState` to track the chat status ('idle', 'loading', 'error').
+            * `streamingMessage`: Use `useState` to hold the assistant message being built from stream chunks.
+    * **Modify `handleSubmit`:**
+        * Prevent submission if `status` is 'loading'.
+        * Set `status` to 'loading'.
+        * Append the user's message (from `input`) optimistically to the local display *and/or* send an IPC request to update the main store immediately.
+        * Get current messages from the store/state.
+        * Construct the payload including messages, `activeSpace`, `activeConversation`, `fileReferencesMap`[cite: 11160], `searchMode`, `chatMode`, etc.
+        * Call `window.electron.initiateChatStream(payload)`.
+        * Clear the `input` state.
+        * Clear `fileReferences`[cite: 11145, 11160].
+    * **Handle Stream Events:**
+        * Use `useEffect` to subscribe to `onChatStreamChunk`, `onChatStreamFinish`, `onChatStreamError` using the preload APIs.
+        * `onChatStreamChunk`: Append received `chunk.data` to the `streamingMessage` state.
+        * `onChatStreamFinish`:
+            * Signal the end of streaming. The *final* message state should arrive via the main store update (`AppStateEvents.STATE_UPDATED`) triggered by the main process handler after it updates the store.
+            * Clear `streamingMessage` state.
+            * Set `status` to 'idle'.
+        * `onChatStreamError`: Set `status` to 'error', display the error message (e.g., using `toast` [cite: 11139]).
+    * **Cleanup:** Return a cleanup function from `useEffect` to unsubscribe from all stream event listeners (`offChatStreamChunk`, etc.).
+    * **Display Messages:** Modify `ChatMessages` [cite: 11242] or the rendering logic:
+        * Render messages from the main store/state.
+        * If `status` is 'loading', append the `streamingMessage` content as a temporary assistant message, possibly using the `<StreamStatus>` component[cite: 11430].
+
+5.  **State Management Considerations:**
+    * **Messages:** The *source of truth* for the message list should be the main process store (`useMainStore`). The renderer (`ChatMessages`) should primarily react to updates pushed via `AppStateEvents.STATE_UPDATED`. The local `streamingMessage` state is only for displaying the in-progress response.
+    * **Main Store Update:** Ensure the `ChatEvents.CHAT_STREAM_FINISH` handler in the *main process* correctly updates the `messages` array in the `useMainStore` state before broadcasting the update.
+
+This refactoring moves the core API interaction logic to the main process, centralizes authentication handling, and relies on IPC for communication, aligning better with Electron's architecture. Remember to adapt the state management parts based on whether you have fully implemented the single main process store architecture.
 
 ================
 File: tsconfig.json

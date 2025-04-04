@@ -1,12 +1,13 @@
 import { useState, useMemo } from 'react';
+import { FileReference } from '../types/file-reference';
 
 export function useFileReferences() {
-  const [fileReferences, setFileReferences] = useState<any[]>([]);
+  const [fileReferences, setFileReferences] = useState<FileReference[]>([]);
 
   const clearFileReferences = () => setFileReferences([]);
   
   const fileReferencesMap = useMemo(() => {
-    const fileMap: Record<string, any> = {};
+    const fileMap: Record<string, FileReference> = {};
     fileReferences.forEach(fileRef => {
       fileMap[fileRef.id] = {
         id: fileRef.id,

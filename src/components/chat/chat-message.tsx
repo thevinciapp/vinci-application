@@ -151,23 +151,6 @@ export const ChatMessage = memo<ChatMessageProps>(({ message, userAvatarUrl, isL
       </div>
     </div>
   );
-}, (prevProps, nextProps) => {
-  if (prevProps.message.id !== nextProps.message.id) return false;
-  if (prevProps.message.role !== nextProps.message.role) return false;
-  if (prevProps.message.role === 'user') return prevProps.message.content === nextProps.message.content;
-  
-  const isStreamingPrev = prevProps.isLoading && (prevProps.message.id === 'placeholder-assistant' || prevProps.message.content.length === 0);
-  const isStreamingNext = nextProps.isLoading && (nextProps.message.id === 'placeholder-assistant' || nextProps.message.content.length === 0);
-  
-  if (isStreamingPrev !== isStreamingNext) return false;
-  
-  if (isStreamingNext && prevProps.streamData && nextProps.streamData) {
-    const prevLength = prevProps.streamData.length;
-    const nextLength = nextProps.streamData.length;
-    return nextLength <= prevLength || (nextLength - prevLength < 5);
-  }
-  
-  return prevProps.message.content === nextProps.message.content;
 });
 
 ChatMessage.displayName = 'ChatMessage';

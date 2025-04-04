@@ -15,6 +15,9 @@ import { Message } from '@/types/message';
 import { Logger } from '@/utils/logger';
 import { Message as VercelMessage } from '@ai-sdk/react';
 import { IpcResponse } from '@/types/ipc';
+import { useChatStream } from '@/hooks/use-chat-stream';
+import { useFileSelection } from '@/hooks/use-file-selection';
+import { FileReference } from '../../types/file-reference';
 
 const logger = new Logger('ChatContentClient');
 
@@ -38,9 +41,17 @@ export default function ChatContent() {
   const { toast } = useToast();
 
   const [input, setInput] = useState('');
-  const [chatStatus, setChatStatus] = useState<'idle' | 'loading' | 'error'>('idle');
-  const [streamingMessage, setStreamingMessage] = useState<Message | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { 
+    streamingMessage, 
+    isStreamComplete,
+    chatStatus, 
+    errorMessage, 
+    setChatStatus, 
+    setErrorMessage, 
+    setStreamingMessage,
+    setIsStreamComplete
+  } = useChatStream({ activeConversationId: activeConversation?.id });
+  const { selectFile } = useFileSelection({ setFileReferences, setInput, currentInput: input });
 
   const [searchMode, setSearchMode] = useState<'chat' | 'search' | 'semantic' | 'hybrid'>('chat');
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -51,83 +62,56 @@ export default function ChatContent() {
   }, [allMessages, activeConversation?.id]);
 
   const displayMessages = useMemo(() => {
-    const combined: Message[] = [...currentConversationMessages];
-    if (chatStatus === 'loading' && streamingMessage) {
-      combined.push(streamingMessage);
-    }
-    return combined;
-  }, [currentConversationMessages, chatStatus, streamingMessage]);
+    return [...currentConversationMessages];
+  }, [currentConversationMessages]);
 
   const mappedDisplayMessages: VercelMessage[] = useMemo(() => {
-    return displayMessages.map(msg => ({
+    const allMessages = [...displayMessages];
+    if (chatStatus === 'loading' && streamingMessage) {
+      allMessages.push(streamingMessage);
+    }
+    return allMessages.map(msg => ({
       id: msg.id,
       role: msg.role,
       content: msg.content,
       createdAt: new Date(msg.created_at),
     }));
-  }, [displayMessages]);
+  }, [displayMessages, chatStatus, streamingMessage]);
 
-  useEffect(() => {
-    type StreamChunkData = { chunk: string; messageId?: string };
-    const cleanupChunk = window.electron.on(ChatEvents.CHAT_STREAM_CHUNK, (_event: Electron.IpcRendererEvent, response: IpcResponse<StreamChunkData>) => {
-       if (response.success && response.data) {
-          const { chunk, messageId } = response.data;
-          setStreamingMessage((prev: Message | null): Message => {
-            const now = new Date().toISOString();
-            return {
-              id: prev?.id || messageId || `streaming_${Date.now()}`,
-              role: 'assistant',
-              content: (prev?.content || '') + chunk,
-              created_at: prev?.created_at || now,
-              updated_at: now,
-              conversation_id: prev?.conversation_id || activeConversation?.id || '',
-              user_id: prev?.user_id || 'assistant_id',
-              is_deleted: false,
-              annotations: prev?.annotations || [],
-            };
-          });
-       } else if (!response.success) {
-         // Handle potential errors sent over the CHUNK channel if needed
-         logger.warn('[ChatClient] Received unsuccessful CHUNK event', { error: response.error });
-       }
-    });
-
-    const cleanupFinish = window.electron.on(ChatEvents.CHAT_STREAM_FINISH, (_event: Electron.IpcRendererEvent, response: IpcResponse) => {
-       if (response.success) {
-          logger.debug('[ChatClient] Stream finished event received');
-          setStreamingMessage(null);
-          setChatStatus('idle');
-       }
-    });
-
-    const cleanupError = window.electron.on(ChatEvents.CHAT_STREAM_ERROR, (_event: Electron.IpcRendererEvent, response: IpcResponse) => {
-       if (!response.success) {
-          const error = response.error || 'Unknown stream error';
-          logger.error('[ChatClient] Stream error event received:', { error });
-          setErrorMessage(error);
-          setChatStatus('error');
-          setStreamingMessage(null);
-          toast({
-            title: 'Chat Error',
-            description: error,
-            variant: 'destructive',
-          });
-       }
-    });
-
-    return () => {
-      logger.debug('Cleaning up chat listeners...');
-      cleanupChunk(); 
-      cleanupFinish();
-      cleanupError();
-    };
-  }, [toast, activeConversation?.id, activeSpace?.id]);
+  // Extract stream data for assistant messages
+  const streamData = useMemo(() => {
+    // If we have an actual streamingMessage from the hook, find its content in the response
+    if (streamingMessage && chatStatus === 'loading') {
+      // This would vary based on your implementation
+      // Some systems send structured data, others might be serialized JSON
+      // For this example, we'll assume it should be the message content
+      return [{ content: streamingMessage.content }];
+    }
+    return undefined;
+  }, [streamingMessage, chatStatus]);
 
   useEffect(() => {
     if (isStickToBottom && messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   }, [mappedDisplayMessages, chatStatus, isStickToBottom]);
+
+  // Check if the streaming message has been properly saved to the permanent history
+  useEffect(() => {
+    if (streamingMessage && isStreamComplete && currentConversationMessages.length > 0) {
+      // Check if this message (or one with same content) exists in the permanent messages
+      const messageExists = currentConversationMessages.some(
+        msg => (msg.id === streamingMessage.id || msg.content === streamingMessage.content) && 
+               msg.role === 'assistant'
+      );
+      
+      if (messageExists) {
+        // The message now exists in permanent history, safe to clear
+        setStreamingMessage(null);
+        setIsStreamComplete(false);
+      }
+    }
+  }, [currentConversationMessages, streamingMessage, isStreamComplete, setStreamingMessage, setIsStreamComplete]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setInput(e.target.value);
@@ -136,7 +120,7 @@ export default function ChatContent() {
   const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
     if (!input.trim() || chatStatus === 'loading' || !activeSpace || !activeConversation || !user) {
-      logger.warn('[ChatClient] Submission prevented', { 
+      logger.warn('[ChatClient] Submission prevented', {
         hasInput: !!input.trim(), 
         chatStatus, 
         hasActiveSpace: !!activeSpace, 
@@ -146,7 +130,6 @@ export default function ChatContent() {
       return;
     }
 
-    // Prepare user message locally
     const now = new Date().toISOString();
     const userMessage: Message = {
       id: `user_${Date.now()}`,
@@ -160,20 +143,16 @@ export default function ChatContent() {
       annotations: [],
     };
 
-    // Clear input immediately after preparing the message
-    const currentInput = input;
+    const currentInputSubmit = input;
     setInput(''); 
     clearFileReferences(); 
 
-    // Set loading state AFTER clearing input, BEFORE async calls
     setChatStatus('loading');
     setErrorMessage(null);
     setStreamingMessage(null);
 
     try {
-      // --- 1. Add user message via invoke --- 
       logger.info('[ChatClient] Adding user message via IPC invoke', { messageId: userMessage.id });
-      // Use invoke with the event constant
       const addResponse = await window.electron.invoke(MessageEvents.ADD_MESSAGE, userMessage); 
       if (!addResponse.success) {
         logger.error('[ChatClient] Failed to add user message via IPC', { error: addResponse.error });
@@ -182,14 +161,13 @@ export default function ChatContent() {
           description: `Could not save your message: ${addResponse.error || 'Unknown error'}`,
           variant: 'destructive',
         });
-        setInput(currentInput); 
-        setChatStatus('idle');
+        setInput(currentInputSubmit); 
+        setChatStatus('idle'); // Revert status if add fails
         return;
       }
 
-      // --- 2. Prepare payload for chat stream initiation --- 
       const payload = {
-        messages: [...currentConversationMessages, userMessage], // Send current context + new message
+        messages: [...currentConversationMessages, userMessage],
         spaceId: activeSpace.id,
         conversationId: activeConversation.id,
         provider: activeSpace.provider,
@@ -197,81 +175,20 @@ export default function ChatContent() {
         searchMode,
         chatMode: activeSpace.chat_mode || 'ask',
         chatModeConfig: activeSpace.chat_mode_config || { tools: [] },
-        files: fileReferencesMap, // Use the map which should be up-to-date
+        files: fileReferencesMap,
       };
 
-      // --- 3. Initiate chat stream via invoke --- 
       logger.info('[ChatClient] Initiating chat stream via IPC invoke', { conversationId: payload.conversationId });
-      // Use invoke with the event constant
-      await window.electron.invoke(ChatEvents.INITIATE_CHAT_STREAM, payload); 
+      await window.electron.invoke(ChatEvents.INITIATE_CHAT_STREAM, payload);
 
     } catch (error: any) {
-      // This catch block now primarily handles errors from initiateChatStream
       logger.error('[ChatClient] Error initiating chat stream', { error: error?.message || error });
       setErrorMessage(error?.message || 'Failed to start chat.');
-      setChatStatus('error'); // Keep error status
+      setChatStatus('error'); 
       toast({
         title: 'Error Getting Response',
         description: `Assistant failed to respond: ${error?.message || 'Unknown error'}`,
         variant: 'destructive',
-      });
-      // User message should already be visible due to the earlier ADD_MESSAGE call
-    }
-  };
-
-  const selectFile = async (file: FileTag) => {
-    try {
-      let fileContent = '';
-      
-      try {
-        const response = await window.electron.invoke(CommandCenterEvents.READ_FILE, { 
-          filePath: file.path,
-          maxSize: 1024 * 1024,
-        });
-        
-        if (response.success && response.data) {
-          fileContent = response.data.content;
-        } else {
-          throw new Error(response.error || 'Unknown error reading file');
-        }
-      } catch (error) {
-         const errorMsg = error instanceof Error ? error.message : String(error);
-         fileContent = `[Error loading file content: ${errorMsg}]`;
-         logger.error(`Error reading file`, { path: file.path, error: errorMsg });
-         toast({
-           title: "Error Reading File",
-           description: `Could not read file content for "${file.name}": ${errorMsg}`,
-           variant: "destructive",
-         });
-      }
-      
-      const fileId = file.id || `file-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-
-      setFileReferences(prev => {
-        const newRef = {
-            id: fileId,
-            path: file.path,
-            name: file.name,
-            content: fileContent,
-            type: 'file' as const
-        };
-        if (!prev.some(ref => ref.path === file.path)) {
-            return [...prev, newRef];
-        }
-        return prev;
-      });
-      
-      if (input.includes('@')) {
-        const atIndex = input.lastIndexOf('@');
-        setInput(input.substring(0, atIndex));
-      }
-      
-    } catch (error) {
-      logger.error("Error processing selected file", { fileName: file.name, error });
-      toast({
-        title: "Error Processing File",
-        description: `An unexpected error occurred while processing the file reference for "${file.name}".`,
-        variant: "destructive",
       });
     }
   };
@@ -329,10 +246,13 @@ export default function ChatContent() {
       
       <div className="flex-1 w-full overflow-hidden flex flex-col">
         <ChatMessages
-          messages={mappedDisplayMessages}
+          messages={displayMessages}
+          streamingMessage={streamingMessage}
           onStickToBottomChange={handleStickToBottomChange}
           ref={messagesContainerRef}
           isLoading={chatStatus === 'loading' || isSpaceLoading || messagesLoading}
+          streamData={streamData}
+          spaceId={activeSpace?.id}
         />
         
         <ChatInputArea
