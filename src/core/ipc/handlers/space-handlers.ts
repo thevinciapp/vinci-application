@@ -17,6 +17,7 @@ import { Message } from '@/types/message';
 import { Conversation } from '@/types/conversation';
 import { useMainStore, getMainStoreState } from '@/store/main';
 import { sanitizeStateForIPC } from '@/core/utils/state-utils';
+import { Provider } from '@/types/provider';
 
 function broadcastStateUpdate() {
   const state = getMainStoreState();
@@ -83,18 +84,49 @@ export function registerSpaceHandlers() {
   ipcMain.handle(SpaceEvents.UPDATE_SPACE_MODEL, async (_event: IpcMainInvokeEvent, spaceId: string, modelId: string, provider: string): Promise<IpcResponse<null>> => {
     try {
       await updateSpaceModel(spaceId, modelId, provider);
-      
-      const spaces = await fetchSpaces();
-      const activeSpace = spaces.find(s => s.isActive) || null;
-      
-      useMainStore.setState({ spaces, activeSpace });
-      
+
+      useMainStore.setState(state => {
+        const currentSpaces = state.spaces || [];
+        const currentActiveSpace = state.activeSpace || null;
+        const providerAsType = provider as Provider;
+
+        const spaceIndex = currentSpaces.findIndex(s => s.id === spaceId);
+
+        if (spaceIndex === -1) {
+          console.warn(`[ELECTRON] UPDATE_SPACE_MODEL: Space with ID ${spaceId} not found in store.`);
+          return state;
+        }
+
+        const updatedSpaceData = { 
+          ...currentSpaces[spaceIndex], 
+          model: modelId, 
+          provider: providerAsType 
+        };
+
+        const newSpaces = [
+          ...currentSpaces.slice(0, spaceIndex),
+          updatedSpaceData,
+          ...currentSpaces.slice(spaceIndex + 1),
+        ];
+
+        const newActiveSpace = currentActiveSpace?.id === spaceId
+          ? { ...currentActiveSpace, model: modelId, provider: providerAsType }
+          : currentActiveSpace;
+
+        return {
+          ...state,
+          spaces: newSpaces,
+          activeSpace: newActiveSpace
+        };
+      });
+
       broadcastStateUpdate();
-      
+
       return { success: true };
     } catch (error) {
       console.error('[ELECTRON] Error in update-space-model handler:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error updating space model';
+      return { success: false, error: errorMessage };
     }
   });
 

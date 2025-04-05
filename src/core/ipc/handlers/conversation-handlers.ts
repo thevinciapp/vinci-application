@@ -159,6 +159,8 @@ export function registerConversationHandlers() {
          return { success: false, error: 'Conversation not found in current list' };
       }
       
+      await setActiveConversationInAPI(data.conversationId, data.spaceId);
+      
       const messages = await fetchMessages(data.conversationId);
       
       useMainStore.setState({

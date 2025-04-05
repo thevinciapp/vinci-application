@@ -78,13 +78,8 @@ export default function ChatContent() {
     }));
   }, [displayMessages, chatStatus, streamingMessage]);
 
-  // Extract stream data for assistant messages
   const streamData = useMemo(() => {
-    // If we have an actual streamingMessage from the hook, find its content in the response
     if (streamingMessage && chatStatus === 'loading') {
-      // This would vary based on your implementation
-      // Some systems send structured data, others might be serialized JSON
-      // For this example, we'll assume it should be the message content
       return [{ content: streamingMessage.content }];
     }
     return undefined;
@@ -96,17 +91,14 @@ export default function ChatContent() {
     }
   }, [mappedDisplayMessages, chatStatus, isStickToBottom]);
 
-  // Check if the streaming message has been properly saved to the permanent history
   useEffect(() => {
     if (streamingMessage && isStreamComplete && currentConversationMessages.length > 0) {
-      // Check if this message (or one with same content) exists in the permanent messages
       const messageExists = currentConversationMessages.some(
         msg => (msg.id === streamingMessage.id || msg.content === streamingMessage.content) && 
                msg.role === 'assistant'
       );
       
       if (messageExists) {
-        // The message now exists in permanent history, safe to clear
         setStreamingMessage(null);
         setIsStreamComplete(false);
       }

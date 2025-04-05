@@ -34,7 +34,7 @@ export async function fetchActiveSpace(): Promise<Space | null> {
     if (status !== 'success') {
       throw new Error(error || 'Failed to fetch active space');
     }
-    
+
     if (space) {
       useMainStore.getState().setActiveSpace(space);
     }

@@ -2,14 +2,12 @@ import React, { createContext, useState, useEffect, useContext, ReactNode, useMe
 import { MainProcessState } from '@/store/main'; // Assuming this path is correct
 import { AppStateEvents } from '@/core/ipc/constants';
 
-// Define the shape of the context value
 interface MainStateContextType {
   state: Partial<MainProcessState>;
   isLoading: boolean;
   error: string | null;
 }
 
-// Create the context with a default value
 const MainStateContext = createContext<MainStateContextType>({ 
   state: {}, 
   isLoading: true, 
@@ -28,7 +26,6 @@ export const MainStateProvider: React.FC<MainStateProviderProps> = ({ children }
   useEffect(() => {
     let isMounted = true;
 
-    // The single listener for state updates
     const handleStateUpdate = (
       _event: any,
       response: { success: boolean; data?: Partial<MainProcessState>; error?: string }
@@ -36,26 +33,21 @@ export const MainStateProvider: React.FC<MainStateProviderProps> = ({ children }
       if (!isMounted) return;
 
       if (response.success && response.data) {
+        console.log('[MainStateProvider] Received state update:', response.data);
         setState(response.data);
-        setError(null); // Clear error on successful update
-        // Only set loading to false after the first successful update
+        setError(null);
         if (isLoading) setIsLoading(false); 
       } else if (!response.success && response.error) {
         console.error('[MainStateProvider] Received state update error from main:', response.error);
         setError(response.error);
-        // Decide if we should stop loading on error
-        // setIsLoading(false); 
+        setIsLoading(false); 
       }
     };
 
-    console.log('[MainStateProvider] Setting up STATE_UPDATED listener.');
     const cleanup = window.electron.on(AppStateEvents.STATE_UPDATED, handleStateUpdate);
 
-    // Request initial state when the provider mounts
-    console.log('[MainStateProvider] Requesting initial state...');
     window.electron.invoke(AppStateEvents.GET_STATE)
       .then(response => {
-        console.log('[MainStateProvider] Received initial state response.');
         if (isMounted) {
           handleStateUpdate(null, response); // Process initial state using the same handler
         } else {
@@ -70,7 +62,6 @@ export const MainStateProvider: React.FC<MainStateProviderProps> = ({ children }
         }
       });
 
-    // Cleanup function
     return () => {
         console.log('[MainStateProvider] Cleaning up STATE_UPDATED listener.');
         isMounted = false;

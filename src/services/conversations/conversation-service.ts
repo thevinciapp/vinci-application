@@ -149,6 +149,7 @@ export async function setActiveConversationInAPI(conversationId: string, spaceId
         active: c.id === conversationId
       }));
       store.updateConversations(updatedConversations);
+      store.updateActiveConversation(conversation);
     } else {
       console.warn(`[ELECTRON] Conversation with ID ${conversationId} not found in Zustand store`);
     }
@@ -168,6 +169,9 @@ export async function fetchActiveConversation(spaceId: string): Promise<Conversa
     if (status !== 'success') {
       throw new Error(error || 'Failed to fetch active conversation');
     }
+
+    const store = useMainStore.getState();
+    store.updateActiveConversation(conversation);
 
     return conversation;
   } catch (error) {

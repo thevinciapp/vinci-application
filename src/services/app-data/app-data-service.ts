@@ -15,6 +15,7 @@ interface AppStateResult {
     spaces: Space[];
   activeSpace: Space | null;
   conversations: Conversation[];
+  activeConversation: Conversation | null;
   messages: Message[];
   initialDataLoaded: boolean;
   lastFetched: number | null;
@@ -71,10 +72,11 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
     
     let conversations: Conversation[] = [];
     let messages: Message[] = [];
+    let activeConversation: Conversation | null = null;
     
     if (activeSpace) {
       conversations = await fetchConversations(activeSpace.id);
-      const activeConversation = await fetchActiveConversation(activeSpace.id);
+      activeConversation = await fetchActiveConversation(activeSpace.id);
 
       if (activeConversation) {
         messages = await fetchMessages(activeConversation.id);
@@ -87,6 +89,7 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
       spaces,
       activeSpace,
       conversations,
+      activeConversation,
       messages,
       initialDataLoaded: true,
       lastFetched: Date.now(),
