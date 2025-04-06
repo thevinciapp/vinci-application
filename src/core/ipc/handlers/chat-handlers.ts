@@ -6,21 +6,10 @@ import type { Message, VinciUIMessage } from '@/types/message';
 import { initiateChatApiStream } from '@/services/chat/chat-service';
 import { useMainStore, getMainStoreState } from '@/store/main';
 import { sanitizeStateForIPC } from '@/core/utils/state-utils';
-
-import {
-  processChatResponse,
-} from '@/core/utils/ai-sdk-adapter/process-chat-response';  
-import {
-  getMessageParts
-} from '@/core/utils/ai-sdk-adapter/get-message-parts'; 
-import {
-  generateId,
-} from '@/core/utils/ai-sdk-adapter/adapter-utils';
-import type {
-  JSONValue,
-  UIMessage,
-} from '@/core/utils/ai-sdk-adapter/types'; 
-
+import { processChatResponse } from '@/core/utils/ai-sdk-adapter/process-chat-response';  
+import { getMessageParts } from '@/core/utils/ai-sdk-adapter/get-message-parts'; 
+import { generateId } from '@/core/utils/ai-sdk-adapter/adapter-utils';
+import type { JSONValue, UIMessage } from '@/core/utils/ai-sdk-adapter/types'; 
 
 const logger = new Logger('ChatHandler');
 
@@ -35,11 +24,8 @@ interface ChatPayload {
   chatMode?: string;
 }
 
-// Helper function to extract text content from raw Vercel AI SDK stream format
 function extractTextFromRawStream(content: string): string {
   let extractedText = '';
-  
-  // Match text chunks which typically have format: 0:"text content here"
   const textChunkRegex = /0:"([^"]*)"/g;
   let match;
   
@@ -49,8 +35,6 @@ function extractTextFromRawStream(content: string): string {
     }
   }
   
-  // If we couldn't extract anything with the regex but content exists,
-  // fall back to using the content as-is (though it might contain raw format)
   if (!extractedText && content) {
     return content;
   }
@@ -58,7 +42,6 @@ function extractTextFromRawStream(content: string): string {
   return extractedText;
 }
 
-// Function to broadcast state updates to all renderers
 function broadcastStateUpdate() {
   const state = getMainStoreState();
   const serializableState = sanitizeStateForIPC(state);
@@ -69,249 +52,351 @@ function broadcastStateUpdate() {
   });
 }
 
-export function registerChatHandlers(): void {
-  ipcMain.handle(ChatEvents.INITIATE_CHAT_STREAM, async (
-    event: IpcMainInvokeEvent,
-    payload: ChatPayload
-  ): Promise<IpcResponse> => {
-    logger.info(`[IPC Handler: ${ChatEvents.INITIATE_CHAT_STREAM}] Received request`, {
-      spaceId: payload.spaceId,
-      conversationId: payload.conversationId,
-    });
+function createRequestPayload(payload: ChatPayload) {
+  return {
+    messages: payload.messages,
+    spaceId: payload.spaceId,
+    conversationId: payload.conversationId,
+    provider: payload.provider,
+    model: payload.model,
+    files: payload.files,
+    searchMode: payload.searchMode,
+    chatMode: payload.chatMode,
+    stream: true,
+  };
+}
 
-    const requestPayload = {
-      messages: payload.messages,
-      spaceId: payload.spaceId,
-      conversationId: payload.conversationId,
-      provider: payload.provider,
-      model: payload.model,
-      files: payload.files,
-      searchMode: payload.searchMode,
-      chatMode: payload.chatMode,
-      stream: true,
-    };
-
-    let streamAborted = false;
-    let messageIdForStream: string | undefined = undefined;
-    let isFirstChunk = true;
-    let previousContentLength = 0;
-    let lastProcessedMessage: UIMessage | null = null;
-
-    try {
-      logger.info(`Calling initiateChatApiStream`, {
-        spaceId: requestPayload.spaceId,
-        conversationId: requestPayload.conversationId,
-      });
-      const response = await initiateChatApiStream(requestPayload);
-
-      if (!response.body) {
-        throw new Error('No response body from API');
-      }
-
-      await processChatResponse({
-        stream: response.body,
-        update: ({ message, data, replaceLastMessage }) => {
-           if (streamAborted) return;
-           
-           if (message.id && !messageIdForStream) {
-              messageIdForStream = message.id;
-           }
-           
-           let textContent = "";
-           
-           if (Array.isArray(message.parts) && message.parts.length > 0) {
-             const textParts = message.parts.filter(part => part.type === 'text');
-             if (textParts.length > 0) {
-               textContent = textParts.map(part => part.text).join('');
-             }
-           }
-           
-           if (!textContent && message.content) {
-             textContent = extractTextFromRawStream(message.content);
-           }
-           
-           const textDelta = textContent.substring(previousContentLength);
-           previousContentLength = textContent.length;
-
-           if (isFirstChunk) {
-              const fullMessageData = {
-                id: message.id || messageIdForStream || generateId(),
-                role: message.role,
-                content: textContent,
-                createdAt: message.createdAt,
-                parts: message.parts || [],
-                annotations: message.annotations || [],
-                toolInvocations: message.toolInvocations || [],
-                reasoning: message.reasoning,
-              };
-              
-              event.sender.send(ChatEvents.CHAT_STREAM_CHUNK, {
-                  success: true,
-                  data: { 
-                    chunk: textDelta, 
-                    messageId: messageIdForStream,
-                    fullMessage: fullMessageData,
-                    isFirstChunk: true
-                  },
-              });
-              
-              isFirstChunk = false;
-              lastProcessedMessage = message;
-              
-           } else if (textDelta || !lastProcessedMessage || messageHasMetadataChanges(message, lastProcessedMessage)) {
-              const metadataUpdates = getMetadataUpdates(message, lastProcessedMessage);
-              
-              event.sender.send(ChatEvents.CHAT_STREAM_CHUNK, {
-                  success: true,
-                  data: { 
-                    chunk: textDelta,
-                    metadataUpdates: metadataUpdates,
-                    isFirstChunk: false
-                  },
-              });
-              
-              lastProcessedMessage = message;
-           }
-        },
-        onFinish: ({ message, finishReason, usage }) => {
-          if (streamAborted) return;
-          logger.info('[IPC Handler -> FINISH]', {
-            messageId: message?.id,
-            finishReason,
-            usage,
-          });
-          
-          // Send the finish event to the renderer
-          event.sender.send(ChatEvents.CHAT_STREAM_FINISH, {
-            success: true,
-            data: { 
-              finishReason, 
-              usage,
-              finalMessage: message 
-            }, 
-          });
-          
-          // Update the store with the final message if available
-          if (message) {
-            const store = useMainStore.getState();
-            const currentMessages = store.messages || [];
-            
-            // Extract relevant data from assistant message
-            const messageId = message.id || messageIdForStream || generateId();
-            const messageRole = message.role || 'assistant';
-            const messageContent = message.content || '';
-            
-            // Create a properly formatted VinciUIMessage for the assistant response
-            const assistantMessage: VinciUIMessage = {
-              id: messageId,
-              role: messageRole as any,
-              content: messageContent,
-              createdAt: new Date(),
-              conversation_id: payload.conversationId || '',
-              space_id: payload.spaceId,
-              parts: getMessageParts({
-                role: messageRole,
-                content: messageContent
-              }) as any,
-              annotations: message.annotations as any[] || [],
-            };
-            
-            // Ensure we have a conversation ID before proceeding
-            if (!payload.conversationId) {
-              logger.warn('Cannot update messages: Conversation ID is missing');
-              return;
-            }
-            
-            // Filter out any duplicate assistant messages for this conversation
-            // First, get all existing messages for this conversation
-            const conversationMessages = currentMessages.filter(
-              m => m.conversation_id === payload.conversationId
-            );
-            
-            // Find any existing assistant message with this ID
-            const existingAssistantIndex = conversationMessages.findIndex(
-              m => m.id === assistantMessage.id
-            );
-            
-            let updatedMessages: VinciUIMessage[];
-            
-            if (existingAssistantIndex >= 0) {
-              // If the assistant message exists, update it in place
-              updatedMessages = [...currentMessages];
-              const globalIndex = currentMessages.findIndex(m => m.id === assistantMessage.id);
-              if (globalIndex >= 0) {
-                updatedMessages[globalIndex] = assistantMessage;
-              }
-            } else {
-              // If the assistant message doesn't exist, add it to the array
-              // But first check for any other messages with very similar content
-              // that might be duplicates from different streaming sessions
-              const similarAssistantMessages = conversationMessages.filter(
-                m => m.role === 'assistant' && 
-                     m.content.trim() === assistantMessage.content.trim() &&
-                     m.id !== assistantMessage.id
-              );
-              
-              if (similarAssistantMessages.length > 0) {
-                // If there are similar assistant messages, replace the most recent one
-                logger.debug('Found similar assistant message, replacing instead of adding new one');
-                updatedMessages = currentMessages.map(m => 
-                  m.id === similarAssistantMessages[similarAssistantMessages.length - 1].id ? assistantMessage : m
-                );
-              } else {
-                // No similar messages, just add the new one
-                updatedMessages = [...currentMessages, assistantMessage];
-              }
-            }
-            
-            // Filter out any message IDs that might appear more than once
-            const seenIds = new Set<string>();
-            const dedupedMessages = updatedMessages.filter(m => {
-              if (seenIds.has(m.id)) {
-                return false;
-              }
-              seenIds.add(m.id);
-              return true;
-            });
-            
-            // Update the store with all messages
-            logger.debug(`Updating store with ${dedupedMessages.length} messages after stream finished`);
-            useMainStore.getState().updateMessages(dedupedMessages);
-            
-            // Broadcast state update to all renderers
-            broadcastStateUpdate();
-          }
-        },
-        onToolCall: ({ toolCall }) => {
-          if (streamAborted) return;
-          logger.info('[IPC Handler -> TOOL_CALL]', { toolCall });
-          
-          event.sender.send(ChatEvents.CHAT_STREAM_TOOL_CALL, {
-            success: true,
-            data: { toolCall },
-          });
-        },
-        generateId: generateId,
-        lastMessage: payload.messages.length > 0
-            ? mapHandlerMessageToUIMessage(payload.messages[payload.messages.length - 1])
-            : undefined,
-      });
-
-      return { success: true };
-    } catch (error: any) {
-      streamAborted = true;
-      logger.error(
-        `[IPC Handler: ${ChatEvents.INITIATE_CHAT_STREAM}] Error processing stream`,
-        { error: error.message || error }
-      );
-
-      event.sender.send(ChatEvents.CHAT_STREAM_ERROR, {
-        success: false,
-        error: error.message || 'Failed to process chat stream',
-      });
-      return { success: false, error: error.message };
+function extractTextContent(message: UIMessage): string {
+  let textContent = "";
+  
+  if (Array.isArray(message.parts) && message.parts.length > 0) {
+    const textParts = message.parts.filter(part => part.type === 'text');
+    if (textParts.length > 0) {
+      textContent = textParts.map(part => part.text).join('');
     }
+  }
+  
+  if (!textContent && message.content) {
+    textContent = extractTextFromRawStream(message.content);
+  }
+  
+  return textContent;
+}
+
+function createFullMessageData(message: UIMessage, messageIdForStream: string | undefined, textContent: string) {
+  return {
+    id: message.id || messageIdForStream || generateId(),
+    role: message.role,
+    content: textContent,
+    createdAt: message.createdAt,
+    parts: message.parts || [],
+    annotations: message.annotations || [],
+    toolInvocations: message.toolInvocations || [],
+    reasoning: message.reasoning,
+  };
+}
+
+function sendStreamChunk(event: IpcMainInvokeEvent, textDelta: string, metadataUpdates: Partial<UIMessage> | undefined, isFirstChunk: boolean, messageId?: string, fullMessage?: any) {
+  if (isFirstChunk && fullMessage) {
+    event.sender.send(ChatEvents.CHAT_STREAM_CHUNK, {
+      success: true,
+      data: { 
+        chunk: textDelta, 
+        messageId,
+        fullMessage,
+        isFirstChunk: true
+      },
+    });
+  } else {
+    event.sender.send(ChatEvents.CHAT_STREAM_CHUNK, {
+      success: true,
+      data: { 
+        chunk: textDelta,
+        metadataUpdates,
+        isFirstChunk: false
+      },
+    });
+  }
+}
+
+function sendFinishEvent(event: IpcMainInvokeEvent, message: UIMessage | undefined, finishReason: any, usage: any) {
+  event.sender.send(ChatEvents.CHAT_STREAM_FINISH, {
+    success: true,
+    data: { 
+      finishReason, 
+      usage,
+      finalMessage: message 
+    }, 
   });
+}
+
+function createAssistantMessage(message: UIMessage, messageIdForStream: string | undefined, payload: ChatPayload): VinciUIMessage {
+  const messageId = message.id || messageIdForStream || generateId();
+  const messageRole = message.role || 'assistant';
+  const messageContent = message.content || '';
+  
+  return {
+    id: messageId,
+    role: messageRole as any,
+    content: messageContent,
+    createdAt: new Date(),
+    conversation_id: payload.conversationId || '',
+    space_id: payload.spaceId,
+    parts: getMessageParts({
+      role: messageRole,
+      content: messageContent
+    }) as any,
+    annotations: message.annotations as any[] || [],
+  };
+}
+
+function findSimilarMessages(currentMessages: VinciUIMessage[], conversationId: string | undefined, assistantMessage: VinciUIMessage) {
+  if (!conversationId) return [];
+  
+  const conversationMessages = currentMessages.filter(
+    m => m.conversation_id === conversationId
+  );
+  
+  return conversationMessages.filter(
+    m => m.role === 'assistant' && 
+         m.content.trim() === assistantMessage.content.trim() &&
+         m.id !== assistantMessage.id
+  );
+}
+
+function deduplicateMessages(messages: VinciUIMessage[]): VinciUIMessage[] {
+  const seenIds = new Set<string>();
+  return messages.filter(m => {
+    if (seenIds.has(m.id)) {
+      return false;
+    }
+    seenIds.add(m.id);
+    return true;
+  });
+}
+
+function updateStoreMessages(message: UIMessage, messageIdForStream: string | undefined, payload: ChatPayload) {
+  if (!payload.conversationId) {
+    logger.warn('Cannot update messages: Conversation ID is missing');
+    return;
+  }
+  
+  const store = useMainStore.getState();
+  const currentMessages = store.messages || [];
+  const assistantMessage = createAssistantMessage(message, messageIdForStream, payload);
+  
+  const existingAssistantIndex = currentMessages.findIndex(m => m.id === assistantMessage.id);
+  let updatedMessages: VinciUIMessage[];
+  
+  if (existingAssistantIndex >= 0) {
+    updatedMessages = [...currentMessages];
+    updatedMessages[existingAssistantIndex] = assistantMessage;
+  } else {
+    const similarMessages = findSimilarMessages(currentMessages, payload.conversationId, assistantMessage);
+    
+    if (similarMessages.length > 0) {
+      const latestSimilarMessage = similarMessages[similarMessages.length - 1];
+      updatedMessages = currentMessages.map(m => 
+        m.id === latestSimilarMessage.id ? assistantMessage : m
+      );
+    } else {
+      updatedMessages = [...currentMessages, assistantMessage];
+    }
+  }
+  
+  const dedupedMessages = deduplicateMessages(updatedMessages);
+  logger.debug(`Updating store with ${dedupedMessages.length} messages after stream finished`);
+  useMainStore.getState().updateMessages(dedupedMessages);
+  broadcastStateUpdate();
+}
+
+function sendToolCallEvent(event: IpcMainInvokeEvent, toolCall: any) {
+  event.sender.send(ChatEvents.CHAT_STREAM_TOOL_CALL, {
+    success: true,
+    data: { toolCall },
+  });
+}
+
+function sendErrorEvent(event: IpcMainInvokeEvent, errorMessage: string) {
+  event.sender.send(ChatEvents.CHAT_STREAM_ERROR, {
+    success: false,
+    error: errorMessage,
+  });
+}
+
+function handleStreamUpdate(
+  event: IpcMainInvokeEvent, 
+  message: UIMessage, 
+  previousContentLength: number, 
+  isFirstChunk: boolean, 
+  messageIdForStream: string | undefined, 
+  lastProcessedMessage: UIMessage | null,
+  streamAborted: boolean
+): { 
+  newPreviousContentLength: number; 
+  newIsFirstChunk: boolean; 
+  newLastProcessedMessage: UIMessage | null;
+} {
+  if (streamAborted) {
+    return { 
+      newPreviousContentLength: previousContentLength, 
+      newIsFirstChunk: isFirstChunk, 
+      newLastProcessedMessage: lastProcessedMessage 
+    };
+  }
+  
+  if (message.id && !messageIdForStream) {
+    messageIdForStream = message.id;
+  }
+  
+  const textContent = extractTextContent(message);
+  const textDelta = textContent.substring(previousContentLength);
+  
+  if (isFirstChunk) {
+    const fullMessageData = createFullMessageData(message, messageIdForStream, textContent);
+    sendStreamChunk(event, textDelta, undefined, true, messageIdForStream, fullMessageData);
+    return { 
+      newPreviousContentLength: textContent.length, 
+      newIsFirstChunk: false, 
+      newLastProcessedMessage: message 
+    };
+  } else if (textDelta || !lastProcessedMessage || messageHasMetadataChanges(message, lastProcessedMessage)) {
+    const metadataUpdates = getMetadataUpdates(message, lastProcessedMessage);
+    sendStreamChunk(event, textDelta, metadataUpdates, false);
+    return { 
+      newPreviousContentLength: textContent.length, 
+      newIsFirstChunk: false, 
+      newLastProcessedMessage: message 
+    };
+  }
+  
+  return { 
+    newPreviousContentLength: previousContentLength, 
+    newIsFirstChunk: isFirstChunk, 
+    newLastProcessedMessage: lastProcessedMessage 
+  };
+}
+
+function handleStreamFinish(
+  event: IpcMainInvokeEvent, 
+  message: UIMessage | undefined, 
+  finishReason: any, 
+  usage: any, 
+  messageIdForStream: string | undefined,
+  payload: ChatPayload,
+  streamAborted: boolean
+) {
+  if (streamAborted) return;
+  
+  logger.info('[IPC Handler -> FINISH]', {
+    messageId: message?.id,
+    finishReason,
+    usage,
+  });
+  
+  sendFinishEvent(event, message, finishReason, usage);
+  
+  if (message) {
+    updateStoreMessages(message, messageIdForStream, payload);
+  }
+}
+
+function processStream(
+  event: IpcMainInvokeEvent,
+  stream: ReadableStream<Uint8Array>,
+  payload: ChatPayload
+): Promise<void> {
+  let streamAborted = false;
+  let messageIdForStream: string | undefined = undefined;
+  let isFirstChunk = true;
+  let previousContentLength = 0;
+  let lastProcessedMessage: UIMessage | null = null;
+  
+  return processChatResponse({
+    stream,
+    update: ({ message, data, replaceLastMessage }) => {
+      const result = handleStreamUpdate(
+        event, 
+        message, 
+        previousContentLength, 
+        isFirstChunk, 
+        messageIdForStream, 
+        lastProcessedMessage,
+        streamAborted
+      );
+      
+      previousContentLength = result.newPreviousContentLength;
+      isFirstChunk = result.newIsFirstChunk;
+      lastProcessedMessage = result.newLastProcessedMessage;
+    },
+    onFinish: ({ message, finishReason, usage }) => {
+      handleStreamFinish(
+        event, 
+        message, 
+        finishReason, 
+        usage, 
+        messageIdForStream,
+        payload,
+        streamAborted
+      );
+    },
+    onToolCall: ({ toolCall }) => {
+      if (streamAborted) return;
+      logger.info('[IPC Handler -> TOOL_CALL]', { toolCall });
+      sendToolCallEvent(event, toolCall);
+    },
+    generateId: generateId,
+    lastMessage: payload.messages.length > 0
+      ? mapHandlerMessageToUIMessage(payload.messages[payload.messages.length - 1])
+      : undefined,
+  }).catch(error => {
+    streamAborted = true;
+    throw error;
+  });
+}
+
+async function handleChatStreamRequest(
+  event: IpcMainInvokeEvent,
+  payload: ChatPayload
+): Promise<IpcResponse> {
+  logger.info(`[IPC Handler: ${ChatEvents.INITIATE_CHAT_STREAM}] Received request`, {
+    spaceId: payload.spaceId,
+    conversationId: payload.conversationId,
+  });
+
+  const requestPayload = createRequestPayload(payload);
+
+  try {
+    logger.info(`Calling initiateChatApiStream`, {
+      spaceId: requestPayload.spaceId,
+      conversationId: requestPayload.conversationId,
+    });
+    
+    const response = await initiateChatApiStream(requestPayload);
+
+    if (!response.body) {
+      throw new Error('No response body from API');
+    }
+
+    await processStream(event, response.body, payload);
+    return { success: true };
+    
+  } catch (error: any) {
+    logger.error(
+      `[IPC Handler: ${ChatEvents.INITIATE_CHAT_STREAM}] Error processing stream`,
+      { error: error.message || error }
+    );
+
+    sendErrorEvent(event, error.message || 'Failed to process chat stream');
+    return { success: false, error: error.message };
+  }
+}
+
+export function registerChatHandlers(): void {
+  ipcMain.handle(
+    ChatEvents.INITIATE_CHAT_STREAM, 
+    (event: IpcMainInvokeEvent, payload: ChatPayload) => handleChatStreamRequest(event, payload)
+  );
 }
 
 function messageHasMetadataChanges(newMessage: UIMessage, oldMessage: UIMessage | null): boolean {
@@ -359,7 +444,7 @@ function mapHandlerMessageToUIMessage(handlerMessage: Message): UIMessage {
   };
 
   return {
-      ...uiMessageBase,
-      parts: getMessageParts(uiMessageBase)
+    ...uiMessageBase,
+    parts: getMessageParts(uiMessageBase)
   };
 } 
