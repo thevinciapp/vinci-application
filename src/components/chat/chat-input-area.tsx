@@ -95,7 +95,9 @@ export function ChatInputArea({
                   id: m.id || '',
                   content: typeof m.content === 'string' ? m.content : '',
                   role: m.role as 'user' | 'assistant',
-                  timestamp: m.createdAt ? new Date(m.createdAt) : new Date(),
+                  timestamp: m.createdAt && (typeof m.createdAt === 'string' || m.createdAt instanceof Date) ? 
+                    new Date(m.createdAt) : 
+                    new Date(),
                   annotations: m.annotations || []
                 }))}
                 conversationId={activeConversation?.id}

@@ -1,16 +1,17 @@
 import { useState, useCallback, useMemo } from 'react';
 import { MessageEvents } from '@/core/ipc/constants';
 import { useMainState } from '@/context/MainStateContext';
+import { VinciUIMessage } from '@/types/message';
+import { getMessageParts } from '@ai-sdk/ui-utils';
+import { generateId } from '@/core/utils/ai-sdk-adapter/adapter-utils';
 
 export function useMessages() {
   const { state, isLoading: isGlobalLoading, error: globalError } = useMainState();
-
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-
-  const messages = useMemo(() => state.messages || [], [state.messages]);
-
-  console.log('messages', messages);
+  const messages = useMemo(() => {
+    return state.messages;
+  }, [state.messages]);
 
   const sendMessage = useCallback(async (conversationId: string, content: string): Promise<boolean> => {
     setIsActionLoading(true);

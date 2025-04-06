@@ -153,7 +153,7 @@ export function MessagesTab({
               <span className="text-sm font-medium text-white/90 truncate">
                 {message.role === 'user' ? 'You' : 'AI'}
               </span>
-              {message.timestamp && (
+              {message.timestamp && !isNaN(message.timestamp.getTime()) && (
                 <span className="text-xs text-white/50">
                   {formatDistanceToNow(message.timestamp, { addSuffix: true })}
                 </span>

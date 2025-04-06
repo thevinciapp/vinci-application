@@ -59,7 +59,7 @@ export type UseChatHelpers = {
 };
 
 export function useChat({
-  initialMessages = [],
+  initialMessages,
   initialInput = '',
   id: initialConversationId,
   spaceId: initialSpaceId,
@@ -68,8 +68,7 @@ export function useChat({
   onError,
 }: UseChatOptions = {}): UseChatHelpers {
   const { toast } = useToast();
-  
-  const [messages, setMessagesState] = useState<any[]>(initialMessages);
+  const [messages, setMessagesState] = useState<VinciUIMessage[]>([]);
   const [input, setInput] = useState(initialInput);
   const [status, setStatus] = useState<'submitted' | 'streaming' | 'ready' | 'error'>('ready');
   const [error, setError] = useState<Error | undefined>(undefined);
@@ -94,6 +93,14 @@ export function useChat({
     onErrorRef.current = onError;
   }, [onError]);
 
+  // Effect to handle initial messages when they change
+  useEffect(() => {
+    if (initialMessages && initialMessages.length > 0) {
+      logger.debug(`Setting initial messages (${initialMessages.length}) for conversation ${initialConversationId}`);
+      setMessagesState(initialMessages);
+    }
+  }, [initialMessages, initialConversationId]);
+
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
@@ -105,7 +112,7 @@ export function useChat({
     }
   }, [conversationId, initialConversationId]);
 
-    useEffect(() => {
+  useEffect(() => {
     spaceIdRef.current = spaceId;
      if (initialSpaceId && spaceId !== initialSpaceId) {
         setSpaceId(initialSpaceId);
@@ -114,11 +121,14 @@ export function useChat({
 
 
   const setMessages = useCallback((newMessages: VinciUIMessage[]) => {
-    if (!newMessages || newMessages.length === 0) {
-      logger.warn('setMessages called with empty or null messages array');
+    if (!newMessages) {
+      logger.warn('setMessages called with null messages array');
       return;
     }
     
+    // Even if empty array is passed, we should still set it 
+    // to ensure messages clear properly when needed
+    logger.debug(`Setting messages array with ${newMessages.length} items`);
     setMessagesState(newMessages);
   }, []);
 
@@ -152,7 +162,6 @@ export function useChat({
                 content: chunk,
                 createdAt: new Date(),
                 conversation_id: conversationIdRef.current || 'unknown_conv',
-                space_id: spaceIdRef.current,
                 parts: getMessageParts({ role: 'assistant', content: chunk }),
              };
              setMessagesState((prev) => [...prev, newAssistantMessage]);
@@ -323,8 +332,7 @@ export function useChat({
           role: role,
           content: message.content || '',
           conversation_id: currentConvId,
-          space_id: currentSpaceId,
-           parts: getMessageParts({
+          parts: getMessageParts({
              role: role,
               content: message.content || '',
               experimental_attachments: (message as VinciUIMessage).experimental_attachments
@@ -391,9 +399,6 @@ export function useChat({
     append(messageToSend, chatRequestOptions);
     setInput('');
   }, [input, append]);
-
-  console.log('messages at end of chat', messages);
-
 
   return {
     messages,

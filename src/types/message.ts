@@ -4,29 +4,20 @@ import { JSONValue } from "@ai-sdk/ui-utils";
 import type { Message as VercelMessage, UIMessage as VercelUIMessage, CreateMessage as VercelCreateMessage } from '@ai-sdk/ui-utils';
 
 export interface VinciMessage extends VercelMessage {
-  user_id: string;
   conversation_id: string;
-  space_id?: string;
-  is_deleted?: boolean;
   updated_at?: string;
-  annotations?: JSONValue[] | undefined;
+  space_id?: string;
 }
 
 export interface VinciUIMessage extends VercelUIMessage {
-  user_id?: string;
   conversation_id: string;
-  space_id?: string;
-  is_deleted?: boolean;
   updated_at?: string;
-  annotations?: JSONValue[] | undefined;
+  space_id?: string;
 }
 
 export interface VinciCreateMessage extends Omit<VercelCreateMessage, 'data'> {
-  user_id?: string;
   conversation_id: string;
-  space_id?: string;
   annotations?: JSONValue[] | undefined;
-  vinci_data?: Record<string, any>;
 }
 
 export interface Message {
@@ -34,7 +25,7 @@ export interface Message {
   user_id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
-  annotations?: MessageAnnotation[];
+  annotations?: JSONValue[];
   conversation_id: string;
   is_deleted: boolean;
   created_at: string;

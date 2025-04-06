@@ -16,7 +16,48 @@ import { useChat, VinciChatRequestOptions } from '@/hooks/use-chat';
 import { useFileSelection } from '@/hooks/use-file-selection';
 import { FileReference } from '../../types/file-reference';
 import { useMessages } from '@/hooks/use-messages';
+import { getMessageParts } from '@ai-sdk/ui-utils';
+import { generateId } from '@/core/utils/ai-sdk-adapter/adapter-utils';
+
 const logger = new Logger('ChatContentClient');
+
+/**
+ * Ensures a message has all the required properties to be displayed in the UI
+ */
+function ensureMessageFormat(message: any): VinciUIMessage {
+  if (!message) {
+    // Return a default empty message instead of null
+    return {
+      id: generateId(),
+      role: 'user',
+      content: '',
+      createdAt: new Date(),
+      conversation_id: '',
+      space_id: '',
+      parts: [],
+      annotations: [],
+    };
+  }
+  
+  // Make sure we have a valid message with required properties
+  const formattedMessage: VinciUIMessage = {
+    ...message,
+    id: message.id || generateId(),
+    role: message.role || 'user',
+    content: message.content || '',
+    createdAt: message.createdAt instanceof Date ? message.createdAt : new Date(message.createdAt || message.created_at || Date.now()),
+    conversation_id: message.conversation_id || message.conversationId || '',
+    space_id: message.space_id || message.spaceId || '',
+    // Ensure parts exists
+    parts: message.parts || getMessageParts({
+      role: message.role || 'user',
+      content: message.content || ''
+    }),
+    annotations: message.annotations || [],
+  };
+  
+  return formattedMessage;
+}
 
 export default function ChatContent() {
   const { profile: user } = useUser();
@@ -28,6 +69,13 @@ export default function ChatContent() {
     conversations,
   } = useConversations();
   const { messages: initialMessages } = useMessages();
+  
+  // Log when we receive initial messages
+  useEffect(() => {
+    if (initialMessages && initialMessages.length > 0) {
+      logger.debug(`Received ${initialMessages.length} initial messages from useMessages hook`);
+    }
+  }, [initialMessages]);
   const { handleCommandWindowToggle } = useCommandWindow();
   const { fileReferences, setFileReferences, clearFileReferences, fileReferencesMap } = useFileReferences();
   const { toast } = useToast();
@@ -60,6 +108,11 @@ export default function ChatContent() {
       logger.debug('[ChatClient] useChat onFinish callback:', message);
     },
   });
+
+  // Add a useMemo to ensure messages are properly formatted
+  const formattedMessages = useMemo(() => {
+    return messages.map(message => ensureMessageFormat(message));
+  }, [messages]);
 
   useEffect(() => {
     if (isStickToBottom && messagesContainerRef.current) {
@@ -159,14 +212,14 @@ export default function ChatContent() {
         spaces={spaces}
         setActiveSpaceById={handleSetActiveSpace}
         isStickToBottom={isStickToBottom}
-        messagesLength={messages.length}
+        messagesLength={formattedMessages.length}
         onScrollToBottom={scrollToBottom}
       />
       
       <div className="flex-1 w-full overflow-hidden flex flex-col">
         <ChatMessages
-          messages={messages as VinciUIMessage[]}
-          streamingMessage={null} // TODO: Adjust ChatMessages to not need this if possible
+          messages={formattedMessages}
+          streamingMessage={null}
           onStickToBottomChange={handleStickToBottomChange}
           ref={messagesContainerRef}
           isLoading={isLoading}
@@ -180,7 +233,7 @@ export default function ChatContent() {
           disabled={!activeSpace || !activeConversation || chatIsLoading}
           fileReferences={fileReferences}
           setFileReferences={setFileReferences}
-          messages={messages as VinciUIMessage[]}
+          messages={formattedMessages}
           activeConversation={activeConversation}
           activeSpace={activeSpace}
           onCreateConversation={handleCreateConversation}

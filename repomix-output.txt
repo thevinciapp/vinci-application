@@ -94,6 +94,8 @@ src/
       chat-messages.tsx
       chat-suggestions.tsx
       markdown.tsx
+      memoized-message.tsx
+      placeholder-message.tsx
       provider-icon.tsx
       stream-status.tsx
       unified-input.tsx
@@ -197,6 +199,17 @@ src/
       constants.ts
       ipc-handlers.ts
     utils/
+      ai-sdk-adapter/
+        adapter-utils.ts
+        data-stream-parts.ts
+        fix-json.ts
+        get-message-parts.ts
+        parse-json.ts
+        parse-partial-json.ts
+        process-chat-response.ts
+        process-data-stream.ts
+        types.ts
+        usage.ts
       state-utils.ts
     window/
       shortcuts.ts
@@ -205,10 +218,14 @@ src/
     index.ts
   hooks/
     use-auth.ts
+    use-auto-scroll.ts
+    use-chat-stream.ts
+    use-chat.ts
     use-command-center.ts
     use-command-window.ts
     use-conversations.ts
     use-file-references.ts
+    use-file-selection.ts
     use-messages.ts
     use-notifications.ts
     use-spaces.ts
@@ -271,6 +288,7 @@ src/
     conversation.ts
     dialog.ts
     electron.d.ts
+    file-reference.ts
     ipc.ts
     message.ts
     notification.ts
@@ -5245,298 +5263,52 @@ export function UserProfileDropdown({ user }: UserProfileDropdownProps) {
 File: src/components/chat/chat-container.tsx
 ================
 import { cn } from "@/lib/utils/utils"
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useRef } from "react"
 import React from "react"
-
-const useAutoScroll = (
-  containerRef: React.RefObject<HTMLDivElement | null>,
-  enabled: boolean
-) => {
-  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true)
-  const lastScrollTopRef = useRef(0)
-  const autoScrollingRef = useRef(false)
-  const userScrollingRef = useRef(false)
-  const [newMessageAdded, setNewMessageAdded] = useState(false)
-  const prevChildrenCountRef = useRef(0)
-  const scrollTriggeredRef = useRef(false)
-  const scrollTimeout = useRef<NodeJS.Timeout | null>(null)
-
-  // Increased the threshold to prevent flickering when content expands
-  const isAtBottom = useCallback((element: HTMLDivElement) => {
-    const { scrollTop, scrollHeight, clientHeight } = element
-    return scrollHeight - scrollTop - clientHeight <= 100
-  }, [])
-
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
-    const container = containerRef.current
-    if (!container) return
-    
-    // If user is actively scrolling up, don't interrupt
-    if (userScrollingRef.current && !isAtBottom(container)) {
-      return
-    }
-
-    autoScrollingRef.current = true
-    scrollTriggeredRef.current = true
-    
-    const targetScrollTop = container.scrollHeight - container.clientHeight
-
-    container.scrollTo({
-      top: targetScrollTop,
-      behavior: behavior
-    })
-
-    // Use a single reliable cleanup mechanism with improved timing
-    if (scrollTimeout.current) {
-      clearTimeout(scrollTimeout.current)
-    }
-    
-    scrollTimeout.current = setTimeout(() => {
-      autoScrollingRef.current = false
-      scrollTriggeredRef.current = false
-      scrollTimeout.current = null
-    }, 300)
-  }, [containerRef, isAtBottom])
-
-  useEffect(() => {
-    if (!enabled) return
-
-    const container = containerRef?.current
-    if (!container) return
-
-    lastScrollTopRef.current = container.scrollTop
-
-    const handleScroll = () => {
-      if (autoScrollingRef.current) return
-
-      const currentScrollTop = container.scrollTop
-      const wasAtBottom = isAtBottom(container)
-      
-      // Only disable auto-scroll if user is actually scrolling up
-      if (currentScrollTop < lastScrollTopRef.current && 
-          autoScrollEnabled && 
-          Math.abs(currentScrollTop - lastScrollTopRef.current) > 10) {
-        setAutoScrollEnabled(false)
-        userScrollingRef.current = true
-        
-        // Reset user scrolling state after a short delay
-        if (scrollTimeout.current) {
-          clearTimeout(scrollTimeout.current)
-        }
-        
-        scrollTimeout.current = setTimeout(() => {
-          userScrollingRef.current = false
-          scrollTimeout.current = null
-        }, 300)
-      }
-
-      // Re-enable auto-scroll if user scrolls back to bottom
-      if (wasAtBottom && !autoScrollEnabled) {
-        setAutoScrollEnabled(true)
-      }
-
-      lastScrollTopRef.current = currentScrollTop
-    }
-
-    const handleWheel = (e: WheelEvent) => {
-      // Mark that user is actively scrolling if scrolling up
-      if (e.deltaY < 0) {
-        userScrollingRef.current = true
-        
-        // Reset user scrolling after a delay
-        if (scrollTimeout.current) {
-          clearTimeout(scrollTimeout.current)
-        }
-        
-        scrollTimeout.current = setTimeout(() => {
-          userScrollingRef.current = false
-          scrollTimeout.current = null
-        }, 300)
-        
-        if (autoScrollEnabled) {
-          setAutoScrollEnabled(false)
-        }
-      }
-    }
-
-    const handleTouchStart = () => {
-      lastScrollTopRef.current = container.scrollTop
-    }
-
-    const handleTouchMove = () => {
-      if (container.scrollTop < lastScrollTopRef.current && 
-          autoScrollEnabled && 
-          Math.abs(container.scrollTop - lastScrollTopRef.current) > 10) {
-        setAutoScrollEnabled(false)
-        userScrollingRef.current = true
-      }
-
-      lastScrollTopRef.current = container.scrollTop
-    }
-
-    const handleTouchEnd = () => {
-      // Reset user scrolling state after touch ends
-      setTimeout(() => {
-        userScrollingRef.current = false
-      }, 300)
-      
-      if (isAtBottom(container) && !autoScrollEnabled) {
-        setAutoScrollEnabled(true)
-      }
-    }
-
-    container.addEventListener("scroll", handleScroll, { passive: true })
-    container.addEventListener("wheel", handleWheel, { passive: true })
-    container.addEventListener("touchstart", handleTouchStart, {
-      passive: true,
-    })
-    container.addEventListener("touchmove", handleTouchMove, { passive: true })
-    container.addEventListener("touchend", handleTouchEnd, { passive: true })
-
-    return () => {
-      container.removeEventListener("scroll", handleScroll)
-      container.removeEventListener("wheel", handleWheel)
-      container.removeEventListener("touchstart", handleTouchStart)
-      container.removeEventListener("touchmove", handleTouchMove)
-      container.removeEventListener("touchend", handleTouchEnd)
-      
-      if (scrollTimeout.current) {
-        clearTimeout(scrollTimeout.current)
-      }
-    }
-  }, [containerRef, enabled, autoScrollEnabled, isAtBottom])
-
-  return {
-    autoScrollEnabled,
-    scrollToBottom,
-    isScrolling: autoScrollingRef.current,
-    scrollTriggered: scrollTriggeredRef.current,
-    userScrolling: userScrollingRef.current,
-    newMessageAdded,
-    setNewMessageAdded,
-    prevChildrenCountRef,
-  }
-}
+import { useAutoScroll } from "@/hooks/use-auto-scroll";
 
 export type ChatContainerProps = {
   children: React.ReactNode
   className?: string
   autoScroll?: boolean
-  scrollToRef?: React.RefObject<HTMLDivElement | null>
+  scrollToRef?: React.RefObject<HTMLDivElement | null> 
   ref?: React.RefObject<HTMLDivElement | null>
 } & React.HTMLAttributes<HTMLDivElement>
 
-function ChatContainer({
-  className,
-  children,
-  autoScroll = true,
-  scrollToRef,
-  ref,
-  ...props
-}: ChatContainerProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const localBottomRef = useRef<HTMLDivElement>(null)
-  const bottomRef = scrollToRef || localBottomRef
-  const chatContainerRef = ref || containerRef
-  const prevChildrenRef = useRef<React.ReactNode>(null)
-  const contentChangedWithoutNewMessageRef = useRef(false)
-
-  const { 
-    autoScrollEnabled, 
-    scrollToBottom, 
-    isScrolling,
-    scrollTriggered,
-    newMessageAdded,
-    setNewMessageAdded,
-    prevChildrenCountRef
-  } = useAutoScroll(
-    chatContainerRef,
-    autoScroll
-  )
-
-  // Improved content change detection
-  useEffect(() => {
-    const childrenArray = React.Children.toArray(children)
-    const currentChildrenCount = childrenArray.length
-    
-    // Check if content is changing due to streaming or new message
-    const isContentChange = prevChildrenRef.current !== children
-    
-    // New message detection
-    if (currentChildrenCount > prevChildrenCountRef.current) {
-      setNewMessageAdded(true)
-    } 
-    // Content update detection (like streaming) 
-    else if (isContentChange) {
-      contentChangedWithoutNewMessageRef.current = true
-    }
-    
-    prevChildrenCountRef.current = currentChildrenCount
-    prevChildrenRef.current = children
-  }, [children, setNewMessageAdded])
-
-  // Improved scroll behavior with more specific conditions
-  useEffect(() => {
-    if (!autoScroll) return
-    
-    const container = chatContainerRef.current
-    if (!container) return
-    
-    // Handler for deciding when to auto-scroll
-    const scrollHandler = () => {
-      // Case 1: New message arrived - scroll to bottom if auto-scroll is enabled
-      if (newMessageAdded && autoScrollEnabled) {
-        scrollToBottom("smooth")
-        setNewMessageAdded(false)
-        contentChangedWithoutNewMessageRef.current = false
-        return
-      }
+const ChatContainer = React.forwardRef<HTMLDivElement, ChatContainerProps>(
+    ({
+      className,
+      children,
+      autoScroll = true,
+      scrollToRef, 
+      ...props
+    }, ref) => {
+        
+      const internalRef = useRef<HTMLDivElement>(null);
+      const chatContainerRef = (ref || internalRef) as React.RefObject<HTMLDivElement>; 
       
-      // Case 2: Content is streaming or changing for existing message
-      if (contentChangedWithoutNewMessageRef.current) {
-        // Only auto-scroll if:
-        // 1. Auto-scroll is enabled (user is at bottom)
-        // 2. Not currently in manual scroll animation
-        // 3. User isn't actively scrolling up
-        if (autoScrollEnabled && !isScrolling && !scrollTriggered) {
-          scrollToBottom("smooth")
-        }
-        contentChangedWithoutNewMessageRef.current = false
-      }
+      useAutoScroll(
+        chatContainerRef,
+        autoScroll
+      );
+      
+      return (
+        <div
+          ref={chatContainerRef} 
+          className={cn("flex flex-col overflow-y-auto", className)}
+          style={{ overflowAnchor: 'auto' }}
+          role="log"
+          {...props}
+        >
+          {children}
+        </div>
+      )
     }
-    
-    // Use requestAnimationFrame for smooth performance
-    requestAnimationFrame(scrollHandler)
-    
-  }, [
-    children, 
-    autoScroll, 
-    autoScrollEnabled, 
-    isScrolling,
-    scrollTriggered,
-    scrollToBottom, 
-    newMessageAdded, 
-    setNewMessageAdded
-  ])
+)
 
-  return (
-    <div
-      className={cn("flex flex-col overflow-y-auto", className)}
-      role="log"
-      ref={chatContainerRef}
-      {...props}
-    >
-      {children}
-      <div
-        ref={bottomRef}
-        className="h-[1px] w-full shrink-0 scroll-mt-4"
-        aria-hidden="true"
-      />
-    </div>
-  )
-}
+ChatContainer.displayName = "ChatContainer";
 
-export { ChatContainer, useAutoScroll }
+export { ChatContainer }
 
 ================
 File: src/components/chat/chat-content-client.tsx
@@ -5544,294 +5316,155 @@ File: src/components/chat/chat-content-client.tsx
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useSpaces } from '@/hooks/use-spaces';
 import { useConversations } from '@/hooks/use-conversations';
-import { ChatMessages, ChatMessagesHandles } from './chat-messages';
+import { ChatMessages } from './chat-messages';
 import { useUser } from '@/hooks/use-user';
-import { useMessages } from '@/hooks/use-messages';
 import { useCommandWindow } from '@/hooks/use-command-window';
 import { useToast } from '@/hooks/use-toast';
 import { Conversation } from '@/types/conversation';
-import { CommandCenterEvents, AppStateEvents, ChatEvents, MessageEvents } from '@/core/ipc/constants';
+import { CommandCenterEvents } from '@/core/ipc/constants';
 import { useFileReferences } from '@/hooks/use-file-references';
 import { ChatTopBar } from './ui/chat-top-bar';
 import { ChatInputArea } from './chat-input-area';
-import { Message } from '@/types/message';
+import { VinciUIMessage } from '@/types/message';
 import { Logger } from '@/utils/logger';
-import { IpcResponse } from '@/types/ipc';
-
+import { useChat, VinciChatRequestOptions } from '@/hooks/use-chat';
+import { useFileSelection } from '@/hooks/use-file-selection';
+import { FileReference } from '../../types/file-reference';
+import { useMessages } from '@/hooks/use-messages';
 const logger = new Logger('ChatContentClient');
-
-type FileTag = {
-  id: string;
-  name: string;
-  path: string;
-};
 
 export default function ChatContent() {
   const { profile: user } = useUser();
-  const { messages: allMessages, isLoading: messagesLoading } = useMessages();
   const { spaces, activeSpace, setActiveSpaceById, isLoading: isSpaceLoading } = useSpaces();
   const {
     activeConversation,
     setActiveConversation,
     createConversation,
+    conversations,
   } = useConversations();
+  const { messages: initialMessages } = useMessages();
   const { handleCommandWindowToggle } = useCommandWindow();
   const { fileReferences, setFileReferences, clearFileReferences, fileReferencesMap } = useFileReferences();
   const { toast } = useToast();
 
-  const [input, setInput] = useState('');
-  const [chatStatus, setChatStatus] = useState<'idle' | 'loading' | 'error'>('idle');
-  const [streamingMessage, setStreamingMessage] = useState<Message | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
   const [searchMode, setSearchMode] = useState<'chat' | 'search' | 'semantic' | 'hybrid'>('chat');
-  const chatMessagesRef = useRef<ChatMessagesHandles>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isStickToBottom, setIsStickToBottom] = useState(true);
 
-  const currentConversationMessages = useMemo(() => {
-    return allMessages?.filter(m => m.conversation_id === activeConversation?.id) || [];
-  }, [allMessages, activeConversation?.id]);
-
-  const displayMessages = useMemo(() => {
-    const combined: Message[] = [...currentConversationMessages];
-    if (chatStatus === 'loading' && streamingMessage) {
-      combined.push(streamingMessage);
-    }
-    return combined;
-  }, [currentConversationMessages, chatStatus, streamingMessage]);
+  const {
+    messages,
+    append,
+    reload,
+    stop,
+    input,
+    setInput,
+    handleInputChange,
+    handleSubmit: hookHandleSubmit,
+    isLoading: chatIsLoading,
+    status: chatStatus,
+    error: chatError,
+    setMessages,
+  } = useChat({
+    initialMessages,
+    id: activeConversation?.id,
+    spaceId: activeSpace?.id,
+    onError: (err) => {
+      logger.error('[ChatClient] useChat onError callback:', err);
+    },
+    onFinish: (message) => {
+      logger.debug('[ChatClient] useChat onFinish callback:', message);
+    },
+  });
 
   useEffect(() => {
-    type StreamChunkData = { chunk: string; messageId?: string };
-    const cleanupChunk = window.electron.on(ChatEvents.CHAT_STREAM_CHUNK, (_event: Electron.IpcRendererEvent, response: IpcResponse<StreamChunkData>) => {
-       if (response.success && response.data) {
-          const { chunk, messageId } = response.data;
-          setStreamingMessage((prev: Message | null): Message => {
-            const now = new Date().toISOString();
-            return {
-              id: prev?.id || messageId || `streaming_${Date.now()}`,
-              role: 'assistant',
-              content: (prev?.content || '') + chunk,
-              created_at: prev?.created_at || now,
-              updated_at: now,
-              conversation_id: prev?.conversation_id || activeConversation?.id || '',
-              user_id: prev?.user_id || 'assistant_id',
-              is_deleted: false,
-              annotations: prev?.annotations || [],
-            };
-          });
-       } else if (!response.success) {
-         // Handle potential errors sent over the CHUNK channel if needed
-         logger.warn('[ChatClient] Received unsuccessful CHUNK event', { error: response.error });
-       }
-    });
+    if (isStickToBottom && messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+  }, [messages, chatStatus, isStickToBottom]);
 
-    const cleanupFinish = window.electron.on(ChatEvents.CHAT_STREAM_FINISH, (_event: Electron.IpcRendererEvent, response: IpcResponse) => {
-       if (response.success) {
-          logger.debug('[ChatClient] Stream finished event received');
-          setStreamingMessage(null);
-          setChatStatus('idle');
-       }
-    });
-
-    const cleanupError = window.electron.on(ChatEvents.CHAT_STREAM_ERROR, (_event: Electron.IpcRendererEvent, response: IpcResponse) => {
-       if (!response.success) {
-          const error = response.error || 'Unknown stream error';
-          logger.error('[ChatClient] Stream error event received:', { error });
-          setErrorMessage(error);
-          setChatStatus('error');
-          setStreamingMessage(null);
-          toast({
-            title: 'Chat Error',
-            description: error,
-            variant: 'destructive',
-          });
-       }
-    });
-
-    return () => {
-      logger.debug('Cleaning up chat listeners...');
-      cleanupChunk(); 
-      cleanupFinish();
-      cleanupError();
-    };
-  }, [toast, activeConversation?.id, activeSpace?.id]);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setInput(e.target.value);
-  };
-
-  const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
-    e?.preventDefault();
-    if (!input.trim() || chatStatus === 'loading' || !activeSpace || !activeConversation || !user) {
-      logger.warn('[ChatClient] Submission prevented', { 
-        hasInput: !!input.trim(), 
-        chatStatus, 
-        hasActiveSpace: !!activeSpace, 
-        hasActiveConversation: !!activeConversation, 
-        hasUser: !!user 
+  const handleSubmit = useCallback(async (event?: React.FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+    if (!input.trim() || chatIsLoading || !activeSpace || !activeConversation || !user) {
+      logger.warn('[ChatClient] Submission prevented', {
+        hasInput: !!input.trim(),
+        chatIsLoading,
+        hasActiveSpace: !!activeSpace,
+        hasActiveConversation: !!activeConversation,
+        hasUser: !!user
       });
       return;
     }
 
-    // Prepare user message locally
-    const now = new Date().toISOString();
-    const userMessage: Message = {
-      id: `user_${Date.now()}`,
-      role: 'user',
-      content: input,
-      created_at: now,
-      updated_at: now,
-      conversation_id: activeConversation.id,
-      user_id: user.id,
-      is_deleted: false,
-      annotations: [],
+    const options: VinciChatRequestOptions = {
+       provider: activeSpace.provider,
+       model: activeSpace.model,
+       files: fileReferencesMap,
+       searchMode: searchMode,
+       chatMode: activeSpace.chat_mode || 'ask',
     };
 
-    // Clear input immediately after preparing the message
-    const currentInput = input;
-    setInput(''); 
-    clearFileReferences(); 
-
-    // Set loading state AFTER clearing input, BEFORE async calls
-    setChatStatus('loading');
-    setErrorMessage(null);
-    setStreamingMessage(null);
-
-    try {
-      // --- 1. Add user message via invoke --- 
-      logger.info('[ChatClient] Adding user message via IPC invoke', { messageId: userMessage.id });
-      // Use invoke with the event constant
-      const addResponse = await window.electron.invoke(MessageEvents.ADD_MESSAGE, userMessage); 
-      if (!addResponse.success) {
-        logger.error('[ChatClient] Failed to add user message via IPC', { error: addResponse.error });
-        toast({
-          title: 'Error Saving Message',
-          description: `Could not save your message: ${addResponse.error || 'Unknown error'}`,
-          variant: 'destructive',
-        });
-        setInput(currentInput); 
-        setChatStatus('idle');
-        return;
-      }
-
-      // --- 2. Prepare payload for chat stream initiation --- 
-      const payload = {
-        messages: [...currentConversationMessages, userMessage], // Send current context + new message
-        spaceId: activeSpace.id,
-        conversationId: activeConversation.id,
-        provider: activeSpace.provider,
-        model: activeSpace.model,
-        searchMode,
-        chatMode: activeSpace.chat_mode || 'ask',
-        chatModeConfig: activeSpace.chat_mode_config || { tools: [] },
-        files: fileReferencesMap, // Use the map which should be up-to-date
-      };
-
-      // --- 3. Initiate chat stream via invoke --- 
-      logger.info('[ChatClient] Initiating chat stream via IPC invoke', { conversationId: payload.conversationId });
-      // Use invoke with the event constant
-      await window.electron.invoke(ChatEvents.INITIATE_CHAT_STREAM, payload); 
-
-    } catch (error: any) {
-      // This catch block now primarily handles errors from initiateChatStream
-      logger.error('[ChatClient] Error initiating chat stream', { error: error?.message || error });
-      setErrorMessage(error?.message || 'Failed to start chat.');
-      setChatStatus('error'); // Keep error status
-      toast({
-        title: 'Error Getting Response',
-        description: `Assistant failed to respond: ${error?.message || 'Unknown error'}`,
-        variant: 'destructive',
-      });
-      // User message should already be visible due to the earlier ADD_MESSAGE call
-    }
-  };
-
-  const selectFile = async (file: FileTag) => {
-    try {
-      let fileContent = '';
-      
-      try {
-        const response = await window.electron.invoke(CommandCenterEvents.READ_FILE, { 
-          filePath: file.path,
-          maxSize: 1024 * 1024,
-        });
-        
-        if (response.success && response.data) {
-          fileContent = response.data.content;
-        } else {
-          throw new Error(response.error || 'Unknown error reading file');
-        }
-      } catch (error) {
-         const errorMsg = error instanceof Error ? error.message : String(error);
-         fileContent = `[Error loading file content: ${errorMsg}]`;
-         logger.error(`Error reading file`, { path: file.path, error: errorMsg });
-         toast({
-           title: "Error Reading File",
-           description: `Could not read file content for "${file.name}": ${errorMsg}`,
-           variant: "destructive",
-         });
-      }
-      
-      const fileId = file.id || `file-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-
-      setFileReferences(prev => {
-        const newRef = {
-            id: fileId,
-            path: file.path,
-            name: file.name,
-            content: fileContent,
-            type: 'file' as const
-        };
-        if (!prev.some(ref => ref.path === file.path)) {
-            return [...prev, newRef];
-        }
-        return prev;
-      });
-      
-      if (input.includes('@')) {
-        const atIndex = input.lastIndexOf('@');
-        setInput(input.substring(0, atIndex));
-      }
-      
-    } catch (error) {
-      logger.error("Error processing selected file", { fileName: file.name, error });
-      toast({
-        title: "Error Processing File",
-        description: `An unexpected error occurred while processing the file reference for "${file.name}".`,
-        variant: "destructive",
-      });
-    }
-  };
+    hookHandleSubmit(event, options);
+    clearFileReferences();
+  }, [
+     input, 
+     chatIsLoading, 
+     activeSpace, 
+     activeConversation, 
+     user, 
+     fileReferencesMap, 
+     searchMode, 
+     hookHandleSubmit, 
+     clearFileReferences
+  ]);
 
   const handleStickToBottomChange = useCallback((isAtBottom: boolean) => {
     setIsStickToBottom(isAtBottom);
   }, []);
 
-  const handleCreateConversation = async (title: string = 'New Conversation') => {
+  const { selectFile: selectFileHandler } = useFileSelection({
+    setFileReferences,
+    setInput,
+    currentInput: input
+  });
+
+  const scrollToBottom = useCallback(() => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, []);
+   
+  const handleCreateConversation = useCallback(async (title: string = 'New Conversation') => {
     if (!activeSpace?.id) {
       toast({ title: 'Error', description: 'Please select a space first', variant: 'destructive' });
       return;
     }
     try {
+      setMessages([]);
+      setInput('');
       await createConversation(activeSpace.id, title);
     } catch (error) {
       logger.error('Error creating conversation', { spaceId: activeSpace?.id, title, error });
       toast({ title: 'Error', description: 'Failed to create conversation', variant: 'destructive' });
     }
-  };
+  }, [activeSpace?.id, toast, setMessages, setInput, createConversation]);
 
-  const handleSelectConversation = async (conversation: Conversation) => {
+  const handleSelectConversation = useCallback(async (conversation: Conversation) => {
     try {
       await setActiveConversation(conversation);
     } catch (error) {
       logger.error('Error selecting conversation', { conversationId: conversation?.id, error });
       toast({ title: 'Error', description: 'Failed to select conversation', variant: 'destructive' });
     }
-  };
+  }, [setActiveConversation, toast]);
 
   const handleSetActiveSpace = useCallback(async (id: string) => {
     await setActiveSpaceById(id);
   }, [setActiveSpaceById]);
+
+  const isLoading = chatIsLoading || isSpaceLoading;
 
   return (
     <div className="h-full w-full flex flex-col">
@@ -5841,16 +5474,17 @@ export default function ChatContent() {
         spaces={spaces}
         setActiveSpaceById={handleSetActiveSpace}
         isStickToBottom={isStickToBottom}
-        messagesLength={displayMessages.length}
-        onScrollToBottom={() => chatMessagesRef.current?.scrollToBottom()}
+        messagesLength={messages.length}
+        onScrollToBottom={scrollToBottom}
       />
       
       <div className="flex-1 w-full overflow-hidden flex flex-col">
         <ChatMessages
-          messages={displayMessages}
+          messages={messages as VinciUIMessage[]}
+          streamingMessage={null} // TODO: Adjust ChatMessages to not need this if possible
           onStickToBottomChange={handleStickToBottomChange}
-          ref={chatMessagesRef}
-          isLoading={chatStatus === 'loading'}
+          ref={messagesContainerRef}
+          isLoading={isLoading}
           spaceId={activeSpace?.id}
         />
         
@@ -5858,22 +5492,22 @@ export default function ChatContent() {
           input={input}
           handleInputChange={handleInputChange}
           handleSubmit={handleSubmit}
-          disabled={!activeSpace || !activeConversation || chatStatus === 'loading'}
+          disabled={!activeSpace || !activeConversation || chatIsLoading}
           fileReferences={fileReferences}
           setFileReferences={setFileReferences}
-          messages={displayMessages}
+          messages={messages as VinciUIMessage[]}
           activeConversation={activeConversation}
           activeSpace={activeSpace}
           onCreateConversation={handleCreateConversation}
           onSelectConversation={handleSelectConversation}
           onCommandWindowToggle={handleCommandWindowToggle}
-          onSelectFile={selectFile}
+          onSelectFile={selectFileHandler}
         />
       </div>
-      {errorMessage && (
-         <div className="p-2 text-center text-red-500 bg-red-100 border-t border-red-200">
-            Error: {errorMessage}
-         </div>
+      {chatError && (
+        <div className="p-2 text-center text-red-500 bg-red-100 border-t border-red-200">
+          Error: {chatError.message}
+        </div>
        )}
     </div>
   );
@@ -6030,14 +5664,14 @@ import { JSONValue } from 'ai';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { StreamStatus } from './stream-status';
 import { Markdown } from './markdown';
-import { Message, MessageAnnotation, SimilarMessage } from '@/types/message';
+import { Message, MessageAnnotation, SimilarMessage, VinciUIMessage } from '@/types/message';
 import { Provider } from '@/types/provider';
 import DotSphere from '../space/planet-icon';
 import { ModelDisplay } from '@/components/shared/model-display';
 import { getModelDisplayInfo } from '@/utils/model-utils';
 
 interface ChatMessageProps {
-  message: Message;
+  message: VinciUIMessage;
   userAvatarUrl?: string;
   isLoading?: boolean;
   streamData?: JSONValue[];
@@ -6176,23 +5810,6 @@ export const ChatMessage = memo<ChatMessageProps>(({ message, userAvatarUrl, isL
       </div>
     </div>
   );
-}, (prevProps, nextProps) => {
-  if (prevProps.message.id !== nextProps.message.id) return false;
-  if (prevProps.message.role !== nextProps.message.role) return false;
-  if (prevProps.message.role === 'user') return prevProps.message.content === nextProps.message.content;
-  
-  const isStreamingPrev = prevProps.isLoading && (prevProps.message.id === 'placeholder-assistant' || prevProps.message.content.length === 0);
-  const isStreamingNext = nextProps.isLoading && (nextProps.message.id === 'placeholder-assistant' || nextProps.message.content.length === 0);
-  
-  if (isStreamingPrev !== isStreamingNext) return false;
-  
-  if (isStreamingNext && prevProps.streamData && nextProps.streamData) {
-    const prevLength = prevProps.streamData.length;
-    const nextLength = nextProps.streamData.length;
-    return nextLength <= prevLength || (nextLength - prevLength < 5);
-  }
-  
-  return prevProps.message.content === nextProps.message.content;
 });
 
 ChatMessage.displayName = 'ChatMessage';
@@ -6200,249 +5817,74 @@ ChatMessage.displayName = 'ChatMessage';
 ================
 File: src/components/chat/chat-messages.tsx
 ================
-import { ChatContainer, useAutoScroll } from '@/components/chat/chat-container';
-import { useEffect, forwardRef, useRef, memo, useMemo, useImperativeHandle, useCallback } from 'react';
-import { ChatMessage } from './chat-message';
-import { JSONValue } from 'ai';
-import { Message } from '@/types/message';
-
-export interface ChatMessagesHandles {
-  scrollToBottom: (behavior?: ScrollBehavior) => void;
-}
+import { ChatContainer } from '@/components/chat/chat-container';
+import { useEffect, forwardRef, useRef, memo, useMemo } from 'react';
+import { VinciUIMessage } from '@/types/message';
+import { JSONValue } from '@ai-sdk/ui-utils';
+import { MemoizedMessage } from './memoized-message';
+import { PlaceholderMessage } from './placeholder-message';
+import { useAutoScroll } from '@/hooks/use-auto-scroll';
 
 interface ChatMessagesProps {
-  messages: Message[];
+  messages: VinciUIMessage[];
+  streamingMessage: VinciUIMessage | null;
   onStickToBottomChange?: (isStickToBottom: boolean) => void;
+  onScrollToBottom?: (callback: () => void) => void;
   isLoading?: boolean;
+  streamData?: JSONValue[] | undefined;
   spaceId?: string;
 }
 
-const MemoizedMessage = memo(({ 
-  message, 
-  index, 
-  isLoading, 
-  messagesLength, 
-  nextMessageRole, 
-  shouldAddSeparator,
-  spaceId 
-}: { 
-  message: Message;
-  index: number; 
-  isLoading: boolean; 
-  messagesLength: number;
-  nextMessageRole?: string;
-  shouldAddSeparator: boolean;
-  spaceId?: string;
-}) => {
-  const messageRef = useRef<HTMLDivElement>(null);
-
-  return (
-    <>
-      <div 
-        key={message.id} 
-        ref={messageRef}
-        className="transition-all"
-      >
-        <ChatMessage 
-          message={message} 
-          isLoading={isLoading}
-          spaceId={spaceId}
-        />
-      </div>
-      {shouldAddSeparator && (
-        <div className="w-full flex justify-center my-8">
-          <div className="w-1/3 h-px bg-white/[0.05]" />
-        </div>
-      )}
-    </>
-  );
-}, (prevProps, nextProps) => {
-  if (prevProps.message.id !== nextProps.message.id) return false;
-  if (prevProps.message.content !== nextProps.message.content) return false;
-  if (prevProps.isLoading !== nextProps.isLoading) return false;
-  if (prevProps.shouldAddSeparator !== nextProps.shouldAddSeparator) return false;
-  
-  if (prevProps.message.role === 'assistant' && prevProps.isLoading && nextProps.isLoading) {
-    return false;
-  }
-  
-  return true;
-});
-
-MemoizedMessage.displayName = 'MemoizedMessage';
-
-const PlaceholderMessage = memo(({ 
-  needsSeparator,
-  spaceId
-}: { 
-  needsSeparator: boolean;
-  spaceId?: string;
-}) => {
-  const placeholderMsg: Message = useMemo(() => ({
-    id: 'placeholder-assistant',
-    role: 'assistant',
-    content: '',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    conversation_id: 'placeholder_convo',
-    user_id: 'assistant_placeholder_id',
-    is_deleted: false,
-  }), []);
-
-  return (
-    <div key="placeholder-assistant" className="space-y-2">
-      {needsSeparator && (
-        <div className="w-full flex justify-center my-8">
-          <div className="w-1/3 h-px bg-white/[0.05]" />
-        </div>
-      )}
-      <ChatMessage 
-        message={placeholderMsg}
-        isLoading={true}
-        spaceId={spaceId}
-      />
-    </div>
-  );
-}, (prevProps, nextProps) => {
-  return true;
-});
-
-PlaceholderMessage.displayName = 'PlaceholderMessage';
-
-const ChatMessagesComponent = forwardRef<ChatMessagesHandles, ChatMessagesProps>(
-  ({ messages, onStickToBottomChange, isLoading, spaceId }, ref) => {
+const ChatMessagesComponent = forwardRef<HTMLDivElement, ChatMessagesProps>(
+  ({ messages, streamingMessage, onStickToBottomChange, onScrollToBottom, isLoading, streamData, spaceId }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
-    const actualRef = containerRef;
+    const actualRef = (ref as React.RefObject<HTMLDivElement>) || containerRef;
     const prevMessagesLengthRef = useRef(messages.length);
-    const prevLastMessageContentRef = useRef('');
-    const prevScrollHeightRef = useRef(0);
-    const isAutoScrollRestoredRef = useRef(false);
-    const lastAutoScrollEnabledRef = useRef(true);
-    const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     
-    // Debounce function to reduce frequency of scroll events
-    const debounce = useCallback((func: Function, delay: number) => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-      
-      scrollTimeoutRef.current = setTimeout(() => {
-        func();
-      }, delay);
-    }, []);
-    
-    // Enhanced auto-scroll with better threshold detection
     const { 
       autoScrollEnabled, 
-      scrollToBottom,
+      scrollToBottom 
     } = useAutoScroll(actualRef, true);
     
-    // Manual function to set auto-scroll enabled state
-    // using the same isAtBottom logic as in useAutoScroll but with custom threshold
-    const checkAndRestoreAutoScroll = useCallback(() => {
-      if (!containerRef.current) return false;
-      
-      const container = containerRef.current;
-      // Use a more generous threshold (50px) to consider user "at bottom"
-      const isAtBottom = 
-        container.scrollHeight - container.scrollTop - container.clientHeight <= 50;
-        
-      return isAtBottom;
-    }, []);
-    
-    const enhancedScrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
-      if (!containerRef.current) return;
-      
-      const el = containerRef.current;
-      const scrollHeight = el.scrollHeight;
-      
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-      
-      scrollTimeoutRef.current = setTimeout(() => {
-        if (!containerRef.current) return;
-        
-        containerRef.current.scrollTo({
-          top: containerRef.current.scrollHeight,
-          behavior
-        });
-        
-        prevScrollHeightRef.current = containerRef.current.scrollHeight;
-      }, 10);
-    }, []);
-    
-    useImperativeHandle(ref, () => ({
-      scrollToBottom: enhancedScrollToBottom
-    }), [enhancedScrollToBottom]);
-    
     useEffect(() => {
-      if (onStickToBottomChange && lastAutoScrollEnabledRef.current !== autoScrollEnabled) {
-        lastAutoScrollEnabledRef.current = autoScrollEnabled;
+      if (onStickToBottomChange) {
         onStickToBottomChange(autoScrollEnabled);
       }
     }, [autoScrollEnabled, onStickToBottomChange]);
     
     useEffect(() => {
-      const messagesChanged = prevMessagesLengthRef.current !== messages.length;
-      
-      const lastMessage = messages[messages.length - 1];
-      const lastMessageContent = lastMessage?.content || '';
-      const contentChanged = lastMessage && lastMessageContent !== prevLastMessageContentRef.current;
-      
-      if (containerRef.current) {
-        const el = containerRef.current;
-        const atBottom = checkAndRestoreAutoScroll();
-        
-        if (atBottom && !autoScrollEnabled && !isAutoScrollRestoredRef.current) {
-          // If user manually scrolled to bottom, trigger a scroll which will also
-          // indirectly update autoScrollEnabled in the useAutoScroll hook
-          scrollToBottom('auto');
-          isAutoScrollRestoredRef.current = true;
-        } else if (!atBottom) {
-          isAutoScrollRestoredRef.current = false;
-        }
+      if (onScrollToBottom && scrollToBottom) {
+        const handleScrollToBottom = () => scrollToBottom("smooth");
+        onScrollToBottom(handleScrollToBottom);
       }
-      
-      // Apply debounce only when content is changing but not for new messages
-      if (autoScrollEnabled && messagesChanged) {
-        // For new messages, scroll immediately
-        enhancedScrollToBottom('smooth');
-      } else if (autoScrollEnabled && contentChanged && isLoading) {
-        // For content updates during streaming, use debounced scroll
-        debounce(() => enhancedScrollToBottom('smooth'), 100);
-      }
-      
-      prevMessagesLengthRef.current = messages.length;
-      prevLastMessageContentRef.current = lastMessageContent;
-    }, [messages, isLoading, autoScrollEnabled, enhancedScrollToBottom, scrollToBottom, checkAndRestoreAutoScroll, debounce]);
+    }, [onScrollToBottom, scrollToBottom]);
     
-    // Detect and handle scroll height changes (for images loading, etc)
     useEffect(() => {
-      if (!containerRef.current) return;
-      
-      const observer = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          const scrollHeight = containerRef.current?.scrollHeight || 0;
-          
-          // If content height changed and auto-scroll is enabled, scroll to bottom
-          if (autoScrollEnabled && scrollHeight !== prevScrollHeightRef.current) {
-            // Debounce resize-triggered scrolls to prevent excessive scrolling
-            debounce(() => enhancedScrollToBottom('auto'), 100);
-            prevScrollHeightRef.current = scrollHeight;
-          }
-        }
-      });
-      
-      // Observe the container and each message for height changes
-      if (containerRef.current) {
-        observer.observe(containerRef.current);
+      if (prevMessagesLengthRef.current !== messages.length) {
+        prevMessagesLengthRef.current = messages.length;
+        console.log('[CLIENT] Chat messages count changed:', { 
+          count: messages.length
+        });
       }
+    }, [messages.length]);
+
+    const streamingMessageExists = useMemo(() => {
+      if (!streamingMessage) return false;
       
-      return () => {
-        observer.disconnect();
-      };
-    }, [autoScrollEnabled, enhancedScrollToBottom, debounce]);
+      return messages.some(
+        msg => (msg.id === streamingMessage.id || msg.content === streamingMessage.content) && 
+               msg.role === 'assistant'
+      );
+    }, [messages, streamingMessage]);
+    
+    const shouldShowStreamingMessage = streamingMessage && !streamingMessageExists;
+
+    const shouldShowPlaceholder = Boolean(
+      messages.length > 0 && 
+      messages[messages.length - 1].role === 'user' && 
+      isLoading && 
+      !streamingMessage
+    );
 
     const messageSeparatorMap = useMemo(() => {
       const separators: Record<string, boolean> = {};
@@ -6451,21 +5893,20 @@ const ChatMessagesComponent = forwardRef<ChatMessagesHandles, ChatMessagesProps>
         if (index < messages.length - 1) {
           separators[message.id] = message.role !== messages[index + 1].role;
         } else {
-          separators[message.id] = false;
+          if (message.role === 'user') {
+            separators[message.id] = Boolean(shouldShowStreamingMessage || shouldShowPlaceholder);
+          } else if (message.role === 'assistant') {
+            separators[message.id] = false;
+          } else {
+            separators[message.id] = shouldShowStreamingMessage 
+              ? message.role !== streamingMessage.role 
+              : false;
+          }
         }
       });
       
       return separators;
-    }, [messages]);
-
-    const needsPlaceholderSeparator = useMemo(() => {
-      return messages.length > 1 && 
-        messages[messages.length - 1].role !== 'assistant';
-    }, [messages]);
-    
-    const shouldShowPlaceholder = messages.length > 0 && 
-      messages[messages.length - 1].role === 'user' && 
-      isLoading;
+    }, [messages, streamingMessage, shouldShowStreamingMessage, shouldShowPlaceholder]);
 
     return (
         <ChatContainer
@@ -6475,22 +5916,43 @@ const ChatMessagesComponent = forwardRef<ChatMessagesHandles, ChatMessagesProps>
         >
           <div className="max-w-[85%] w-full mx-auto">
             <div className="space-y-12">
-              {messages.map((message, index) => (
+              {messages.map((message, index) => {
+                const isLastMessage = index === messages.length - 1;
+                const isAssistant = message.role === 'assistant';
+                const messageStreamData = isLastMessage && isAssistant ? streamData : undefined;
+                const messageIsLoading = isLastMessage && isAssistant && (isLoading ?? false);
+
+                return (
+                  <MemoizedMessage
+                    key={message.id}
+                    message={message}
+                    index={index}
+                    isLoading={messageIsLoading}
+                    streamData={messageStreamData}
+                    messagesLength={messages.length}
+                    shouldAddSeparator={messageSeparatorMap[message.id]}
+                    spaceId={spaceId}
+                  />
+                );
+              })}
+              
+              {shouldShowStreamingMessage && (
                 <MemoizedMessage
-                  key={message.id}
-                  message={message}
-                  index={index}
-                  isLoading={!!(isLoading && index === messages.length - 1 && message.role === 'assistant')}
-                  messagesLength={messages.length}
-                  nextMessageRole={index < messages.length - 1 ? messages[index + 1].role : undefined}
-                  shouldAddSeparator={messageSeparatorMap[message.id]}
+                  key={streamingMessage.id}
+                  message={streamingMessage}
+                  index={messages.length}
+                  isLoading={true}
+                  streamData={streamData}
+                  messagesLength={messages.length + 1}
+                  shouldAddSeparator={false}
                   spaceId={spaceId}
                 />
-              ))}
+              )}
               
               {shouldShowPlaceholder && (
                 <PlaceholderMessage 
-                  needsSeparator={needsPlaceholderSeparator}
+                  needsSeparator={false}
+                  streamData={streamData}
                   spaceId={spaceId}
                 />
               )}
@@ -7604,6 +7066,103 @@ const Markdown = memo(MarkdownComponent)
 Markdown.displayName = "Markdown"
 
 export { Markdown }
+
+================
+File: src/components/chat/memoized-message.tsx
+================
+import { memo, useRef } from 'react';
+import { ChatMessage } from './chat-message';
+import { JSONValue } from '@ai-sdk/ui-utils';
+import { VinciUIMessage } from '@/types/message';
+
+interface MemoizedMessageProps {
+  message: VinciUIMessage;
+  index: number; 
+  isLoading: boolean; 
+  streamData?: JSONValue[]; 
+  messagesLength: number; 
+  shouldAddSeparator: boolean;
+  spaceId?: string;
+}
+
+export const MemoizedMessage = memo(({ 
+  message, 
+  isLoading,
+  streamData, 
+  shouldAddSeparator,
+  spaceId,
+}: MemoizedMessageProps) => {
+  const messageRef = useRef<HTMLDivElement>(null);
+  
+  return (
+    <>
+      <div 
+        ref={messageRef}
+      >
+        <ChatMessage 
+          message={message} 
+          isLoading={isLoading}
+          streamData={streamData}
+          spaceId={spaceId}
+        />
+      </div>
+      {shouldAddSeparator && (
+        <div className="w-full flex justify-center my-8">
+          <div className="w-1/3 h-px bg-white/[0.05]" />
+        </div>
+      )}
+    </>
+  );
+});
+
+MemoizedMessage.displayName = 'MemoizedMessage';
+
+================
+File: src/components/chat/placeholder-message.tsx
+================
+import { memo } from 'react';
+import { ChatMessage } from './chat-message';
+import { JSONValue } from '@ai-sdk/ui-utils';
+
+interface PlaceholderMessageProps {
+  needsSeparator: boolean;
+  streamData?: JSONValue[];
+  spaceId?: string;
+}
+
+export const PlaceholderMessage = memo(({ 
+  needsSeparator,
+  streamData,
+  spaceId
+}: PlaceholderMessageProps) => {
+  return (
+    <div className="space-y-2">
+      {needsSeparator && (
+        <div className="w-full flex justify-center my-8">
+          <div className="w-1/3 h-px bg-white/[0.05]" />
+        </div>
+      )}
+      <ChatMessage 
+        message={{
+          id: 'placeholder-assistant',
+          role: 'assistant',
+          content: '',
+          user_id: 'assistant_placeholder_id',
+          conversation_id: 'placeholder_conv_id',
+          is_deleted: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          annotations: [],
+        }}
+        isLoading={true}
+        streamData={streamData || [{ status: 'Processing...' }]}
+        spaceId={spaceId}
+      />
+    </div>
+  );
+});
+
+PlaceholderMessage.displayName = 'PlaceholderMessage';
 
 ================
 File: src/components/chat/provider-icon.tsx
@@ -16614,14 +16173,12 @@ import React, { createContext, useState, useEffect, useContext, ReactNode, useMe
 import { MainProcessState } from '@/store/main'; // Assuming this path is correct
 import { AppStateEvents } from '@/core/ipc/constants';
 
-// Define the shape of the context value
 interface MainStateContextType {
   state: Partial<MainProcessState>;
   isLoading: boolean;
   error: string | null;
 }
 
-// Create the context with a default value
 const MainStateContext = createContext<MainStateContextType>({ 
   state: {}, 
   isLoading: true, 
@@ -16640,7 +16197,6 @@ export const MainStateProvider: React.FC<MainStateProviderProps> = ({ children }
   useEffect(() => {
     let isMounted = true;
 
-    // The single listener for state updates
     const handleStateUpdate = (
       _event: any,
       response: { success: boolean; data?: Partial<MainProcessState>; error?: string }
@@ -16648,26 +16204,21 @@ export const MainStateProvider: React.FC<MainStateProviderProps> = ({ children }
       if (!isMounted) return;
 
       if (response.success && response.data) {
+        console.log('[MainStateProvider] Received state update:', response.data);
         setState(response.data);
-        setError(null); // Clear error on successful update
-        // Only set loading to false after the first successful update
+        setError(null);
         if (isLoading) setIsLoading(false); 
       } else if (!response.success && response.error) {
         console.error('[MainStateProvider] Received state update error from main:', response.error);
         setError(response.error);
-        // Decide if we should stop loading on error
-        // setIsLoading(false); 
+        setIsLoading(false); 
       }
     };
 
-    console.log('[MainStateProvider] Setting up STATE_UPDATED listener.');
     const cleanup = window.electron.on(AppStateEvents.STATE_UPDATED, handleStateUpdate);
 
-    // Request initial state when the provider mounts
-    console.log('[MainStateProvider] Requesting initial state...');
     window.electron.invoke(AppStateEvents.GET_STATE)
       .then(response => {
-        console.log('[MainStateProvider] Received initial state response.');
         if (isMounted) {
           handleStateUpdate(null, response); // Process initial state using the same handler
         } else {
@@ -16682,7 +16233,6 @@ export const MainStateProvider: React.FC<MainStateProviderProps> = ({ children }
         }
       });
 
-    // Cleanup function
     return () => {
         console.log('[MainStateProvider] Cleaning up STATE_UPDATED listener.');
         isMounted = false;
@@ -17607,13 +17157,26 @@ export function registerAuthHandlers() {
 File: src/core/ipc/handlers/chat-handlers.ts
 ================
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
-import { ChatEvents, AppStateEvents } from '@/core/ipc/constants';
+import { ChatEvents } from '@/core/ipc/constants';
 import { Logger } from '@/utils/logger';
 import { IpcResponse } from '@/types/ipc';
-import { Message } from '@/types/message';
+import type { Message } from '@/types/message';
 import { initiateChatApiStream } from '@/services/chat/chat-service';
-import { useMainStore } from '@/store/main';
-import { makeSerializable } from '@/core/utils/state-utils';
+
+import {
+  processChatResponse,
+} from '@/core/utils/ai-sdk-adapter/process-chat-response';  
+import {
+  getMessageParts
+} from '@/core/utils/ai-sdk-adapter/get-message-parts'; 
+import {
+  generateId,
+} from '@/core/utils/ai-sdk-adapter/adapter-utils';
+import type {
+  JSONValue,
+  UIMessage,
+} from '@/core/utils/ai-sdk-adapter/types'; 
+
 
 const logger = new Logger('ChatHandler');
 
@@ -17623,9 +17186,32 @@ interface ChatPayload {
   conversationId?: string;
   provider?: string;
   model?: string;
-  files?: any; 
+  files?: any;
   searchMode?: string;
   chatMode?: string;
+}
+
+// Helper function to extract text content from raw Vercel AI SDK stream format
+function extractTextFromRawStream(content: string): string {
+  let extractedText = '';
+  
+  // Match text chunks which typically have format: 0:"text content here"
+  const textChunkRegex = /0:"([^"]*)"/g;
+  let match;
+  
+  while ((match = textChunkRegex.exec(content)) !== null) {
+    if (match[1]) {
+      extractedText += match[1];
+    }
+  }
+  
+  // If we couldn't extract anything with the regex but content exists,
+  // fall back to using the content as-is (though it might contain raw format)
+  if (!extractedText && content) {
+    return content;
+  }
+  
+  return extractedText;
 }
 
 export function registerChatHandlers(): void {
@@ -17633,91 +17219,144 @@ export function registerChatHandlers(): void {
     event: IpcMainInvokeEvent,
     payload: ChatPayload
   ): Promise<IpcResponse> => {
-    logger.info(`[IPC Handler: ${ChatEvents.INITIATE_CHAT_STREAM}] Received request`, { spaceId: payload.spaceId, conversationId: payload.conversationId });
-    const { messages, spaceId, conversationId, provider, model, files, ...rest } = payload;
-
-    const currentMessages = messages; 
+    logger.info(`[IPC Handler: ${ChatEvents.INITIATE_CHAT_STREAM}] Received request`, {
+      spaceId: payload.spaceId,
+      conversationId: payload.conversationId,
+    });
 
     const requestPayload = {
-      messages: currentMessages,
-      spaceId,
-      conversationId,
-      provider,
-      model,
-      files,
-      searchMode: rest.searchMode,
-      chatMode: rest.chatMode,
+      messages: payload.messages,
+      spaceId: payload.spaceId,
+      conversationId: payload.conversationId,
+      provider: payload.provider,
+      model: payload.model,
+      files: payload.files,
+      searchMode: payload.searchMode,
+      chatMode: payload.chatMode,
       stream: true,
     };
 
+    let streamAborted = false;
+    let messageIdForStream: string | undefined = undefined;
+    let isFirstChunk = true;
+    let previousContentLength = 0;
+    let lastProcessedMessage: UIMessage | null = null;
+
     try {
-      logger.info(`Calling initiateChatApiStream`, { spaceId: requestPayload.spaceId, conversationId: requestPayload.conversationId });
+      logger.info(`Calling initiateChatApiStream`, {
+        spaceId: requestPayload.spaceId,
+        conversationId: requestPayload.conversationId,
+      });
       const response = await initiateChatApiStream(requestPayload);
 
       if (!response.body) {
         throw new Error('No response body from API');
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let done = false;
-      let finalAssistantMessageContent = '';
-      let finalAssistantMessageId = '';
-      let isFirstChunk = true;
+      await processChatResponse({
+        stream: response.body,
+        update: ({ message, data, replaceLastMessage }) => {
+           if (streamAborted) return;
+           
+           if (message.id && !messageIdForStream) {
+              messageIdForStream = message.id;
+           }
+           
+           let textContent = "";
+           
+           if (Array.isArray(message.parts) && message.parts.length > 0) {
+             const textParts = message.parts.filter(part => part.type === 'text');
+             if (textParts.length > 0) {
+               textContent = textParts.map(part => part.text).join('');
+             }
+           }
+           
+           if (!textContent && message.content) {
+             textContent = extractTextFromRawStream(message.content);
+           }
+           
+           const textDelta = textContent.substring(previousContentLength);
+           previousContentLength = textContent.length;
 
-      while (!done) {
-        const { value, done: readerDone } = await reader.read();
-        done = readerDone;
-        if (value) {
-          const chunk = decoder.decode(value, { stream: true });
-          finalAssistantMessageContent += chunk; 
-
-          if (isFirstChunk) {
-            isFirstChunk = false;
-            finalAssistantMessageId = `assistant_${Date.now()}`;
-          }
-          
-          event.sender.send(ChatEvents.CHAT_STREAM_CHUNK, {
-            success: true,
-            data: { chunk: chunk, messageId: finalAssistantMessageId }, 
+           if (isFirstChunk) {
+              const fullMessageData = {
+                id: message.id || messageIdForStream || generateId(),
+                role: message.role,
+                content: textContent,
+                createdAt: message.createdAt,
+                parts: message.parts || [],
+                annotations: message.annotations || [],
+                toolInvocations: message.toolInvocations || [],
+                reasoning: message.reasoning,
+              };
+              
+              event.sender.send(ChatEvents.CHAT_STREAM_CHUNK, {
+                  success: true,
+                  data: { 
+                    chunk: textDelta, 
+                    messageId: messageIdForStream,
+                    fullMessage: fullMessageData,
+                    isFirstChunk: true
+                  },
+              });
+              
+              isFirstChunk = false;
+              lastProcessedMessage = message;
+              
+           } else if (textDelta || !lastProcessedMessage || messageHasMetadataChanges(message, lastProcessedMessage)) {
+              const metadataUpdates = getMetadataUpdates(message, lastProcessedMessage);
+              
+              event.sender.send(ChatEvents.CHAT_STREAM_CHUNK, {
+                  success: true,
+                  data: { 
+                    chunk: textDelta,
+                    metadataUpdates: metadataUpdates,
+                    isFirstChunk: false
+                  },
+              });
+              
+              lastProcessedMessage = message;
+           }
+        },
+        onFinish: ({ message, finishReason, usage }) => {
+          if (streamAborted) return;
+          logger.info('[IPC Handler -> FINISH]', {
+            messageId: message?.id,
+            finishReason,
+            usage,
           });
-        }
-      }
-
-      logger.info(`Stream finished`, { conversationId });
-      event.sender.send(ChatEvents.CHAT_STREAM_FINISH, { success: true });
-
-      try {
-        const store = useMainStore.getState();
-        const now = new Date().toISOString();
-        const finalMessage: Message = {
-          id: finalAssistantMessageId || `assistant_${Date.now()}`, 
-          content: finalAssistantMessageContent,
-          role: 'assistant',
-          created_at: now,
-          updated_at: now,
-          conversation_id: conversationId || '',
-          user_id: 'assistant_placeholder_id',
-          is_deleted: false,
-          annotations: [],
-        };
-
-        const updatedMessages = [...store.messages, finalMessage];
-        useMainStore.setState({ messages: updatedMessages });
-        
-        logger.info(`Updated main store with new message`, { conversationId, messageId: finalMessage.id });
-        
-        event.sender.send(AppStateEvents.STATE_UPDATED, {
-          success: true,
-          data: makeSerializable(useMainStore.getState()),
-        });
-      } catch (storeError: any) {
-        logger.error('Error updating main store after chat stream finish', { error: storeError.message || storeError });
-      }
+          event.sender.send(ChatEvents.CHAT_STREAM_FINISH, {
+            success: true,
+            data: { 
+              finishReason, 
+              usage,
+              finalMessage: message 
+            }, 
+          });
+        },
+        onToolCall: ({ toolCall }) => {
+          if (streamAborted) return;
+          logger.info('[IPC Handler -> TOOL_CALL]', { toolCall });
+          
+          event.sender.send(ChatEvents.CHAT_STREAM_TOOL_CALL, {
+            success: true,
+            data: { toolCall },
+          });
+        },
+        generateId: generateId,
+        lastMessage: payload.messages.length > 0
+            ? mapHandlerMessageToUIMessage(payload.messages[payload.messages.length - 1])
+            : undefined,
+      });
 
       return { success: true };
     } catch (error: any) {
-      logger.error(`[IPC Handler: ${ChatEvents.INITIATE_CHAT_STREAM}] Error`, { error: error.message || error });
+      streamAborted = true;
+      logger.error(
+        `[IPC Handler: ${ChatEvents.INITIATE_CHAT_STREAM}] Error processing stream`,
+        { error: error.message || error }
+      );
+
       event.sender.send(ChatEvents.CHAT_STREAM_ERROR, {
         success: false,
         error: error.message || 'Failed to process chat stream',
@@ -17725,6 +17364,56 @@ export function registerChatHandlers(): void {
       return { success: false, error: error.message };
     }
   });
+}
+
+function messageHasMetadataChanges(newMessage: UIMessage, oldMessage: UIMessage | null): boolean {
+  if (!oldMessage) return true;
+  
+  const hasAnnotationChanges = JSON.stringify(newMessage.annotations) !== JSON.stringify(oldMessage.annotations);
+  const hasToolInvocationChanges = JSON.stringify(newMessage.toolInvocations) !== JSON.stringify(oldMessage.toolInvocations);
+  const hasReasoningChanges = newMessage.reasoning !== oldMessage.reasoning;
+  const hasPartsChanges = JSON.stringify(newMessage.parts) !== JSON.stringify(oldMessage.parts);
+  
+  return hasAnnotationChanges || hasToolInvocationChanges || hasReasoningChanges || hasPartsChanges;
+}
+
+function getMetadataUpdates(newMessage: UIMessage, oldMessage: UIMessage | null): Partial<UIMessage> {
+  if (!oldMessage) return newMessage;
+  
+  const updates: Partial<UIMessage> = {};
+  
+  if (JSON.stringify(newMessage.annotations) !== JSON.stringify(oldMessage.annotations)) {
+    updates.annotations = newMessage.annotations;
+  }
+  
+  if (JSON.stringify(newMessage.toolInvocations) !== JSON.stringify(oldMessage.toolInvocations)) {
+    updates.toolInvocations = newMessage.toolInvocations;
+  }
+  
+  if (newMessage.reasoning !== oldMessage.reasoning) {
+    updates.reasoning = newMessage.reasoning;
+  }
+  
+  if (JSON.stringify(newMessage.parts) !== JSON.stringify(oldMessage.parts)) {
+    updates.parts = newMessage.parts;
+  }
+  
+  return updates;
+}
+
+function mapHandlerMessageToUIMessage(handlerMessage: Message): UIMessage {
+  const uiMessageBase = {
+    id: handlerMessage.id,
+    role: handlerMessage.role as 'user' | 'assistant' | 'system',
+    content: handlerMessage.content,
+    createdAt: new Date(handlerMessage.created_at),
+    annotations: handlerMessage.annotations as JSONValue[] | undefined
+  };
+
+  return {
+      ...uiMessageBase,
+      parts: getMessageParts(uiMessageBase)
+  };
 }
 
 ================
@@ -18302,6 +17991,8 @@ export function registerConversationHandlers() {
          return { success: false, error: 'Conversation not found in current list' };
       }
       
+      await setActiveConversationInAPI(data.conversationId, data.spaceId);
+      
       const messages = await fetchMessages(data.conversationId);
       
       useMainStore.setState({
@@ -18610,6 +18301,7 @@ import { Message } from '@/types/message';
 import { Conversation } from '@/types/conversation';
 import { useMainStore, getMainStoreState } from '@/store/main';
 import { sanitizeStateForIPC } from '@/core/utils/state-utils';
+import { Provider } from '@/types/provider';
 
 function broadcastStateUpdate() {
   const state = getMainStoreState();
@@ -18676,18 +18368,49 @@ export function registerSpaceHandlers() {
   ipcMain.handle(SpaceEvents.UPDATE_SPACE_MODEL, async (_event: IpcMainInvokeEvent, spaceId: string, modelId: string, provider: string): Promise<IpcResponse<null>> => {
     try {
       await updateSpaceModel(spaceId, modelId, provider);
-      
-      const spaces = await fetchSpaces();
-      const activeSpace = spaces.find(s => s.isActive) || null;
-      
-      useMainStore.setState({ spaces, activeSpace });
-      
+
+      useMainStore.setState(state => {
+        const currentSpaces = state.spaces || [];
+        const currentActiveSpace = state.activeSpace || null;
+        const providerAsType = provider as Provider;
+
+        const spaceIndex = currentSpaces.findIndex(s => s.id === spaceId);
+
+        if (spaceIndex === -1) {
+          console.warn(`[ELECTRON] UPDATE_SPACE_MODEL: Space with ID ${spaceId} not found in store.`);
+          return state;
+        }
+
+        const updatedSpaceData = { 
+          ...currentSpaces[spaceIndex], 
+          model: modelId, 
+          provider: providerAsType 
+        };
+
+        const newSpaces = [
+          ...currentSpaces.slice(0, spaceIndex),
+          updatedSpaceData,
+          ...currentSpaces.slice(spaceIndex + 1),
+        ];
+
+        const newActiveSpace = currentActiveSpace?.id === spaceId
+          ? { ...currentActiveSpace, model: modelId, provider: providerAsType }
+          : currentActiveSpace;
+
+        return {
+          ...state,
+          spaces: newSpaces,
+          activeSpace: newActiveSpace
+        };
+      });
+
       broadcastStateUpdate();
-      
+
       return { success: true };
     } catch (error) {
       console.error('[ELECTRON] Error in update-space-model handler:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error updating space model';
+      return { success: false, error: errorMessage };
     }
   });
 
@@ -18922,6 +18645,7 @@ export const ChatEvents = {
   CHAT_STREAM_CHUNK: 'chat:stream-chunk',
   CHAT_STREAM_FINISH: 'chat:stream-finish',
   CHAT_STREAM_ERROR: 'chat:stream-error',
+  CHAT_STREAM_TOOL_CALL: 'chat:stream-tool-call',
 } as const;
 
 /**
@@ -19010,6 +18734,1943 @@ export function registerIpcHandlers(): void {
   registerUserHandlers();
   registerNotificationHandlers();
   registerChatHandlers();
+}
+
+================
+File: src/core/utils/ai-sdk-adapter/adapter-utils.ts
+================
+// Simple generateId function for local use
+
+export function generateId(length = 8): string {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    const charactersLength = characters.length;
+    for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    }
+    return result;
+}
+
+================
+File: src/core/utils/ai-sdk-adapter/data-stream-parts.ts
+================
+// Copied and adapted from ai/packages/ui-utils/src/data-stream-parts.ts
+
+// Use locally defined types instead of importing from @ai-sdk/provider*
+import { JSONValue, ToolInvocation } from './types'; // Assuming ToolCall/ToolResult are in local types.ts
+
+type LanguageModelV1FinishReason = string; // Define simply for adapter
+type LanguageModelV1Source = any; // Define simply for adapter
+type ToolCall = ToolInvocation; // Alias for clarity within this file
+type ToolResult = ToolInvocation; // Alias for clarity
+
+// --- Original Data Stream Parts Logic --- 
+
+export const DataStreamStringPrefixes = {
+  text: '0',
+  function_call: '1', // Although function_call is deprecated, keep prefix for safety
+  data: '2',
+  error: '3',
+  assistant_message: '4',
+  assistant_control_data: '5',
+  data_stream_error: '6',
+  control_data: '7',
+  message_annotations: '8',
+  tool_call: '9',
+  tool_result: 'a',
+  tool_call_streaming_start: 'b',
+  tool_call_delta: 'c',
+  finish_message: 'd',
+  finish_step: 'e',
+  start_step: 'f',
+  reasoning: 'g',
+  source: 'h',
+  redacted_reasoning: 'i',
+  reasoning_signature: 'j',
+  file: 'k',
+} as const;
+
+export type DataStreamString =
+  `${(typeof DataStreamStringPrefixes)[keyof typeof DataStreamStringPrefixes]}:${string}\n`;
+
+export interface DataStreamPart<
+  CODE extends string,
+  NAME extends string,
+  TYPE,
+> {
+  code: CODE;
+  name: NAME;
+  parse: (value: JSONValue) => { type: NAME; value: TYPE };
+}
+
+const textStreamPart: DataStreamPart<'0', 'text', string> = {
+  code: DataStreamStringPrefixes.text,
+  name: 'text',
+  parse: (value: JSONValue) => {
+    if (typeof value !== 'string') {
+      throw new Error('"text" parts expect a string value.');
+    }
+    return { type: 'text', value };
+  },
+};
+
+const dataStreamPart: DataStreamPart<'2', 'data', Array<JSONValue>> = {
+  code: DataStreamStringPrefixes.data,
+  name: 'data',
+  parse: (value: JSONValue) => {
+    if (!Array.isArray(value)) {
+      throw new Error('"data" parts expect an array value.');
+    }
+
+    return { type: 'data', value };
+  },
+};
+
+const errorStreamPart: DataStreamPart<'3', 'error', string> = {
+  code: DataStreamStringPrefixes.error,
+  name: 'error',
+  parse: (value: JSONValue) => {
+    if (typeof value !== 'string') {
+      throw new Error('"error" parts expect a string value.');
+    }
+    return { type: 'error', value };
+  },
+};
+
+const messageAnnotationsStreamPart: DataStreamPart<
+  '8',
+  'message_annotations',
+  Array<JSONValue>
+> = {
+  code: DataStreamStringPrefixes.message_annotations,
+  name: 'message_annotations',
+  parse: (value: JSONValue) => {
+    if (!Array.isArray(value)) {
+      throw new Error('"message_annotations" parts expect an array value.');
+    }
+
+    return { type: 'message_annotations', value };
+  },
+};
+
+const toolCallStreamPart: DataStreamPart<
+  '9',
+  'tool_call',
+  ToolCall<string, any>
+> = {
+  code: DataStreamStringPrefixes.tool_call,
+  name: 'tool_call',
+  parse: (value: JSONValue) => {
+    if (
+      value == null ||
+      typeof value !== 'object' ||
+      !('toolCallId' in value) ||
+      typeof value.toolCallId !== 'string' ||
+      !('toolName' in value) ||
+      typeof value.toolName !== 'string' ||
+      !('args' in value) ||
+      typeof value.args !== 'object'
+    ) {
+      throw new Error(
+        '"tool_call" parts expect an object with a "toolCallId", "toolName", and "args" property.',
+      );
+    }
+
+    return {
+      type: 'tool_call',
+      value: value as unknown as ToolCall<string, any>,
+    };
+  },
+};
+
+const toolResultStreamPart: DataStreamPart<
+  'a',
+  'tool_result',
+  Omit<ToolResult<string, any, any>, 'args' | 'toolName'>
+> = {
+  code: DataStreamStringPrefixes.tool_result,
+  name: 'tool_result',
+  parse: (value: JSONValue) => {
+    if (
+      value == null ||
+      typeof value !== 'object' ||
+      !('toolCallId' in value) ||
+      typeof value.toolCallId !== 'string' ||
+      !('result' in value)
+    ) {
+      throw new Error(
+        '"tool_result" parts expect an object with a "toolCallId" and a "result" property.',
+      );
+    }
+
+    return {
+      type: 'tool_result',
+      value: value as unknown as Omit<
+        ToolResult<string, any, any>,
+        'args' | 'toolName'
+      >,
+    };
+  },
+};
+
+const toolCallStreamingStartStreamPart: DataStreamPart<
+  'b',
+  'tool_call_streaming_start',
+  { toolCallId: string; toolName: string }
+> = {
+  code: DataStreamStringPrefixes.tool_call_streaming_start,
+  name: 'tool_call_streaming_start',
+  parse: (value: JSONValue) => {
+    if (
+      value == null ||
+      typeof value !== 'object' ||
+      !('toolCallId' in value) ||
+      typeof value.toolCallId !== 'string' ||
+      !('toolName' in value) ||
+      typeof value.toolName !== 'string'
+    ) {
+      throw new Error(
+        '"tool_call_streaming_start" parts expect an object with a "toolCallId" and "toolName" property.',
+      );
+    }
+
+    return {
+      type: 'tool_call_streaming_start',
+      value: value as unknown as { toolCallId: string; toolName: string },
+    };
+  },
+};
+
+const toolCallDeltaStreamPart: DataStreamPart<
+  'c',
+  'tool_call_delta',
+  { toolCallId: string; argsTextDelta: string }
+> = {
+  code: DataStreamStringPrefixes.tool_call_delta,
+  name: 'tool_call_delta',
+  parse: (value: JSONValue) => {
+    if (
+      value == null ||
+      typeof value !== 'object' ||
+      !('toolCallId' in value) ||
+      typeof value.toolCallId !== 'string' ||
+      !('argsTextDelta' in value) ||
+      typeof value.argsTextDelta !== 'string'
+    ) {
+      throw new Error(
+        '"tool_call_delta" parts expect an object with a "toolCallId" and "argsTextDelta" property.',
+      );
+    }
+
+    return {
+      type: 'tool_call_delta',
+      value: value as unknown as {
+        toolCallId: string;
+        argsTextDelta: string;
+      },
+    };
+  },
+};
+
+const finishMessageStreamPart: DataStreamPart<
+  'd',
+  'finish_message',
+  {
+    finishReason: LanguageModelV1FinishReason;
+    usage?: {
+      promptTokens: number;
+      completionTokens: number;
+    };
+  }
+> = {
+  code: DataStreamStringPrefixes.finish_message,
+  name: 'finish_message',
+  parse: (value: JSONValue) => {
+    if (
+      value == null ||
+      typeof value !== 'object' ||
+      !('finishReason' in value) ||
+      typeof value.finishReason !== 'string'
+    ) {
+      throw new Error(
+        '"finish_message" parts expect an object with a "finishReason" property.',
+      );
+    }
+
+    const result: {
+      finishReason: LanguageModelV1FinishReason;
+      usage?: {
+        promptTokens: number;
+        completionTokens: number;
+      };
+    } = {
+      finishReason: value.finishReason as LanguageModelV1FinishReason,
+    };
+
+    if (
+      'usage' in value &&
+      value.usage != null &&
+      typeof value.usage === 'object' &&
+      'promptTokens' in value.usage &&
+      'completionTokens' in value.usage
+    ) {
+      result.usage = {
+        promptTokens:
+          typeof value.usage.promptTokens === 'number'
+            ? value.usage.promptTokens
+            : Number.NaN,
+        completionTokens:
+          typeof value.usage.completionTokens === 'number'
+            ? value.usage.completionTokens
+            : Number.NaN,
+      };
+    }
+
+    return {
+      type: 'finish_message',
+      value: result,
+    };
+  },
+};
+
+const finishStepStreamPart: DataStreamPart<
+  'e',
+  'finish_step',
+  {
+    isContinued: boolean;
+    finishReason: LanguageModelV1FinishReason;
+    usage?: {
+      promptTokens: number;
+      completionTokens: number;
+    };
+  }
+> = {
+  code: DataStreamStringPrefixes.finish_step,
+  name: 'finish_step',
+  parse: (value: JSONValue) => {
+    if (
+      value == null ||
+      typeof value !== 'object' ||
+      !('finishReason' in value) ||
+      typeof value.finishReason !== 'string'
+    ) {
+      throw new Error(
+        '"finish_step" parts expect an object with a "finishReason" property.',
+      );
+    }
+
+    const result: {
+      isContinued: boolean;
+      finishReason: LanguageModelV1FinishReason;
+      usage?: {
+        promptTokens: number;
+        completionTokens: number;
+      };
+    } = {
+      finishReason: value.finishReason as LanguageModelV1FinishReason,
+      isContinued: false,
+    };
+
+    if (
+      'usage' in value &&
+      value.usage != null &&
+      typeof value.usage === 'object' &&
+      'promptTokens' in value.usage &&
+      'completionTokens' in value.usage
+    ) {
+      result.usage = {
+        promptTokens:
+          typeof value.usage.promptTokens === 'number'
+            ? value.usage.promptTokens
+            : Number.NaN,
+        completionTokens:
+          typeof value.usage.completionTokens === 'number'
+            ? value.usage.completionTokens
+            : Number.NaN,
+      };
+    }
+
+    if ('isContinued' in value && typeof value.isContinued === 'boolean') {
+      result.isContinued = value.isContinued;
+    }
+
+    return {
+      type: 'finish_step',
+      value: result,
+    };
+  },
+};
+
+const startStepStreamPart: DataStreamPart<
+  'f',
+  'start_step',
+  {
+    messageId: string;
+  }
+> = {
+  code: DataStreamStringPrefixes.start_step,
+  name: 'start_step',
+  parse: (value: JSONValue) => {
+    if (
+      value == null ||
+      typeof value !== 'object' ||
+      !('messageId' in value) ||
+      typeof value.messageId !== 'string'
+    ) {
+      throw new Error(
+        '"start_step" parts expect an object with an "messageId" property.',
+      );
+    }
+
+    return {
+      type: 'start_step',
+      value: {
+        messageId: value.messageId,
+      },
+    };
+  },
+};
+
+const reasoningStreamPart: DataStreamPart<'g', 'reasoning', string> = {
+  code: DataStreamStringPrefixes.reasoning,
+  name: 'reasoning',
+  parse: (value: JSONValue) => {
+    if (typeof value !== 'string') {
+      throw new Error('"reasoning" parts expect a string value.');
+    }
+    return { type: 'reasoning', value };
+  },
+};
+
+const sourcePart: DataStreamPart<'h', 'source', LanguageModelV1Source> = {
+  code: DataStreamStringPrefixes.source,
+  name: 'source',
+  parse: (value: JSONValue) => {
+    if (value == null || typeof value !== 'object') {
+      throw new Error('"source" parts expect a Source object.');
+    }
+
+    return {
+      type: 'source',
+      value: value as LanguageModelV1Source,
+    };
+  },
+};
+
+const redactedReasoningStreamPart: DataStreamPart<
+  'i',
+  'redacted_reasoning',
+  { data: string }
+> = {
+  code: DataStreamStringPrefixes.redacted_reasoning,
+  name: 'redacted_reasoning',
+  parse: (value: JSONValue) => {
+    if (
+      value == null ||
+      typeof value !== 'object' ||
+      !('data' in value) ||
+      typeof value.data !== 'string'
+    ) {
+      throw new Error(
+        '"redacted_reasoning" parts expect an object with a "data" property.',
+      );
+    }
+    return { type: 'redacted_reasoning', value: { data: value.data } };
+  },
+};
+
+const reasoningSignatureStreamPart: DataStreamPart<
+  'j',
+  'reasoning_signature',
+  { signature: string }
+> = {
+  code: DataStreamStringPrefixes.reasoning_signature,
+  name: 'reasoning_signature',
+  parse: (value: JSONValue) => {
+    if (
+      value == null ||
+      typeof value !== 'object' ||
+      !('signature' in value) ||
+      typeof value.signature !== 'string'
+    ) {
+      throw new Error(
+        '"reasoning_signature" parts expect an object with a "signature" property.',
+      );
+    }
+    return { type: 'reasoning_signature', value: { signature: value.signature } };
+  },
+};
+
+const fileStreamPart: DataStreamPart<'k', 'file', { mimeType: string; data: string }> = {
+  code: DataStreamStringPrefixes.file,
+  name: 'file',
+  parse: (value: JSONValue) => {
+    if (
+      value == null ||
+      typeof value !== 'object' ||
+      !('mimeType' in value) ||
+      typeof value.mimeType !== 'string' ||
+      !('data' in value) ||
+      typeof value.data !== 'string'
+    ) {
+      throw new Error(
+        '"file" parts expect an object with "mimeType" and "data" properties.',
+      );
+    }
+    return {
+      type: 'file',
+      value: {
+        mimeType: value.mimeType,
+        data: value.data,
+      },
+    };
+  },
+};
+
+
+const dataStreamParts = [
+  textStreamPart,
+  dataStreamPart,
+  errorStreamPart,
+  messageAnnotationsStreamPart,
+  toolCallStreamPart,
+  toolResultStreamPart,
+  toolCallStreamingStartStreamPart,
+  toolCallDeltaStreamPart,
+  finishMessageStreamPart,
+  finishStepStreamPart,
+  startStepStreamPart,
+  reasoningStreamPart,
+  sourcePart,
+  redactedReasoningStreamPart,
+  reasoningSignatureStreamPart,
+  fileStreamPart,
+] as const;
+
+type DataStreamParts = (typeof dataStreamParts)[number];
+
+const dataStreamPartsByCode: Record<string, DataStreamParts> = {};
+for (const part of dataStreamParts) {
+  dataStreamPartsByCode[part.code] = part;
+}
+
+type DataStreamPartValueType = {
+  [P in DataStreamParts as P['name']]: ReturnType<P['parse']>['value'];
+};
+
+export type DataStreamPartType = ReturnType<DataStreamParts['parse']>;
+
+/**
+ * Parses a data stream string (e.g. `0:"Hello"\n`).
+ */
+export const parseDataStreamPart = (line: string): DataStreamPartType => {
+  const firstColonIndex = line.indexOf(':');
+
+  if (firstColonIndex === -1) {
+    throw new Error(`Invalid data stream part format: ${line}`);
+  }
+
+  const code = line.substring(0, firstColonIndex);
+  const textValue = line.substring(firstColonIndex + 1);
+
+  const part = dataStreamPartsByCode[code];
+
+  if (part == null) {
+    throw new Error(`Unknown data stream part code: ${code}`);
+  }
+
+  try {
+    const value = JSON.parse(textValue);
+    return part.parse(value);
+  } catch (error) {
+    throw new Error(
+      `Could not parse data stream part value ${JSON.stringify(
+        textValue,
+      )} for code ${code}: ${error}`,
+    );
+  }
+};
+
+export function formatDataStreamPart<T extends keyof DataStreamPartValueType>(
+  type: T,
+  value: DataStreamPartValueType[T],
+): DataStreamString {
+  const part = dataStreamParts.find(p => p.name === type);
+
+  if (part == null) {
+    throw new Error(`Unknown stream part type: ${type}`);
+  }
+
+  return `${part.code}:${JSON.stringify(value)}\n`;
+}
+
+================
+File: src/core/utils/ai-sdk-adapter/fix-json.ts
+================
+// Copied and adapted from ai/packages/ui-utils/src/fix-json.ts
+
+type State =
+  | 'ROOT'
+  | 'FINISH'
+  | 'INSIDE_STRING'
+  | 'INSIDE_STRING_ESCAPE'
+  | 'INSIDE_LITERAL'
+  | 'INSIDE_NUMBER'
+  | 'INSIDE_OBJECT_START'
+  | 'INSIDE_OBJECT_KEY'
+  | 'INSIDE_OBJECT_AFTER_KEY'
+  | 'INSIDE_OBJECT_BEFORE_VALUE'
+  | 'INSIDE_OBJECT_AFTER_VALUE'
+  | 'INSIDE_OBJECT_AFTER_COMMA'
+  | 'INSIDE_ARRAY_START'
+  | 'INSIDE_ARRAY_AFTER_VALUE'
+  | 'INSIDE_ARRAY_AFTER_COMMA';
+
+export function fixJson(input: string): string {
+  const stack: State[] = ['ROOT'];
+  let lastValidIndex = -1;
+  let literalStart: number | null = null;
+
+  function processValueStart(char: string, i: number, swapState: State) {
+    {
+      switch (char) {
+        case '"': {
+          lastValidIndex = i;
+          stack.pop();
+          stack.push(swapState);
+          stack.push('INSIDE_STRING');
+          break;
+        }
+
+        case 'f':
+        case 't':
+        case 'n': {
+          lastValidIndex = i;
+          literalStart = i;
+          stack.pop();
+          stack.push(swapState);
+          stack.push('INSIDE_LITERAL');
+          break;
+        }
+
+        case '-': {
+          stack.pop();
+          stack.push(swapState);
+          stack.push('INSIDE_NUMBER');
+          break;
+        }
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9': {
+          lastValidIndex = i;
+          stack.pop();
+          stack.push(swapState);
+          stack.push('INSIDE_NUMBER');
+          break;
+        }
+
+        case '{': {
+          lastValidIndex = i;
+          stack.pop();
+          stack.push(swapState);
+          stack.push('INSIDE_OBJECT_START');
+          break;
+        }
+
+        case '[': {
+          lastValidIndex = i;
+          stack.pop();
+          stack.push(swapState);
+          stack.push('INSIDE_ARRAY_START');
+          break;
+        }
+      }
+    }
+  }
+
+  function processAfterObjectValue(char: string, i: number) {
+    switch (char) {
+      case ',': {
+        stack.pop();
+        stack.push('INSIDE_OBJECT_AFTER_COMMA');
+        break;
+      }
+      case '}': {
+        lastValidIndex = i;
+        stack.pop();
+        break;
+      }
+    }
+  }
+
+  function processAfterArrayValue(char: string, i: number) {
+    switch (char) {
+      case ',': {
+        stack.pop();
+        stack.push('INSIDE_ARRAY_AFTER_COMMA');
+        break;
+      }
+      case ']': {
+        lastValidIndex = i;
+        stack.pop();
+        break;
+      }
+    }
+  }
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    const currentState = stack[stack.length - 1];
+
+    switch (currentState) {
+      case 'ROOT':
+        processValueStart(char, i, 'FINISH');
+        break;
+
+      case 'INSIDE_OBJECT_START': {
+        switch (char) {
+          case '"': {
+            stack.pop();
+            stack.push('INSIDE_OBJECT_KEY');
+            break;
+          }
+          case '}': {
+            lastValidIndex = i;
+            stack.pop();
+            break;
+          }
+        }
+        break;
+      }
+
+      case 'INSIDE_OBJECT_AFTER_COMMA': {
+        switch (char) {
+          case '"': {
+            stack.pop();
+            stack.push('INSIDE_OBJECT_KEY');
+            break;
+          }
+        }
+        break;
+      }
+
+      case 'INSIDE_OBJECT_KEY': {
+        switch (char) {
+          case '"': {
+            stack.pop();
+            stack.push('INSIDE_OBJECT_AFTER_KEY');
+            break;
+          }
+        }
+        break;
+      }
+
+      case 'INSIDE_OBJECT_AFTER_KEY': {
+        switch (char) {
+          case ':': {
+            stack.pop();
+            stack.push('INSIDE_OBJECT_BEFORE_VALUE');
+
+            break;
+          }
+        }
+        break;
+      }
+
+      case 'INSIDE_OBJECT_BEFORE_VALUE': {
+        processValueStart(char, i, 'INSIDE_OBJECT_AFTER_VALUE');
+        break;
+      }
+
+      case 'INSIDE_OBJECT_AFTER_VALUE': {
+        processAfterObjectValue(char, i);
+        break;
+      }
+
+      case 'INSIDE_STRING': {
+        switch (char) {
+          case '"': {
+            stack.pop();
+            lastValidIndex = i;
+            break;
+          }
+
+          case '\\': {
+            stack.push('INSIDE_STRING_ESCAPE');
+            break;
+          }
+
+          default: {
+            lastValidIndex = i;
+          }
+        }
+
+        break;
+      }
+
+      case 'INSIDE_ARRAY_START': {
+        switch (char) {
+          case ']': {
+            lastValidIndex = i;
+            stack.pop();
+            break;
+          }
+
+          default: {
+            lastValidIndex = i;
+            processValueStart(char, i, 'INSIDE_ARRAY_AFTER_VALUE');
+            break;
+          }
+        }
+        break;
+      }
+
+      case 'INSIDE_ARRAY_AFTER_VALUE': {
+        switch (char) {
+          case ',': {
+            stack.pop();
+            stack.push('INSIDE_ARRAY_AFTER_COMMA');
+            break;
+          }
+
+          case ']': {
+            lastValidIndex = i;
+            stack.pop();
+            break;
+          }
+
+          default: {
+            lastValidIndex = i;
+            break;
+          }
+        }
+
+        break;
+      }
+
+      case 'INSIDE_ARRAY_AFTER_COMMA': {
+        processValueStart(char, i, 'INSIDE_ARRAY_AFTER_VALUE');
+        break;
+      }
+
+      case 'INSIDE_STRING_ESCAPE': {
+        stack.pop();
+        lastValidIndex = i;
+
+        break;
+      }
+
+      case 'INSIDE_NUMBER': {
+        switch (char) {
+          case '0':
+          case '1':
+          case '2':
+          case '3':
+          case '4':
+          case '5':
+          case '6':
+          case '7':
+          case '8':
+          case '9': {
+            lastValidIndex = i;
+            break;
+          }
+
+          case 'e':
+          case 'E':
+          case '-':
+          case '.': {
+            break;
+          }
+
+          case ',': {
+            stack.pop();
+
+            if (stack[stack.length - 1] === 'INSIDE_ARRAY_AFTER_VALUE') {
+              processAfterArrayValue(char, i);
+            }
+
+            if (stack[stack.length - 1] === 'INSIDE_OBJECT_AFTER_VALUE') {
+              processAfterObjectValue(char, i);
+            }
+
+            break;
+          }
+
+          case '}': {
+            stack.pop();
+
+            if (stack[stack.length - 1] === 'INSIDE_OBJECT_AFTER_VALUE') {
+              processAfterObjectValue(char, i);
+            }
+
+            break;
+          }
+
+          case ']': {
+            stack.pop();
+
+            if (stack[stack.length - 1] === 'INSIDE_ARRAY_AFTER_VALUE') {
+              processAfterArrayValue(char, i);
+            }
+
+            break;
+          }
+
+          default: {
+            stack.pop();
+            break;
+          }
+        }
+
+        break;
+      }
+
+      case 'INSIDE_LITERAL': {
+        const partialLiteral = input.substring(literalStart!, i + 1);
+
+        if (
+          !'false'.startsWith(partialLiteral) &&
+          !'true'.startsWith(partialLiteral) &&
+          !'null'.startsWith(partialLiteral)
+        ) {
+          stack.pop();
+
+          if (stack[stack.length - 1] === 'INSIDE_OBJECT_AFTER_VALUE') {
+            processAfterObjectValue(char, i);
+          } else if (stack[stack.length - 1] === 'INSIDE_ARRAY_AFTER_VALUE') {
+            processAfterArrayValue(char, i);
+          }
+        } else {
+          lastValidIndex = i;
+        }
+
+        break;
+      }
+    }
+  }
+
+  let result = input.slice(0, lastValidIndex + 1);
+
+  for (let i = stack.length - 1; i >= 0; i--) {
+    const state = stack[i];
+
+    switch (state) {
+      case 'INSIDE_STRING': {
+        result += '"';
+        break;
+      }
+
+      case 'INSIDE_OBJECT_KEY':
+      case 'INSIDE_OBJECT_AFTER_KEY':
+      case 'INSIDE_OBJECT_AFTER_COMMA':
+      case 'INSIDE_OBJECT_START':
+      case 'INSIDE_OBJECT_BEFORE_VALUE':
+      case 'INSIDE_OBJECT_AFTER_VALUE': {
+        result += '}';
+        break;
+      }
+
+      case 'INSIDE_ARRAY_START':
+      case 'INSIDE_ARRAY_AFTER_COMMA':
+      case 'INSIDE_ARRAY_AFTER_VALUE': {
+        result += ']';
+        break;
+      }
+
+      case 'INSIDE_LITERAL': {
+        const partialLiteral = input.substring(literalStart!, input.length);
+
+        if ('true'.startsWith(partialLiteral)) {
+          result += 'true'.slice(partialLiteral.length);
+        } else if ('false'.startsWith(partialLiteral)) {
+          result += 'false'.slice(partialLiteral.length);
+        } else if ('null'.startsWith(partialLiteral)) {
+          result += 'null'.slice(partialLiteral.length);
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+================
+File: src/core/utils/ai-sdk-adapter/get-message-parts.ts
+================
+// Copied and adapted from ai/packages/ui-utils/src/get-message-parts.ts
+import {
+  CreateMessage,
+  FileUIPart,
+  Message,
+  ReasoningUIPart,
+  SourceUIPart,
+  StepStartUIPart,
+  TextUIPart,
+  ToolInvocationUIPart,
+  UIMessage,
+} from './types'; // Use local types
+
+export function getMessageParts(
+  message: Message | CreateMessage | UIMessage,
+): (
+  | TextUIPart
+  | ReasoningUIPart
+  | ToolInvocationUIPart
+  | SourceUIPart
+  | FileUIPart
+  | StepStartUIPart
+)[] {
+  return (
+    message.parts ?? [
+      ...(message.toolInvocations
+        ? message.toolInvocations.map(toolInvocation => ({
+            type: 'tool-invocation' as const,
+            toolInvocation,
+          }))
+        : []),
+      ...(message.reasoning
+        ? [
+            {
+              type: 'reasoning' as const,
+              reasoning: message.reasoning,
+              details: [{ type: 'text' as const, text: message.reasoning }],
+            },
+          ]
+        : []),
+      ...(message.content
+        ? [{ type: 'text' as const, text: message.content }]
+        : []),
+    ]
+  );
+}
+
+================
+File: src/core/utils/ai-sdk-adapter/parse-json.ts
+================
+// Copied and adapted from ai/packages/provider-utils/src/parse-json.ts
+import SecureJSON from 'secure-json-parse';
+import { JSONValue, JSONParseError, TypeValidationError } from './types'; // Use local types
+
+// Simplified ParseResult without schema validation
+export type SafeParseResult<T> =
+  | { success: true; value: T }
+  | { success: false; error: JSONParseError | TypeValidationError }; // Keep error types
+
+// Simplified safeParseJSON - removed schema validation and Zod dependency
+export function safeParseJSON({
+  text,
+}: {
+  text: string;
+}): SafeParseResult<JSONValue> {
+  try {
+    const value = SecureJSON.parse(text);
+    return { success: true, value: value as JSONValue };
+  } catch (error) {
+    return {
+      success: false,
+      error: JSONParseError.isInstance(error)
+        ? error
+        : new JSONParseError({ text, cause: error }),
+    };
+  }
+}
+
+================
+File: src/core/utils/ai-sdk-adapter/parse-partial-json.ts
+================
+// Copied and adapted from ai/packages/ui-utils/src/parse-partial-json.ts
+import { JSONValue } from './types'; // Use local types
+import { safeParseJSON } from './parse-json'; // Use local safeParseJSON
+import { fixJson } from './fix-json'; // Use local fixJson
+
+export function parsePartialJson(jsonText: string | undefined): {
+  value: JSONValue | undefined;
+  state:
+    | 'undefined-input'
+    | 'successful-parse'
+    | 'repaired-parse'
+    | 'failed-parse';
+} {
+  if (jsonText === undefined) {
+    return { value: undefined, state: 'undefined-input' };
+  }
+
+  let result = safeParseJSON({ text: jsonText });
+
+  if (result.success) {
+    return { value: result.value, state: 'successful-parse' };
+  }
+
+  result = safeParseJSON({ text: fixJson(jsonText) });
+
+  if (result.success) {
+    return { value: result.value, state: 'repaired-parse' };
+  }
+
+  return { value: undefined, state: 'failed-parse' };
+}
+
+================
+File: src/core/utils/ai-sdk-adapter/process-chat-response.ts
+================
+// Copied and adapted from ai/packages/ui-utils/src/process-chat-response.ts
+import { generateId as generateIdFunction } from './adapter-utils'; // Use local utils
+import {
+  calculateLanguageModelUsage,
+  LanguageModelUsage,
+} from './usage'; // Use local
+import { parsePartialJson } from './parse-partial-json'; // Use local
+import { processDataStream } from './process-data-stream'; // Use local
+import type {
+  JSONValue,
+  ReasoningUIPart,
+  TextUIPart,
+  ToolInvocation,
+  ToolInvocationUIPart,
+  UIMessage,
+  UseChatOptions, // Use local definition
+  LanguageModelV1FinishReason // Use local definition
+} from './types'; // Use local
+
+export async function processChatResponse({
+  stream,
+  update,
+  onToolCall,
+  onFinish,
+  generateId = generateIdFunction,
+  getCurrentDate = () => new Date(),
+  lastMessage,
+}: {
+  stream: ReadableStream<Uint8Array>;
+  update: (options: {
+    message: UIMessage;
+    data: JSONValue[] | undefined;
+    replaceLastMessage: boolean;
+  }) => void;
+  onToolCall?: UseChatOptions['onToolCall'];
+  onFinish?: (options: {
+    message: UIMessage | undefined;
+    finishReason: LanguageModelV1FinishReason;
+    usage: LanguageModelUsage;
+  }) => void;
+  generateId?: () => string;
+  getCurrentDate?: () => Date;
+  lastMessage: UIMessage | undefined;
+}) {
+  const replaceLastMessage = lastMessage?.role === 'assistant';
+  let step = replaceLastMessage
+    ? 1 +
+      (lastMessage.toolInvocations?.reduce((max, toolInvocation) => {
+        return Math.max(max, toolInvocation.step ?? 0);
+      }, 0) ?? 0)
+    : 0;
+
+  const message: UIMessage = replaceLastMessage
+    ? structuredClone(lastMessage)
+    : {
+        id: generateId(),
+        createdAt: getCurrentDate(),
+        role: 'assistant',
+        content: '',
+        parts: [], // Ensure parts is initialized
+      };
+
+  // Ensure parts is always an array even when cloning
+  if (!Array.isArray(message.parts)) {
+     message.parts = [];
+  }
+
+  let currentTextPart: TextUIPart | undefined = undefined;
+  let currentReasoningPart: ReasoningUIPart | undefined = undefined;
+  let currentReasoningTextDetail:
+    | { type: 'text'; text: string; signature?: string }
+    | undefined = undefined;
+
+  function updateToolInvocationPart(
+    toolCallId: string,
+    invocation: ToolInvocation,
+  ) {
+    const partIndex = message.parts.findIndex(
+      part =>
+        part.type === 'tool-invocation' &&
+        part.toolInvocation.toolCallId === toolCallId,
+    );
+
+    if (partIndex !== -1) {
+      (message.parts[partIndex] as ToolInvocationUIPart).toolInvocation = invocation;
+    } else {
+      message.parts.push({
+        type: 'tool-invocation',
+        toolInvocation: invocation,
+      });
+    }
+  }
+
+  const data: JSONValue[] = [];
+
+  let messageAnnotations: JSONValue[] | undefined = replaceLastMessage
+    ? lastMessage?.annotations
+    : undefined;
+
+  const partialToolCalls: Record<
+    string,
+    { text: string; step: number; index: number; toolName: string }
+  > = {};
+
+  let usage: LanguageModelUsage = {
+    completionTokens: NaN,
+    promptTokens: NaN,
+    totalTokens: NaN,
+  };
+  let finishReason: LanguageModelV1FinishReason = 'unknown';
+
+  function execUpdate() {
+    const copiedData = [...data];
+
+    if (messageAnnotations?.length) {
+      message.annotations = messageAnnotations;
+    }
+
+    const copiedMessage = {
+      ...structuredClone(message),
+      revisionId: generateId(), // Add revisionId for SWR compatibility if needed
+    } as UIMessage;
+
+    update({
+      message: copiedMessage,
+      data: copiedData,
+      replaceLastMessage,
+    });
+  }
+
+  await processDataStream({
+    stream,
+    onTextPart(value) {
+      if (currentTextPart == null) {
+        currentTextPart = {
+          type: 'text',
+          text: value,
+        };
+        message.parts.push(currentTextPart);
+      } else {
+        currentTextPart.text += value;
+      }
+
+      message.content += value;
+      execUpdate();
+    },
+    onReasoningPart(value) {
+      if (currentReasoningTextDetail == null) {
+        currentReasoningTextDetail = { type: 'text', text: value };
+        if (currentReasoningPart != null) {
+          currentReasoningPart.details.push(currentReasoningTextDetail);
+        }
+      } else {
+        currentReasoningTextDetail.text += value;
+      }
+
+      if (currentReasoningPart == null) {
+        currentReasoningPart = {
+          type: 'reasoning',
+          reasoning: value,
+          details: [currentReasoningTextDetail],
+        };
+        message.parts.push(currentReasoningPart);
+      } else {
+        currentReasoningPart.reasoning += value;
+      }
+
+      message.reasoning = (message.reasoning ?? '') + value;
+
+      execUpdate();
+    },
+    onReasoningSignaturePart(value) {
+      if (currentReasoningTextDetail != null) {
+        currentReasoningTextDetail.signature = value.signature;
+      }
+    },
+    onRedactedReasoningPart(value) {
+      if (currentReasoningPart == null) {
+        currentReasoningPart = {
+          type: 'reasoning',
+          reasoning: '',
+          details: [],
+        };
+        message.parts.push(currentReasoningPart);
+      }
+
+      currentReasoningPart.details.push({
+        type: 'redacted',
+        data: value.data,
+      });
+
+      currentReasoningTextDetail = undefined;
+
+      execUpdate();
+    },
+    onFilePart(value) {
+      message.parts.push({
+        type: 'file',
+        mimeType: value.mimeType,
+        data: value.data,
+      });
+
+      execUpdate();
+    },
+    onSourcePart(value) {
+      message.parts.push({
+        type: 'source',
+        source: value,
+      });
+
+      execUpdate();
+    },
+    onToolCallStreamingStartPart(value) {
+      if (message.toolInvocations == null) {
+        message.toolInvocations = [];
+      }
+
+      partialToolCalls[value.toolCallId] = {
+        text: '',
+        step,
+        toolName: value.toolName,
+        index: message.toolInvocations.length,
+      };
+
+      const invocation = {
+        state: 'partial-call',
+        step,
+        toolCallId: value.toolCallId,
+        toolName: value.toolName,
+        args: undefined,
+      } as const;
+
+      message.toolInvocations.push(invocation);
+
+      updateToolInvocationPart(value.toolCallId, invocation);
+
+      execUpdate();
+    },
+    onToolCallDeltaPart(value) {
+      const partialToolCall = partialToolCalls[value.toolCallId];
+
+      partialToolCall.text += value.argsTextDelta;
+
+      const { value: partialArgs } = parsePartialJson(partialToolCall.text);
+
+      const invocation = {
+        state: 'partial-call',
+        step: partialToolCall.step,
+        toolCallId: value.toolCallId,
+        toolName: partialToolCall.toolName,
+        args: partialArgs,
+      } as const;
+
+      message.toolInvocations![partialToolCall.index] = invocation;
+
+      updateToolInvocationPart(value.toolCallId, invocation);
+
+      execUpdate();
+    },
+    async onToolCallPart(value) {
+      const invocation = {
+        state: 'call',
+        step,
+        ...value,
+      } as const;
+
+      if (partialToolCalls[value.toolCallId] != null) {
+        message.toolInvocations![partialToolCalls[value.toolCallId].index] =
+          invocation;
+      } else {
+        if (message.toolInvocations == null) {
+          message.toolInvocations = [];
+        }
+
+        message.toolInvocations.push(invocation);
+      }
+
+      updateToolInvocationPart(value.toolCallId, invocation);
+
+      execUpdate();
+
+      if (onToolCall) {
+        const result = await onToolCall({ toolCall: value as any }); // Cast if ToolCall type mismatch
+        if (result != null) {
+          const resultInvocation = {
+            state: 'result',
+            step,
+            ...value,
+            result,
+          } as const;
+
+          message.toolInvocations![message.toolInvocations!.length - 1] =
+            resultInvocation;
+
+          updateToolInvocationPart(value.toolCallId, resultInvocation);
+
+          execUpdate();
+        }
+      }
+    },
+    onToolResultPart(value) {
+      const toolInvocations = message.toolInvocations;
+
+      if (toolInvocations == null) {
+        throw new Error('tool_result must be preceded by a tool_call');
+      }
+
+      const toolInvocationIndex = toolInvocations.findIndex(
+        invocation => invocation.toolCallId === value.toolCallId,
+      );
+
+      if (toolInvocationIndex === -1) {
+        throw new Error(
+          'tool_result must be preceded by a tool_call with the same toolCallId',
+        );
+      }
+
+      const resultInvocation = {
+        ...toolInvocations[toolInvocationIndex],
+        state: 'result' as const,
+        ...value,
+      } as const;
+
+      toolInvocations[toolInvocationIndex] = resultInvocation;
+
+      updateToolInvocationPart(value.toolCallId, resultInvocation);
+
+      execUpdate();
+    },
+    onDataPart(value) {
+      data.push(...value);
+      execUpdate();
+    },
+    onMessageAnnotationsPart(value) {
+      if (messageAnnotations == null) {
+        messageAnnotations = [...value];
+      } else {
+        messageAnnotations.push(...value);
+      }
+
+      execUpdate();
+    },
+    onFinishStepPart(value) {
+      step += 1;
+
+      currentTextPart = value.isContinued ? currentTextPart : undefined;
+      currentReasoningPart = undefined;
+      currentReasoningTextDetail = undefined;
+    },
+    onStartStepPart(value) {
+      if (!replaceLastMessage) {
+        message.id = value.messageId;
+      }
+
+      message.parts.push({ type: 'step-start' });
+      execUpdate();
+    },
+    onFinishMessagePart(value) {
+      finishReason = value.finishReason;
+      if (value.usage != null) {
+        usage = calculateLanguageModelUsage(value.usage);
+      }
+    },
+    onErrorPart(error) {
+      throw new Error(error);
+    },
+  });
+
+  onFinish?.({ message, finishReason, usage });
+}
+
+================
+File: src/core/utils/ai-sdk-adapter/process-data-stream.ts
+================
+// Copied and adapted from ai/packages/ui-utils/src/process-data-stream.ts
+import { DataStreamPartType, parseDataStreamPart } from './data-stream-parts'; // Use local
+
+const NEWLINE = '\n'.charCodeAt(0);
+
+// concatenates all the chunks into a single Uint8Array
+function concatChunks(chunks: Uint8Array[], totalLength: number) {
+  const concatenatedChunks = new Uint8Array(totalLength);
+
+  let offset = 0;
+  for (const chunk of chunks) {
+    concatenatedChunks.set(chunk, offset);
+    offset += chunk.length;
+  }
+  chunks.length = 0;
+
+  return concatenatedChunks;
+}
+
+export async function processDataStream({
+  stream,
+  onTextPart,
+  onReasoningPart,
+  onReasoningSignaturePart,
+  onRedactedReasoningPart,
+  onSourcePart,
+  onFilePart,
+  onDataPart,
+  onErrorPart,
+  onToolCallStreamingStartPart,
+  onToolCallDeltaPart,
+  onToolCallPart,
+  onToolResultPart,
+  onMessageAnnotationsPart,
+  onFinishMessagePart,
+  onFinishStepPart,
+  onStartStepPart,
+}: {
+  stream: ReadableStream<Uint8Array>;
+  onTextPart?: (
+    streamPartValue: (DataStreamPartType & { type: 'text' })['value'],
+  ) => Promise<void> | void;
+  onReasoningPart?: (
+    streamPartValue: (DataStreamPartType & { type: 'reasoning' })['value'],
+  ) => Promise<void> | void;
+  onReasoningSignaturePart?: (
+    streamPartValue: (DataStreamPartType & { type: 'reasoning_signature' })['value'],
+  ) => Promise<void> | void;
+  onRedactedReasoningPart?: (
+    streamPartValue: (DataStreamPartType & { type: 'redacted_reasoning' })['value'],
+  ) => Promise<void> | void;
+  onFilePart?: (
+    streamPartValue: (DataStreamPartType & { type: 'file' })['value'],
+  ) => Promise<void> | void;
+  onSourcePart?: (
+    streamPartValue: (DataStreamPartType & { type: 'source' })['value'],
+  ) => Promise<void> | void;
+  onDataPart?: (
+    streamPartValue: (DataStreamPartType & { type: 'data' })['value'],
+  ) => Promise<void> | void;
+  onErrorPart?: (
+    streamPartValue: (DataStreamPartType & { type: 'error' })['value'],
+  ) => Promise<void> | void;
+  onToolCallStreamingStartPart?: (
+    streamPartValue: (DataStreamPartType & {
+      type: 'tool_call_streaming_start';
+    })['value'],
+  ) => Promise<void> | void;
+  onToolCallDeltaPart?: (
+    streamPartValue: (DataStreamPartType & { type: 'tool_call_delta' })['value'],
+  ) => Promise<void> | void;
+  onToolCallPart?: (
+    streamPartValue: (DataStreamPartType & { type: 'tool_call' })['value'],
+  ) => Promise<void> | void;
+  onToolResultPart?: (
+    streamPartValue: (DataStreamPartType & { type: 'tool_result' })['value'],
+  ) => Promise<void> | void;
+  onMessageAnnotationsPart?: (
+    streamPartValue: (DataStreamPartType & {
+      type: 'message_annotations';
+    })['value'],
+  ) => Promise<void> | void;
+  onFinishMessagePart?: (
+    streamPartValue: (DataStreamPartType & { type: 'finish_message' })['value'],
+  ) => Promise<void> | void;
+  onFinishStepPart?: (
+    streamPartValue: (DataStreamPartType & { type: 'finish_step' })['value'],
+  ) => Promise<void> | void;
+  onStartStepPart?: (
+    streamPartValue: (DataStreamPartType & { type: 'start_step' })['value'],
+  ) => Promise<void> | void;
+}): Promise<void> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  const chunks: Uint8Array[] = [];
+  let totalLength = 0;
+
+  while (true) {
+    const { value, done } = await reader.read();
+
+    if (done) {
+       // Process remaining buffer if stream ended mid-line
+       if (chunks.length > 0) {
+          const concatenatedChunks = concatChunks(chunks, totalLength);
+          const lines = decoder
+             .decode(concatenatedChunks, { stream: true })
+             .split('\n')
+             .filter(line => line !== ''); // Filter out empty lines
+
+          for (const line of lines) {
+             // Pass the *full line* to parseDataStreamPart
+             try {
+                const part = parseDataStreamPart(line); // Pass the whole line
+                await processPart(part);
+             } catch (e) {
+                console.error(`Error parsing stream line: "${line}"`, e);
+                // Optionally handle/report the error for this specific line
+             }
+          }
+       }
+       break; // Exit loop when stream is done
+    }
+
+    if (value) {
+      chunks.push(value);
+      totalLength += value.length;
+      // --- Keep improved chunk buffering ---
+      let lastNewlineIndex = -1;
+      for(let i = value.length - 1; i >= 0; i--) {
+          if (value[i] === NEWLINE) {
+              lastNewlineIndex = i;
+              break;
+          }
+      }
+
+      // If a newline exists, process the buffer up to the last newline
+      if (lastNewlineIndex !== -1) {
+          // Combine all chunks and slice up to the last newline
+          const concatenatedChunks = concatChunks(chunks, totalLength);
+          // Calculate byte index of the character *after* the last newline
+          const processableEndIndex = concatenatedChunks.length - (value.length - (lastNewlineIndex + 1));
+          const processableBuffer = concatenatedChunks.slice(0, processableEndIndex);
+          const remainingBuffer = concatenatedChunks.slice(processableEndIndex);
+
+
+          // Decode and process the completed lines
+          const lines = decoder
+              .decode(processableBuffer, { stream: true }) // Process only completed lines
+              .split('\n')
+              .filter(line => line !== ''); // Filter out empty lines
+
+          for (const line of lines) {
+             // Pass the *full line* to parseDataStreamPart
+             try {
+                const part = parseDataStreamPart(line); // Pass the whole line
+                await processPart(part);
+             } catch (e) {
+                 console.error(`Error parsing stream line: "${line}"`, e);
+                 // Optionally handle/report the error for this specific line
+             }
+          }
+
+          // Put the remaining part back into the chunks buffer
+           chunks.length = 0; // Clear chunks array
+           if (remainingBuffer.length > 0) {
+               chunks.push(remainingBuffer);
+               totalLength = remainingBuffer.length;
+           } else {
+               totalLength = 0;
+           }
+      }
+    }
+  }
+
+  async function processPart(part: DataStreamPartType) {
+    switch (part.type) {
+      case 'text':
+        await onTextPart?.(part.value);
+        break;
+      case 'reasoning':
+        await onReasoningPart?.(part.value);
+        break;
+      case 'reasoning_signature': 
+        await onReasoningSignaturePart?.(part.value);
+        break;
+      case 'redacted_reasoning':
+        await onRedactedReasoningPart?.(part.value);
+        break;
+      case 'file':
+        await onFilePart?.(part.value);
+        break;
+      case 'source':
+        await onSourcePart?.(part.value);
+        break;
+      case 'data':
+        await onDataPart?.(part.value);
+        break;
+      case 'error':
+        await onErrorPart?.(part.value);
+        break;
+      case 'message_annotations':
+        await onMessageAnnotationsPart?.(part.value);
+        break;
+      case 'tool_call_streaming_start':
+        await onToolCallStreamingStartPart?.(part.value);
+        break;
+      case 'tool_call_delta':
+        await onToolCallDeltaPart?.(part.value);
+        break;
+      case 'tool_call':
+        await onToolCallPart?.(part.value);
+        break;
+      case 'tool_result':
+        await onToolResultPart?.(part.value);
+        break;
+      case 'finish_message':
+        await onFinishMessagePart?.(part.value);
+        break;
+      case 'finish_step':
+        await onFinishStepPart?.(part.value);
+        break;
+      case 'start_step':
+        await onStartStepPart?.(part.value);
+        break;
+      default: {
+        // This check should be exhaustive based on DataStreamPartType
+        const exhaustiveCheck: never = part;
+        throw new Error(`Unknown stream part type: ${(exhaustiveCheck as any).type}`);
+      }
+    }
+  }
+}
+
+================
+File: src/core/utils/ai-sdk-adapter/types.ts
+================
+// Copied and adapted from ai/packages/ui-utils/src/types.ts
+// Removed imports from @ai-sdk/provider and provider-utils, will define needed types locally
+
+// Define necessary types locally if not importing
+type LanguageModelV1FinishReason =
+  | 'stop'
+  | 'length'
+  | 'content-filter'
+  | 'tool-calls'
+  | 'error'
+  | 'other'
+  | 'unknown';
+
+interface LanguageModelV1Source {
+    contentType: string;
+    data: Uint8Array;
+}
+
+interface ToolCall<NAME extends string, ARGS> {
+  toolCallId: string;
+  toolName: NAME;
+  args: ARGS;
+}
+
+interface ToolResult<NAME extends string, ARGS, RESULT> {
+  toolCallId: string;
+  toolName: NAME;
+  args: ARGS;
+  result: RESULT;
+}
+
+// Basic JSONValue definition
+export type JSONValue =
+  | null
+  | string
+  | number
+  | boolean
+  | { [value: string]: JSONValue }
+  | Array<JSONValue>;
+
+// Original content from types.ts starts here, adapted imports might be needed later
+
+// export * from './use-assistant-types'; // Assuming not needed for chat handler
+
+export type IdGenerator = () => string;
+
+export type ToolInvocation =
+  | ({ state: 'partial-call'; step?: number } & ToolCall<string, any>)
+  | ({ state: 'call'; step?: number } & ToolCall<string, any>)
+  | ({ state: 'result'; step?: number } & ToolResult<string, any, any>);
+
+export interface Attachment {
+  name?: string;
+  contentType?: string;
+  url: string;
+}
+
+export interface Message {
+  id: string;
+  createdAt?: Date;
+  content: string;
+  reasoning?: string;
+  experimental_attachments?: Attachment[];
+  role: 'system' | 'user' | 'assistant' | 'data';
+  data?: JSONValue;
+  annotations?: JSONValue[] | undefined;
+  toolInvocations?: Array<ToolInvocation>;
+  parts?: Array<
+    | TextUIPart
+    | ReasoningUIPart
+    | ToolInvocationUIPart
+    | SourceUIPart
+    | FileUIPart
+    | StepStartUIPart
+  >;
+}
+
+export type UIMessage = Message & {
+  parts: Array<
+    | TextUIPart
+    | ReasoningUIPart
+    | ToolInvocationUIPart
+    | SourceUIPart
+    | FileUIPart
+    | StepStartUIPart
+  >;
+};
+
+export type TextUIPart = {
+  type: 'text';
+  text: string;
+};
+
+export type ReasoningUIPart = {
+  type: 'reasoning';
+  reasoning: string;
+  details: Array<
+    | { type: 'text'; text: string; signature?: string }
+    | { type: 'redacted'; data: string }
+  >;
+};
+
+export type ToolInvocationUIPart = {
+  type: 'tool-invocation';
+  toolInvocation: ToolInvocation;
+};
+
+export type SourceUIPart = {
+  type: 'source';
+  source: LanguageModelV1Source;
+};
+
+export type FileUIPart = {
+  type: 'file';
+  mimeType: string;
+  data: string; // base64 encoded data
+};
+
+export type StepStartUIPart = {
+  type: 'step-start';
+};
+
+export type CreateMessage = Omit<Message, 'id'> & {
+  id?: Message['id'];
+};
+
+// -- Types below might not be directly needed by the adapter utils --
+// -- but included for completeness if process-chat-response depends on them --
+
+export type ChatRequest = {
+  headers?: Record<string, string> | Headers;
+  body?: object;
+  messages: Message[];
+  data?: JSONValue;
+};
+
+export type RequestOptions = {
+  headers?: Record<string, string> | Headers;
+  body?: object;
+};
+
+export type ChatRequestOptions = {
+  headers?: Record<string, string> | Headers;
+  body?: object;
+  data?: JSONValue;
+  experimental_attachments?: FileList | Array<Attachment>;
+  allowEmptySubmit?: boolean;
+};
+
+// Define LanguageModelUsage locally
+export type LanguageModelUsage = {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+};
+
+
+export type UseChatOptions = {
+  keepLastMessageOnError?: boolean;
+  api?: string;
+  id?: string;
+  initialMessages?: Message[];
+  initialInput?: string;
+  onToolCall?: ({
+    toolCall,
+  }: {
+    toolCall: ToolCall<string, unknown>;
+  }) => void | Promise<unknown> | unknown;
+  onResponse?: (response: Response) => void | Promise<void>;
+  onFinish?: (
+    message: Message,
+    options: {
+      usage: LanguageModelUsage;
+      finishReason: LanguageModelV1FinishReason;
+    },
+  ) => void;
+  onError?: (error: Error) => void;
+  generateId?: IdGenerator;
+  credentials?: RequestCredentials;
+  headers?: Record<string, string> | Headers;
+  body?: object;
+  sendExtraMessageFields?: boolean;
+  streamProtocol?: 'data' | 'text';
+  // fetch?: FetchFunction; // Removing FetchFunction dependency
+}; 
+
+// Define error types locally
+export class JSONParseError extends Error {
+  static isInstance(error: any): error is JSONParseError {
+    return error instanceof JSONParseError;
+  }
+  constructor({ text, cause }: { text: string; cause: unknown }) {
+    super(`Failed to parse JSON. Text: ${text}. Cause: ${cause instanceof Error ? cause.message : cause}`);
+    this.name = 'JSONParseError';
+  }
+}
+
+export class TypeValidationError extends Error {
+  static isInstance(error: any): error is TypeValidationError {
+    return error instanceof TypeValidationError;
+  }
+  static wrap({ value, cause }: { value: unknown; cause: unknown }): TypeValidationError {
+     return new TypeValidationError({ message: `Type validation failed. Cause: ${cause instanceof Error ? cause.message : cause}`, value, cause });
+  }
+  readonly value: unknown;
+  constructor({ message, value, cause }: { message: string; value: unknown; cause: unknown }) {
+    super(message);
+    this.name = 'TypeValidationError';
+    this.cause = cause;
+    this.value = value;
+  }
+}
+
+================
+File: src/core/utils/ai-sdk-adapter/usage.ts
+================
+// Copied and adapted from ai/packages/ui-utils/src/duplicated/usage.ts
+
+export type LanguageModelUsage = {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+};
+
+export type EmbeddingModelUsage = {
+  tokens: number;
+};
+
+export function calculateLanguageModelUsage({
+  promptTokens,
+  completionTokens,
+}: {
+  promptTokens: number;
+  completionTokens: number;
+}): LanguageModelUsage {
+  return {
+    promptTokens,
+    completionTokens,
+    totalTokens: promptTokens + completionTokens,
+  };
 }
 
 ================
@@ -19898,6 +21559,665 @@ export function useAuth() {
 }
 
 ================
+File: src/hooks/use-auto-scroll.ts
+================
+import { useEffect, useRef, useState, useCallback } from "react";
+
+interface UseAutoScrollOptions {
+  scrollThreshold?: number;
+  debounceTime?: number;
+}
+
+const useAutoScroll = (
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  enabled: boolean,
+  options?: UseAutoScrollOptions
+) => {
+  const { scrollThreshold = 100, debounceTime = 100 } = options || {};
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+  const lastScrollHeightRef = useRef(0);
+  const isAutoScrolling = useRef(false);
+  const rafId = useRef<number | null>(null);
+
+  const isAtBottom = useCallback((element: HTMLDivElement | null) => {
+    if (!element) return false;
+    const { scrollTop, scrollHeight, clientHeight } = element;
+    return Math.abs(scrollHeight - scrollTop - clientHeight) <= scrollThreshold;
+  }, [scrollThreshold]);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    if (rafId.current) cancelAnimationFrame(rafId.current);
+
+    isAutoScrolling.current = true;
+    const targetScrollTop = container.scrollHeight - container.clientHeight;
+
+    container.scrollTo({
+      top: targetScrollTop,
+      behavior,
+    });
+
+    // Reset auto-scrolling flag after animation
+    rafId.current = requestAnimationFrame(() => {
+      setTimeout(() => {
+        isAutoScrolling.current = false;
+      }, behavior === "smooth" ? 250 : 50);
+    });
+  }, [containerRef]);
+
+  // Handle manual scroll detection
+  useEffect(() => {
+    if (!enabled) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    let scrollTimeout: NodeJS.Timeout | null = null;
+
+    const handleScroll = () => {
+      if (isAutoScrolling.current) return;
+
+      const isCurrentlyAtBottom = isAtBottom(container);
+      const scrollDirection = container.scrollTop < lastScrollHeightRef.current ? "up" : "down";
+
+      if (scrollTimeout) clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        if (scrollDirection === "up" && !isCurrentlyAtBottom) {
+          setAutoScrollEnabled(false);
+        } else if (isCurrentlyAtBottom) {
+          setAutoScrollEnabled(true);
+        }
+        lastScrollHeightRef.current = container.scrollTop;
+      }, debounceTime);
+    };
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    lastScrollHeightRef.current = container.scrollTop;
+    setAutoScrollEnabled(isAtBottom(container));
+
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+      if (scrollTimeout) clearTimeout(scrollTimeout);
+      if (rafId.current) cancelAnimationFrame(rafId.current);
+    };
+  }, [containerRef, enabled, isAtBottom, debounceTime]);
+
+  // Handle content changes
+  useEffect(() => {
+    if (!enabled || !autoScrollEnabled) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new MutationObserver((mutations) => {
+      if (!autoScrollEnabled || isAutoScrolling.current) return;
+
+      const wasAtBottom = isAtBottom(container);
+      const newScrollHeight = container.scrollHeight;
+
+      if (wasAtBottom || newScrollHeight > lastScrollHeightRef.current) {
+        rafId.current = requestAnimationFrame(() => {
+          scrollToBottom("smooth");
+          lastScrollHeightRef.current = newScrollHeight;
+        });
+      }
+    });
+
+    observer.observe(container, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+    });
+
+    // Initial scroll if at bottom
+    if (isAtBottom(container)) {
+      scrollToBottom("auto");
+    }
+
+    return () => {
+      observer.disconnect();
+      if (rafId.current) cancelAnimationFrame(rafId.current);
+    };
+  }, [containerRef, enabled, autoScrollEnabled, scrollToBottom, isAtBottom]);
+
+  return {
+    autoScrollEnabled,
+    scrollToBottom,
+  };
+};
+
+export { useAutoScroll };
+
+================
+File: src/hooks/use-chat-stream.ts
+================
+import { useEffect, useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { Message } from '@/types/message';
+import { ChatEvents } from '@/core/ipc/constants';
+import { IpcResponse } from '@/types/ipc';
+import { Logger } from '@/utils/logger';
+
+const logger = new Logger('useChatStream');
+
+type StreamChunkData = { chunk: string; messageId?: string };
+
+interface UseChatStreamProps {
+  activeConversationId?: string;
+}
+
+export const useChatStream = ({ activeConversationId }: UseChatStreamProps) => {
+  const { toast } = useToast();
+  const [streamingMessage, setStreamingMessage] = useState<Message | null>(null);
+  const [isStreamComplete, setIsStreamComplete] = useState(false);
+  const [chatStatus, setChatStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    logger.debug('Setting up chat stream listeners for conversation:', { activeConversationId });
+    setStreamingMessage(null);
+    setIsStreamComplete(false);
+    setChatStatus('idle'); 
+    setErrorMessage(null);
+
+    const cleanupChunk = window.electron.on(ChatEvents.CHAT_STREAM_CHUNK, (_event: Electron.IpcRendererEvent, response: IpcResponse<StreamChunkData>) => {
+       if (response.success && response.data) {
+          const { chunk, messageId } = response.data;
+          setStreamingMessage((prev: Message | null): Message => {
+            const now = new Date().toISOString();
+            const baseMessage = prev || {
+              id: messageId || `streaming_${Date.now()}`,
+              role: 'assistant' as const,
+              content: '',
+              created_at: now,
+              updated_at: now,
+              conversation_id: activeConversationId || '',
+              user_id: 'assistant_id',
+              is_deleted: false,
+              annotations: [],
+            };
+            return {
+              ...baseMessage,
+              content: baseMessage.content + chunk,
+              updated_at: now,
+            };
+          });
+          setIsStreamComplete(false);
+          setChatStatus('loading'); 
+          setErrorMessage(null);
+       } else if (!response.success) {
+         logger.warn('[ChatStream] Received unsuccessful CHUNK event', { error: response.error });
+       }
+    });
+
+    const cleanupFinish = window.electron.on(ChatEvents.CHAT_STREAM_FINISH, (_event: Electron.IpcRendererEvent, response: IpcResponse) => {
+       if (response.success) {
+          logger.debug('[ChatStream] Stream finished event received');
+          // Don't clear streaming message immediately to prevent flashing
+          // setStreamingMessage(null);
+          setIsStreamComplete(true);
+          setChatStatus('idle');
+       }
+    });
+
+    const cleanupError = window.electron.on(ChatEvents.CHAT_STREAM_ERROR, (_event: Electron.IpcRendererEvent, response: IpcResponse) => {
+       if (!response.success) {
+          const error = response.error || 'Unknown stream error';
+          logger.error('[ChatStream] Stream error event received:', { error });
+          setErrorMessage(error);
+          setChatStatus('error');
+          setStreamingMessage(null);
+          setIsStreamComplete(false);
+          toast({
+            title: 'Chat Error',
+            description: error,
+            variant: 'destructive',
+          });
+       }
+    });
+
+    return () => {
+      logger.debug('Cleaning up chat stream listeners for conversation:', { activeConversationId });
+      cleanupChunk(); 
+      cleanupFinish();
+      cleanupError();
+    };
+  }, [toast, activeConversationId]);
+
+  return {
+    streamingMessage,
+    isStreamComplete,
+    chatStatus,
+    errorMessage,
+    setChatStatus, 
+    setErrorMessage,
+    setStreamingMessage,
+    setIsStreamComplete,
+  };
+};
+
+================
+File: src/hooks/use-chat.ts
+================
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { Logger } from '@/utils/logger';
+import { ChatEvents } from '@/core/ipc/constants';
+import { generateId as generateIdFunc, getMessageParts } from '@ai-sdk/ui-utils';
+import type { JSONValue, ChatRequestOptions as VercelChatRequestOptions } from '@ai-sdk/ui-utils';
+import type { VinciUIMessage, VinciCreateMessage, MessageResponse, Message as VinciHandlerMessage, MessageAnnotation } from '@/types/message';
+import { IpcResponse } from '@/types/ipc';
+
+const logger = new Logger('useChat');
+
+export interface VinciChatRequestOptions extends Pick<VercelChatRequestOptions, 'headers' | 'body' | 'data'> {
+  conversationId?: string;
+  spaceId?: string;
+  provider?: string;
+  model?: string;
+  files?: any;
+  searchMode?: string;
+  chatMode?: string;
+}
+
+export interface UseChatOptions {
+  initialMessages?: VinciUIMessage[];
+  initialInput?: string;
+  id?: string;
+  spaceId?: string;
+  generateId?: () => string;
+  onFinish?: (message: VinciUIMessage) => void;
+  onError?: (error: Error) => void;
+}
+
+export type UseChatHelpers = {
+  messages: VinciUIMessage[];
+  error: undefined | Error;
+  append: (
+    message: VinciUIMessage | VinciCreateMessage,
+    chatRequestOptions?: VinciChatRequestOptions,
+  ) => Promise<void>;
+  reload: (
+    chatRequestOptions?: VinciChatRequestOptions,
+  ) => Promise<void>;
+  stop: () => void;
+  setMessages: (messages: VinciUIMessage[]) => void;
+  input: string;
+  setInput: React.Dispatch<React.SetStateAction<string>>;
+  handleInputChange: (
+    e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>,
+  ) => void;
+  handleSubmit: (
+    event?: React.FormEvent<HTMLFormElement>,
+    chatRequestOptions?: VinciChatRequestOptions,
+  ) => void;
+  isLoading: boolean;
+  status: 'submitted' | 'streaming' | 'ready' | 'error';
+  data?: JSONValue[];
+  setData: (data: JSONValue[] | undefined | ((data: JSONValue[] | undefined) => JSONValue[] | undefined)) => void;
+  conversationId: string | undefined;
+  spaceId: string | undefined;
+};
+
+export function useChat({
+  initialMessages = [],
+  initialInput = '',
+  id: initialConversationId,
+  spaceId: initialSpaceId,
+  generateId = generateIdFunc,
+  onFinish,
+  onError,
+}: UseChatOptions = {}): UseChatHelpers {
+  const { toast } = useToast();
+  
+  const [messages, setMessagesState] = useState<VinciUIMessage[]>(initialMessages);
+  const [input, setInput] = useState(initialInput);
+  const [status, setStatus] = useState<'submitted' | 'streaming' | 'ready' | 'error'>('ready');
+  const [error, setError] = useState<Error | undefined>(undefined);
+  const [data, setDataState] = useState<JSONValue[] | undefined>(undefined);
+  const [conversationId, setConversationId] = useState<string | undefined>(initialConversationId);
+  const [spaceId, setSpaceId] = useState<string | undefined>(initialSpaceId);
+
+  const messagesRef = useRef(messages);
+  const conversationIdRef = useRef(conversationId);
+  const spaceIdRef = useRef(spaceId);
+  const currentStreamingMessageIdRef = useRef<string | null>(null);
+
+  const onFinishRef = useRef(onFinish);
+  const onErrorRef = useRef(onError);
+
+
+  useEffect(() => {
+    onFinishRef.current = onFinish;
+  }, [onFinish]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+    if (initialConversationId && conversationId !== initialConversationId) {
+        setConversationId(initialConversationId);
+    }
+  }, [conversationId, initialConversationId]);
+
+    useEffect(() => {
+    spaceIdRef.current = spaceId;
+     if (initialSpaceId && spaceId !== initialSpaceId) {
+        setSpaceId(initialSpaceId);
+     }
+  }, [spaceId, initialSpaceId]);
+
+
+  const setMessages = useCallback((newMessages: VinciUIMessage[]) => {
+    if (!newMessages || newMessages.length === 0) {
+      logger.warn('setMessages called with empty or null messages array');
+      return;
+    }
+    
+    setMessagesState(newMessages);
+  }, []);
+
+  const setData = useCallback((newData: JSONValue[] | undefined | ((currentData: JSONValue[] | undefined) => JSONValue[] | undefined)) => {
+     if (typeof newData === 'function') {
+       setDataState(current => newData(current));
+     } else {
+       setDataState(newData);
+     }
+  }, []);
+
+  useEffect(() => {
+    const handleChunk = (_event: Electron.IpcRendererEvent, response: IpcResponse<{ chunk: string; messageId?: string }>) => {
+        logger.debug('[IPC Chat] Received CHUNK', response);
+        if (!response.success || !response.data?.chunk) {
+             logger.warn('[IPC Chat] Received unsuccessful or empty CHUNK event', { response });
+             return;
+        }
+
+        const { chunk, messageId } = response.data;
+
+        // Use the current value of the ref for logic
+        if (!currentStreamingMessageIdRef.current) {
+            const newStreamId = messageId || `streaming_${generateId()}`;
+            currentStreamingMessageIdRef.current = newStreamId; // Set the ref
+            logger.debug(`[IPC Chat] Starting new stream with ID: ${newStreamId} (received ID: ${messageId})`);
+
+            const newAssistantMessage: VinciUIMessage = {
+                id: newStreamId,
+                role: 'assistant',
+                content: chunk,
+                createdAt: new Date(),
+                conversation_id: conversationIdRef.current || 'unknown_conv',
+                space_id: spaceIdRef.current,
+                parts: getMessageParts({ role: 'assistant', content: chunk }),
+             };
+             setMessagesState((prev) => [...prev, newAssistantMessage]);
+             setStatus('streaming');
+             setError(undefined);
+        } else { // Ref already has an ID - stream is active
+            if (messageId && messageId !== currentStreamingMessageIdRef.current) {
+                logger.warn('[IPC Chat] Received chunk with unexpected messageId during active stream', {
+                    receivedId: messageId,
+                    currentStreamId: currentStreamingMessageIdRef.current,
+                });
+                // Potentially handle this case if needed, but continue appending for now
+            }
+
+            setMessagesState((prev) =>
+                prev.map((msg) =>
+                    msg.id === currentStreamingMessageIdRef.current // Compare with current ref value
+                      ? { ...msg, content: msg.content + chunk, updated_at: new Date().toISOString() } 
+                      : msg
+                )
+             );
+            if (status !== 'streaming') setStatus('streaming');
+            setError(undefined);
+        }
+    };
+
+    const handleFinish = (_event: Electron.IpcRendererEvent, response: IpcResponse) => {
+        logger.debug('[IPC Chat] Received FINISH', response);
+        const finishedMessageId = currentStreamingMessageIdRef.current;
+        currentStreamingMessageIdRef.current = null; // Reset ref
+
+        if (response.success) {
+            setStatus('ready');
+            // Use ref to call the latest onFinish prop
+            if (onFinishRef.current && finishedMessageId) { 
+                const finalMessage = messagesRef.current.find(msg => msg.id === finishedMessageId);
+                if (finalMessage) {
+                    onFinishRef.current(finalMessage);
+                }
+            }
+        } else {
+            const errorMsg = response.error || 'Unknown stream finish error';
+            logger.error('[IPC Chat] Received unsuccessful FINISH event', { error: errorMsg });
+            const error = new Error(errorMsg);
+            setError(error);
+            setStatus('error');
+            // Use ref to call the latest onError prop
+            if (onErrorRef.current) onErrorRef.current(error); 
+            toast({ title: 'Chat Error', description: errorMsg, variant: 'destructive' });
+        }
+    };
+
+    const handleError = (_event: Electron.IpcRendererEvent, response: IpcResponse) => {
+        logger.debug('[IPC Chat] Received ERROR', response);
+        currentStreamingMessageIdRef.current = null; // Reset ref
+        if (!response.success) {
+            const errorMsg = response.error || 'Unknown stream error';
+            logger.error('[IPC Chat] Stream error event received:', { error: errorMsg });
+            const error = new Error(errorMsg)
+            setError(error);
+            setStatus('error');
+            // Use ref to call the latest onError prop
+            if (onErrorRef.current) onErrorRef.current(error); 
+            toast({
+                title: 'Chat Error',
+                description: errorMsg,
+                variant: 'destructive',
+            });
+        }
+    };
+
+    logger.debug('Setting up chat IPC listeners');
+    setStatus('ready');
+    setError(undefined);
+    currentStreamingMessageIdRef.current = null; // Initial reset
+
+    const cleanupChunk = window.electron.on(ChatEvents.CHAT_STREAM_CHUNK, handleChunk);
+    const cleanupFinish = window.electron.on(ChatEvents.CHAT_STREAM_FINISH, handleFinish);
+    const cleanupError = window.electron.on(ChatEvents.CHAT_STREAM_ERROR, handleError);
+
+    return () => {
+      logger.debug('Cleaning up chat IPC listeners');
+      cleanupChunk();
+      cleanupFinish();
+      cleanupError();
+      currentStreamingMessageIdRef.current = null; // Cleanup reset
+    };
+  }, [toast, generateId]);
+
+
+  const triggerRequest = useCallback(async (messagesToSend: VinciUIMessage[], options?: VinciChatRequestOptions) => {
+      const currentConvId = options?.conversationId || conversationIdRef.current;
+      const currentSpaceId = options?.spaceId || spaceIdRef.current;
+
+       if (!currentConvId) {
+           const errorMsg = 'Cannot send message: Conversation ID is missing.';
+           logger.error(errorMsg, { messagesToSend, options });
+           const error = new Error(errorMsg); // Create error object
+           setError(error);
+           setStatus('error');
+           // Use ref here
+           if (onErrorRef.current) onErrorRef.current(error);
+           toast({ title: 'Chat Error', description: errorMsg, variant: 'destructive' });
+           return;
+       }
+
+       logger.debug('Triggering IPC chat request', { conversationId: currentConvId, spaceId: currentSpaceId, messageCount: messagesToSend.length });
+       setStatus('submitted');
+       setError(undefined);
+       currentStreamingMessageIdRef.current = null;
+
+      try {
+        const messagesForHandler = messagesToSend;
+
+        const payload = {
+            conversationId: currentConvId,
+            spaceId: currentSpaceId,
+            messages: messagesForHandler,
+            provider: options?.provider,
+            model: options?.model,
+            files: options?.files,
+            searchMode: options?.searchMode,
+            chatMode: options?.chatMode,
+        };
+
+        const response: IpcResponse = await window.electron.invoke(ChatEvents.INITIATE_CHAT_STREAM, payload);
+
+        logger.debug('[IPC Chat] Send message response', response);
+
+        if (!response.success && response.error) {
+             throw new Error(response.error || 'Failed to initiate chat stream via IPC');
+        }
+
+      } catch (err: any) {
+        logger.error('[IPC Chat] Error sending message or initiating stream:', err);
+        setError(err);
+        setStatus('error');
+        // Use ref here
+        if (onErrorRef.current) onErrorRef.current(err);
+         toast({
+            title: 'Chat Error',
+            description: err.message || 'Failed to send message',
+            variant: 'destructive',
+          });
+      }
+  }, [toast]);
+
+
+  const append = useCallback(async (
+    message: VinciUIMessage | VinciCreateMessage,
+    chatRequestOptions?: VinciChatRequestOptions,
+  ) => {
+      const currentConvId = chatRequestOptions?.conversationId || conversationIdRef.current;
+      const currentSpaceId = chatRequestOptions?.spaceId || spaceIdRef.current;
+
+       if (!currentConvId) {
+            logger.error('Cannot append message: Conversation ID is missing.');
+             toast({ title: 'Error', description: 'Conversation ID missing.', variant: 'destructive' });
+            return;
+       }
+
+      const role = message.role || 'user';
+
+      const newMessage: VinciUIMessage = {
+          ...message,
+          id: message.id ?? generateId(),
+          createdAt: message.createdAt ?? new Date(),
+          role: role,
+          content: message.content || '',
+          conversation_id: currentConvId,
+          space_id: currentSpaceId,
+           parts: getMessageParts({
+             role: role,
+              content: message.content || '',
+              experimental_attachments: (message as VinciUIMessage).experimental_attachments
+           }),
+       };
+
+      const newMessages = [...messagesRef.current, newMessage];
+      setMessagesState(newMessages);
+
+      await triggerRequest(newMessages, chatRequestOptions);
+
+  }, [generateId, triggerRequest, toast]);
+
+  const reload = useCallback(async (chatRequestOptions?: VinciChatRequestOptions) => {
+      const currentMessages = messagesRef.current;
+       if (currentMessages.length === 0) {
+           logger.warn('Cannot reload: No messages exist.');
+           return;
+       }
+
+       let messagesToReload = [...currentMessages];
+       let lastAssistantMessageIndex = -1;
+       for (let i = messagesToReload.length - 1; i >= 0; i--) {
+           if (messagesToReload[i].role === 'assistant') {
+               lastAssistantMessageIndex = i;
+               break;
+           }
+       }
+
+       if (lastAssistantMessageIndex === messagesToReload.length - 1) {
+           messagesToReload = messagesToReload.slice(0, -1);
+           setMessagesState(messagesToReload);
+       }
+
+       await triggerRequest(messagesToReload, chatRequestOptions);
+
+  }, [triggerRequest]);
+
+
+  const stop = useCallback(() => {
+    logger.warn('stop() called, but IPC cancellation is not implemented.');
+     if (status === 'streaming' || status === 'submitted') {
+        setStatus('ready');
+        currentStreamingMessageIdRef.current = null;
+     }
+  }, [status]);
+
+
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+  }, []);
+
+
+  const handleSubmit = useCallback((event?: React.FormEvent<HTMLFormElement>, chatRequestOptions?: VinciChatRequestOptions) => {
+    event?.preventDefault();
+    if (!input.trim()) return;
+
+    const messageToSend: VinciCreateMessage = {
+        role: 'user',
+        content: input,
+        conversation_id: chatRequestOptions?.conversationId || conversationIdRef.current || '',
+    };
+
+    append(messageToSend, chatRequestOptions);
+    setInput('');
+  }, [input, append]);
+
+  console.log('messages at end of chat', messages);
+
+
+  return {
+    messages,
+    error,
+    append,
+    reload,
+    stop,
+    setMessages,
+    input,
+    setInput,
+    handleInputChange,
+    handleSubmit,
+    isLoading: status === 'submitted' || status === 'streaming',
+    status,
+    data,
+    setData,
+    conversationId,
+    spaceId,
+  };
+}
+
+================
 File: src/hooks/use-command-center.ts
 ================
 import { useState, useCallback, useEffect, useMemo } from 'react';
@@ -20178,14 +22498,15 @@ export function useConversations() {
 File: src/hooks/use-file-references.ts
 ================
 import { useState, useMemo } from 'react';
+import { FileReference } from '../types/file-reference';
 
 export function useFileReferences() {
-  const [fileReferences, setFileReferences] = useState<any[]>([]);
+  const [fileReferences, setFileReferences] = useState<FileReference[]>([]);
 
   const clearFileReferences = () => setFileReferences([]);
   
   const fileReferencesMap = useMemo(() => {
-    const fileMap: Record<string, any> = {};
+    const fileMap: Record<string, FileReference> = {};
     fileReferences.forEach(fileRef => {
       fileMap[fileRef.id] = {
         id: fileRef.id,
@@ -20207,11 +22528,94 @@ export function useFileReferences() {
 }
 
 ================
+File: src/hooks/use-file-selection.ts
+================
+import { useCallback } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { Logger } from '@/utils/logger';
+import { CommandCenterEvents } from '@/core/ipc/constants';
+import { FileReference } from '../types/file-reference';
+
+const logger = new Logger('useFileSelection');
+
+type FileTag = {
+  id: string;
+  name: string;
+  path: string;
+};
+
+interface UseFileSelectionProps {
+  setFileReferences: React.Dispatch<React.SetStateAction<FileReference[]>>;
+  setInput: React.Dispatch<React.SetStateAction<string>>;
+  currentInput: string;
+}
+
+export const useFileSelection = ({ setFileReferences, setInput, currentInput }: UseFileSelectionProps) => {
+  const { toast } = useToast();
+
+  const selectFile = useCallback(async (file: FileTag) => {
+    logger.debug('Selecting file:', { file });
+    let fileContent = '';
+
+    try {
+      const response = await window.electron.invoke(CommandCenterEvents.READ_FILE, {
+        filePath: file.path,
+        maxSize: 1024 * 1024, // 1MB limit
+      });
+
+      if (response.success && response.data) {
+        fileContent = response.data.content;
+        logger.debug('Successfully read file content', { path: file.path });
+      } else {
+        const errorMsg = response.error || 'Unknown error reading file';
+        throw new Error(errorMsg);
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      fileContent = `[Error loading file content: ${errorMsg}]`;
+      logger.error(`Error reading file`, { path: file.path, error: errorMsg });
+      toast({
+        title: "Error Reading File",
+        description: `Could not read file content for "${file.name}": ${errorMsg}`,
+        variant: "destructive",
+      });
+    }
+
+    const fileId = file.id || `file-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+    setFileReferences(prev => {
+      const newRef: FileReference = {
+        id: fileId,
+        path: file.path,
+        name: file.name,
+        content: fileContent,
+        type: 'file' as const
+      };
+      if (!prev.some(ref => ref.path === file.path)) {
+        logger.debug('Adding new file reference:', { newRef });
+        return [...prev, newRef];
+      }
+      logger.debug('File reference already exists:', { path: file.path });
+      return prev;
+    });
+
+    // Clear the input up to the last '@' symbol used for triggering file selection
+    if (currentInput.includes('@')) {
+      const atIndex = currentInput.lastIndexOf('@');
+      setInput(currentInput.substring(0, atIndex));
+      logger.debug('Cleared input after file selection', { oldInput: currentInput, newIndex: atIndex });
+    }
+
+  }, [setFileReferences, setInput, currentInput, toast]);
+
+  return { selectFile };
+};
+
+================
 File: src/hooks/use-messages.ts
 ================
-import { useState, useCallback, useEffect, useMemo } from 'react';
-import { MessageEvents, AppStateEvents } from '@/core/ipc/constants';
-import { Message } from '@/types/message';
+import { useState, useCallback, useMemo } from 'react';
+import { MessageEvents } from '@/core/ipc/constants';
 import { useMainState } from '@/context/MainStateContext';
 
 export function useMessages() {
@@ -20221,6 +22625,8 @@ export function useMessages() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const messages = useMemo(() => state.messages || [], [state.messages]);
+
+  console.log('messages', messages);
 
   const sendMessage = useCallback(async (conversationId: string, content: string): Promise<boolean> => {
     setIsActionLoading(true);
@@ -20286,23 +22692,13 @@ export function useMessages() {
     }
   }, []);
   
-  const formatMessagesForChat = useCallback(() => {
-    return messages.map(msg => ({
-      id: msg.id,
-      role: msg.role,
-      content: msg.content,
-      createdAt: new Date(msg.created_at)
-    }));
-  }, [messages]);
-
   return {
     messages,
     isLoading: isGlobalLoading || isActionLoading,
     error: actionError || globalError,
     sendMessage,
     deleteMessage,
-    updateMessage,
-    formatMessagesForChat
+    updateMessage
   };
 }
 
@@ -21578,6 +23974,7 @@ interface AppStateResult {
     spaces: Space[];
   activeSpace: Space | null;
   conversations: Conversation[];
+  activeConversation: Conversation | null;
   messages: Message[];
   initialDataLoaded: boolean;
   lastFetched: number | null;
@@ -21634,10 +24031,11 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
     
     let conversations: Conversation[] = [];
     let messages: Message[] = [];
+    let activeConversation: Conversation | null = null;
     
     if (activeSpace) {
       conversations = await fetchConversations(activeSpace.id);
-      const activeConversation = await fetchActiveConversation(activeSpace.id);
+      activeConversation = await fetchActiveConversation(activeSpace.id);
 
       if (activeConversation) {
         messages = await fetchMessages(activeConversation.id);
@@ -21650,6 +24048,7 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
       spaces,
       activeSpace,
       conversations,
+      activeConversation,
       messages,
       initialDataLoaded: true,
       lastFetched: Date.now(),
@@ -21881,6 +24280,7 @@ export async function setActiveConversationInAPI(conversationId: string, spaceId
         active: c.id === conversationId
       }));
       store.updateConversations(updatedConversations);
+      store.updateActiveConversation(conversation);
     } else {
       console.warn(`[ELECTRON] Conversation with ID ${conversationId} not found in Zustand store`);
     }
@@ -21900,6 +24300,9 @@ export async function fetchActiveConversation(spaceId: string): Promise<Conversa
     if (status !== 'success') {
       throw new Error(error || 'Failed to fetch active conversation');
     }
+
+    const store = useMainStore.getState();
+    store.updateActiveConversation(conversation);
 
     return conversation;
   } catch (error) {
@@ -22374,7 +24777,7 @@ export async function fetchActiveSpace(): Promise<Space | null> {
     if (status !== 'success') {
       throw new Error(error || 'Failed to fetch active space');
     }
-    
+
     if (space) {
       useMainStore.getState().setActiveSpace(space);
     }
@@ -22865,7 +25268,7 @@ File: src/store/main/index.ts
 import { create } from 'zustand';
 import { User } from '@supabase/supabase-js';
 import { Conversation } from '@/types/conversation';
-import { Message } from '@/types/message';
+import { VinciUIMessage } from '@/types/message';
 import { Space } from '@/types/space';
 import { CommandType } from '@/types/command';
 
@@ -22873,7 +25276,7 @@ export interface MainProcessState {
   spaces: Space[];
   activeSpace: Space | null;
   conversations: Conversation[];
-  messages: Message[];
+  messages: VinciUIMessage[];
   activeConversation: Conversation | null;
   initialDataLoaded: boolean;
   lastFetched: number | null;
@@ -24578,6 +26981,17 @@ declare global {
 }
 
 ================
+File: src/types/file-reference.ts
+================
+export interface FileReference {
+  id: string;
+  path: string;
+  name: string;
+  content: string;
+  type: 'file'; // Assuming only file type for now, adjust if needed
+}
+
+================
 File: src/types/ipc.ts
 ================
 export interface IpcResponse<T = any> {
@@ -24601,6 +27015,34 @@ File: src/types/message.ts
 ================
 import { Provider } from "@/types/provider";
 import { IpcResponse } from "@/types/ipc";
+import { JSONValue } from "@ai-sdk/ui-utils";
+import type { Message as VercelMessage, UIMessage as VercelUIMessage, CreateMessage as VercelCreateMessage } from '@ai-sdk/ui-utils';
+
+export interface VinciMessage extends VercelMessage {
+  user_id: string;
+  conversation_id: string;
+  space_id?: string;
+  is_deleted?: boolean;
+  updated_at?: string;
+  annotations?: JSONValue[] | undefined;
+}
+
+export interface VinciUIMessage extends VercelUIMessage {
+  user_id?: string;
+  conversation_id: string;
+  space_id?: string;
+  is_deleted?: boolean;
+  updated_at?: string;
+  annotations?: JSONValue[] | undefined;
+}
+
+export interface VinciCreateMessage extends Omit<VercelCreateMessage, 'data'> {
+  user_id?: string;
+  conversation_id: string;
+  space_id?: string;
+  annotations?: JSONValue[] | undefined;
+  vinci_data?: Record<string, any>;
+}
 
 export interface Message {
   id: string;
@@ -24615,7 +27057,7 @@ export interface Message {
 }
 
 export interface MessageResponse extends IpcResponse {
-  data?: Message | Message[] | { deleted: boolean };
+  data?: VinciMessage | VinciMessage[] | { deleted: boolean } | { messageId: string; chunk: string } | { success: boolean };
 }
 
 export interface MessageAnnotation {

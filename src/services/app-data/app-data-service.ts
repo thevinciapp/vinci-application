@@ -10,20 +10,40 @@ import { Conversation } from '@/types/conversation';
 import { Message } from '@/types/message';
 import { Space } from '@/types/space';
 import { User } from '@supabase/supabase-js';
+import { VinciUIMessage } from '@/types/message';
+import { getMessageParts } from '@ai-sdk/ui-utils';
+import { generateId } from '@/core/utils/ai-sdk-adapter/adapter-utils';
 
 interface AppStateResult {
-    spaces: Space[];
-  activeSpace: Space | null;
-  conversations: Conversation[];
-  activeConversation: Conversation | null;
-  messages: Message[];
-  initialDataLoaded: boolean;
-  lastFetched: number | null;
-  user: User | null;
+    spaces?: Space[];
+  activeSpace?: Space | null;
+  conversations?: Conversation[];
+  activeConversation?: Conversation | null;
+  messages?: VinciUIMessage[];
+  initialDataLoaded?: boolean;
+  lastFetched?: number;
+  user?: User | null;
   accessToken?: string | null;
   refreshToken?: string | null;
   tokenExpiryTime?: number | null;
   error?: string;
+}
+
+function formatMessageForUI(message: Message): VinciUIMessage {
+  const formattedMessage: VinciUIMessage = {
+    id: message.id || generateId(),
+    role: message.role || 'user',
+    content: message.content || '',
+    createdAt: new Date(message.created_at),
+    conversation_id: message.conversation_id || '',
+    parts: getMessageParts({
+      role: message.role || 'user',
+      content: message.content || ''
+    }),
+    annotations: message.annotations || [],
+  };
+
+  return formattedMessage;
 }
 
 export async function fetchInitialAppData(): Promise<AppStateResult> {
@@ -85,12 +105,14 @@ export async function fetchInitialAppData(): Promise<AppStateResult> {
 
     const currentStore = useMainStore.getState();
     
+    const formattedMessages = messages ? messages.map(formatMessageForUI) : [];
+    
     return {
       spaces,
       activeSpace,
       conversations,
       activeConversation,
-      messages,
+      messages: formattedMessages,
       initialDataLoaded: true,
       lastFetched: Date.now(),
       user: user as User | null,

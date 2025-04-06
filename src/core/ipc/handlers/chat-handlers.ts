@@ -1,9 +1,11 @@
-import { ipcMain, IpcMainInvokeEvent } from 'electron';
-import { ChatEvents } from '@/core/ipc/constants';
+import { ipcMain, IpcMainInvokeEvent, BrowserWindow } from 'electron';
+import { ChatEvents, AppStateEvents } from '@/core/ipc/constants';
 import { Logger } from '@/utils/logger';
 import { IpcResponse } from '@/types/ipc';
-import type { Message } from '@/types/message';
+import type { Message, VinciUIMessage } from '@/types/message';
 import { initiateChatApiStream } from '@/services/chat/chat-service';
+import { useMainStore, getMainStoreState } from '@/store/main';
+import { sanitizeStateForIPC } from '@/core/utils/state-utils';
 
 import {
   processChatResponse,
@@ -54,6 +56,17 @@ function extractTextFromRawStream(content: string): string {
   }
   
   return extractedText;
+}
+
+// Function to broadcast state updates to all renderers
+function broadcastStateUpdate() {
+  const state = getMainStoreState();
+  const serializableState = sanitizeStateForIPC(state);
+  BrowserWindow.getAllWindows().forEach((window: BrowserWindow) => {
+    if (window && window.webContents && !window.webContents.isDestroyed()) {
+      window.webContents.send(AppStateEvents.STATE_UPDATED, { success: true, data: serializableState });
+    }
+  });
 }
 
 export function registerChatHandlers(): void {
@@ -167,6 +180,8 @@ export function registerChatHandlers(): void {
             finishReason,
             usage,
           });
+          
+          // Send the finish event to the renderer
           event.sender.send(ChatEvents.CHAT_STREAM_FINISH, {
             success: true,
             data: { 
@@ -175,6 +190,88 @@ export function registerChatHandlers(): void {
               finalMessage: message 
             }, 
           });
+          
+          // Update the store with the final message if available
+          if (message) {
+            const store = useMainStore.getState();
+            
+            // Include all original messages from the payload (including user messages)
+            let allMessages: VinciUIMessage[] = [];
+            
+            // Get existing messages from store first
+            const currentMessages = store.messages || [];
+            
+            // Start with payload messages that might not be in the store
+            // These are the messages that were sent to the API
+            payload.messages.forEach(m => {
+              // Create a properly formatted message
+              const vinciUserMessage: VinciUIMessage = {
+                id: m.id || generateId(),
+                role: m.role,
+                content: m.content || '',
+                createdAt: m.createdAt instanceof Date ? m.createdAt : 
+                          (m.createdAt ? new Date(m.createdAt) : 
+                          (m.created_at ? new Date(m.created_at) : new Date())),
+                conversation_id: payload.conversationId || '',
+                space_id: payload.spaceId,
+                parts: m.parts || getMessageParts({
+                  role: m.role,
+                  content: m.content || ''
+                }),
+                annotations: m.annotations || []
+              };
+              
+              // Only add if this message isn't already in current messages
+              if (!currentMessages.some(cm => cm.id === vinciUserMessage.id)) {
+                allMessages.push(vinciUserMessage);
+              }
+            });
+            
+            // Add existing messages that aren't in payload
+            currentMessages.forEach(m => {
+              if (!allMessages.some(am => am.id === m.id)) {
+                allMessages.push(m);
+              }
+            });
+            
+            // Extract relevant data from assistant message
+            const messageId = message.id || messageIdForStream || generateId();
+            const messageRole = message.role || 'assistant';
+            const messageContent = message.content || '';
+            
+            // Create a properly formatted VinciUIMessage for the assistant response
+            const assistantMessage: VinciUIMessage = {
+              id: messageId,
+              role: messageRole as any, // Type cast to avoid strict typing issues
+              content: messageContent,
+              createdAt: new Date(),
+              conversation_id: payload.conversationId || '',
+              space_id: payload.spaceId,
+              parts: message.parts || getMessageParts({
+                role: messageRole,
+                content: messageContent
+              }),
+              annotations: message.annotations as any[] || [],
+            };
+            
+            // Find if this assistant message already exists
+            const existingAssistantIndex = allMessages.findIndex(m => m.id === assistantMessage.id);
+            
+            if (existingAssistantIndex >= 0) {
+              // Update existing message
+              allMessages[existingAssistantIndex] = assistantMessage;
+            } else {
+              // Add new message
+              allMessages.push(assistantMessage);
+            }
+            
+            // Update the store with all messages including user and assistant
+            logger.debug(`Updating store with ${allMessages.length} messages after stream finished`);
+            useMainStore.getState().updateMessages(allMessages);
+            
+            // Broadcast state update to all renderers
+            broadcastStateUpdate();
+          }
         },
         onToolCall: ({ toolCall }) => {
           if (streamAborted) return;
