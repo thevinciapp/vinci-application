@@ -1,6 +1,6 @@
 import { ChatContainer } from '@/components/chat/chat-container';
 import { useEffect, forwardRef, useRef, memo, useMemo } from 'react';
-import { Message, VinciUIMessage } from '@/types/message';
+import { VinciUIMessage } from '@/types/message';
 import { JSONValue } from '@ai-sdk/ui-utils';
 import { MemoizedMessage } from './memoized-message';
 import { PlaceholderMessage } from './placeholder-message';
@@ -8,7 +8,7 @@ import { useAutoScroll } from '@/hooks/use-auto-scroll';
 
 interface ChatMessagesProps {
   messages: VinciUIMessage[];
-  streamingMessage: Message | null;
+  streamingMessage: VinciUIMessage | null;
   onStickToBottomChange?: (isStickToBottom: boolean) => void;
   onScrollToBottom?: (callback: () => void) => void;
   isLoading?: boolean;
@@ -88,14 +88,6 @@ const ChatMessagesComponent = forwardRef<HTMLDivElement, ChatMessagesProps>(
       
       return separators;
     }, [messages, streamingMessage, shouldShowStreamingMessage, shouldShowPlaceholder]);
-
-    const needsStreamingSeparator = useMemo(() => {
-      if (!messages.length || !shouldShowStreamingMessage) return false;
-      const lastMessage = messages[messages.length - 1];
-      return lastMessage.role !== streamingMessage.role;
-    }, [messages, streamingMessage, shouldShowStreamingMessage]);
-    
-    const needsPlaceholderSeparator = Boolean(shouldShowPlaceholder);
 
     return (
         <ChatContainer

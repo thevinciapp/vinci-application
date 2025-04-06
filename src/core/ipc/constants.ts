@@ -68,6 +68,7 @@ export const ChatEvents = {
   CHAT_STREAM_CHUNK: 'chat:stream-chunk',
   CHAT_STREAM_FINISH: 'chat:stream-finish',
   CHAT_STREAM_ERROR: 'chat:stream-error',
+  CHAT_STREAM_TOOL_CALL: 'chat:stream-tool-call',
 } as const;
 
 /**

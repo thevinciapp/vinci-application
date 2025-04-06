@@ -1,15 +1,14 @@
 import { memo, useRef } from 'react';
 import { ChatMessage } from './chat-message';
-import { Message } from '../../types/message';
 import { JSONValue } from '@ai-sdk/ui-utils';
+import { VinciUIMessage } from '@/types/message';
 
-// Define props for MemoizedMessage
 interface MemoizedMessageProps {
-  message: Message;
-  index: number; // Keep for key/debugging if needed
-  isLoading: boolean; // Directly use the passed prop
-  streamData?: JSONValue[]; // Directly use the passed prop
-  messagesLength: number; // Keep for key/debugging if needed
+  message: VinciUIMessage;
+  index: number; 
+  isLoading: boolean; 
+  streamData?: JSONValue[]; 
+  messagesLength: number; 
   shouldAddSeparator: boolean;
   spaceId?: string;
 }

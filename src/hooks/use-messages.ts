@@ -1,6 +1,5 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
-import { MessageEvents, AppStateEvents } from '@/core/ipc/constants';
-import { Message } from '@/types/message';
+import { useState, useCallback, useMemo } from 'react';
+import { MessageEvents } from '@/core/ipc/constants';
 import { useMainState } from '@/context/MainStateContext';
 
 export function useMessages() {
@@ -10,6 +9,8 @@ export function useMessages() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const messages = useMemo(() => state.messages || [], [state.messages]);
+
+  console.log('messages', messages);
 
   const sendMessage = useCallback(async (conversationId: string, content: string): Promise<boolean> => {
     setIsActionLoading(true);
@@ -75,22 +76,12 @@ export function useMessages() {
     }
   }, []);
   
-  const formatMessagesForChat = useCallback(() => {
-    return messages.map(msg => ({
-      id: msg.id,
-      role: msg.role,
-      content: msg.content,
-      createdAt: new Date(msg.created_at)
-    }));
-  }, [messages]);
-
   return {
     messages,
     isLoading: isGlobalLoading || isActionLoading,
     error: actionError || globalError,
     sendMessage,
     deleteMessage,
-    updateMessage,
-    formatMessagesForChat
+    updateMessage
   };
 }

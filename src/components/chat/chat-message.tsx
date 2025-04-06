@@ -5,14 +5,14 @@ import { JSONValue } from 'ai';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { StreamStatus } from './stream-status';
 import { Markdown } from './markdown';
-import { Message, MessageAnnotation, SimilarMessage } from '@/types/message';
+import { Message, MessageAnnotation, SimilarMessage, VinciUIMessage } from '@/types/message';
 import { Provider } from '@/types/provider';
 import DotSphere from '../space/planet-icon';
 import { ModelDisplay } from '@/components/shared/model-display';
 import { getModelDisplayInfo } from '@/utils/model-utils';
 
 interface ChatMessageProps {
-  message: Message;
+  message: VinciUIMessage;
   userAvatarUrl?: string;
   isLoading?: boolean;
   streamData?: JSONValue[];

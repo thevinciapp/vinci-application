@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { User } from '@supabase/supabase-js';
 import { Conversation } from '@/types/conversation';
-import { Message } from '@/types/message';
+import { VinciUIMessage } from '@/types/message';
 import { Space } from '@/types/space';
 import { CommandType } from '@/types/command';
 
@@ -9,7 +9,7 @@ export interface MainProcessState {
   spaces: Space[];
   activeSpace: Space | null;
   conversations: Conversation[];
-  messages: Message[];
+  messages: VinciUIMessage[];
   activeConversation: Conversation | null;
   initialDataLoaded: boolean;
   lastFetched: number | null;

@@ -58,21 +58,6 @@ export type UseChatHelpers = {
   spaceId: string | undefined;
 };
 
-
-function mapToHandlerMessageFormat(message: VinciUIMessage): VinciHandlerMessage {
-    return {
-        id: message.id,
-        role: message.role as 'user' | 'assistant' | 'system',
-        content: message.content,
-        created_at: message.createdAt?.toISOString() || new Date().toISOString(),
-        updated_at: message.updated_at || message.createdAt?.toISOString() || new Date().toISOString(),
-        conversation_id: message.conversation_id,
-        user_id: message.user_id || (message.role === 'user' ? 'user_placeholder_id' : 'assistant_placeholder_id'),
-        is_deleted: message.is_deleted || false,
-        annotations: message.annotations as MessageAnnotation[] | undefined,
-    };
-}
-
 export function useChat({
   initialMessages = [],
   initialInput = '',
@@ -83,7 +68,8 @@ export function useChat({
   onError,
 }: UseChatOptions = {}): UseChatHelpers {
   const { toast } = useToast();
-  const [messages, setMessagesState] = useState<VinciUIMessage[]>(initialMessages);
+  
+  const [messages, setMessagesState] = useState<any[]>(initialMessages);
   const [input, setInput] = useState(initialInput);
   const [status, setStatus] = useState<'submitted' | 'streaming' | 'ready' | 'error'>('ready');
   const [error, setError] = useState<Error | undefined>(undefined);
@@ -96,11 +82,10 @@ export function useChat({
   const spaceIdRef = useRef(spaceId);
   const currentStreamingMessageIdRef = useRef<string | null>(null);
 
-  // Refs to hold the latest callback functions
   const onFinishRef = useRef(onFinish);
   const onErrorRef = useRef(onError);
 
-  // Keep refs updated with the latest handlers from props
+
   useEffect(() => {
     onFinishRef.current = onFinish;
   }, [onFinish]);
@@ -108,7 +93,6 @@ export function useChat({
   useEffect(() => {
     onErrorRef.current = onError;
   }, [onError]);
-
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -130,6 +114,11 @@ export function useChat({
 
 
   const setMessages = useCallback((newMessages: VinciUIMessage[]) => {
+    if (!newMessages || newMessages.length === 0) {
+      logger.warn('setMessages called with empty or null messages array');
+      return;
+    }
+    
     setMessagesState(newMessages);
   }, []);
 
@@ -142,7 +131,6 @@ export function useChat({
   }, []);
 
   useEffect(() => {
-    // Define handlers inside useEffect to close over necessary state/refs
     const handleChunk = (_event: Electron.IpcRendererEvent, response: IpcResponse<{ chunk: string; messageId?: string }>) => {
         logger.debug('[IPC Chat] Received CHUNK', response);
         if (!response.success || !response.data?.chunk) {
@@ -277,7 +265,7 @@ export function useChat({
        currentStreamingMessageIdRef.current = null;
 
       try {
-        const messagesForHandler = messagesToSend.map(mapToHandlerMessageFormat);
+        const messagesForHandler = messagesToSend;
 
         const payload = {
             conversationId: currentConvId,
@@ -403,6 +391,8 @@ export function useChat({
     append(messageToSend, chatRequestOptions);
     setInput('');
   }, [input, append]);
+
+  console.log('messages at end of chat', messages);
 
 
   return {

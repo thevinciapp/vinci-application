@@ -67,7 +67,7 @@ export function registerChatHandlers(): void {
     });
 
     const requestPayload = {
-      messages: payload.messages, // API expects the original Message format
+      messages: payload.messages,
       spaceId: payload.spaceId,
       conversationId: payload.conversationId,
       provider: payload.provider,
@@ -82,6 +82,7 @@ export function registerChatHandlers(): void {
     let messageIdForStream: string | undefined = undefined;
     let isFirstChunk = true;
     let previousContentLength = 0;
+    let lastProcessedMessage: UIMessage | null = null;
 
     try {
       logger.info(`Calling initiateChatApiStream`, {
@@ -94,48 +95,70 @@ export function registerChatHandlers(): void {
         throw new Error('No response body from API');
       }
 
-      // Use processChatResponse from the local adapter
       await processChatResponse({
         stream: response.body,
-        update: ({ message }) => {
+        update: ({ message, data, replaceLastMessage }) => {
            if (streamAborted) return;
-           // Store the messageId when we first get it
+           
            if (message.id && !messageIdForStream) {
               messageIdForStream = message.id;
            }
            
-           // Extract the actual text content from the message
-           // This is where we need to handle the structured content properly
-           let cleanContent = "";
+           let textContent = "";
            
-           // If message has parts, use the text parts to build the content
            if (Array.isArray(message.parts) && message.parts.length > 0) {
              const textParts = message.parts.filter(part => part.type === 'text');
              if (textParts.length > 0) {
-               cleanContent = textParts.map(part => part.text).join('');
+               textContent = textParts.map(part => part.text).join('');
              }
            }
            
-           // If we couldn't extract from parts, use content but with careful extraction
-           if (!cleanContent && message.content) {
-             // Use regex-based extraction to handle raw stream format
-             cleanContent = extractTextFromRawStream(message.content);
+           if (!textContent && message.content) {
+             textContent = extractTextFromRawStream(message.content);
            }
            
-           // Calculate the delta compared to what we sent previously
-           const chunk = cleanContent.substring(previousContentLength);
-           previousContentLength = cleanContent.length;
+           const textDelta = textContent.substring(previousContentLength);
+           previousContentLength = textContent.length;
 
-           if (chunk) { 
-              const idToSend = isFirstChunk ? messageIdForStream : undefined;
-              logger.debug('[IPC Handler -> CHUNK]', { messageId: idToSend, chunk });
+           if (isFirstChunk) {
+              const fullMessageData = {
+                id: message.id || messageIdForStream || generateId(),
+                role: message.role,
+                content: textContent,
+                createdAt: message.createdAt,
+                parts: message.parts || [],
+                annotations: message.annotations || [],
+                toolInvocations: message.toolInvocations || [],
+                reasoning: message.reasoning,
+              };
+              
               event.sender.send(ChatEvents.CHAT_STREAM_CHUNK, {
                   success: true,
-                  data: { chunk, messageId: idToSend },
+                  data: { 
+                    chunk: textDelta, 
+                    messageId: messageIdForStream,
+                    fullMessage: fullMessageData,
+                    isFirstChunk: true
+                  },
               });
-              if(isFirstChunk) isFirstChunk = false;
+              
+              isFirstChunk = false;
+              lastProcessedMessage = message;
+              
+           } else if (textDelta || !lastProcessedMessage || messageHasMetadataChanges(message, lastProcessedMessage)) {
+              const metadataUpdates = getMetadataUpdates(message, lastProcessedMessage);
+              
+              event.sender.send(ChatEvents.CHAT_STREAM_CHUNK, {
+                  success: true,
+                  data: { 
+                    chunk: textDelta,
+                    metadataUpdates: metadataUpdates,
+                    isFirstChunk: false
+                  },
+              });
+              
+              lastProcessedMessage = message;
            }
-           // Note: We are not sending data or annotations updates via CHUNK currently
         },
         onFinish: ({ message, finishReason, usage }) => {
           if (streamAborted) return;
@@ -146,12 +169,21 @@ export function registerChatHandlers(): void {
           });
           event.sender.send(ChatEvents.CHAT_STREAM_FINISH, {
             success: true,
-            data: { finishReason, usage }, 
+            data: { 
+              finishReason, 
+              usage,
+              finalMessage: message 
+            }, 
           });
         },
         onToolCall: ({ toolCall }) => {
           if (streamAborted) return;
-          logger.info('[IPC Handler -> TOOL_CALL] (Not Forwarded)', { toolCall });
+          logger.info('[IPC Handler -> TOOL_CALL]', { toolCall });
+          
+          event.sender.send(ChatEvents.CHAT_STREAM_TOOL_CALL, {
+            success: true,
+            data: { toolCall },
+          });
         },
         generateId: generateId,
         lastMessage: payload.messages.length > 0
@@ -174,6 +206,41 @@ export function registerChatHandlers(): void {
       return { success: false, error: error.message };
     }
   });
+}
+
+function messageHasMetadataChanges(newMessage: UIMessage, oldMessage: UIMessage | null): boolean {
+  if (!oldMessage) return true;
+  
+  const hasAnnotationChanges = JSON.stringify(newMessage.annotations) !== JSON.stringify(oldMessage.annotations);
+  const hasToolInvocationChanges = JSON.stringify(newMessage.toolInvocations) !== JSON.stringify(oldMessage.toolInvocations);
+  const hasReasoningChanges = newMessage.reasoning !== oldMessage.reasoning;
+  const hasPartsChanges = JSON.stringify(newMessage.parts) !== JSON.stringify(oldMessage.parts);
+  
+  return hasAnnotationChanges || hasToolInvocationChanges || hasReasoningChanges || hasPartsChanges;
+}
+
+function getMetadataUpdates(newMessage: UIMessage, oldMessage: UIMessage | null): Partial<UIMessage> {
+  if (!oldMessage) return newMessage;
+  
+  const updates: Partial<UIMessage> = {};
+  
+  if (JSON.stringify(newMessage.annotations) !== JSON.stringify(oldMessage.annotations)) {
+    updates.annotations = newMessage.annotations;
+  }
+  
+  if (JSON.stringify(newMessage.toolInvocations) !== JSON.stringify(oldMessage.toolInvocations)) {
+    updates.toolInvocations = newMessage.toolInvocations;
+  }
+  
+  if (newMessage.reasoning !== oldMessage.reasoning) {
+    updates.reasoning = newMessage.reasoning;
+  }
+  
+  if (JSON.stringify(newMessage.parts) !== JSON.stringify(oldMessage.parts)) {
+    updates.parts = newMessage.parts;
+  }
+  
+  return updates;
 }
 
 function mapHandlerMessageToUIMessage(handlerMessage: Message): UIMessage {

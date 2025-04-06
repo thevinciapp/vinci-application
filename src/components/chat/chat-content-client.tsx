@@ -15,7 +15,7 @@ import { Logger } from '@/utils/logger';
 import { useChat, VinciChatRequestOptions } from '@/hooks/use-chat';
 import { useFileSelection } from '@/hooks/use-file-selection';
 import { FileReference } from '../../types/file-reference';
-
+import { useMessages } from '@/hooks/use-messages';
 const logger = new Logger('ChatContentClient');
 
 export default function ChatContent() {
@@ -27,6 +27,7 @@ export default function ChatContent() {
     createConversation,
     conversations,
   } = useConversations();
+  const { messages: initialMessages } = useMessages();
   const { handleCommandWindowToggle } = useCommandWindow();
   const { fileReferences, setFileReferences, clearFileReferences, fileReferencesMap } = useFileReferences();
   const { toast } = useToast();
@@ -49,6 +50,7 @@ export default function ChatContent() {
     error: chatError,
     setMessages,
   } = useChat({
+    initialMessages,
     id: activeConversation?.id,
     spaceId: activeSpace?.id,
     onError: (err) => {
