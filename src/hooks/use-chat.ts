@@ -126,8 +126,6 @@ export function useChat({
       return;
     }
     
-    // Even if empty array is passed, we should still set it 
-    // to ensure messages clear properly when needed
     logger.debug(`Setting messages array with ${newMessages.length} items`);
     setMessagesState(newMessages);
   }, []);
@@ -150,7 +148,6 @@ export function useChat({
 
         const { chunk, messageId } = response.data;
 
-        // Use the current value of the ref for logic
         if (!currentStreamingMessageIdRef.current) {
             const newStreamId = messageId || `streaming_${generateId()}`;
             currentStreamingMessageIdRef.current = newStreamId; // Set the ref
@@ -167,13 +164,12 @@ export function useChat({
              setMessagesState((prev) => [...prev, newAssistantMessage]);
              setStatus('streaming');
              setError(undefined);
-        } else { // Ref already has an ID - stream is active
+        } else { 
             if (messageId && messageId !== currentStreamingMessageIdRef.current) {
                 logger.warn('[IPC Chat] Received chunk with unexpected messageId during active stream', {
                     receivedId: messageId,
                     currentStreamId: currentStreamingMessageIdRef.current,
                 });
-                // Potentially handle this case if needed, but continue appending for now
             }
 
             setMessagesState((prev) =>
@@ -191,11 +187,10 @@ export function useChat({
     const handleFinish = (_event: Electron.IpcRendererEvent, response: IpcResponse) => {
         logger.debug('[IPC Chat] Received FINISH', response);
         const finishedMessageId = currentStreamingMessageIdRef.current;
-        currentStreamingMessageIdRef.current = null; // Reset ref
+        currentStreamingMessageIdRef.current = null; 
 
         if (response.success) {
             setStatus('ready');
-            // Use ref to call the latest onFinish prop
             if (onFinishRef.current && finishedMessageId) { 
                 const finalMessage = messagesRef.current.find(msg => msg.id === finishedMessageId);
                 if (finalMessage) {
@@ -208,7 +203,6 @@ export function useChat({
             const error = new Error(errorMsg);
             setError(error);
             setStatus('error');
-            // Use ref to call the latest onError prop
             if (onErrorRef.current) onErrorRef.current(error); 
             toast({ title: 'Chat Error', description: errorMsg, variant: 'destructive' });
         }

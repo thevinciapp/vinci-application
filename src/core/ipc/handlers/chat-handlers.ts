@@ -194,45 +194,7 @@ export function registerChatHandlers(): void {
           // Update the store with the final message if available
           if (message) {
             const store = useMainStore.getState();
-            
-            // Include all original messages from the payload (including user messages)
-            let allMessages: VinciUIMessage[] = [];
-            
-            // Get existing messages from store first
             const currentMessages = store.messages || [];
-            
-            // Start with payload messages that might not be in the store
-            // These are the messages that were sent to the API
-            payload.messages.forEach(m => {
-              // Create a properly formatted message
-              const vinciUserMessage: VinciUIMessage = {
-                id: m.id || generateId(),
-                role: m.role,
-                content: m.content || '',
-                createdAt: m.createdAt instanceof Date ? m.createdAt : 
-                          (m.createdAt ? new Date(m.createdAt) : 
-                          (m.created_at ? new Date(m.created_at) : new Date())),
-                conversation_id: payload.conversationId || '',
-                space_id: payload.spaceId,
-                parts: m.parts || getMessageParts({
-                  role: m.role,
-                  content: m.content || ''
-                }),
-                annotations: m.annotations || []
-              };
-              
-              // Only add if this message isn't already in current messages
-              if (!currentMessages.some(cm => cm.id === vinciUserMessage.id)) {
-                allMessages.push(vinciUserMessage);
-              }
-            });
-            
-            // Add existing messages that aren't in payload
-            currentMessages.forEach(m => {
-              if (!allMessages.some(am => am.id === m.id)) {
-                allMessages.push(m);
-              }
-            });
             
             // Extract relevant data from assistant message
             const messageId = message.id || messageIdForStream || generateId();
@@ -242,32 +204,79 @@ export function registerChatHandlers(): void {
             // Create a properly formatted VinciUIMessage for the assistant response
             const assistantMessage: VinciUIMessage = {
               id: messageId,
-              role: messageRole as any, // Type cast to avoid strict typing issues
+              role: messageRole as any,
               content: messageContent,
               createdAt: new Date(),
               conversation_id: payload.conversationId || '',
               space_id: payload.spaceId,
-              parts: message.parts || getMessageParts({
+              parts: getMessageParts({
                 role: messageRole,
                 content: messageContent
-              }),
+              }) as any,
               annotations: message.annotations as any[] || [],
             };
             
-            // Find if this assistant message already exists
-            const existingAssistantIndex = allMessages.findIndex(m => m.id === assistantMessage.id);
-            
-            if (existingAssistantIndex >= 0) {
-              // Update existing message
-              allMessages[existingAssistantIndex] = assistantMessage;
-            } else {
-              // Add new message
-              allMessages.push(assistantMessage);
+            // Ensure we have a conversation ID before proceeding
+            if (!payload.conversationId) {
+              logger.warn('Cannot update messages: Conversation ID is missing');
+              return;
             }
             
-            // Update the store with all messages including user and assistant
-            logger.debug(`Updating store with ${allMessages.length} messages after stream finished`);
-            useMainStore.getState().updateMessages(allMessages);
+            // Filter out any duplicate assistant messages for this conversation
+            // First, get all existing messages for this conversation
+            const conversationMessages = currentMessages.filter(
+              m => m.conversation_id === payload.conversationId
+            );
+            
+            // Find any existing assistant message with this ID
+            const existingAssistantIndex = conversationMessages.findIndex(
+              m => m.id === assistantMessage.id
+            );
+            
+            let updatedMessages: VinciUIMessage[];
+            
+            if (existingAssistantIndex >= 0) {
+              // If the assistant message exists, update it in place
+              updatedMessages = [...currentMessages];
+              const globalIndex = currentMessages.findIndex(m => m.id === assistantMessage.id);
+              if (globalIndex >= 0) {
+                updatedMessages[globalIndex] = assistantMessage;
+              }
+            } else {
+              // If the assistant message doesn't exist, add it to the array
+              // But first check for any other messages with very similar content
+              // that might be duplicates from different streaming sessions
+              const similarAssistantMessages = conversationMessages.filter(
+                m => m.role === 'assistant' && 
+                     m.content.trim() === assistantMessage.content.trim() &&
+                     m.id !== assistantMessage.id
+              );
+              
+              if (similarAssistantMessages.length > 0) {
+                // If there are similar assistant messages, replace the most recent one
+                logger.debug('Found similar assistant message, replacing instead of adding new one');
+                updatedMessages = currentMessages.map(m => 
+                  m.id === similarAssistantMessages[similarAssistantMessages.length - 1].id ? assistantMessage : m
+                );
+              } else {
+                // No similar messages, just add the new one
+                updatedMessages = [...currentMessages, assistantMessage];
+              }
+            }
+            
+            // Filter out any message IDs that might appear more than once
+            const seenIds = new Set<string>();
+            const dedupedMessages = updatedMessages.filter(m => {
+              if (seenIds.has(m.id)) {
+                return false;
+              }
+              seenIds.add(m.id);
+              return true;
+            });
+            
+            // Update the store with all messages
+            logger.debug(`Updating store with ${dedupedMessages.length} messages after stream finished`);
+            useMainStore.getState().updateMessages(dedupedMessages);
             
             // Broadcast state update to all renderers
             broadcastStateUpdate();
