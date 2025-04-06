@@ -25,21 +25,86 @@ interface ChatPayload {
 }
 
 function extractTextFromRawStream(content: string): string {
-  let extractedText = '';
-  const textChunkRegex = /0:"([^"]*)"/g;
-  let match;
-  
-  while ((match = textChunkRegex.exec(content)) !== null) {
-    if (match[1]) {
-      extractedText += match[1];
-    }
+  // If the content is empty or not a string, return empty string
+  if (!content || typeof content !== 'string') {
+    return '';
   }
+
+  let extractedText = '';
   
-  if (!extractedText && content) {
+  try {
+    // Try to parse as JSON first - the most robust approach
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+      
+      // If successfully parsed and has a text property, use that
+      if (parsed && parsed.text) {
+        return parsed.text;
+      }
+      
+      // If it has a content property, use that
+      if (parsed && parsed.content) {
+        return parsed.content;
+      }
+    } catch (e) {
+      // Not valid JSON, continue with regex approaches
+    }
+    
+    // Try the pattern matching approach for different stream formats
+    // Format 1: 0:"text content here"
+    const textChunkRegex = /0:"([^"]*)"/g;
+    let match;
+    let foundMatch = false;
+    
+    while ((match = textChunkRegex.exec(content)) !== null) {
+      if (match[1]) {
+        extractedText += match[1];
+        foundMatch = true;
+      }
+    }
+    
+    if (foundMatch) {
+      return extractedText;
+    }
+    
+    // Format 2: {"text":"content here"}
+    const jsonTextRegex = /"text"\s*:\s*"([^"]*)"/g;
+    foundMatch = false;
+    
+    while ((match = jsonTextRegex.exec(content)) !== null) {
+      if (match[1]) {
+        extractedText += match[1];
+        foundMatch = true;
+      }
+    }
+    
+    if (foundMatch) {
+      return extractedText;
+    }
+    
+    // Format 3: text:content here
+    const simpleTextRegex = /text:([^\n]*)/g;
+    foundMatch = false;
+    
+    while ((match = simpleTextRegex.exec(content)) !== null) {
+      if (match[1]) {
+        extractedText += match[1];
+        foundMatch = true;
+      }
+    }
+    
+    if (foundMatch) {
+      return extractedText;
+    }
+    
+    // If all else fails, return the raw content as-is
+    return content;
+  } catch (error) {
+    logger.warn('Error extracting text from stream:', { error, content });
+    // Return the original content as a fallback
     return content;
   }
-  
-  return extractedText;
 }
 
 function broadcastStateUpdate() {
@@ -153,15 +218,27 @@ function createAssistantMessage(message: UIMessage, messageIdForStream: string |
 function findSimilarMessages(currentMessages: VinciUIMessage[], conversationId: string | undefined, assistantMessage: VinciUIMessage) {
   if (!conversationId) return [];
   
+  // First filter messages from this conversation
   const conversationMessages = currentMessages.filter(
     m => m.conversation_id === conversationId
   );
   
-  return conversationMessages.filter(
-    m => m.role === 'assistant' && 
-         m.content.trim() === assistantMessage.content.trim() &&
-         m.id !== assistantMessage.id
-  );
+  // Now look for streaming messages or messages with the same ID prefix
+  // This is more reliable than comparing content which can be problematic
+  return conversationMessages.filter(m => {
+    // If it's an assistant message
+    if (m.role === 'assistant') {
+      // Look for messages with the same ID or streaming messages
+      const idMatch = m.id === assistantMessage.id;
+      const isStreamMessage = m.id.includes('streaming_');
+      const isSameStreamPrefix = 
+        (assistantMessage.id.includes('streaming_') && m.id.includes(assistantMessage.id)) || 
+        (m.id.includes('streaming_') && assistantMessage.id.includes(m.id));
+        
+      return (idMatch || isStreamMessage || isSameStreamPrefix) && m.id !== assistantMessage.id;
+    }
+    return false;
+  });
 }
 
 function deduplicateMessages(messages: VinciUIMessage[]): VinciUIMessage[] {
@@ -250,7 +327,25 @@ function updateStoreMessages(message: UIMessage, messageIdForStream: string | un
     return dateA.getTime() - dateB.getTime();
   });
   
+  // Add detailed logging to help with debugging
   logger.debug(`Updating store with ${sortedMessages.length} messages after stream finished (including user messages)`);
+  
+  // Log message summary for debugging purposes
+  const messageSummary = sortedMessages.map(msg => ({
+    id: msg.id,
+    role: msg.role,
+    conversation_id: msg.conversation_id,
+    contentSnippet: msg.content.substring(0, 30) + (msg.content.length > 30 ? '...' : ''),
+    createdAt: msg.createdAt instanceof Date ? msg.createdAt.toISOString() : msg.createdAt
+  }));
+  
+  logger.debug('Message details for store update:', {
+    conversationId: payload.conversationId,
+    messageCount: sortedMessages.length,
+    messages: messageSummary
+  });
+  
+  // Actually update the store
   useMainStore.getState().updateMessages(sortedMessages);
   broadcastStateUpdate();
 }
