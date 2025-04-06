@@ -1,5 +1,33 @@
 import { Provider } from "@/types/provider";
 import { IpcResponse } from "@/types/ipc";
+import { JSONValue } from "@ai-sdk/ui-utils";
+import type { Message as VercelMessage, UIMessage as VercelUIMessage, CreateMessage as VercelCreateMessage } from '@ai-sdk/ui-utils';
+
+export interface VinciMessage extends VercelMessage {
+  user_id: string;
+  conversation_id: string;
+  space_id?: string;
+  is_deleted?: boolean;
+  updated_at?: string;
+  annotations?: JSONValue[] | undefined;
+}
+
+export interface VinciUIMessage extends VercelUIMessage {
+  user_id?: string;
+  conversation_id: string;
+  space_id?: string;
+  is_deleted?: boolean;
+  updated_at?: string;
+  annotations?: JSONValue[] | undefined;
+}
+
+export interface VinciCreateMessage extends Omit<VercelCreateMessage, 'data'> {
+  user_id?: string;
+  conversation_id: string;
+  space_id?: string;
+  annotations?: JSONValue[] | undefined;
+  vinci_data?: Record<string, any>;
+}
 
 export interface Message {
   id: string;
@@ -14,7 +42,7 @@ export interface Message {
 }
 
 export interface MessageResponse extends IpcResponse {
-  data?: Message | Message[] | { deleted: boolean };
+  data?: VinciMessage | VinciMessage[] | { deleted: boolean } | { messageId: string; chunk: string } | { success: boolean };
 }
 
 export interface MessageAnnotation {

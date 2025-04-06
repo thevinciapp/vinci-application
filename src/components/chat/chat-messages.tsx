@@ -1,13 +1,13 @@
 import { ChatContainer } from '@/components/chat/chat-container';
 import { useEffect, forwardRef, useRef, memo, useMemo } from 'react';
-import { Message } from '@/types/message';
+import { Message, VinciUIMessage } from '@/types/message';
 import { JSONValue } from '@ai-sdk/ui-utils';
 import { MemoizedMessage } from './memoized-message';
 import { PlaceholderMessage } from './placeholder-message';
 import { useAutoScroll } from '@/hooks/use-auto-scroll';
 
 interface ChatMessagesProps {
-  messages: Message[];
+  messages: VinciUIMessage[];
   streamingMessage: Message | null;
   onStickToBottomChange?: (isStickToBottom: boolean) => void;
   onScrollToBottom?: (callback: () => void) => void;
