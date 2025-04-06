@@ -86,9 +86,6 @@ export default function ChatContent() {
 
   const {
     messages,
-    append,
-    reload,
-    stop,
     input,
     setInput,
     handleInputChange,

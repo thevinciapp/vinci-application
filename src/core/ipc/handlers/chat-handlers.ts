@@ -185,28 +185,73 @@ function updateStoreMessages(message: UIMessage, messageIdForStream: string | un
   const currentMessages = store.messages || [];
   const assistantMessage = createAssistantMessage(message, messageIdForStream, payload);
   
-  const existingAssistantIndex = currentMessages.findIndex(m => m.id === assistantMessage.id);
-  let updatedMessages: VinciUIMessage[];
+  // First, ensure user messages from payload are preserved
+  let updatedMessages: VinciUIMessage[] = [];
   
+  // Step 1: Add all user messages from the payload
+  if (payload.messages && payload.messages.length > 0) {
+    // Process and add user messages from the payload
+    payload.messages.forEach(payloadMsg => {
+      // Only add if it's a valid message and not already in the currentMessages array
+      if (payloadMsg && payloadMsg.id && payloadMsg.role) {
+        const userMessage: VinciUIMessage = {
+          id: payloadMsg.id,
+          role: payloadMsg.role,
+          content: payloadMsg.content || '',
+          createdAt: payloadMsg.created_at ? new Date(payloadMsg.created_at) : new Date(),
+          conversation_id: payload.conversationId || '',
+          space_id: payload.spaceId,
+          parts: getMessageParts({
+            role: payloadMsg.role,
+            content: payloadMsg.content || ''
+          }) as any,
+          annotations: payloadMsg.annotations || []
+        };
+        
+        // Only add if not already in currentMessages
+        if (!currentMessages.some(m => m.id === userMessage.id)) {
+          updatedMessages.push(userMessage);
+        }
+      }
+    });
+  }
+  
+  // Step 2: Add all existing messages except for ones that will be replaced
+  currentMessages.forEach(existingMessage => {
+    // Skip if already added from payload to avoid duplication
+    if (!updatedMessages.some(m => m.id === existingMessage.id)) {
+      updatedMessages.push(existingMessage);
+    }
+  });
+  
+  // Step 3: Add or update the assistant message
+  const existingAssistantIndex = updatedMessages.findIndex(m => m.id === assistantMessage.id);
   if (existingAssistantIndex >= 0) {
-    updatedMessages = [...currentMessages];
     updatedMessages[existingAssistantIndex] = assistantMessage;
   } else {
-    const similarMessages = findSimilarMessages(currentMessages, payload.conversationId, assistantMessage);
-    
+    const similarMessages = findSimilarMessages(updatedMessages, payload.conversationId, assistantMessage);
     if (similarMessages.length > 0) {
       const latestSimilarMessage = similarMessages[similarMessages.length - 1];
-      updatedMessages = currentMessages.map(m => 
+      updatedMessages = updatedMessages.map(m => 
         m.id === latestSimilarMessage.id ? assistantMessage : m
       );
     } else {
-      updatedMessages = [...currentMessages, assistantMessage];
+      updatedMessages.push(assistantMessage);
     }
   }
   
+  // Step 4: Remove any duplicates by ID
   const dedupedMessages = deduplicateMessages(updatedMessages);
-  logger.debug(`Updating store with ${dedupedMessages.length} messages after stream finished`);
-  useMainStore.getState().updateMessages(dedupedMessages);
+  
+  // Step 5: Sort messages by creation date to ensure correct order
+  const sortedMessages = dedupedMessages.sort((a, b) => {
+    const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
+    const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
+    return dateA.getTime() - dateB.getTime();
+  });
+  
+  logger.debug(`Updating store with ${sortedMessages.length} messages after stream finished (including user messages)`);
+  useMainStore.getState().updateMessages(sortedMessages);
   broadcastStateUpdate();
 }
 
