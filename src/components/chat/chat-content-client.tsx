@@ -21,12 +21,9 @@ import { generateId } from '@/core/utils/ai-sdk-adapter/adapter-utils';
 
 const logger = new Logger('ChatContentClient');
 
-/**
- * Ensures a message has all the required properties to be displayed in the UI
- */
+
 function ensureMessageFormat(message: any): VinciUIMessage {
   if (!message) {
-    // Return a default empty message instead of null
     return {
       id: generateId(),
       role: 'user',
@@ -39,7 +36,6 @@ function ensureMessageFormat(message: any): VinciUIMessage {
     };
   }
   
-  // Make sure we have a valid message with required properties
   const formattedMessage: VinciUIMessage = {
     ...message,
     id: message.id || generateId(),
@@ -48,7 +44,6 @@ function ensureMessageFormat(message: any): VinciUIMessage {
     createdAt: message.createdAt instanceof Date ? message.createdAt : new Date(message.createdAt || message.created_at || Date.now()),
     conversation_id: message.conversation_id || message.conversationId || '',
     space_id: message.space_id || message.spaceId || '',
-    // Ensure parts exists
     parts: message.parts || getMessageParts({
       role: message.role || 'user',
       content: message.content || ''
@@ -66,16 +61,9 @@ export default function ChatContent() {
     activeConversation,
     setActiveConversation,
     createConversation,
-    conversations,
   } = useConversations();
   const { messages: initialMessages } = useMessages();
   
-  // Log when we receive initial messages
-  useEffect(() => {
-    if (initialMessages && initialMessages.length > 0) {
-      logger.debug(`Received ${initialMessages.length} initial messages from useMessages hook`);
-    }
-  }, [initialMessages]);
   const { handleCommandWindowToggle } = useCommandWindow();
   const { fileReferences, setFileReferences, clearFileReferences, fileReferencesMap } = useFileReferences();
   const { toast } = useToast();
@@ -239,11 +227,6 @@ export default function ChatContent() {
           onSelectFile={selectFileHandler}
         />
       </div>
-      {chatError && (
-        <div className="p-2 text-center text-red-500 bg-red-100 border-t border-red-200">
-          Error: {chatError.message}
-        </div>
-       )}
     </div>
   );
 }

@@ -110,11 +110,52 @@ export async function processDataStream({
           for (const line of lines) {
              // Pass the *full line* to parseDataStreamPart
              try {
-                const part = parseDataStreamPart(line); // Pass the whole line
+                const part = parseDataStreamPart(line);
                 await processPart(part);
              } catch (e) {
                 console.error(`Error parsing stream line: "${line}"`, e);
-                // Optionally handle/report the error for this specific line
+                
+                if (onErrorPart) {
+                  try {
+                    // First try to detect JSON error format - this is what AI SDK uses
+                    if (line.includes('"type":"error"')) {
+                      try {
+                        const errorJson = JSON.parse(line);
+                        if (errorJson.type === 'error' && errorJson.error) {
+                          await onErrorPart(errorJson.error);
+                          return;
+                        }
+                      } catch (jsonError) {
+                        // Failed to parse as JSON, continue to other methods
+                      }
+                    }
+                    
+                    // Look for error messages in various formats
+                    if (line.startsWith('3:')) {
+                      // This is a specific format where errors might come as 3:"Error message"
+                      const errorMatch = line.match(/3:["']?([^"']+)["']?$/);
+                      if (errorMatch && errorMatch[1]) {
+                        await onErrorPart(errorMatch[1].trim());
+                        return;
+                      }
+                    }
+                    
+                    // Check for any JSON-like error message pattern
+                    const errorMatch = line.match(/[:"']error["']?\s*[:=]\s*["']([^"']+)["']/i);
+                    if (errorMatch && errorMatch[1]) {
+                      await onErrorPart(errorMatch[1].trim());
+                      return;
+                    }
+                    
+                    // Last resort - if the line contains "error", send a generic error
+                    if (line.toLowerCase().includes("error")) {
+                      await onErrorPart("An error occurred processing the response");
+                    }
+                  } catch (errorHandlingError) {
+                    console.error("Error while processing error:", errorHandlingError);
+                    await onErrorPart("Failed to process response");
+                  }
+                }
              }
           }
        }
@@ -152,11 +193,52 @@ export async function processDataStream({
           for (const line of lines) {
              // Pass the *full line* to parseDataStreamPart
              try {
-                const part = parseDataStreamPart(line); // Pass the whole line
+                const part = parseDataStreamPart(line);
                 await processPart(part);
              } catch (e) {
-                 console.error(`Error parsing stream line: "${line}"`, e);
-                 // Optionally handle/report the error for this specific line
+                console.error(`Error parsing stream line: "${line}"`, e);
+                
+                if (onErrorPart) {
+                  try {
+                    // First try to detect JSON error format - this is what AI SDK uses
+                    if (line.includes('"type":"error"')) {
+                      try {
+                        const errorJson = JSON.parse(line);
+                        if (errorJson.type === 'error' && errorJson.error) {
+                          await onErrorPart(errorJson.error);
+                          return;
+                        }
+                      } catch (jsonError) {
+                        // Failed to parse as JSON, continue to other methods
+                      }
+                    }
+                    
+                    // Look for error messages in various formats
+                    if (line.startsWith('3:')) {
+                      // This is a specific format where errors might come as 3:"Error message"
+                      const errorMatch = line.match(/3:["']?([^"']+)["']?$/);
+                      if (errorMatch && errorMatch[1]) {
+                        await onErrorPart(errorMatch[1].trim());
+                        return;
+                      }
+                    }
+                    
+                    // Check for any JSON-like error message pattern
+                    const errorMatch = line.match(/[:"']error["']?\s*[:=]\s*["']([^"']+)["']/i);
+                    if (errorMatch && errorMatch[1]) {
+                      await onErrorPart(errorMatch[1].trim());
+                      return;
+                    }
+                    
+                    // Last resort - if the line contains "error", send a generic error
+                    if (line.toLowerCase().includes("error")) {
+                      await onErrorPart("An error occurred processing the response");
+                    }
+                  } catch (errorHandlingError) {
+                    console.error("Error while processing error:", errorHandlingError);
+                    await onErrorPart("Failed to process response");
+                  }
+                }
              }
           }
 

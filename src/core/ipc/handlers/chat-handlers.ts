@@ -162,37 +162,66 @@ function createFullMessageData(message: UIMessage, messageIdForStream: string | 
 }
 
 function sendStreamChunk(event: IpcMainInvokeEvent, textDelta: string, metadataUpdates: Partial<UIMessage> | undefined, isFirstChunk: boolean, messageId?: string, fullMessage?: any) {
-  if (isFirstChunk && fullMessage) {
-    event.sender.send(ChatEvents.CHAT_STREAM_CHUNK, {
-      success: true,
-      data: { 
-        chunk: textDelta, 
-        messageId,
-        fullMessage,
-        isFirstChunk: true
-      },
-    });
-  } else {
-    event.sender.send(ChatEvents.CHAT_STREAM_CHUNK, {
-      success: true,
-      data: { 
-        chunk: textDelta,
-        metadataUpdates,
-        isFirstChunk: false
-      },
-    });
+  try {
+    if (isFirstChunk && fullMessage) {
+      event.sender.send(ChatEvents.CHAT_STREAM_CHUNK, {
+        success: true,
+        data: { 
+          chunk: textDelta, 
+          messageId,
+          fullMessage,
+          isFirstChunk: true
+        },
+      });
+      
+      logger.debug('Sent first chunk with message ID:', { messageId });
+    } else {
+      event.sender.send(ChatEvents.CHAT_STREAM_CHUNK, {
+        success: true,
+        data: { 
+          chunk: textDelta,
+          messageId, // Always include messageId with every chunk
+          metadataUpdates,
+          isFirstChunk: false
+        },
+      });
+    }
+  } catch (error) {
+    logger.error('Error sending stream chunk:', { error, textDelta });
   }
 }
 
 function sendFinishEvent(event: IpcMainInvokeEvent, message: UIMessage | undefined, finishReason: any, usage: any) {
-  event.sender.send(ChatEvents.CHAT_STREAM_FINISH, {
-    success: true,
-    data: { 
+  try {
+    logger.debug('Sending finish event', { 
+      messageId: message?.id, 
       finishReason, 
-      usage,
-      finalMessage: message 
-    }, 
-  });
+      usage: typeof usage === 'object' ? '✓' : 'missing'
+    });
+    
+    event.sender.send(ChatEvents.CHAT_STREAM_FINISH, {
+      success: true,
+      data: { 
+        finishReason, 
+        usage,
+        finalMessage: message 
+      }, 
+    });
+  } catch (error) {
+    logger.error('Error sending finish event:', { error });
+    // Try to send a simplified finish event without the potentially large message object
+    try {
+      event.sender.send(ChatEvents.CHAT_STREAM_FINISH, {
+        success: true,
+        data: { 
+          finishReason,
+          usage
+        },
+      });
+    } catch (innerError) {
+      logger.error('Failed to send simplified finish event:', { innerError });
+    }
+  }
 }
 
 function createAssistantMessage(message: UIMessage, messageIdForStream: string | undefined, payload: ChatPayload): VinciUIMessage {
@@ -357,11 +386,23 @@ function sendToolCallEvent(event: IpcMainInvokeEvent, toolCall: any) {
   });
 }
 
-function sendErrorEvent(event: IpcMainInvokeEvent, errorMessage: string) {
-  event.sender.send(ChatEvents.CHAT_STREAM_ERROR, {
+function sendErrorEvent(event: IpcMainInvokeEvent, errorMessage: string, details?: any) {
+  const errorData = {
     success: false,
-    error: errorMessage,
+    error: errorMessage || 'An error occurred during streaming',
+    data: details ? { details } : undefined
+  };
+  
+  logger.error('Sending error event to renderer:', { 
+    error: errorMessage, 
+    details: details ? JSON.stringify(details).substring(0, 200) : undefined 
   });
+  
+  try {
+    event.sender.send(ChatEvents.CHAT_STREAM_ERROR, errorData);
+  } catch (error) {
+    logger.error('Error sending error event:', { error });
+  }
 }
 
 function handleStreamUpdate(
@@ -455,42 +496,67 @@ function processStream(
   return processChatResponse({
     stream,
     update: ({ message, data, replaceLastMessage }) => {
-      const result = handleStreamUpdate(
-        event, 
-        message, 
-        previousContentLength, 
-        isFirstChunk, 
-        messageIdForStream, 
-        lastProcessedMessage,
-        streamAborted
-      );
-      
-      previousContentLength = result.newPreviousContentLength;
-      isFirstChunk = result.newIsFirstChunk;
-      lastProcessedMessage = result.newLastProcessedMessage;
+      try {
+        const result = handleStreamUpdate(
+          event, 
+          message, 
+          previousContentLength, 
+          isFirstChunk, 
+          messageIdForStream, 
+          lastProcessedMessage,
+          streamAborted
+        );
+        
+        previousContentLength = result.newPreviousContentLength;
+        isFirstChunk = result.newIsFirstChunk;
+        lastProcessedMessage = result.newLastProcessedMessage;
+      } catch (error) {
+        logger.error('Error handling stream update:', error);
+      }
     },
     onFinish: ({ message, finishReason, usage }) => {
-      handleStreamFinish(
-        event, 
-        message, 
-        finishReason, 
-        usage, 
-        messageIdForStream,
-        payload,
-        streamAborted
-      );
+      try {
+        handleStreamFinish(
+          event, 
+          message, 
+          finishReason, 
+          usage, 
+          messageIdForStream,
+          payload,
+          streamAborted
+        );
+      } catch (error) {
+        logger.error('Error handling stream finish:', error);
+      }
     },
     onToolCall: ({ toolCall }) => {
       if (streamAborted) return;
-      logger.info('[IPC Handler -> TOOL_CALL]', { toolCall });
-      sendToolCallEvent(event, toolCall);
+      try {
+        logger.info('[IPC Handler -> TOOL_CALL]', { toolCall });
+        sendToolCallEvent(event, toolCall);
+      } catch (error) {
+        logger.error('Error handling tool call:', error);
+      }
     },
-    generateId: generateId,
+    onError: (errorValue) => {
+      logger.error('Stream error received from API:', { error: errorValue });
+      const errorMsg = typeof errorValue === 'string' 
+        ? errorValue 
+        : errorValue instanceof Error
+          ? errorValue.message
+          : 'Unknown error occurred during streaming';
+      
+      sendErrorEvent(event, errorMsg, { source: 'stream-error-handler' });
+    },
+    generateId,
     lastMessage: payload.messages.length > 0
       ? mapHandlerMessageToUIMessage(payload.messages[payload.messages.length - 1])
       : undefined,
   }).catch(error => {
     streamAborted = true;
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    logger.error('Fatal error in stream processing:', { error: errorMsg });
+    sendErrorEvent(event, errorMsg, { fatal: true });
     throw error;
   });
 }
@@ -499,36 +565,286 @@ async function handleChatStreamRequest(
   event: IpcMainInvokeEvent,
   payload: ChatPayload
 ): Promise<IpcResponse> {
-  logger.info(`[IPC Handler: ${ChatEvents.INITIATE_CHAT_STREAM}] Received request`, {
+  // Validate request
+  if (!payload.spaceId) {
+    return handleRequestError(event, 'Missing required space ID for chat request');
+  }
+  
+  if (!payload.messages?.length) {
+    return handleRequestError(event, 'No messages provided in chat request');
+  }
+  
+  // Ensure conversation ID for proper tracking
+  const conversationId = payload.conversationId || `temp_${generateId()}`; 
+  
+  // Setup abort controller for this stream
+  const abortController = new AbortController();
+  registerStreamController(conversationId, abortController);
+  
+  // Create a timeout to detect stalled streams
+  let streamTimeout: NodeJS.Timeout | undefined;
+  
+  // Log request
+  logger.info(`Chat stream requested for ${conversationId}`, {
     spaceId: payload.spaceId,
-    conversationId: payload.conversationId,
+    messageCount: payload.messages.length
   });
-
-  const requestPayload = createRequestPayload(payload);
-
+  
+  // Update status to initiated
+  sendStatusUpdate(event, 'initiated', conversationId);
+  
   try {
-    logger.info(`Calling initiateChatApiStream`, {
-      spaceId: requestPayload.spaceId,
-      conversationId: requestPayload.conversationId,
+    // Get the API response with timeout
+    const response = await getStreamResponseWithTimeout(
+      payload, 
+      conversationId,
+      abortController
+    );
+    
+    // Setup the stall detection (60 seconds without progress)
+    streamTimeout = setupStreamStallDetection(
+      event, 
+      conversationId, 
+      abortController
+    );
+    
+    // Update status to streaming
+    sendStatusUpdate(event, 'streaming', conversationId);
+    
+    // Transform the stream to be abortable
+    const transformedStream = createAbortableStream(
+      response.body!,
+      abortController
+    );
+    
+    // Process the stream
+    await processStream(event, transformedStream, payload);
+    
+    // Update status to completed
+    sendStatusUpdate(event, 'completed', conversationId);
+    
+    // Cleanup
+    if (streamTimeout) clearTimeout(streamTimeout);
+    cleanupStreamController(conversationId);
+    
+    return { success: true };
+  } catch (error: any) {
+    // Handle errors
+    return handleStreamError(
+      event,
+      error,
+      conversationId,
+      abortController,
+      streamTimeout
+    );
+  }
+}
+
+// Helper functions to keep the main function clean and follow SRP
+
+function handleRequestError(
+  event: IpcMainInvokeEvent, 
+  errorMsg: string
+): IpcResponse {
+  logger.error(errorMsg);
+  sendErrorEvent(event, errorMsg);
+  return { success: false, error: errorMsg };
+}
+
+function sendStatusUpdate(
+  event: IpcMainInvokeEvent,
+  status: 'initiated' | 'streaming' | 'completed' | 'cancelled',
+  conversationId: string
+) {
+  event.sender.send(ChatEvents.CHAT_STREAM_STATUS, {
+    success: true,
+    data: { status, conversationId }
+  });
+}
+
+async function getStreamResponseWithTimeout(
+  payload: ChatPayload,
+  conversationId: string,
+  abortController: AbortController
+): Promise<Response> {
+  try {
+    const requestPayload = {
+      ...createRequestPayload(payload),
+      conversationId
+    };
+    
+    // Set timeout for API request (20 seconds)
+    const timeoutPromise = new Promise<Response>((_, reject) => {
+      setTimeout(() => reject(new Error('API request timed out after 20 seconds')), 20000);
     });
     
-    const response = await initiateChatApiStream(requestPayload);
-
+    const response = await Promise.race([
+      initiateChatApiStream(requestPayload),
+      timeoutPromise
+    ]);
+    
+    // Validate response
+    if (!response.ok) {
+      const errorDetails = await response.text().catch(() => 'No error details available');
+      throw new Error(`API returned error status ${response.status}: ${errorDetails}`);
+    }
+    
     if (!response.body) {
       throw new Error('No response body from API');
     }
-
-    await processStream(event, response.body, payload);
-    return { success: true };
     
-  } catch (error: any) {
-    logger.error(
-      `[IPC Handler: ${ChatEvents.INITIATE_CHAT_STREAM}] Error processing stream`,
-      { error: error.message || error }
-    );
+    return response;
+  } catch (apiError: any) {
+    if (apiError.name === 'AbortError') {
+      throw new Error('Stream was cancelled by the user');
+    }
+    throw new Error(`API error: ${apiError.message || 'Failed to connect to API'}`);
+  }
+}
 
-    sendErrorEvent(event, error.message || 'Failed to process chat stream');
-    return { success: false, error: error.message };
+function setupStreamStallDetection(
+  event: IpcMainInvokeEvent,
+  conversationId: string,
+  abortController: AbortController
+): NodeJS.Timeout {
+  return setTimeout(() => {
+    logger.error('Stream processing timed out after 60 seconds');
+    sendErrorEvent(event, 'Stream processing stalled. Please try again.');
+    
+    if (!abortController.signal.aborted) {
+      abortController.abort('Timed out');
+    }
+  }, 60000);
+}
+
+function createAbortableStream(
+  originalStream: ReadableStream<Uint8Array>,
+  abortController: AbortController
+): ReadableStream<Uint8Array> {
+  const reader = originalStream.getReader();
+  
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      function push() {
+        if (abortController.signal.aborted) {
+          controller.close();
+          return;
+        }
+        
+        reader.read().then(({ done, value }) => {
+          if (done) {
+            controller.close();
+            return;
+          }
+          
+          controller.enqueue(value);
+          push();
+        }).catch(error => {
+          controller.error(error);
+        });
+      }
+      
+      push();
+      
+      abortController.signal.addEventListener('abort', () => {
+        reader.cancel().catch(e => logger.error('Error cancelling reader', e));
+        controller.close();
+      });
+    },
+    cancel() {
+      reader.cancel().catch(e => logger.error('Error cancelling reader', e));
+    }
+  });
+}
+
+function handleStreamError(
+  event: IpcMainInvokeEvent,
+  error: any,
+  conversationId: string,
+  abortController: AbortController,
+  streamTimeout?: NodeJS.Timeout
+): IpcResponse {
+  const errorMsg = error.message || 'Failed to process chat stream';
+  const isAborted = abortController.signal.aborted;
+  
+  if (isAborted) {
+    logger.info(`Stream was cancelled for conversation ${conversationId}`);
+  } else {
+    logger.error(
+      `Error processing stream for ${conversationId}`,
+      { error: errorMsg, stack: error.stack }
+    );
+    
+    sendErrorEvent(event, errorMsg, {
+      errorType: error.name,
+      conversationId,
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  // Cleanup
+  if (streamTimeout) clearTimeout(streamTimeout);
+  cleanupStreamController(conversationId);
+  
+  return { 
+    success: false, 
+    error: isAborted ? 'Stream cancelled' : errorMsg 
+  };
+}
+
+// Store active stream controllers by conversation ID to allow cancellation
+const activeStreamControllers: Map<string, AbortController> = new Map();
+
+function registerStreamController(conversationId: string, controller: AbortController) {
+  logger.debug(`Registering stream controller for conversation ${conversationId}`);
+  // Cancel any existing stream for this conversation
+  if (activeStreamControllers.has(conversationId)) {
+    logger.debug(`Cancelling previous stream for conversation ${conversationId}`);
+    try {
+      activeStreamControllers.get(conversationId)?.abort();
+    } catch (e) {
+      logger.error(`Error aborting previous stream: ${e}`);
+    }
+  }
+  activeStreamControllers.set(conversationId, controller);
+}
+
+function cleanupStreamController(conversationId: string) {
+  logger.debug(`Cleaning up stream controller for conversation ${conversationId}`);
+  activeStreamControllers.delete(conversationId);
+}
+
+// Handle stream cancellation
+async function handleCancelStream(event: IpcMainInvokeEvent, conversationId: string): Promise<IpcResponse> {
+  logger.info(`[IPC Handler: ${ChatEvents.CANCEL_CHAT_STREAM}] Received request`, { conversationId });
+  
+  if (!conversationId) {
+    return { success: false, error: 'No conversation ID provided for cancellation' };
+  }
+  
+  const controller = activeStreamControllers.get(conversationId);
+  if (!controller) {
+    logger.warn(`No active stream found for conversation ${conversationId}`);
+    return { success: false, error: 'No active stream found for this conversation' };
+  }
+  
+  try {
+    controller.abort();
+    cleanupStreamController(conversationId);
+    
+    // Notify the client that the stream was cancelled
+    event.sender.send(ChatEvents.CHAT_STREAM_STATUS, {
+      success: true,
+      data: { 
+        status: 'cancelled', 
+        conversationId 
+      }
+    });
+    
+    return { success: true, data: { status: 'cancelled' } };
+  } catch (error: any) {
+    logger.error(`Error cancelling stream for conversation ${conversationId}:`, { error });
+    return { success: false, error: error.message || 'Failed to cancel stream' };
   }
 }
 
@@ -536,6 +852,11 @@ export function registerChatHandlers(): void {
   ipcMain.handle(
     ChatEvents.INITIATE_CHAT_STREAM, 
     (event: IpcMainInvokeEvent, payload: ChatPayload) => handleChatStreamRequest(event, payload)
+  );
+  
+  ipcMain.handle(
+    ChatEvents.CANCEL_CHAT_STREAM,
+    (event: IpcMainInvokeEvent, conversationId: string) => handleCancelStream(event, conversationId)
   );
 }
 

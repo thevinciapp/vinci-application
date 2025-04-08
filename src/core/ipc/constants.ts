@@ -65,10 +65,12 @@ export const MessageEvents = {
  */
 export const ChatEvents = {
   INITIATE_CHAT_STREAM: 'chat:initiate-stream',
+  CANCEL_CHAT_STREAM: 'chat:cancel-stream',
   CHAT_STREAM_CHUNK: 'chat:stream-chunk',
   CHAT_STREAM_FINISH: 'chat:stream-finish',
   CHAT_STREAM_ERROR: 'chat:stream-error',
   CHAT_STREAM_TOOL_CALL: 'chat:stream-tool-call',
+  CHAT_STREAM_STATUS: 'chat:stream-status',
 } as const;
 
 /**

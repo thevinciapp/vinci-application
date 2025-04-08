@@ -51,7 +51,6 @@ export function ChatInputArea({
     setShowSuggestions(true);
   };
 
-  // Wrap onSelectFile to also close the suggestions dropdown
   const handleSelectFile = useCallback(async (file: any) => {
     try {
       await onSelectFile(file);

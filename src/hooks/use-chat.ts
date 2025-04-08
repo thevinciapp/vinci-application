@@ -139,18 +139,18 @@ export function useChat({
   }, []);
 
   useEffect(() => {
-    const handleChunk = (_event: Electron.IpcRendererEvent, response: IpcResponse<{ chunk: string; messageId?: string }>) => {
+    const handleChunk = (_event: Electron.IpcRendererEvent, response: IpcResponse<{ chunk: string; messageId?: string; fullMessage?: any; isFirstChunk?: boolean; }>) => {
         logger.debug('[IPC Chat] Received CHUNK', response);
         if (!response.success || !response.data?.chunk) {
              logger.warn('[IPC Chat] Received unsuccessful or empty CHUNK event', { response });
              return;
         }
 
-        const { chunk, messageId } = response.data;
+        const { chunk, messageId, fullMessage, isFirstChunk } = response.data;
 
-        if (!currentStreamingMessageIdRef.current) {
+        if (!currentStreamingMessageIdRef.current || isFirstChunk) {
             const newStreamId = messageId || `streaming_${generateId()}`;
-            currentStreamingMessageIdRef.current = newStreamId; // Set the ref
+            currentStreamingMessageIdRef.current = newStreamId;
             logger.debug(`[IPC Chat] Starting new stream with ID: ${newStreamId} (received ID: ${messageId})`);
 
             const newAssistantMessage: VinciUIMessage = {
@@ -160,8 +160,24 @@ export function useChat({
                 createdAt: new Date(),
                 conversation_id: conversationIdRef.current || 'unknown_conv',
                 parts: getMessageParts({ role: 'assistant', content: chunk }),
+                ...(fullMessage ? fullMessage : {}),
              };
-             setMessagesState((prev) => [...prev, newAssistantMessage]);
+             
+             // First make sure we don't have any duplicate streaming messages
+             setMessagesState((prev) => {
+                const existingStreamingMsg = prev.find(msg => 
+                    msg.role === 'assistant' && msg.id.includes('streaming_'));
+                
+                if (existingStreamingMsg) {
+                    // Replace the existing streaming message
+                    return prev.map(msg => 
+                        msg.id === existingStreamingMsg.id ? newAssistantMessage : msg);
+                } else {
+                    // Add a new message
+                    return [...prev, newAssistantMessage];
+                }
+             });
+             
              setStatus('streaming');
              setError(undefined);
         } else { 
@@ -172,25 +188,58 @@ export function useChat({
                 });
             }
 
-            setMessagesState((prev) =>
-                prev.map((msg) =>
-                    msg.id === currentStreamingMessageIdRef.current // Compare with current ref value
+            setMessagesState((prev) => {
+                const streamingMsg = prev.find(msg => msg.id === currentStreamingMessageIdRef.current);
+                if (!streamingMsg) {
+                    // If we somehow lost our streaming message, create a new one
+                    logger.warn('[IPC Chat] Streaming message not found in state, creating new one');
+                    const newAssistantMessage: VinciUIMessage = {
+                        id: currentStreamingMessageIdRef.current as string,
+                        role: 'assistant',
+                        content: chunk,
+                        createdAt: new Date(),
+                        conversation_id: conversationIdRef.current || 'unknown_conv',
+                        parts: getMessageParts({ role: 'assistant', content: chunk }),
+                    };
+                    return [...prev, newAssistantMessage];
+                }
+                
+                return prev.map((msg) =>
+                    msg.id === currentStreamingMessageIdRef.current
                       ? { ...msg, content: msg.content + chunk, updated_at: new Date().toISOString() } 
                       : msg
-                )
-             );
+                );
+            });
             if (status !== 'streaming') setStatus('streaming');
             setError(undefined);
         }
     };
 
-    const handleFinish = (_event: Electron.IpcRendererEvent, response: IpcResponse) => {
+    const handleFinish = (_event: Electron.IpcRendererEvent, response: IpcResponse<{ finalMessage?: any }>) => {
         logger.debug('[IPC Chat] Received FINISH', response);
         const finishedMessageId = currentStreamingMessageIdRef.current;
-        currentStreamingMessageIdRef.current = null; 
-
+        
         if (response.success) {
             setStatus('ready');
+            
+            // If we have a finalMessage in the response, use it to update the current streaming message
+            if (response.data?.finalMessage && finishedMessageId) {
+                const finalMessageData = response.data.finalMessage;
+                setMessagesState(prev => 
+                    prev.map(msg => 
+                        msg.id === finishedMessageId ? 
+                        { 
+                            ...msg, 
+                            id: finalMessageData.id || msg.id,
+                            content: finalMessageData.content || msg.content,
+                            updated_at: new Date().toISOString(),
+                            annotations: finalMessageData.annotations || msg.annotations,
+                            parts: finalMessageData.parts || msg.parts
+                        } : msg
+                    )
+                );
+            }
+            
             if (onFinishRef.current && finishedMessageId) { 
                 const finalMessage = messagesRef.current.find(msg => msg.id === finishedMessageId);
                 if (finalMessage) {
@@ -206,27 +255,149 @@ export function useChat({
             if (onErrorRef.current) onErrorRef.current(error); 
             toast({ title: 'Chat Error', description: errorMsg, variant: 'destructive' });
         }
+        
+        currentStreamingMessageIdRef.current = null; // Reset ref after processing
     };
 
     const handleError = (_event: Electron.IpcRendererEvent, response: IpcResponse) => {
         logger.debug('[IPC Chat] Received ERROR', response);
-        currentStreamingMessageIdRef.current = null; // Reset ref
-        if (!response.success) {
-            const errorMsg = response.error || 'Unknown stream error';
-            logger.error('[IPC Chat] Stream error event received:', { error: errorMsg });
-            const error = new Error(errorMsg)
-            setError(error);
-            setStatus('error');
-            // Use ref to call the latest onError prop
-            if (onErrorRef.current) onErrorRef.current(error); 
-            toast({
-                title: 'Chat Error',
-                description: errorMsg,
-                variant: 'destructive',
+        
+        // Extract error message with fallback
+        const errorMsg = response.error || 'Failed to generate response. Please try again.';
+        const errorDetails = response.data?.details || {};
+        
+        logger.error('[IPC Chat] Stream error event received:', { 
+          error: errorMsg, 
+          details: errorDetails 
+        });
+        
+        // Show a toast notification for all errors
+        toast({
+            title: 'Error',
+            description: errorMsg.substring(0, 100), // Truncate very long error messages 
+            variant: 'destructive',
+            duration: 6000, // Show for 6 seconds to ensure user sees it
+        });
+        
+        // Handle the streaming message if it exists
+        if (currentStreamingMessageIdRef.current) {
+            setMessagesState(prev => {
+                // Find the streaming message
+                const streamingMsg = prev.find(msg => msg.id === currentStreamingMessageIdRef.current);
+                
+                if (!streamingMsg) return prev;
+                
+                // If message has meaningful content, keep it with error indicator
+                // Otherwise remove it completely to avoid showing empty assistant messages
+                const content = streamingMsg.content?.trim() || '';
+                const hasSignificantContent = content.length > 20; // Only keep messages with reasonable content
+                const hasPartialContent = content.length > 0;
+                
+                if (hasSignificantContent) {
+                    // Message has reasonable content - keep it with error indicator
+                    return prev.map(msg => 
+                        msg.id === currentStreamingMessageIdRef.current ? 
+                        { 
+                            ...msg, 
+                            // Don't add "error: true" flag as it may trigger UI banners
+                            content: msg.content + "\n\n[Error: Generation stopped]"
+                        } : msg
+                    );
+                } else if (hasPartialContent) {
+                    // Very short message (likely just started streaming) - append error and explanation
+                    return prev.map(msg => 
+                        msg.id === currentStreamingMessageIdRef.current ? 
+                        { 
+                            ...msg, 
+                            content: "Sorry, I wasn't able to complete this response. Please try again."
+                        } : msg
+                    );
+                } else {
+                    // Remove empty assistant message completely
+                    return prev.filter(msg => msg.id !== currentStreamingMessageIdRef.current);
+                }
             });
         }
+        
+        // Update state but don't set error object to avoid banners
+        setStatus('ready'); // Set to ready instead of error
+        
+        if (onErrorRef.current) {
+            onErrorRef.current(new Error(errorMsg));
+        }
+        
+        currentStreamingMessageIdRef.current = null;
     };
 
+    // Handle stream status updates (initiated, streaming, cancelled, etc.)
+    const handleStatus = (_event: Electron.IpcRendererEvent, response: IpcResponse<{ 
+      status: 'initiated' | 'streaming' | 'completed' | 'cancelled';
+      conversationId: string;
+    }>) => {
+      logger.debug('[IPC Chat] Received STREAM_STATUS', response);
+      if (!response.success || !response.data) return;
+      
+      const { status: streamStatus, conversationId } = response.data;
+      
+      // Only process if it's for our current conversation
+      if (conversationId !== conversationIdRef.current) {
+        logger.debug(`Ignoring status update for different conversation: ${conversationId}`);
+        return;
+      }
+      
+      logger.info(`Stream status update: ${streamStatus}`);
+      
+      switch (streamStatus) {
+        case 'initiated':
+          setStatus('submitted');
+          setError(undefined);
+          break;
+        case 'streaming':
+          setStatus('streaming');
+          setError(undefined);
+          break;
+        case 'completed':
+          setStatus('ready');
+          break;
+        case 'cancelled':
+          setStatus('ready');
+          // Handle the streaming message if it exists when cancelled
+          if (currentStreamingMessageIdRef.current) {
+            setMessagesState(prev => {
+              // Find the streaming message
+              const streamingMsg = prev.find(msg => msg.id === currentStreamingMessageIdRef.current);
+              
+              if (!streamingMsg) return prev;
+              
+              // If message has meaningful content, keep it with cancellation indicator
+              // Otherwise remove it completely to avoid showing empty assistant messages
+              const content = streamingMsg.content?.trim() || '';
+              const hasSignificantContent = content.length > 20; // Only keep messages with reasonable content
+              const hasPartialContent = content.length > 0;
+              
+              if (hasSignificantContent) {
+                // Message has reasonable content - keep it with cancellation indicator
+                return prev.map(msg => 
+                  msg.id === currentStreamingMessageIdRef.current ? 
+                  { ...msg, content: msg.content + "\n\n[Generation stopped by user]" } : msg
+                );
+              } else if (hasPartialContent) {
+                // Very short message (likely just started streaming) - replace with explanation
+                return prev.map(msg => 
+                  msg.id === currentStreamingMessageIdRef.current ? 
+                  { ...msg, content: "Response generation was cancelled." } : msg
+                );
+              } else {
+                // Remove empty assistant message completely
+                return prev.filter(msg => msg.id !== currentStreamingMessageIdRef.current);
+              }
+            });
+            currentStreamingMessageIdRef.current = null;
+          }
+          break;
+      }
+    };
+    
     logger.debug('Setting up chat IPC listeners');
     setStatus('ready');
     setError(undefined);
@@ -235,12 +406,14 @@ export function useChat({
     const cleanupChunk = window.electron.on(ChatEvents.CHAT_STREAM_CHUNK, handleChunk);
     const cleanupFinish = window.electron.on(ChatEvents.CHAT_STREAM_FINISH, handleFinish);
     const cleanupError = window.electron.on(ChatEvents.CHAT_STREAM_ERROR, handleError);
+    const cleanupStatus = window.electron.on(ChatEvents.CHAT_STREAM_STATUS, handleStatus);
 
     return () => {
       logger.debug('Cleaning up chat IPC listeners');
       cleanupChunk();
       cleanupFinish();
       cleanupError();
+      cleanupStatus();
       currentStreamingMessageIdRef.current = null; // Cleanup reset
     };
   }, [toast, generateId]);
@@ -366,13 +539,82 @@ export function useChat({
   }, [triggerRequest]);
 
 
-  const stop = useCallback(() => {
-    logger.warn('stop() called, but IPC cancellation is not implemented.');
-     if (status === 'streaming' || status === 'submitted') {
+  const stop = useCallback(async () => {
+    logger.info('Stopping chat stream');
+    const currentConversationId = conversationIdRef.current;
+    
+    if (!currentConversationId) {
+      logger.warn('Cannot stop stream: No active conversation ID');
+      return;
+    }
+    
+    if (status === 'streaming' || status === 'submitted') {
+      try {
+        logger.debug(`Sending cancel request for conversation ${currentConversationId}`);
+        
+        const response: IpcResponse = await window.electron.invoke(
+          ChatEvents.CANCEL_CHAT_STREAM, 
+          currentConversationId
+        );
+        
+        logger.debug('Cancel response:', response);
+        
+        if (!response.success) {
+          logger.warn(`Failed to cancel stream: ${response.error}`);
+          toast({
+            title: 'Warning',
+            description: 'Failed to cancel generation. Please wait for it to complete.',
+            variant: 'destructive',
+          });
+        }
+      } catch (err: any) {
+        logger.error('Error cancelling stream:', err);
+        toast({
+          title: 'Error',
+          description: 'There was a problem cancelling the response generation.',
+          variant: 'destructive',
+        });
+      } finally {
+        // Update local state regardless of cancellation result
         setStatus('ready');
-        currentStreamingMessageIdRef.current = null;
-     }
-  }, [status]);
+        
+        // Handle the streaming message if it exists
+        if (currentStreamingMessageIdRef.current) {
+          setMessagesState(prev => {
+            // Find the streaming message
+            const streamingMsg = prev.find(msg => msg.id === currentStreamingMessageIdRef.current);
+            
+            if (!streamingMsg) return prev;
+            
+            // If message has meaningful content, keep it with cancellation indicator
+            // Otherwise remove it completely 
+            const content = streamingMsg.content?.trim() || '';
+            const hasSignificantContent = content.length > 20; // Only keep messages with reasonable content
+            const hasPartialContent = content.length > 0;
+            
+            if (hasSignificantContent) {
+              // Message has reasonable content - keep it with cancellation indicator
+              return prev.map(msg => 
+                msg.id === currentStreamingMessageIdRef.current ? 
+                { ...msg, content: msg.content + "\n\n[Generation stopped by user]" } : msg
+              );
+            } else if (hasPartialContent) {
+              // Very short message (likely just started streaming) - replace with explanation
+              return prev.map(msg => 
+                msg.id === currentStreamingMessageIdRef.current ? 
+                { ...msg, content: "Response generation was cancelled." } : msg
+              );
+            } else {
+              // Remove empty assistant message completely
+              return prev.filter(msg => msg.id !== currentStreamingMessageIdRef.current);
+            }
+          });
+          
+          currentStreamingMessageIdRef.current = null;
+        }
+      }
+    }
+  }, [status, toast]);
 
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>) => {
