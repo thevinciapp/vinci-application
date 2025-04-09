@@ -1,18 +1,16 @@
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { SubmitButton } from '@/components/auth/submit-button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { SubmitButton } from 'shared/components/auth/submit-button';
+import { Input } from '@/shared/components/input';
+import { Label } from '@/shared/components/label';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/hooks/use-auth';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/features/auth/use-auth';
 
 export default function SignUp() {
   const navigate = useNavigate();
   const { signUp, isLoading, error } = useAuth();
   const [loadingData, setLoadingData] = useState(false);
-  const { toast } = useToast();
-  
+
   return (
     <div className="flex items-center justify-center w-full">
       <form className="w-full max-w-[480px]">
@@ -23,10 +21,10 @@ export default function SignUp() {
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="email" className="text-white/60">Email</Label>
-              <Input 
-                name="email" 
-                placeholder="you@example.com" 
-                required 
+              <Input
+                name="email"
+                placeholder="you@example.com"
+                required
                 className="bg-white/[0.03] border border-white/[0.08] backdrop-blur-xl text-white/90 h-11 px-4 py-2 rounded-lg focus:border-[#3ecfff]/50 focus:ring-0 transition-colors placeholder:text-white/20"
               />
             </div>
@@ -43,15 +41,15 @@ export default function SignUp() {
             {error && (
               <div className="text-red-500 text-sm mb-4">{error}</div>
             )}
-            <SubmitButton 
-              pendingText="Creating account..." 
+            <SubmitButton
+              pendingText="Creating account..."
               formAction={async (formData: FormData) => {
                 const email = formData.get('email') as string;
                 const password = formData.get('password') as string;
                 setLoadingData(true);
                 const success = await signUp({ email, password });
                 setLoadingData(false);
-                
+
                 if (success) {
                   navigate('/protected');
                 }

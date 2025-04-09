@@ -1,9 +1,9 @@
 import React from 'react';
-import { useUser } from '@/hooks/use-user';
-import ChatContentClient from '@/components/chat/chat-content-client';
+import { useUser } from '@/features/user/use-user';
+import ChatContentClient from 'shared/components/chat/chat-content-client';
 
 export const ProtectedPage: React.FC = () => {
-  const { profile, isLoading } = useUser();
+  const { isLoading } = useUser();
 
   if (isLoading) {
     return (

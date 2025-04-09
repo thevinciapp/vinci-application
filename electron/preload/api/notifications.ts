@@ -1,5 +1,7 @@
-import { ipcRenderer } from 'electron';
+import { ipcRenderer, IpcRendererEvent } from 'electron';
 import { NotificationEvents } from '@/core/ipc/constants';
+import { Notification } from 'entities/notification/model/types';
+import { IpcResponse } from 'shared/types/ipc';
 
 export const notificationApi = {
   getNotifications: async () => {
@@ -11,7 +13,7 @@ export const notificationApi = {
       return null;
     }
   },
-
+  
   markNotificationAsRead: async (notificationId: string) => {
     try {
       const response = await ipcRenderer.invoke(NotificationEvents.MARK_AS_READ, notificationId);
@@ -32,8 +34,8 @@ export const notificationApi = {
     }
   },
 
-  onNotificationReceived: (callback: (notification: any) => void) => {
-    const handler = (_event: any, response: any) => {
+  onNotificationReceived: (callback: (notification: Notification) => void) => {
+    const handler = (_event: IpcRendererEvent, response: IpcResponse<Notification>) => {
       if (response.success && response.data) {
         callback(response.data);
       }

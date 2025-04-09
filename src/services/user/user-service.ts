@@ -1,5 +1,5 @@
 import { API_BASE_URL } from '@/core/auth/auth-service';
-import { fetchWithAuth } from '@/services/api/api-service';
+import { fetchWithAuth } from '@/shared/api/api-service';
 import { useMainStore } from '@/store/main'; 
 
 export interface UserProfile {
@@ -111,7 +111,7 @@ export async function updateUserProfile(data: UserUpdateData): Promise<UserProfi
 /**
  * Sign up a new user
  */
-export async function signUp(email: string, password: string): Promise<any> {
+export async function signUp(email: string, password: string): Promise<UserProfile> {
   try {
     console.log('[ELECTRON] Signing up with email:', email, 'and password:', password);
     
@@ -144,7 +144,7 @@ export async function signUp(email: string, password: string): Promise<any> {
 /**
  * Reset user password
  */
-export async function resetPassword(email: string): Promise<any> {
+export async function resetPassword(email: string): Promise<UserProfile> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
       method: 'POST',
@@ -162,7 +162,7 @@ export async function resetPassword(email: string): Promise<any> {
 /**
  * Get user preference settings
  */
-export async function getUserSettings(): Promise<any> {
+export async function getUserSettings(): Promise<EmailPreferences> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/users/settings`);
     // Revert: Assuming structure might be different until API is verified
@@ -182,7 +182,7 @@ export async function getUserSettings(): Promise<any> {
 /**
  * Update user preference settings
  */
-export async function updateUserSettings(settings: any): Promise<any> {
+export async function updateUserSettings(settings: EmailPreferences): Promise<EmailPreferences> {
   try {
     const response = await fetchWithAuth(`${API_BASE_URL}/api/users/settings`, {
       method: 'PATCH',

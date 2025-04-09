@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 import { User } from '@supabase/supabase-js';
-import { Conversation } from '@/types/conversation';
-import { VinciUIMessage } from '@/types/message';
-import { Space } from '@/types/space';
-import { CommandType } from '@/types/command';
+import { Conversation } from '@/entities/conversation/model/types';
+import { VinciUIMessage } from '@/entities/message/model/types';
+import { Space } from '@/entities/space/model/types';
+import { CommandType } from '@/features/command-palette/model/types';
 
 export interface MainProcessState {
   spaces: Space[];

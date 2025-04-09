@@ -1,6 +1,6 @@
 import { ipcRenderer } from 'electron';
 import { CommandCenterEvents, AppStateEvents } from '@/core/ipc/constants';
-import { CommandType } from '@/types/command';
+import { CommandType } from 'features/command-palette/model/types';
 
 export const commandCenterApi = {
   searchFiles: async (searchTerm: string) => {
@@ -81,7 +81,7 @@ export const commandCenterApi = {
     }
   },
 
-  openDialog: async (dialogType: string, data: any) => {
+  openDialog: async (dialogType: string, data: object) => {
     try {
       return await ipcRenderer.invoke(CommandCenterEvents.OPEN_DIALOG, dialogType, data);
     } catch (error) {

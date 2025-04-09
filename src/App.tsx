@@ -6,7 +6,7 @@ import ResetPassword from '@/pages/ResetPassword';
 import CommandCenter from '@/pages/CommandCenter';
 import AuthLayout from '@/layouts/AuthLayout';
 import ProtectedLayout from '@/layouts/ProtectedLayout';
-import { Toaster } from '@/components/ui/toaster';
+import { Toaster } from '@/shared/components/toaster';
 import SignUp from './pages/SignUp';
 import { ProtectedPage } from '@/pages/Protected';
 import { MainStateProvider } from './context/MainStateContext';

@@ -1,5 +1,5 @@
 import { globalShortcut, app, BrowserWindow } from 'electron';
-import { CommandType, ShortcutKey } from '@/types/command';
+import { CommandType, ShortcutKey } from '@/features/command-palette/model/types';
 import { 
   createCommandCenterWindow, 
   getContextCommandWindow,

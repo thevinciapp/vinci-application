@@ -1,5 +1,5 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
-import { UserResponse } from '@/types/ipc';
+import { UserResponse } from '@/shared/types/ipc';
 import { UserEvents } from '@/core/ipc/constants';
 import { 
   fetchUserProfile, 

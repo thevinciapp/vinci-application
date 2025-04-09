@@ -21,6 +21,7 @@ export const CommandCenterEvents = {
   SHOW: 'command-center:show',
   CLOSE: 'command-center:close',
   OPEN_DIALOG: 'command-center:open-dialog',
+  DIALOG_OPENED: 'command-center:dialog-opened',
   DIALOG_CLOSED: 'command-center:dialog-closed',
   REFRESH: 'command-center:refresh',
   CHECK_TYPE: 'command-center:check-type',

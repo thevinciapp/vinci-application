@@ -1,6 +1,6 @@
 import { ipcRenderer } from 'electron';
 import { UserEvents } from '@/core/ipc/constants';
-import { IpcResponse } from '@/types';
+import { User } from 'entities/user/model/types';
 
 export const userApi = {
   getProfile: async () => {
@@ -13,7 +13,7 @@ export const userApi = {
     }
   },
 
-  updateProfile: async (profileData: any) => {
+  updateProfile: async (profileData: Partial<User>) => {
     try {
       const response = await ipcRenderer.invoke(UserEvents.UPDATE_PROFILE, profileData);
       return response.success ? response.data : null;
@@ -36,7 +36,7 @@ export const userApi = {
     }
   },
 
-  updateEmailPreferences: async (preferences: any) => {
+  updateEmailPreferences: async (preferences: object) => {
     try {
       const response = await ipcRenderer.invoke(UserEvents.UPDATE_EMAIL_PREFERENCES, preferences);
       return response.success ? response.data : null;
@@ -56,7 +56,7 @@ export const userApi = {
     }
   },
 
-  updateSettings: async (settings: any) => {
+  updateSettings: async (settings: object) => {
     try {
       const response = await ipcRenderer.invoke(UserEvents.UPDATE_SETTINGS, settings);
       return response.success ? response.data : null;

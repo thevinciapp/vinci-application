@@ -1,37 +1,19 @@
 import { ipcRenderer, IpcRendererEvent } from 'electron';
-import { 
-  IpcResponse,
-  AuthEventType,
-  AppStateEventType,
-  CommandCenterEventType,
-  SpaceEventType,
-  MessageEventType,
-  UserEventType,
-  NotificationEventType,
-  ConversationEventType,
-  ChatEventType
-} from '../../../src/types';
+import { IpcResponse } from 'shared/types/ipc';
+import { IpcEvent } from '@/core/ipc/constants'; // Import the correct union type
 
-export type IpcEventType = 
-  | AuthEventType 
-  | AppStateEventType 
-  | CommandCenterEventType 
-  | SpaceEventType 
-  | MessageEventType
-  | UserEventType
-  | NotificationEventType
-  | ConversationEventType
-  | ChatEventType;
+// Use the imported IpcEvent type directly
+export type IpcEventType = IpcEvent;
 
-export type EventCallback = (event: IpcRendererEvent, response: IpcResponse) => void;
+export type EventCallback<T = unknown> = (event: IpcRendererEvent, response: IpcResponse<T>) => void;
 
 export const ipcUtils = {
-  on: (channel: IpcEventType, callback: EventCallback): () => void => {
+  on: <T = unknown>(channel: IpcEventType, callback: EventCallback<T>): () => void => {
     ipcRenderer.on(channel, callback);
     return () => ipcRenderer.removeListener(channel, callback);
   },
 
-  off: (channel: IpcEventType, callback: EventCallback): void => {
+  off: <T = unknown>(channel: IpcEventType, callback: EventCallback<T>): void => {
     ipcRenderer.removeListener(channel, callback);
   },
 
@@ -39,7 +21,7 @@ export const ipcUtils = {
     ipcRenderer.removeAllListeners(channel);
   },
 
-  invoke: <T = any>(channel: IpcEventType, ...args: any[]): Promise<IpcResponse & { data?: T }> => {
+  invoke: <T = unknown>(channel: IpcEventType, ...args: unknown[]): Promise<IpcResponse & { data?: T }> => {
     return ipcRenderer.invoke(channel, ...args);
   },
 

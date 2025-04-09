@@ -1,6 +1,8 @@
-import { ipcRenderer } from 'electron';
+import { ipcRenderer, IpcRendererEvent } from 'electron';
 import { ConversationEvents } from '@/core/ipc/constants';
-
+import { Conversation } from 'entities/conversation/model/types';
+import { CreateConversationRequest } from 'features/conversation/create/model/types'; // Assuming CreateConversationRequest moved here
+import { IpcResponse } from 'shared/types/ipc';
 export const conversationApi = {
   getConversations: async () => {
     try {
@@ -12,7 +14,7 @@ export const conversationApi = {
     }
   },
 
-  createConversation: async (spaceId: string, conversationData: any) => {
+  createConversation: async (spaceId: string, conversationData: Omit<CreateConversationRequest, 'space_id'>) => {
     try {
       const response = await ipcRenderer.invoke(ConversationEvents.CREATE_CONVERSATION, { 
         spaceId, 
@@ -25,7 +27,7 @@ export const conversationApi = {
     }
   },
 
-  updateConversation: async (conversationId: string, conversationData: any) => {
+  updateConversation: async (conversationId: string, conversationData: { title: string, space_id: string }) => {
     try {
       const response = await ipcRenderer.invoke(ConversationEvents.UPDATE_CONVERSATION, { 
         id: conversationId, 
@@ -63,8 +65,8 @@ export const conversationApi = {
     }
   },
 
-  onConversationsUpdated: (callback: (conversations: any[]) => void) => {
-    const handler = (_event: any, response: any) => {
+  onConversationsUpdated: (callback: (conversations: Conversation[]) => void) => {
+    const handler = (_event: IpcRendererEvent, response: IpcResponse<Conversation[]>) => {
       if (response.success && response.data) {
         callback(response.data);
       }

@@ -1,5 +1,7 @@
 import { ipcRenderer } from 'electron';
 import { SpaceEvents } from '@/core/ipc/constants';
+import { CreateSpaceRequest } from 'features/space/create/model/types';
+import { UpdateSpaceRequest } from 'features/space/update/model/types';
 
 export const spaceApi = {
   getSpaces: async () => {
@@ -17,7 +19,7 @@ export const spaceApi = {
     return response.success ? response.data : null;
   },
 
-  updateSpace: async (spaceId: string, spaceData: any) => {
+  updateSpace: async (spaceId: string, spaceData: UpdateSpaceRequest) => {
     const response = await ipcRenderer.invoke(SpaceEvents.UPDATE_SPACE, { spaceId, ...spaceData });
     return response.success ? response.data : null;
   },
@@ -55,7 +57,7 @@ export const spaceApi = {
     }
   },
 
-  createSpace: async (spaceData: any) => {
+  createSpace: async (spaceData: CreateSpaceRequest) => {
     try {
       const response = await ipcRenderer.invoke(SpaceEvents.CREATE_SPACE, spaceData);
       return response;

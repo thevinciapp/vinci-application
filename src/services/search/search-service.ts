@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '@/core/auth/auth-service';
-import { fetchWithAuth } from '@/services/api/api-service';
-import { Message } from '@/types/message';
+import { fetchWithAuth } from '@/shared/api/api-service';
+import { Message } from '@/entities/message/model/types';
 
 export async function searchAllMessages(query: string): Promise<Message[]> {
   try {

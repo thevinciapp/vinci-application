@@ -1,6 +1,6 @@
 import { BrowserWindow, screen, app } from 'electron';
 import { join } from 'path';
-import { CommandType } from '@/types/command';
+import { CommandType } from '@/features/command-palette/model/types';
 import { APP_BASE_URL } from '../auth/auth-service';
 import { CommandCenterEvents, AppStateEvents } from '../ipc/constants';
 import { useMainStore } from '@/store/main';

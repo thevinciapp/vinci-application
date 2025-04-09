@@ -3,7 +3,7 @@ import { join } from 'path';
 import { writeFile, readFile, unlink, mkdirSync, existsSync } from 'fs';
 import { API_BASE_URL, APP_BASE_URL } from '@/config/api';
 import { useMainStore } from '@/store/main';
-import { AuthSession } from '@/types/auth';
+import { AuthSession } from '@/features/auth/model/types';
 
 interface SignInResponse {
   session: AuthSession | null;

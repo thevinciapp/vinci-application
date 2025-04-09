@@ -2,12 +2,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Command } from 'cmdk';
 import { providers } from "@/registry/providers";
 import { dialogs } from "@/registry/dialogs";
-import { useCommandCenter } from '@/hooks/use-command-center';
+import { useCommandCenter } from '@/features/command-center/use-command-center';
 import { useParams } from 'react-router-dom';
-import { CommandType } from '@/types/command';
+import { CommandType } from '@/features/command-palette/model/types';
 import '@/styles/cmdk.css';
 
-interface CommandCenterProps {}
+type CommandCenterProps = Record<string, never>;
 
 function useCommandCenterFocus(inputRef: React.RefObject<HTMLInputElement>, commandType: CommandType) {
   useEffect(() => {
@@ -70,7 +70,7 @@ const CommandCenter: React.FC<CommandCenterProps> = () => {
       return (
         <Command.List>
           <Command.Group heading="Select a category">
-            {Object.entries(providers).map(([key, Provider]) => (
+            {Object.entries(providers).map(([key]) => (
               <Command.Item 
                 key={key}
                 onSelect={() => updateState({ activeCommand: key as CommandType })}
@@ -99,7 +99,7 @@ const CommandCenter: React.FC<CommandCenterProps> = () => {
     const DialogComponent = dialogs[currentDialog.type as keyof typeof dialogs];
     return (
       <div className="dialog">
-        <DialogComponent data={currentDialog.data} onClose={closeDialog} />
+        <DialogComponent onClose={closeDialog} />
       </div>
     );
   }, [currentDialog, closeDialog]);

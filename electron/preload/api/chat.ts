@@ -1,35 +1,37 @@
-import { ipcRenderer } from 'electron';
+import { IpcRendererEvent } from 'electron';
 import { ChatEvents } from '@/core/ipc/constants';
 import { ipcUtils } from '../utils/ipc';
+import { ChatPayload } from '@/core/ipc/handlers/chat/types';
+import { IpcResponse } from 'shared/types/ipc';
+
+type StreamChunkData = string | object;
+type ChatStreamChunkCallback = (chunk: StreamChunkData) => void;
+type ChatStreamFinishCallback = () => void;
+type ChatStreamErrorCallback = (error: string) => void;
 
 export const chatApi = {
-  initiateChatStream: (payload: any): Promise<any> =>
+  initiateChatStream: (payload: ChatPayload): Promise<IpcResponse> =>
     ipcUtils.invoke(ChatEvents.INITIATE_CHAT_STREAM, payload),
 
-  onChatStreamChunk: (callback: (chunk: any) => void): (() => void) => {
-    const handler = (_event: any, response: any): void => {
-      if (response.success && response.data) {
+  onChatStreamChunk: (callback: ChatStreamChunkCallback): (() => void) => {
+    const handler = (_event: IpcRendererEvent, response: IpcResponse<StreamChunkData>): void => {
+      if (response.success && response.data !== undefined) {
         callback(response.data);
       }
     };
-    return ipcUtils.on(ChatEvents.CHAT_STREAM_CHUNK, handler);
+    return ipcUtils.on(ChatEvents.CHAT_STREAM_FINISH, handler);
   },
-    
-  onChatStreamFinish: (callback: () => void): (() => void) => {
-    const handler = (_event: any, response: any): void => {
-       if (response.success) callback();
+  onChatStreamFinish: (callback: ChatStreamFinishCallback): (() => void) => {
+    const handler = (_event: IpcRendererEvent, response: IpcResponse): void => {
+      if (response.success) callback();
     };
-     return ipcUtils.on(ChatEvents.CHAT_STREAM_FINISH, handler);
+    return ipcUtils.on(ChatEvents.CHAT_STREAM_FINISH, handler);
   },
 
-  onChatStreamError: (callback: (error: string) => void): (() => void) => {
-    const handler = (_event: any, response: any): void => {
-       if (!response.success) callback(response.error || 'Unknown stream error');
+  onChatStreamError: (callback: ChatStreamErrorCallback): (() => void) => {
+    const handler = (_event: IpcRendererEvent, response: IpcResponse): void => {
+      if (!response.success) callback(response.error || 'Unknown stream error');
     };
-     return ipcUtils.on(ChatEvents.CHAT_STREAM_ERROR, handler);
+    return ipcUtils.on(ChatEvents.CHAT_STREAM_ERROR, handler);
   },
-  
-  offChatStreamChunk: (callback: Function): void => ipcUtils.off(ChatEvents.CHAT_STREAM_CHUNK, callback as any),
-  offChatStreamFinish: (callback: Function): void => ipcUtils.off(ChatEvents.CHAT_STREAM_FINISH, callback as any),
-  offChatStreamError: (callback: Function): void => ipcUtils.off(ChatEvents.CHAT_STREAM_ERROR, callback as any),
 }; 

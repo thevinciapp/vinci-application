@@ -16,13 +16,19 @@
     "incremental": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@components/*": ["./src/components/*"],
-      "@services/*": ["./src/services/*"],
-      "@core/*": ["./src/core/*"],
-      "@types/*": ["./src/types/*"],
-      "@utils/*": ["./src/utils/*"],
-      "@store/*": ["./src/store/*"],
-      "@electron/*": ["./electron/*"]
+      "@components/*": ["./src/components/*"], // Consider if this should be removed/updated later if components move to FSD
+      "@services/*": ["./src/services/*"],   // Consider if this should be removed/updated later
+      "@core/*": ["./src/core/*"],         // Consider if this should be removed/updated later
+      // "@types/*": ["./src/types/*"], // Removed
+      // "@utils/*": ["./src/utils/*"], // Removed
+      "@store/*": ["./src/store/*"],         // Consider if this should be removed/updated later
+      "@electron/*": ["./electron/*"],
+      "app/*": ["./src/app/*"],
+      "entities/*": ["./src/entities/*"],
+      "features/*": ["./src/features/*"],
+      "pages/*": ["./src/pages/*"],
+      "shared/*": ["./src/shared/*"],
+      "widgets/*": ["./src/widgets/*"]
     }
   },
   "include": ["electron/**/*", "types/**/*.d.ts", "**/*.ts", "**/*.tsx", "src/**/*"],

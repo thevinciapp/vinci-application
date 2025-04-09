@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '@/core/auth/auth-service';
-import { fetchWithAuth } from '@/services/api/api-service';
-import { Notification, NotificationType } from '@/types/notification';
+import { fetchWithAuth } from '@/shared/api/api-service';
+import { Notification, NotificationType } from '@/entities/notification/model/types';
 
 export interface NotificationResponse {
   success: boolean;

@@ -1,12 +1,12 @@
 import { API_BASE_URL } from '@/core/auth/auth-service';
-import { Space, SpaceResponse } from '@/types/space';
+import { Space } from '@/entities/space/model/types';
 import { useMainStore } from '@/store/main';
-import { fetchWithAuth } from '@/services/api/api-service';
-import { fetchActiveConversation, fetchConversations } from '@/services/conversations/conversation-service';
-import { fetchMessages } from '@/services/messages/message-service';
-import { Provider } from '@/types/provider';
-import { Conversation } from '@/types/conversation';
-import { Message } from '@/types/message';  
+import { fetchWithAuth } from '@/shared/api/api-service';
+import { fetchActiveConversation, fetchConversations } from 'features/chat/conversation-service';
+import { fetchMessages } from 'features/chat/message-service';
+import { Provider } from '@/entities/model/model/types';
+import { Conversation } from '@/entities/conversation/model/types';
+import { Message } from '@/entities/message/model/types';  
 
 export async function fetchSpaces(): Promise<Space[]> {
   try {
