@@ -1,5 +1,5 @@
 import { ApiErrorResponse, ApiSuccessResponse, ToastConfig } from '@/shared/types/api';
-import { BaseError } from '@/errors';
+import { BaseError } from '@/shared/lib/errors';
 
 export class ResponseHelper {
   public success<T = unknown>(options: {
