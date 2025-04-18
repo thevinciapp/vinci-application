@@ -13,29 +13,33 @@
     "noEmit": false,
     "baseUrl": "../",
     "paths": {
-      "@/*": ["*"],
-      "@/src/*": ["src/*"],
-      "@/lib/*": ["src/lib/*"], // Keep or remove if lib is fully FSD? Check usage.
-      "@/store/*": ["src/store/*"], // Keep or remove if store is fully FSD? Check usage.
-      "@/core/*": ["src/core/*"], // Keep or remove if core is fully FSD? Check usage.
-      "@/services/*": ["src/services/*"], // Keep or remove if services are fully FSD? Check usage.
-      // Add FSD aliases relative to baseUrl "../"
-      "app/*": ["src/app/*"],
-      "entities/*": ["src/entities/*"],
-      "features/*": ["src/features/*"],
-      "pages/*": ["src/pages/*"],
-      "shared/*": ["src/shared/*"],
-      "widgets/*": ["src/widgets/*"]
+      "@/*": ["./src/*"],
+      "@components/*": ["./src/components/*"],
+      "@services/*": ["./src/services/*"],
+      "@core/*": ["./src/core/*"],
+      "@store/*": ["./src/store/*"],
+      "@stores/*": ["./src/stores/*"],
+      "@electron/*": ["./electron/*"],
+      "@features/*": ["./src/features/*"],
+      "@shared/*": ["./src/shared/*"],
+      "@entities/*": ["./src/entities/*"],
+      "@hooks/*": ["./src/hooks/*"],
+      "@utils/*": ["./src/utils/*"],
+      "@assets/*": ["./src/assets/*"],
+      "@styles/*": ["./src/styles/*"],
+      "@constants/*": ["./src/constants/*"],
+      "@types/*": ["./types/*"],
+      "@pages/*": ["./src/pages/*"],
+      "@layouts/*": ["./src/layouts/*"]
     }
   },
+
   "include": [
-    "./**/*", 
-    "../src/types/electron.d.ts", 
-    "../src/lib/**/*.ts",
-    "../src/core",
-    "../src/services",
-    "../src/store",
-    "../src/lib/utils"
+    "electron/**/*",
+    "types/**/*.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "src/**/*"
   ],
-  "exclude": ["../src/lib/**/*.tsx"]
+  "exclude": ["node_modules"]
 }

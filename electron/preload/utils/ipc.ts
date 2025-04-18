@@ -1,6 +1,6 @@
 import { ipcRenderer, IpcRendererEvent } from 'electron';
 import { IpcEvent } from '@/core/ipc/constants';
-import { IpcResponse } from '@/src/shared/types/ipc';
+import { IpcResponse } from '@/shared/types/ipc';
 
 export type IpcEventType = IpcEvent;
 

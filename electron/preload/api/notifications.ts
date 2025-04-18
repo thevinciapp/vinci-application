@@ -1,6 +1,6 @@
 import { ipcRenderer, IpcRendererEvent } from 'electron';
 import { NotificationEvents } from '@/core/ipc/constants';
-import { IpcResponse } from '@/src/shared/types/ipc';
+import { IpcResponse } from '@/shared/types/ipc';
 import { Notification } from '@/entities/notification/model/types';
 
 export const notificationApi = {

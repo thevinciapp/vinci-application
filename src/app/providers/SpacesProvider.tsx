@@ -6,7 +6,7 @@ import { Command } from 'cmdk';
 import { Button } from "@/shared/components/button";
 import { Space } from '@/entities/space/model/types';
 import { useSpaces } from '@/features/spaces/use-spaces';
-import { ProviderComponentProps } from "entities/model/model/types";
+import { ProviderComponentProps } from "@entities/model/model/types";
 
 export const SpacesProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect, onAction }) => {
   const { spaces, setActiveSpaceById } = useSpaces();

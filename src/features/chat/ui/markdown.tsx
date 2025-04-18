@@ -3,8 +3,8 @@ import { memo, useId, useMemo } from "react"
 import ReactMarkdown, { Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { CodeBlock } from "@/shared/components/code-block"
-import { cn } from "@/shared/types/utils"
 import { FileText, Folder, Hash, Code, Clock } from "lucide-react"
+import { cn } from "@/shared/utils/cn-utils"
 
 export type MarkdownProps = {
   children: string
@@ -97,6 +97,7 @@ const INITIAL_COMPONENTS: Partial<Components> = {
       return (
         <span
           className={cn(
+
             "glass-effect px-1.5 py-0.5 text-[13px] font-mono text-zinc-200 rounded-md",
             "backdrop-blur-[4px] bg-white/[0.03] border border-white/[0.05]",
             className
@@ -115,6 +116,7 @@ const INITIAL_COMPONENTS: Partial<Components> = {
         code={children as string}
         language={language}
         className={cn("glass-effect code-block-glow", className)}
+
       />
     )
   },
@@ -205,6 +207,7 @@ const MemoizedMarkdownBlock = memo(
         remarkPlugins={[remarkGfm]}
         components={components}
         className={cn("prose-zinc max-w-none", className)}
+
       >
         {content}
       </ReactMarkdown>
