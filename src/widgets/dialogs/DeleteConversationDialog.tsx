@@ -2,11 +2,16 @@ import React from "react";
 import { Button } from "@/shared/components/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/dialog";
 import { toast } from 'sonner';
-import { useConversations } from "features/chat/use-conversations";
-import { useCommandCenter } from "features/command-center/use-command-center";
-import { DialogComponentProps } from "shared/types/ui";
+import { useConversations } from "@/features/chat/use-conversations";
+import { useCommandCenter } from "@/features/command-center/use-command-center";
+import { DialogComponentProps } from "@/shared/types/ui";
 
-export const DeleteConversationDialog: React.FC<DialogComponentProps> = ({ data, onClose, onConfirm }) => {
+export interface DeleteConversationDialogData {
+  id: string;
+  space_id: string;
+}
+
+export const DeleteConversationDialog: React.FC<DialogComponentProps<DeleteConversationDialogData | null>> = ({ data, onClose, onConfirm }) => {
   const { deleteConversation, isLoading: isDeleting } = useConversations();
   const { refreshCommandCenter } = useCommandCenter();
 
@@ -14,7 +19,7 @@ export const DeleteConversationDialog: React.FC<DialogComponentProps> = ({ data,
     if (isDeleting || !data?.id) return;
     
     try {
-      const success = await deleteConversation({ id: data.id, space_id: data.space_id });
+      const success = await deleteConversation(data.id);
       
       if (success) {
         refreshCommandCenter();

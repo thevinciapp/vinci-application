@@ -2,8 +2,8 @@ import React from "react";
 import { Button } from "@/shared/components/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/dialog";
 import { useToast } from "@/shared/hooks/use-toast";
-import { DialogComponentProps } from "shared/types/ui";
-import { Space } from "entities/space/model/types";
+import { DialogComponentProps } from "@/shared/types/ui";
+import { Space } from "@/entities/space/model/types";
 import { useSpaces } from "@/features/spaces/use-spaces";
 import { useCommandCenter } from "@/features/command-center/use-command-center";
 

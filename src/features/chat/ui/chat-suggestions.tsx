@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Loader2, Search, File, MessageSquare, Calendar, Mail, Github, Hash, CheckSquare } from 'lucide-react';
-import { toast } from 'shared/hooks/use-toast';
+import { Loader2, Search, File, MessageSquare, Calendar, Mail, Hash, CheckSquare, Github } from 'lucide-react';
+import { toast } from '@/shared/hooks/use-toast';
 import path from 'path';
 import { CommandCenterEvents, MessageEvents } from '@/core/ipc/constants';
 
@@ -70,7 +70,7 @@ interface ChatSuggestionsProps {
   suggestionQuery: string;
   atCaretPosition: { x: number, y: number } | null;
   input: string;
-  handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement> | React.ChangeEvent<HTMLInputElement>) => void;
   onSelectFile: (file: FileTag) => Promise<void>;
 }
 
@@ -97,12 +97,6 @@ export function ChatSuggestions({
   const [defaultSlackMessages, setDefaultSlackMessages] = useState<SlackMessage[]>([]);
   const [defaultLinearItems, setDefaultLinearItems] = useState<LinearItem[]>([]);
 
-  const [calendarResults, setCalendarResults] = useState<CalendarEvent[]>([]);
-  const [githubResults, setGithubResults] = useState<GithubItem[]>([]);
-  const [gmailResults, setGmailResults] = useState<GmailItem[]>([]);
-  const [slackResults, setSlackResults] = useState<SlackMessage[]>([]);
-  const [linearResults, setLinearResults] = useState<LinearItem[]>([]);
-
   const searchFiles = useCallback(async (query: string) => {
     if (!query.trim()) {
       setFileResults([]);
@@ -126,8 +120,8 @@ export function ChatSuggestions({
       
       if (response.success && response.data) {
         const fileTags: FileTag[] = response.data
-          .filter((item: any) => item && item.path)
-          .map((item: any) => ({
+          .filter((item: FileTag) => item && item.path)
+          .map((item: FileTag) => ({
             id: item.id || `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             name: item.name || item.fileName || path.basename(item.path),
             path: item.path,
@@ -173,8 +167,8 @@ export function ChatSuggestions({
       
       if (fileResponse.success && fileResponse.data) {
         const fileTags: FileTag[] = fileResponse.data
-          .filter((item: any) => item && item.path)
-          .map((item: any) => ({
+          .filter((item: FileTag) => item && item.path)
+          .map((item: FileTag) => ({
             id: item.id || `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             name: item.name || item.fileName || path.basename(item.path),
             path: item.path,
@@ -346,22 +340,8 @@ export function ChatSuggestions({
     setIsSearching(true);
     
     try {
-      let messageContent = '';
-      
-      try {
-        const messageId = message.id.replace('message-', '');
-        const response = await window.electron.invoke(MessageEvents.GET_CONVERSATION_MESSAGES, message.conversationId, messageId);
-        
-        if (response.success && response.data?.length > 0) {
-          const messageData = response.data[0];
-          messageContent = messageData.content;
-        } else {
-          messageContent = `[Error loading message content]`;
-        }
-      } catch (error) {
-        messageContent = `[Error loading message content: ${error instanceof Error ? error.message : String(error)}]`;
-      }
-      
+      // Functionality to fetch message content was removed as it was unused.
+      // If needed in the future, re-implement message content fetching here.
     } catch (error) {
       console.error("Error selecting message:", error);
     } finally {
@@ -776,7 +756,7 @@ export function ChatSuggestions({
                         </div>
                       </div>
                       <div className="px-0.5 space-y-0.5">
-                        {category.items.map((item: any) => (
+                        {category.items.map((item: FileTag | MessageTag | CalendarEvent | GithubItem | GmailItem | SlackMessage | LinearItem) => (
                           <div
                             key={item.id}
                             className="flex items-start py-2 px-3 cursor-pointer mx-1.5 rounded-md transition-all duration-150 hover:bg-white/[0.04]"
@@ -797,4 +777,4 @@ export function ChatSuggestions({
       </div>
     </div>
   );
-} 
+}

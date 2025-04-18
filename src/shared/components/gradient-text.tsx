@@ -1,6 +1,6 @@
 'use client';
 
-import { cn } from "shared/lib/utils";
+import { cn } from "@/shared/utils/cn-utils";
 import { forwardRef, HTMLAttributes } from 'react';
 
 interface GradientTextProps extends HTMLAttributes<HTMLSpanElement> {

@@ -1,15 +1,15 @@
 import { useState, useMemo } from 'react';
-import { BaseTab } from 'shared/components/base-tab';
+import { BaseTab } from '@/shared/components/base-tab';
 import { Space } from '@/entities/space/model/types';
 import DotSphere from '@/entities/space/ui/planet-icon';
 import { Plus, Edit, Trash, Search } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
-} from 'shared/components/dropdown-menu';
-import { Button } from 'shared/components/button';
-import { useToast } from 'shared/hooks/use-toast';
-import { DropdownList, DropdownSection, DropdownItem, DropdownFooterAction } from 'shared/components/dropdown-list';
+} from '@/shared/components/dropdown-menu';
+import { Button } from '@/shared/components/button';
+import { useToast } from '@/shared/hooks/use-toast';
+import { DropdownList, DropdownItem, DropdownFooterAction } from '@/shared/components/dropdown-list';
 import { CreateSpaceDialog } from '@/widgets/dialogs/CreateSpaceDialog';
 import { EditSpaceDialog } from '@/widgets/dialogs/EditSpaceDialog';
 import { DeleteSpaceDialog } from '@/widgets/dialogs/DeleteSpaceDialog';
@@ -35,7 +35,7 @@ const getSpaceColor = (id: string | undefined | null) => {
 
 export function SpaceTab() {
   const { toast } = useToast();
-  const { spaces, activeSpace, setActiveSpaceById, createSpace } = useSpaces();
+  const { spaces, activeSpace, setActiveSpaceById } = useSpaces();
   
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [spaceToEdit, setSpaceToEdit] = useState<Space | null>(null);
@@ -329,17 +329,17 @@ export function SpaceTab() {
       <CreateSpaceDialog 
         open={isCreateDialogOpen} 
         onClose={handleCloseCreateDialog} 
-        data={null} 
+        data={undefined} 
       />
 
       <EditSpaceDialog 
         onClose={handleCloseEditDialog} 
-        data={spaceToEdit} 
+        data={spaceToEdit || undefined} 
       />
 
       <DeleteSpaceDialog 
         onClose={handleCloseDeleteDialog} 
-        data={spaceToDelete} 
+        data={spaceToDelete || undefined} 
       />
     </>
   );

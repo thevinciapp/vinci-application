@@ -8,14 +8,14 @@ import {
   fetchActiveSpace,
   fetchSpaces
 } from '@/services/spaces/space-service';
-import { fetchConversations } from 'features/chat/conversation-service';
+import { fetchConversations } from '@/features/chat/conversation-service';
 import { SpaceEvents, AppStateEvents } from '@/core/ipc/constants';
 import { IpcResponse } from '@/shared/types/ipc';
 import { Space } from '@/entities/space/model/types';
-import { fetchMessages } from 'features/chat/message-service';
+import { fetchMessages } from '@/features/chat/message-service';
 import { Message } from '@/entities/message/model/types';
 import { Conversation } from '@/entities/conversation/model/types';
-import { useMainStore, getMainStoreState } from '@/store/main';
+import { useMainStore, getMainStoreState } from '@/stores/main';
 import { sanitizeStateForIPC } from '@/core/utils/state-utils';
 import { Provider } from '@/entities/model/model/types';
 
@@ -44,7 +44,7 @@ export function registerSpaceHandlers() {
     }
   });
 
-  ipcMain.handle(SpaceEvents.GET_ACTIVE_SPACE, async (_event: IpcMainInvokeEvent): Promise<IpcResponse<{ space: Space | null }>> => {
+  ipcMain.handle(SpaceEvents.GET_ACTIVE_SPACE, async (): Promise<IpcResponse<{ space: Space | null }>> => {
     try {
       const store = useMainStore.getState();
       if (store.activeSpace) {
@@ -212,7 +212,7 @@ export function registerSpaceHandlers() {
     }
   });
   
-  ipcMain.handle(SpaceEvents.GET_SPACES, async (_event: IpcMainInvokeEvent): Promise<IpcResponse<{ spaces: Space[] }>> => {
+  ipcMain.handle(SpaceEvents.GET_SPACES, async (): Promise<IpcResponse<{ spaces: Space[] }>> => {
     try {
       const store = useMainStore.getState();
       if (store.spaces.length > 0 && store.initialDataLoaded) {

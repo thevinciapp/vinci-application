@@ -6,6 +6,7 @@ import { Space } from '@/entities/space/model/types';
 import { CommandType } from '@/features/command-palette/model/types';
 
 export interface MainProcessState {
+  [key: string]: unknown;
   spaces: Space[];
   activeSpace: Space | null;
   conversations: Conversation[];

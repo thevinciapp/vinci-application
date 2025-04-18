@@ -1,19 +1,19 @@
 import { useState } from 'react';
 import { Space } from '@/entities/space/model/types';
-import { BaseTab } from 'shared/components/base-tab';
+import { BaseTab } from '@/shared/components/base-tab';
 import { ProviderIcon } from '@lobehub/icons';
 import { getModelDisplayInfo } from '@/entities/model/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
-} from 'shared/components/dropdown-menu';
-import { Button } from 'shared/components/button';
+} from '@/shared/components/dropdown-menu';
+import { Button } from '@/shared/components/button';
 import { Model, Provider } from '@/entities/model/model/types';
 import { AVAILABLE_MODELS } from '@/entities/model/config/models';
 import { useSpaces } from '@/features/spaces/use-spaces';
-import { toast } from 'shared/hooks/use-toast';
-import { Plus, RefreshCw, Settings, Info, Search } from 'lucide-react';
-import { DropdownList, DropdownSection, DropdownItem, DropdownFooterAction } from 'shared/components/dropdown-list';
+import { toast } from '@/shared/hooks/use-toast';
+import { Settings, Info, Search } from 'lucide-react';
+import { DropdownList, DropdownSection, DropdownFooterAction } from '@/shared/components/dropdown-list';
 
 export interface ModelTabProps {
   space: Space | null;
@@ -79,12 +79,12 @@ export function ModelTab({ space }: ModelTabProps) {
   };
 
   // Filter models based on search query
-  const filterModels = (models: any[]) => {
+  const filterModels = (models: Model[]) => {
     if (!searchQuery.trim()) return models;
     
     const query = searchQuery.toLowerCase().trim();
-    return models.filter(model => 
-      model.name.toLowerCase().includes(query) || 
+    return models.filter(model =>
+      model.name.toLowerCase().includes(query) ||
       (model.description && model.description.toLowerCase().includes(query))
     );
   };
@@ -104,7 +104,7 @@ export function ModelTab({ space }: ModelTabProps) {
     if (filteredModels.length > 0) {
       modelSections.push({
         title: `${provider.charAt(0).toUpperCase() + provider.slice(1)} Models (${filteredModels.length})`,
-        items: filteredModels.map((model: any) => ({
+        items: filteredModels.map((model: Model) => ({
           id: `${provider}-${model.id}`,
           isActive: space?.model === model.id,
           isDisabled: isUpdating !== null,
@@ -112,10 +112,10 @@ export function ModelTab({ space }: ModelTabProps) {
           content: (
             <div className="flex w-full">
               <div className="flex-shrink-0 mr-2.5">
-                <ProviderIcon 
-                  type="color" 
-                  provider={provider as Provider} 
-                  size={16} 
+                <ProviderIcon
+                  type="color"
+                  provider={provider as Provider}
+                  size={16}
                   className={`${isUpdating === model.id ? 'opacity-50' : ''}`}
                 />
               </div>

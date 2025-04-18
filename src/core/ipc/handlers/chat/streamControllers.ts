@@ -1,4 +1,4 @@
-import { Logger } from 'shared/lib/logger';
+import { Logger } from '@/shared/lib/logger';
 import { StreamControllerManager } from './types';
 
 const logger = new Logger('StreamControllers');

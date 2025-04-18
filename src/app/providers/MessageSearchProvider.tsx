@@ -6,7 +6,7 @@ import { Command } from 'cmdk';
 import { Message } from '@/entities/message/model/types';
 import { Conversation } from '@/entities/conversation/model/types';
 import { ProviderComponentProps } from '@/entities/model/model/types';
-import { MessageEvents } from '@/core/ipc/constants';
+import { SearchEvents } from '@/core/ipc/constants';
 
 interface MessageWithConversation extends Message {
   timestamp: number;
@@ -14,7 +14,13 @@ interface MessageWithConversation extends Message {
   conversation?: Conversation;
 }
 
-export function MessageSearchProvider({ searchQuery, onSelect }: ProviderComponentProps) {
+interface SearchResponse {
+  success: boolean;
+  data?: Message[];
+  error?: string;
+}
+
+export function MessageSearchProvider({ searchQuery = '', onSelect }: ProviderComponentProps) {
   const [messages, setMessages] = useState<MessageWithConversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -28,17 +34,17 @@ export function MessageSearchProvider({ searchQuery, onSelect }: ProviderCompone
 
       try {
         setIsLoading(true);
-        const result = await window.electron.invoke(MessageEvents.SEARCH_MESSAGES, searchQuery);
+        const result = await window.electron.invoke(SearchEvents.SEARCH_MESSAGES, searchQuery) as SearchResponse;
         
-        if (result.success) {
-          const messagesWithConversations: MessageWithConversation[] = (result.data || []).map((msg: any) => ({
+        if (result && result.success && result.data) {
+          const messagesWithConversations: MessageWithConversation[] = result.data.map((msg: Message) => ({
             ...msg,
-            timestamp: new Date(msg.createdAt).getTime(),
-            conversationName: msg.conversationTitle || 'Untitled'
-          })) || [];
+            timestamp: new Date(msg.created_at).getTime(),
+            conversationName: msg.conversation_id || 'Untitled'
+          }));
           setMessages(messagesWithConversations);
         } else {
-          console.error('Error fetching messages:', result.error);
+          console.error('Error fetching messages:', result?.error);
         }
       } catch (error) {
         console.error('Error searching messages:', error);

@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { ConversationEvents } from '@/core/ipc/constants';
 import { Conversation } from '@/entities/conversation/model/types';
-import { useMainState } from '@/context/MainStateContext';
+import { useMainState } from '@/stores/MainStateContext';
 
 export function useConversations() {
   const { state, isLoading: isGlobalLoading, error: globalError } = useMainState();
@@ -16,7 +16,7 @@ export function useConversations() {
     setIsActionLoading(true);
     setActionError(null);
     try {
-      const response = await window.electron.invoke(ConversationEvents.SET_ACTIVE_CONVERSATION, {
+      const response: { success: boolean; error?: string } = await window.electron.invoke(ConversationEvents.SET_ACTIVE_CONVERSATION, {
         conversationId: conversation.id,
         spaceId: conversation.space_id
       });
@@ -34,11 +34,11 @@ export function useConversations() {
     }
   }, []);
 
-  const createConversation = useCallback(async (spaceId: string, title: string): Promise<{ success: boolean, data?: any, error?: string }> => {
+  const createConversation = useCallback(async (spaceId: string, title: string): Promise<{ success: boolean, data?: Conversation, error?: string }> => {
     setIsActionLoading(true);
     setActionError(null);
     try {
-      const response = await window.electron.invoke(ConversationEvents.CREATE_CONVERSATION, {
+      const response: { success: boolean; data?: Conversation; error?: string } = await window.electron.invoke(ConversationEvents.CREATE_CONVERSATION, {
         space_id: spaceId,
         title
       });
@@ -56,11 +56,11 @@ export function useConversations() {
     }
   }, []);
 
-  const deleteConversation = useCallback(async (conversation: Conversation): Promise<boolean> => {
+  const deleteConversation = useCallback(async (conversationId: string): Promise<boolean> => {
     setIsActionLoading(true);
     setActionError(null);
     try {
-      const response = await window.electron.invoke(ConversationEvents.DELETE_CONVERSATION, conversation);
+      const response: { success: boolean; error?: string } = await window.electron.invoke(ConversationEvents.DELETE_CONVERSATION, { conversationId });
       if (!response.success) {
         setActionError(response.error || 'Failed to delete conversation');
       }
@@ -78,7 +78,7 @@ export function useConversations() {
     setIsActionLoading(true);
     setActionError(null);
     try {
-      const response = await window.electron.invoke(ConversationEvents.UPDATE_CONVERSATION, conversation);
+      const response: { success: boolean; error?: string } = await window.electron.invoke(ConversationEvents.UPDATE_CONVERSATION, conversation);
       if (!response.success) {
         setActionError(response.error || 'Failed to update conversation');
       }

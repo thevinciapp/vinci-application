@@ -12,7 +12,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { exec as execCallback } from 'child_process';
 import { promisify } from 'util';
-import { useMainStore, getMainStoreState } from '@/store/main';
+import { useMainStore, getMainStoreState } from '@/stores/main';
 import { sanitizeStateForIPC } from '@/core/utils/state-utils';
 
 const exec = promisify(execCallback);
@@ -284,7 +284,7 @@ export function registerCommandCenterHandlers(): void {
             size: stats.size,
           });
           
-        } catch (statError) {
+        } catch {
           console.warn(`[spotlight] Could not access file ${filePath}`);
         }
         

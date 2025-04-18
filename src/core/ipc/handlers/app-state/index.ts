@@ -1,5 +1,5 @@
-import { ipcMain, IpcMainInvokeEvent, BrowserWindow } from 'electron';
-import { getMainStoreState, useMainStore } from '@/store/main';
+import { ipcMain, BrowserWindow } from 'electron';
+import { getMainStoreState, useMainStore } from '@/stores/main';
 import {
   fetchInitialAppData,
   refreshAppData
@@ -22,7 +22,7 @@ function broadcastStateUpdate() {
  * Register app state-related IPC handlers
  */
 export function registerAppStateHandlers() {
-  ipcMain.handle(AppStateEvents.GET_STATE, async (_event: IpcMainInvokeEvent): Promise<IpcResponse<Partial<ReturnType<typeof getMainStoreState>>>> => {
+  ipcMain.handle(AppStateEvents.GET_STATE, async (): Promise<IpcResponse<Partial<ReturnType<typeof getMainStoreState>>>> => {
     try {
       const state = getMainStoreState();
       console.log('[ELECTRON] Getting app state from renderer, initialDataLoaded:', state.initialDataLoaded);
@@ -61,7 +61,7 @@ export function registerAppStateHandlers() {
     }
   });
 
-  ipcMain.handle(AppStateEvents.REFRESH_DATA, async (_event: IpcMainInvokeEvent): Promise<IpcResponse<null>> => {
+  ipcMain.handle(AppStateEvents.REFRESH_DATA, async (): Promise<IpcResponse<null>> => {
     try {
       const refreshedData = await refreshAppData();
       if (!refreshedData.error) {

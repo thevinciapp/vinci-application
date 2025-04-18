@@ -1,5 +1,5 @@
 import { IpcMainInvokeEvent } from 'electron';
-import { Logger } from 'shared/lib/logger';
+import { Logger } from '@/shared/lib/logger';
 import { UIMessage } from '@/core/utils/ai-sdk-adapter/types';
 import { StreamEventHandlers, StreamUpdateResult, ChatPayload } from './types';
 import { processChatResponse } from '@/core/utils/ai-sdk-adapter/process-chat-response';
@@ -32,7 +32,7 @@ export function processStream(
   
   return processChatResponse({
     stream,
-    update: ({ message, data }) => {
+    update: ({ message }) => {
       try {
         const result = handleStreamUpdate(
           event, 
@@ -180,7 +180,7 @@ function extractTextContent(message: UIMessage): string {
 /**
  * Creates a full message data object from a message
  */
-function createFullMessageData(message: UIMessage, messageIdForStream: string | undefined): any {
+function createFullMessageData(message: UIMessage, messageIdForStream: string | undefined): UIMessage {
   return {
     id: message.id || messageIdForStream || generateId(),
     role: message.role,

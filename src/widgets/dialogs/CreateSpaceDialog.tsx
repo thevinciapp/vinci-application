@@ -14,29 +14,25 @@ import {
 import { useToast } from "@/shared/hooks/use-toast";
 import { useSpaces } from "@/features/spaces/use-spaces";
 import { useCommandCenter } from "@/features/command-center/use-command-center";
-import { DialogComponentProps } from "shared/types/ui";
-import { Space } from "entities/space/model/types";
-import { Provider, Model } from "entities/model/model/types";
-import { AVAILABLE_MODELS } from "entities/model/config/models"; // Import from provider types
-import { getAllChatModes, ChatMode } from "@/config/chat-modes"; // Import from chat modes config
-import { ProviderIcon } from '@lobehub/icons'; // Import ProviderIcon
+import { DialogComponentProps } from "@/shared/types/ui";
+import { Space } from "@/entities/space/model/types";
+import { Provider, Model } from "@/entities/model/model/types";
+import { AVAILABLE_MODELS } from "@/entities";
+import { getAllChatModes, ChatMode } from "@/configs/chat-modes";
+import { ProviderIcon } from '@lobehub/icons'; 
 
-// Derive providers from AVAILABLE_MODELS keys
 const availableProviders = Object.keys(AVAILABLE_MODELS).map(key => ({
   id: key as Provider,
-  // Simple capitalization for display name, adjust as needed
   name: key.charAt(0).toUpperCase() + key.slice(1) 
 }));
 
-// Get chat modes from config function
 const availableChatModes = getAllChatModes();
 
-export const CreateSpaceDialog: React.FC<DialogComponentProps & { open: boolean }> = ({ data, onClose, onConfirm, open }) => {
-  // Safely set initial states from derived data
-  const initialProvider = availableProviders[0]?.id || 'anthropic'; // Fallback if list is empty
+export const CreateSpaceDialog: React.FC<DialogComponentProps & { open: boolean }> = ({ onClose, onConfirm, open }) => {
+  const initialProvider = availableProviders[0]?.id || 'anthropic';
   const initialModels = AVAILABLE_MODELS[initialProvider] || [];
-  const initialModel = initialModels[0]?.id || ''; // Fallback
-  const initialChatMode = availableChatModes[0]?.id || 'ask'; // Fallback
+  const initialModel = initialModels[0]?.id || '';
+  const initialChatMode = availableChatModes[0]?.id || 'ask';
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -44,26 +40,22 @@ export const CreateSpaceDialog: React.FC<DialogComponentProps & { open: boolean 
   const [model, setModel] = useState<string>(initialModel);
   const [chatMode, setChatMode] = useState<ChatMode>(initialChatMode);
   
-  const { createSpace, isLoading, fetchSpaces } = useSpaces();
+  const { createSpace, isLoading } = useSpaces();
   const { refreshCommandCenter } = useCommandCenter();
   const { toast } = useToast();
 
   const availableModelsForProvider = AVAILABLE_MODELS[provider] || [];
 
   useEffect(() => {
-    // Set default model for the selected provider if current model is not available or provider changed
     if (provider && availableModelsForProvider.length > 0) {
       const currentModelAvailable = availableModelsForProvider.some(m => m.id === model);
-      // If the current model isn't available for the new provider, set to the first available model
       if (!currentModelAvailable) {
         setModel(availableModelsForProvider[0].id);
       }
     } else {
-      // If no models available for the provider, reset model state
       setModel('');
     }
-    // Rerun effect when provider changes
-  }, [provider]); // Removed model and availableModelsForProvider dependencies to avoid potential loops
+  }, [provider]); 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

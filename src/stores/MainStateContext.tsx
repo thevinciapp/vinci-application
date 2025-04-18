@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode, useMemo } from 'react';
-import { MainProcessState } from '@/store/main'; // Assuming this path is correct
+import { MainProcessState } from '@/stores/main';
 import { AppStateEvents } from '@/core/ipc/constants';
 
 interface MainStateContextType {
@@ -27,7 +27,7 @@ export const MainStateProvider: React.FC<MainStateProviderProps> = ({ children }
     let isMounted = true;
 
     const handleStateUpdate = (
-      _event: any,
+      _event: Electron.IpcRendererEvent,
       response: { success: boolean; data?: Partial<MainProcessState>; error?: string }
     ) => {
       if (!isMounted) return;
@@ -44,12 +44,17 @@ export const MainStateProvider: React.FC<MainStateProviderProps> = ({ children }
       }
     };
 
-    const cleanup = window.electron.on(AppStateEvents.STATE_UPDATED, handleStateUpdate);
+    const cleanup = window.electron.on(AppStateEvents.STATE_UPDATED, (event: unknown, ...args: unknown[]) => {
+  handleStateUpdate(
+    event as Electron.IpcRendererEvent,
+    args[0] as { success: boolean; data?: Partial<MainProcessState>; error?: string }
+  );
+});
 
     window.electron.invoke(AppStateEvents.GET_STATE)
       .then(response => {
         if (isMounted) {
-          handleStateUpdate(null, response); // Process initial state using the same handler
+          handleStateUpdate({} as Electron.IpcRendererEvent, response as { success: boolean; data?: Partial<MainProcessState>; error?: string }); // Process initial state using the same handler
         } else {
             console.log('[MainStateProvider] Unmounted before initial state received.');
         }
@@ -58,7 +63,7 @@ export const MainStateProvider: React.FC<MainStateProviderProps> = ({ children }
         console.error('[MainStateProvider] Error requesting initial state:', err);
         if (isMounted) {
           setError(err instanceof Error ? err.message : 'Failed to get initial state');
-          setIsLoading(false); // Stop loading on initial fetch error
+          setIsLoading(false); 
         }
       });
 
@@ -66,12 +71,11 @@ export const MainStateProvider: React.FC<MainStateProviderProps> = ({ children }
         console.log('[MainStateProvider] Cleaning up STATE_UPDATED listener.');
         isMounted = false;
         if (cleanup) {
-            cleanup(); // Call the cleanup function returned by window.electron.on
+            cleanup();
         }
     };
-  }, []); // Empty dependency array ensures this runs only once
+  }, []); 
 
-  // Memoize the context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({
     state,
     isLoading,

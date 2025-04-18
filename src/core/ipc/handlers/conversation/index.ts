@@ -1,19 +1,18 @@
 import { ipcMain, IpcMainInvokeEvent, BrowserWindow } from 'electron';
 import {
-  fetchConversations,
   createConversation,
   updateConversation,
   deleteConversation,
   setActiveConversationInAPI
-} from 'features/chat/conversation-service';
-import { fetchMessages } from 'features/chat/message-service';
-import { ConversationResponse, Conversation } from '@/entities/conversation/model/types';
-import { ConversationEvents, SpaceEvents, MessageEvents, AppStateEvents } from '@/core/ipc/constants';
+} from '@/features/chat/conversation-service';
+import { fetchMessages } from '@/features/chat/message-service';
+import { Conversation } from '@/entities/conversation/model/types';
+import { Message, VinciUIMessage } from '@/entities/message/model/types';
+import { ConversationEvents, MessageEvents, AppStateEvents } from '@/core/ipc/constants';
 import { CreateConversationRequest } from '@/features/conversation/create/model/types';
-import { MessageResponse, Message } from '@/entities/message/model/types';
-import { useMainStore, getMainStoreState } from '@/store/main';
-import { sanitizeStateForIPC } from '@/core/utils/state-utils';
 import { IpcResponse } from '@/shared/types/ipc';
+import { useMainStore, getMainStoreState } from '@/stores/main';
+import { sanitizeStateForIPC } from '@/core/utils/state-utils';
 
 function broadcastStateUpdate() {
   const state = getMainStoreState();
@@ -26,14 +25,39 @@ function broadcastStateUpdate() {
 }
 
 export function registerConversationHandlers() {
-  ipcMain.handle(MessageEvents.GET_CONVERSATION_MESSAGES, async (_event: IpcMainInvokeEvent, conversationId: string): Promise<IpcResponse<{ messages: Message[] }>> => {
+  ipcMain.handle(MessageEvents.GET_CONVERSATION_MESSAGES, async (_: IpcMainInvokeEvent, conversationId: string): Promise<IpcResponse<{ messages: Message[] }>> => {
     try {
       const store = useMainStore.getState();
-      if (store.activeConversation?.id === conversationId) {
-        return { success: true, data: { messages: store.messages || [] } };
+      if (store.activeConversation?.id === conversationId && store.messages) {
+        const responseMessages: Message[] = store.messages.map((msg: VinciUIMessage): Message => ({
+          id: msg.id,
+          user_id: '', // Provide default
+          role: msg.role === 'data' ? 'system' : (msg.role ?? 'user'), // Map 'data', provide default role
+          content: msg.content ?? '',
+          conversation_id: msg.conversation_id,
+          is_deleted: false, // Provide default
+          created_at: msg.createdAt?.toISOString() ?? new Date().toISOString(), // Use createdAt, provide default
+          updated_at: msg.updated_at ?? new Date().toISOString(), // Use updated_at, provide default
+          annotations: msg.annotations ?? []
+        }));
+        return { success: true, data: { messages: responseMessages } };
       }
-      const messages = await fetchMessages(conversationId);
-      return { success: true, data: { messages: messages || [] } };
+
+      // fetchMessages returns Message[]
+      const fetchedMessages = await fetchMessages(conversationId);
+      // Map fetched Message[] to Message[] for the response (ensure conformance)
+      const responseMessages: Message[] = (fetchedMessages || []).map((msg: Message): Message => ({
+        id: msg.id,
+        user_id: msg.user_id ?? '', // Use user_id from Message
+        role: msg.role ?? 'user', // Remove check: msg is Message, cannot be 'data'
+        content: msg.content ?? '',
+        conversation_id: msg.conversation_id,
+        is_deleted: msg.is_deleted ?? false, // Use is_deleted from Message
+        created_at: msg.created_at ?? new Date().toISOString(), // Use created_at from Message
+        updated_at: msg.updated_at ?? new Date().toISOString(), // Use updated_at from Message
+        annotations: msg.annotations ?? []
+      }));
+      return { success: true, data: { messages: responseMessages } };
     } catch (error) {
       console.error('[ELECTRON] Error in get-conversation-messages handler:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error fetching messages';
@@ -41,7 +65,7 @@ export function registerConversationHandlers() {
     }
   });
 
-  ipcMain.handle(ConversationEvents.GET_CONVERSATIONS, async (_event: IpcMainInvokeEvent): Promise<IpcResponse<{ conversations: Conversation[] }>> => {
+  ipcMain.handle(ConversationEvents.GET_CONVERSATIONS, async (): Promise<IpcResponse<{ conversations: Conversation[] }>> => {
     try {
       const store = useMainStore.getState();
       return { success: true, data: { conversations: store.conversations || [] } };
@@ -53,22 +77,18 @@ export function registerConversationHandlers() {
 
   ipcMain.handle(ConversationEvents.CREATE_CONVERSATION, async (_event: IpcMainInvokeEvent, data: CreateConversationRequest): Promise<IpcResponse<{ id: string }>> => {
     try {
-      // 1. Call service to create conversation
       const newConversation = await createConversation(data.space_id, data.title);
 
-      // 2. Update store manually, using previous state + newConversation object
       useMainStore.setState(prevState => {
         const existing = prevState.conversations?.find(c => c.id === newConversation.id);
         if (existing) {
-          // If it somehow already exists, log warning and just set it active
           console.warn(`[CONVERSATION HANDLER] Conversation ${newConversation.id} already found in store state during CREATE operation. Setting active.`);
           return {
-             ...prevState, // Keep the list as is
-             activeConversation: existing, // Set the existing one active
-             messages: [] // Clear messages
-           };
+            ...prevState,
+            activeConversation: existing,
+            messages: []
+          };
         }
-        // Prepend the new conversation if it wasn't already there
         return {
           conversations: [newConversation, ...(prevState.conversations || [])],
           activeConversation: newConversation,
@@ -76,7 +96,6 @@ export function registerConversationHandlers() {
         };
       });
 
-      // 3. Broadcast the updated state
       broadcastStateUpdate();
       return { success: true, data: { id: newConversation.id } };
     } catch (error) {
@@ -88,13 +107,13 @@ export function registerConversationHandlers() {
   ipcMain.handle(ConversationEvents.UPDATE_CONVERSATION, async (_event: IpcMainInvokeEvent, data: { id: string, title: string, space_id: string }): Promise<IpcResponse<null>> => {
     try {
       const updatedConversation = await updateConversation(data.space_id, data.id, data.title);
-      
+
       useMainStore.setState(state => ({
-        conversations: state.conversations.map(c => 
+        conversations: state.conversations.map(c =>
           c.id === data.id ? { ...c, ...updatedConversation } : c
         ),
-        activeConversation: state.activeConversation?.id === data.id 
-          ? { ...state.activeConversation, ...updatedConversation } 
+        activeConversation: state.activeConversation?.id === data.id
+          ? { ...state.activeConversation, ...updatedConversation }
           : state.activeConversation
       }));
 
@@ -109,26 +128,38 @@ export function registerConversationHandlers() {
   ipcMain.handle(ConversationEvents.DELETE_CONVERSATION, async (_event: IpcMainInvokeEvent, data: { space_id: string, id: string }): Promise<IpcResponse<null>> => {
     try {
       const storeBeforeDelete = useMainStore.getState();
-      const conversationToDelete = storeBeforeDelete.conversations.find(c => c.id === data.id);
       const wasActive = storeBeforeDelete.activeConversation?.id === data.id;
-      
+
       await deleteConversation(data.space_id, data.id);
 
       const remainingConversations = storeBeforeDelete.conversations.filter(c => c.id !== data.id);
       let newActiveConversation: Conversation | null = null;
-      let newMessages: Message[] = [];
+      let newMessages: VinciUIMessage[] = [];
 
       if (wasActive) {
         if (remainingConversations.length > 0) {
           newActiveConversation = remainingConversations[0];
-          newMessages = await fetchMessages(newActiveConversation.id);
+          // fetchMessages returns Message[]
+          const fetchedMessages = await fetchMessages(newActiveConversation.id);
+          // Map fetched Message[] to VinciUIMessage[] for the store update
+          newMessages = (fetchedMessages || []).map((msg: Message): VinciUIMessage => ({ // Map *from* Message *to* VinciUIMessage
+            id: msg.id,
+            role: msg.role ?? 'user', // Remove check: msg is Message, cannot be 'data'
+            content: msg.content ?? '',
+            conversation_id: newActiveConversation!.id, // Use the new active conversation ID
+            createdAt: new Date(msg.created_at ?? Date.now()), // Convert created_at string to Date for VinciUIMessage
+            updated_at: msg.updated_at, // VinciUIMessage has optional updated_at string
+            annotations: msg.annotations ?? [],
+            parts: msg.content ? [{ type: 'text', text: msg.content }] : [] // Create basic 'parts' from content
+            // space_id: newActiveConversation.space_id // Add space_id if needed
+          }));
         } else {
           newActiveConversation = null;
           newMessages = [];
         }
       } else {
         newActiveConversation = storeBeforeDelete.activeConversation;
-        newMessages = storeBeforeDelete.messages;
+        newMessages = storeBeforeDelete.messages ?? [];
       }
 
       useMainStore.setState({
@@ -155,14 +186,14 @@ export function registerConversationHandlers() {
       const newActiveConversation = store.conversations.find(c => c.id === data.conversationId);
 
       if (!newActiveConversation) {
-         console.error(`[ELECTRON] Attempted to set active conversation ${data.conversationId}, but it was not found in the current list for space ${data.spaceId}`);
-         return { success: false, error: 'Conversation not found in current list' };
+        console.error(`[ELECTRON] Attempted to set active conversation ${data.conversationId}, but it was not found in the current list for space ${data.spaceId}`);
+        return { success: false, error: 'Conversation not found in current list' };
       }
-      
+
       await setActiveConversationInAPI(data.conversationId, data.spaceId);
-      
+
       const messages = await fetchMessages(data.conversationId);
-      
+
       useMainStore.setState({
         activeConversation: newActiveConversation,
         messages: messages || []

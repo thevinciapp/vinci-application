@@ -86,7 +86,7 @@ const useAutoScroll = (
     const container = containerRef.current;
     if (!container) return;
 
-    const observer = new MutationObserver((mutations) => {
+    const observer = new MutationObserver(() => {
       if (!autoScrollEnabled || isAutoScrolling.current) return;
 
       const wasAtBottom = isAtBottom(container);

@@ -3,8 +3,18 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Clock, Check, X } from 'lucide-react';
 import { Command } from 'cmdk';
-import { Progress } from "shared/components/progress";
+import { Progress } from "@/shared/components/progress";
 import { ProviderComponentProps } from '@/entities/model/model/types';
+
+type BackgroundTasksApi = {
+  createBackgroundTask: (description: string) => string;
+  updateTaskStatus: (taskId: string, status: BackgroundTask['status'], progress?: number) => void;
+  removeTask: (taskId: string) => void;
+};
+
+interface WindowWithBackgroundTasks extends Window {
+  backgroundTasks?: BackgroundTasksApi;
+}
 
 interface BackgroundTask {
   id: string;
@@ -15,7 +25,7 @@ interface BackgroundTask {
   progress?: number;
 }
 
-export function BackgroundTasksProvider({ searchQuery, onSelect }: ProviderComponentProps) {
+export function BackgroundTasksProvider({ searchQuery = '', onSelect }: ProviderComponentProps) {
   const [tasks, setTasks] = useState<BackgroundTask[]>([]);
 
   const createBackgroundTask = (description: string) => {
@@ -25,21 +35,21 @@ export function BackgroundTasksProvider({ searchQuery, onSelect }: ProviderCompo
       status: 'pending',
       createdAt: Date.now(),
     };
-    
+
     setTasks(prevTasks => [...prevTasks, newTask]);
     return newTask.id;
   };
 
   const updateTaskStatus = (taskId: string, status: BackgroundTask['status'], progress?: number) => {
-    setTasks(prevTasks => 
-      prevTasks.map(task => 
-        task.id === taskId 
-          ? { 
-              ...task, 
-              status, 
-              progress, 
-              ...(status === 'completed' ? { completedAt: Date.now() } : {})
-            } 
+    setTasks(prevTasks =>
+      prevTasks.map(task =>
+        task.id === taskId
+          ? {
+            ...task,
+            status,
+            progress,
+            ...(status === 'completed' ? { completedAt: Date.now() } : {})
+          }
           : task
       )
     );
@@ -55,13 +65,13 @@ export function BackgroundTasksProvider({ searchQuery, onSelect }: ProviderCompo
       updateTaskStatus,
       removeTask
     };
-    (window as any).backgroundTasks = api;
+    (window as WindowWithBackgroundTasks).backgroundTasks = api;
     return () => {
-      delete (window as any).backgroundTasks;
+      delete (window as WindowWithBackgroundTasks).backgroundTasks;
     };
   }, []);
 
-  const filteredTasks = tasks.filter(task => 
+  const filteredTasks = tasks.filter(task =>
     task.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -78,18 +88,6 @@ export function BackgroundTasksProvider({ searchQuery, onSelect }: ProviderCompo
     }
   };
 
-  const getStatusColor = (status: BackgroundTask['status']) => {
-    switch (status) {
-      case 'pending':
-        return 'text-yellow-500';
-      case 'in-progress':
-        return 'text-blue-500';
-      case 'completed':
-        return 'text-green-500';
-      case 'failed':
-        return 'text-destructive';
-    }
-  };
 
   return (
     <Command.List>
@@ -101,7 +99,7 @@ export function BackgroundTasksProvider({ searchQuery, onSelect }: ProviderCompo
             <Command.Item
               key={task.id}
               value={task.description}
-              onSelect={() => onSelect?.({...task, closeOnSelect: true})}
+              onSelect={() => onSelect?.({ ...task, closeOnSelect: true })}
             >
               {getStatusIcon(task.status)}
               <div>

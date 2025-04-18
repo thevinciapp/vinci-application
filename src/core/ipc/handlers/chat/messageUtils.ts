@@ -3,11 +3,11 @@ import { UIMessage } from '@/core/utils/ai-sdk-adapter/types';
 import { getMessageParts } from '@/core/utils/ai-sdk-adapter/get-message-parts';
 import { generateId } from '@/core/utils/ai-sdk-adapter/adapter-utils';
 import { ChatPayload } from './types';
-import { useMainStore, getMainStoreState } from '@/store/main';
+import { useMainStore, getMainStoreState } from '@/stores/main';
 import { BrowserWindow } from 'electron';
 import { AppStateEvents } from '@/core/ipc/constants';
 import { sanitizeStateForIPC } from '@/core/utils/state-utils';
-import { Logger } from 'shared/lib/logger';
+import { Logger } from '@/shared/lib/logger';
 
 const logger = new Logger('ChatMessageUtils');
 
@@ -20,7 +20,7 @@ export function mapHandlerMessageToUIMessage(handlerMessage: Message): UIMessage
     role: handlerMessage.role as 'user' | 'assistant' | 'system',
     content: handlerMessage.content,
     createdAt: new Date(handlerMessage.created_at),
-    annotations: handlerMessage.annotations as any[] | undefined
+    annotations: handlerMessage.annotations as JSONValue[] | undefined
   };
 
   return {
@@ -36,14 +36,14 @@ export function createAssistantMessage(
   message: UIMessage, 
   messageIdForStream: string | undefined, 
   payload: ChatPayload
-): any {
+): UIMessage {
   const messageId = message.id || messageIdForStream || generateId();
   const messageRole = message.role || 'assistant';
   const messageContent = message.content || '';
   
   return {
     id: messageId,
-    role: messageRole as any,
+    role: messageRole as 'system' | 'user' | 'assistant' | 'data',
     content: messageContent,
     createdAt: new Date(),
     conversation_id: payload.conversationId || '',
@@ -51,8 +51,8 @@ export function createAssistantMessage(
     parts: getMessageParts({
       role: messageRole,
       content: messageContent
-    }) as any,
-    annotations: message.annotations as any[] || [],
+    }) as UIMessage['parts'],
+    annotations: message.annotations as JSONValue[] || [],
   };
 }
 
@@ -60,10 +60,10 @@ export function createAssistantMessage(
  * Find similar messages in the current message set
  */
 export function findSimilarMessages(
-  currentMessages: any[], 
-  conversationId: string | undefined, 
-  assistantMessage: any
-): any[] {
+  currentMessages: (Message | UIMessage)[],
+  conversationId: string | undefined,
+  assistantMessage: Message | UIMessage
+): (Message | UIMessage)[] {
   if (!conversationId) return [];
   
   // First filter messages from this conversation
@@ -92,7 +92,7 @@ export function findSimilarMessages(
 /**
  * Remove duplicate messages from an array
  */
-export function deduplicateMessages(messages: any[]): any[] {
+export function deduplicateMessages(messages: (Message | UIMessage)[]): (Message | UIMessage)[] {
   const seenIds = new Set<string>();
   return messages.filter(m => {
     if (seenIds.has(m.id)) {
@@ -121,7 +121,7 @@ export function updateStoreMessages(
   const assistantMessage = createAssistantMessage(message, messageIdForStream, payload);
   
   // First, ensure user messages from payload are preserved
-  let updatedMessages: any[] = [];
+  let updatedMessages: UIMessage[] = [];
   
   // Step 1: Add all user messages from the payload
   if (payload.messages && payload.messages.length > 0) {
@@ -139,7 +139,7 @@ export function updateStoreMessages(
           parts: getMessageParts({
             role: payloadMsg.role,
             content: payloadMsg.content || ''
-          }) as any,
+          }) as UIMessage['parts'],
           annotations: payloadMsg.annotations || []
         };
         

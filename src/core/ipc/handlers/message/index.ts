@@ -4,16 +4,16 @@ import {
   sendChatMessage,
   deleteMessage,
   updateMessage
-} from 'features/chat/message-service';
+} from '@/features/chat/message-service';
 import {
   searchAllMessages
 } from '@/services/search/search-service';
-import { MessageResponse, Message } from '@/entities/message/model/types';
+import { Message } from '@/entities/message/model/types';
 import { IpcResponse } from '@/shared/types/ipc';
 import { MessageEvents, SearchEvents, AppStateEvents } from '@/core/ipc/constants';
-import { useMainStore, getMainStoreState } from '@/store/main';
+import { useMainStore, getMainStoreState } from '@/stores/main';
 import { sanitizeStateForIPC } from '@/core/utils/state-utils';
-import { Logger } from 'shared/lib/logger';
+import { Logger } from '@/shared/lib/logger';
 
 // Create logger instance for this handler
 const logger = new Logger('MessageHandler');

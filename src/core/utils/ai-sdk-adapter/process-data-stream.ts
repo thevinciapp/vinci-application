@@ -125,7 +125,7 @@ export async function processDataStream({
                           await onErrorPart(errorJson.error);
                           return;
                         }
-                      } catch (jsonError) {
+                      } catch {
                         // Failed to parse as JSON, continue to other methods
                       }
                     }
@@ -208,7 +208,7 @@ export async function processDataStream({
                           await onErrorPart(errorJson.error);
                           return;
                         }
-                      } catch (jsonError) {
+                      } catch {
                         // Failed to parse as JSON, continue to other methods
                       }
                     }
@@ -307,7 +307,7 @@ export async function processDataStream({
       default: {
         // This check should be exhaustive based on DataStreamPartType
         const exhaustiveCheck: never = part;
-        throw new Error(`Unknown stream part type: ${(exhaustiveCheck as any).type}`);
+        throw new Error(`Unknown stream part type: ${String(exhaustiveCheck)}`);
       }
     }
   }

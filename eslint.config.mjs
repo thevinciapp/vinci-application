@@ -1,28 +1,62 @@
-// vinci-application/eslint.config.js
 import globals from "globals";
 import pluginJs from "@eslint/js";
 import tseslint from "typescript-eslint";
 import pluginReactConfig from "eslint-plugin-react/configs/recommended.js";
 import eslintConfigPrettier from "eslint-config-prettier";
+import pluginImport from "eslint-plugin-import";
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export default [
-  { files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"] },
-  { languageOptions: { globals: globals.browser } },
   pluginJs.configs.recommended,
+  {
+    files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"],
+    languageOptions: { globals: globals.browser },
+  },
   ...tseslint.configs.recommended,
+  {
+    files: ["**/*.ts", "**/*.tsx"],
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        project: './tsconfig.json',
+        tsconfigRootDir: __dirname,
+      },
+    },
+  },
   pluginReactConfig,
-  // Add Prettier config last to override formatting rules
+  {
+    plugins: {
+      import: pluginImport,
+    },
+    rules: {
+      ...pluginImport.configs.recommended.rules, 
+    },
+    settings: {
+      "import/resolver": {
+        typescript: {
+          alwaysTryTypes: true,
+          project: "./tsconfig.json",
+          extensions: [".js", ".jsx", ".ts", ".tsx"],
+        },
+        node: {
+          extensions: [".js", ".jsx", ".ts", ".tsx"],
+        },
+      },
+    },
+  },
   eslintConfigPrettier,
   {
-    // Custom rules or overrides can go here
     rules: {
-      // Example: Disable a specific rule if needed
       "react/react-in-jsx-scope": "off",
-      "react/prop-types": "off"
+      "react/prop-types": "off",
     },
     settings: {
       react: {
-        version: "detect", // Automatically detect the React version
+        version: "detect",
       },
     },
   },
@@ -31,10 +65,11 @@ export default [
       "node_modules/",
       "out/",
       "dist/",
-      "electron.vite.config.ts", // Often uses different module systems
-      ".eslintrc.cjs", // Ignore old config if present
+      "electron.vite.config.ts",
+      ".eslintrc.cjs",
       "postcss.config.js",
-      "tailwind.config.js", // Build/config files
+      "tailwind.config.js",
+      "src/features/chat/ui/chat-suggestions.tsx",
     ],
   },
 ];

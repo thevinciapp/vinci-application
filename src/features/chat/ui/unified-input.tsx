@@ -1,13 +1,9 @@
 import React, { ChangeEvent, useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { File, Loader2, MessageSquare, X } from 'lucide-react';
-import { Button } from "shared/components/button";
-import { cn } from "shared/lib/utils";
-import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from 'cmdk';
-import path from 'path';
-import { CommandCenterEvents, SearchEvents, MessageEvents } from '@/core/ipc/constants';
-import { toast } from "shared/hooks/use-toast";
-
+import { File, MessageSquare, X } from 'lucide-react';
+import { Button } from "@/shared/components/button";
+import { FileReference } from '@/entities/file/model/types';
+import { cn } from '@/shared/utils/cn-utils';
 
 type FileTag = {
   id: string
@@ -45,13 +41,7 @@ interface UnifiedInputProps {
   setShowSuggestions?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-interface FileReference {
-  id: string;
-  name: string;
-  path: string;
-  content?: string;
-  type?: string;
-}
+// Removed local FileReference definition, will use imported one
 
 export const UnifiedInput: React.FC<UnifiedInputProps> = ({
   value,
@@ -92,23 +82,16 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const addFileReference = (file: FileReference) => {
-    updateFileReferences(prevReferences => {
-      const existingFileIndex = prevReferences.findIndex(ref => ref.id === file.id);
-      if (existingFileIndex !== -1) {
-        // Update existing file reference
-        const updatedReferences = [...prevReferences];
-        updatedReferences[existingFileIndex] = file;
-        return updatedReferences;
-      } else {
-        // Add new file reference
-        return [...prevReferences, file];
-      }
-    });
-  };
 
   const fileReferencesMap = useMemo(() => {
-    const fileMap: Record<string, any> = {};
+    interface FileMapValue {
+      id: string;
+      path: string;
+      name: string;
+      content?: string;
+      type?: string;
+    }
+    const fileMap: Record<string, FileMapValue> = {};
     fileReferences.forEach(fileRef => {
       fileMap[fileRef.id] = {
         id: fileRef.id,
@@ -179,59 +162,6 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
     }
   };
 
-  // Handle a selected file from the parent component
-  const handleFileSelection = (file: FileTag) => {
-    if (!onSelectFile) return;
-    
-    // Create a new file token
-    const fileToken: Token = {
-      id: file.id || `file-${Date.now()}`,
-      type: "file",
-      content: file.name,
-      file: {
-        id: file.id || `file-${Date.now()}`,
-        name: file.name,
-        path: file.path
-      },
-    };
-    
-    // Add a new empty text token
-    const newTextToken: Token = {
-      id: `text-${Date.now()}`,
-      type: "text",
-      content: "",
-    };
-
-    // If the current input has an @ symbol, split it
-    if (value.includes("@")) {
-      const atIndex = value.lastIndexOf("@");
-      const textBefore = value.substring(0, atIndex);
-
-      // Update the current text token with text before @
-      const newTokens = [...tokens];
-      if (newTokens[newTokens.length - 1].type === "text") {
-        newTokens[newTokens.length - 1].content = textBefore;
-      }
-
-      // Add the file token and a new empty text token
-      setTokens([...newTokens, fileToken, newTextToken]);
-    } else {
-      // Just add the file token after the current text
-      setTokens([...tokens, fileToken, newTextToken]);
-    }
-    
-    // Clear the input after adding file token
-    const event = { target: { value: "" } } as ChangeEvent<HTMLInputElement>;
-    onChange(event);
-    
-    // Call parent's onSelectFile
-    onSelectFile(file);
-    
-    // Focus back on the input
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 0);
-  };
 
   // Remove a token (file or message)
   const removeToken = (tokenId: string) => {
@@ -314,9 +244,6 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({
       const finalMessage = displayMessage.trim() || " ";
       
       try {
-        // Save the current state in case we need to restore it
-        const savedTokens = [...tokens];
-
         // Update parent value and submit
         const event = { target: { value: finalMessage } } as ChangeEvent<HTMLInputElement>;
         onChange(event);

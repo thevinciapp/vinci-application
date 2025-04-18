@@ -1,17 +1,17 @@
 import React from "react";
 import { PencilLine, Trash, MessageSquare, Plus } from "lucide-react";
 import { Command } from 'cmdk';
-import { Button } from "shared/components/button";
+import { Button } from "@/shared/components/button";
 import { Conversation } from '@/entities/conversation/model/types';
-import { ProviderComponentProps } from "entities/model/model/types";
+import { ProviderComponentProps } from "@/entities/model/model/types";
 import { useSpaces } from '@/features/spaces/use-spaces';
 import { useConversations } from '@/features/chat/use-conversations';
 import { useMessages } from '@/features/chat/use-messages';
 
-export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ searchQuery, onSelect, onAction }) => {
+export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ searchQuery = '', onSelect, onAction }) => {
   const { activeSpace, setActiveSpaceById } = useSpaces();
-  const { conversations, isLoading } = useConversations();
-  const { fetchMessages } = useMessages(null);
+  const { conversations } = useConversations();
+  const { fetchMessages } = useMessages();
 
   const filteredConversations = conversations
     .filter(conv => conv.space_id === activeSpace?.id)
@@ -43,13 +43,13 @@ export const ConversationsProvider: React.FC<ProviderComponentProps> = ({ search
     }
   };
 
-  const handleEdit = (e: React.MouseEvent, conversation: Conversation) => {
+  const handleEdit = (e: React.MouseEvent<HTMLButtonElement>, conversation: Conversation) => {
     e.stopPropagation();
     e.preventDefault();
     if (onAction) onAction('edit', conversation);
   };
 
-  const handleDelete = (e: React.MouseEvent, conversation: Conversation) => {
+  const handleDelete = (e: React.MouseEvent<HTMLButtonElement>, conversation: Conversation) => {
     e.stopPropagation();
     e.preventDefault();
     if (onAction) onAction('delete', conversation);

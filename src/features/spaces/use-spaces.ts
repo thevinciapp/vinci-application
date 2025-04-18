@@ -1,7 +1,14 @@
 import { useState, useMemo } from 'react';
 import { SpaceEvents } from '@/core/ipc/constants';
 import { Space } from '@/entities/space/model/types';
-import { useMainState } from '@/context/MainStateContext';
+import { useMainState } from '@/stores/MainStateContext';
+
+// Define a standard response type for IPC calls
+type IpcResponse<T = null> = { 
+  success: boolean;
+  data?: T;
+  error?: string;
+};
 
 export function useSpaces() {
   const { state, isLoading: isGlobalLoading, error: globalError } = useMainState();
@@ -17,10 +24,14 @@ export function useSpaces() {
     setActionError(null);
     try {
       const response = await window.electron.invoke(SpaceEvents.SET_ACTIVE_SPACE, spaceId);
-      if (!response?.success) {
-        setActionError(response?.error || 'Failed to set active space');
+      // Assert the expected response type
+      const result = response as IpcResponse;
+      if (!result.success) {
+        // Remove optional chaining after assertion
+        setActionError(result.error || 'Failed to set active space');
       }
-      return response?.success || false;
+      // Remove optional chaining after assertion
+      return result.success || false;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to set active space';
       setActionError(errorMessage);
@@ -30,19 +41,23 @@ export function useSpaces() {
     }
   };
 
-  const createSpace = async (spaceData: Partial<Space>): Promise<{ success: boolean, data?: any, error?: string }> => {
+  // Update return type to use IpcResponse<Space>
+  const createSpace = async (spaceData: Partial<Space>): Promise<IpcResponse<Space>> => {
     setIsActionLoading(true);
     setActionError(null);
     try {
        const result = await window.electron.invoke(SpaceEvents.CREATE_SPACE, spaceData);
-       if (!result.success) {
-         setActionError(result.error || 'Failed to create space');
+       // Assert the expected response type
+       const typedResult = result as IpcResponse<Space>; 
+       if (!typedResult.success) {
+         setActionError(typedResult.error || 'Failed to create space');
        }
-       return result;
+       return typedResult;
     } catch (err) {
        const errorMessage = err instanceof Error ? err.message : 'Failed to create space';
        setActionError(errorMessage);
-       return { success: false, error: errorMessage };
+       // Ensure catch block returns the correct type
+       return { success: false, error: errorMessage, data: undefined };
     } finally {
        setIsActionLoading(false);
     }
@@ -60,10 +75,12 @@ export function useSpaces() {
 
     try {
       const response = await window.electron.invoke(SpaceEvents.DELETE_SPACE, spaceId);
-      if (!response.success) {
-        setActionError(response.error || 'Failed to delete space');
+      // Assert the expected response type
+      const result = response as IpcResponse;
+      if (!result.success) {
+        setActionError(result.error || 'Failed to delete space');
       }
-      return response.success;
+      return result.success;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete space';
       setActionError(errorMessage);
@@ -78,10 +95,12 @@ export function useSpaces() {
     setActionError(null);
     try {
       const result = await window.electron.invoke(SpaceEvents.UPDATE_SPACE, spaceId, spaceData);
-      if (!result.success) {
-         setActionError(result.error || 'Failed to update space');
+      // Assert the expected response type
+      const typedResult = result as IpcResponse;
+      if (!typedResult.success) {
+         setActionError(typedResult.error || 'Failed to update space');
       }
-      return result.success;
+      return typedResult.success;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update space';
       setActionError(errorMessage);
@@ -96,10 +115,12 @@ export function useSpaces() {
     setActionError(null);
     try {
        const result = await window.electron.invoke(SpaceEvents.UPDATE_SPACE_MODEL, spaceId, modelId, provider);
-       if (!result.success) {
-         setActionError(result.error || 'Failed to update space model');
+       // Assert the expected response type
+       const typedResult = result as IpcResponse;
+       if (!typedResult.success) {
+         setActionError(typedResult.error || 'Failed to update space model');
        }
-       return result.success;
+       return typedResult.success;
     } catch (err) {
        const errorMessage = err instanceof Error ? err.message : 'Failed to update space model';
        setActionError(errorMessage);

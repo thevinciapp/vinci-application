@@ -2,8 +2,8 @@ import { marked } from "marked"
 import { memo, useId, useMemo } from "react"
 import ReactMarkdown, { Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { CodeBlock } from "shared/components/code-block"
-import { cn } from "shared/types/utils"
+import { CodeBlock } from "@/shared/components/code-block"
+import { cn } from "@/shared/types/utils"
 import { FileText, Folder, Hash, Code, Clock } from "lucide-react"
 
 export type MarkdownProps = {

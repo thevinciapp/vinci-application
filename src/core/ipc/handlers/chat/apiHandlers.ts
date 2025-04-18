@@ -1,8 +1,7 @@
-import { Logger } from 'shared/lib/logger';
+import { Logger } from '@/shared/lib/logger';
 import { IpcMainInvokeEvent } from 'electron';
-import { ChatPayload, StreamEventHandlers } from './types';
-import { initiateChatApiStream } from '@/services/chat/chat-service';
-import { StreamControllerManager } from './streamControllers';
+import { ChatPayload, StreamControllerManager, StreamEventHandlers } from './types';
+import { initiateChatApiStream } from '@/features/chat/chat-service';
 
 const logger = new Logger('ChatApiHandlers');
 
@@ -28,8 +27,7 @@ export function createRequestPayload(payload: ChatPayload) {
  */
 export async function getStreamResponseWithTimeout(
   payload: ChatPayload,
-  conversationId: string,
-  abortController: AbortController
+  conversationId: string
 ): Promise<Response> {
   try {
     const requestPayload = {
@@ -58,11 +56,14 @@ export async function getStreamResponseWithTimeout(
     }
     
     return response;
-  } catch (apiError: any) {
-    if (apiError.name === 'AbortError') {
+  } catch (apiError: unknown) {
+    if (apiError instanceof Error && apiError.name === 'AbortError') {
       throw new Error('Stream was cancelled by the user');
     }
-    throw new Error(`API error: ${apiError.message || 'Failed to connect to API'}`);
+    if (apiError instanceof Error) {
+      throw new Error(`API error: ${apiError.message || 'Failed to connect to API'}`);
+    }
+    throw new Error('API error: Failed to connect to API');
   }
 }
 
@@ -138,7 +139,7 @@ export function createAbortableStream(
  */
 export function handleStreamError(
   event: IpcMainInvokeEvent,
-  error: any,
+  error: unknown,
   conversationId: string,
   abortController: AbortController,
   streamTimeout: NodeJS.Timeout | undefined,
@@ -146,7 +147,10 @@ export function handleStreamError(
   controllerManager: StreamControllerManager
 ): { success: false; error: string } {
   const { sendErrorEvent } = eventHandlers;
-  const errorMsg = error.message || 'Failed to process chat stream';
+  const errorMsg =
+    error instanceof Error
+      ? error.message
+      : 'Failed to process chat stream';
   const isAborted = abortController.signal.aborted;
   
   if (isAborted) {

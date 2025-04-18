@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bell, LogOut, User as UserIcon, Settings } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "shared/components/avatar";
-import { Button } from "shared/components/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components/avatar";
+import { Button } from "@/shared/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,12 +11,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "shared/components/dropdown-menu";
-import { cn } from "shared/lib/utils";
+} from "@/shared/components/dropdown-menu";
 import { User } from '@supabase/supabase-js';
-import { useUser } from '@/hooks/use-user';
-import { useNotifications } from '@/hooks/use-notifications';
 import { UserProfile } from '@/services/user/user-service';
+import { useNotifications } from '@/features/notifications/use-notifications';
+import { useUser } from "@/features/user/use-user";
+import { cn } from "@/shared/utils/cn-utils";
 
 interface UserProfileDropdownProps {
   user: User | UserProfile;

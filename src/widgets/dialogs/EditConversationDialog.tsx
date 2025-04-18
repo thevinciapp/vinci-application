@@ -6,9 +6,10 @@ import { Label } from "@/shared/components/label";
 import { toast } from 'sonner';
 import { useConversations } from "@/features/chat/use-conversations";
 import { useCommandCenter } from "@/features/command-center/use-command-center";
-import { DialogComponentProps } from "shared/types/ui";
+import { DialogComponentProps } from "@/shared/types/ui";
+import { Conversation } from '@/entities/conversation/model/types';
 
-export const EditConversationDialog: React.FC<DialogComponentProps> = ({ data, onClose, onConfirm }) => {
+export const EditConversationDialog: React.FC<DialogComponentProps<Conversation>> = ({ data, onClose, onConfirm }) => {
   const [title, setTitle] = useState(data?.title || "");
   const { updateConversation, isLoading: isSubmitting } = useConversations();
   const { refreshCommandCenter } = useCommandCenter();
@@ -30,7 +31,11 @@ export const EditConversationDialog: React.FC<DialogComponentProps> = ({ data, o
     }
 
     try {
-      const success = await updateConversation({ id: data.id, title: trimmedTitle, space_id: data.space_id });
+      const updatedConversation: Conversation = {
+        ...data, // Include all existing properties from data
+        title: trimmedTitle, // Override the title with the updated one
+      };
+      const success = await updateConversation(updatedConversation);
       
       if (success) {
         toast.success('Conversation updated successfully');

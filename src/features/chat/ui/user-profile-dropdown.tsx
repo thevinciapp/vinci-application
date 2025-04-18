@@ -1,7 +1,7 @@
+import { useAuth } from '@/features/auth/use-auth';
 import { User } from '@supabase/supabase-js';
-import { useAuth } from '@/hooks/use-auth';
-import { Button } from 'shared/components/button';
 import { useState, useRef, useEffect } from 'react';
+import { Button } from '@/shared/components/button';
 
 interface UserProfileDropdownProps {
   user: User;

@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { 
   Plus, RefreshCw, FileText, List, Download, 
-  Clock, ArrowUpRight, Tag, FileCode, CheckSquare, 
+  ArrowUpRight, Tag, FileCode, CheckSquare, 
   CalendarIcon, Mail, Share2, BookmarkIcon
 } from 'lucide-react';
-import { BaseTab } from 'shared/components/base-tab';
+import { BaseTab } from '@/shared/components/base-tab';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
-} from 'shared/components/dropdown-menu';
-import { Button } from 'shared/components/button';
-import { toast } from 'shared/hooks/use-toast';
-import { DropdownList, DropdownSection, DropdownItem, DropdownFooterAction } from 'shared/components/shared/dropdown-list';
+} from '@/shared/components/dropdown-menu';
+import { Button } from '@/shared/components/button';
+import { toast } from '@/shared/hooks/use-toast';
+import { DropdownList, DropdownSection, DropdownItem, DropdownFooterAction } from '@/shared/components/dropdown-list';
 
 export interface ActionsTabProps {
   onCreateConversation?: (title: string) => Promise<void>;
@@ -46,7 +46,7 @@ export function ActionsTab({ onCreateConversation, onClick }: ActionsTabProps) {
         description: `Created "${action.name}" action`,
         variant: "default",
       });
-    } catch (error) {
+    } catch {
       toast({
         title: "Creation Failed",
         description: "Unable to create action. Please try again.",
@@ -57,7 +57,7 @@ export function ActionsTab({ onCreateConversation, onClick }: ActionsTabProps) {
     }
   };
 
-  const quickActions = [
+  const quickActions: QuickAction[] = [
     {
       id: 'summarize',
       name: 'Summarize Conversation',
@@ -173,7 +173,14 @@ export function ActionsTab({ onCreateConversation, onClick }: ActionsTabProps) {
     return sections;
   };
 
-  const createActionItem = (action: any): DropdownItem => ({
+  interface QuickAction {
+    id: string;
+    name: string;
+    description: string;
+    category: string;
+  }
+  
+  const createActionItem = (action: QuickAction): DropdownItem => ({
     id: action.id,
     isActive: lastCreated === action.id,
     isDisabled: isCreating,

@@ -16,13 +16,13 @@ interface LanguageModelV1Source {
     data: Uint8Array;
 }
 
-interface ToolCall<NAME extends string, ARGS> {
+export interface ToolCall<NAME extends string, ARGS> {
   toolCallId: string;
   toolName: NAME;
   args: ARGS;
 }
 
-interface ToolResult<NAME extends string, ARGS, RESULT> {
+export interface ToolResult<NAME extends string, ARGS, RESULT> {
   toolCallId: string;
   toolName: NAME;
   args: ARGS;
@@ -45,9 +45,9 @@ export type JSONValue =
 export type IdGenerator = () => string;
 
 export type ToolInvocation =
-  | ({ state: 'partial-call'; step?: number } & ToolCall<string, any>)
-  | ({ state: 'call'; step?: number } & ToolCall<string, any>)
-  | ({ state: 'result'; step?: number } & ToolResult<string, any, any>);
+  | ({ state: 'partial-call'; step?: number } & ToolCall<string, unknown>)
+  | ({ state: 'call'; step?: number } & ToolCall<string, unknown>)
+  | ({ state: 'result'; step?: number } & ToolResult<string, unknown, unknown>);
 
 export interface Attachment {
   name?: string;
@@ -186,7 +186,7 @@ export type UseChatOptions = {
 
 // Define error types locally
 export class JSONParseError extends Error {
-  static isInstance(error: any): error is JSONParseError {
+  static isInstance(error: unknown): error is JSONParseError {
     return error instanceof JSONParseError;
   }
   constructor({ text, cause }: { text: string; cause: unknown }) {
@@ -196,7 +196,7 @@ export class JSONParseError extends Error {
 }
 
 export class TypeValidationError extends Error {
-  static isInstance(error: any): error is TypeValidationError {
+  static isInstance(error: unknown): error is TypeValidationError {
     return error instanceof TypeValidationError;
   }
   static wrap({ value, cause }: { value: unknown; cause: unknown }): TypeValidationError {

@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
-import { useToast } from 'shared/hooks/use-toast';
+import { useToast } from '@/shared/hooks/use-toast';
 import { UserEvents, AuthEvents } from '@/core/ipc/constants';
 import { UserUpdateData, EmailPreferences } from '@/services/user/user-service';
-import { useMainState } from '@/context/MainStateContext';
+import { useMainState } from '@/stores/MainStateContext';
 
 export function useUser() {
   const { state, isLoading: isGlobalLoading, error: globalError } = useMainState();

@@ -3,6 +3,44 @@
 ## Overview
 
 This document outlines the complete data flow architecture of our Electron application, from startup to API interactions and state updates.
+## Directory Structure & Organization
+
+The application's source directory (`src/`) is organized for clarity, scalability, and maintainability. Key conventions include:
+
+- **Pluralized Collection Folders:** Folders representing collections (e.g., `configs/`, `stores/`) use plural names for consistency.
+- **Shared Utilities:** All generic utilities and helpers are consolidated under `shared/utils/`.
+- **Component Hierarchy:** `components/` contains atomic or small reusable UI components, while `widgets/` contains larger, composite UI elements.
+- **Documentation:** Ambiguous or foundational folders (e.g., `core/`, `shared/`, `widgets/`, `components/`, `registry/`) include a `README.md` describing their purpose.
+- **Sparse Folder Merging:** Very small or single-file folders are merged into more general folders to reduce unnecessary nesting.
+
+**Example `src/` structure:**
+```
+src/
+  App.tsx
+  main.tsx
+  app/
+  components/
+  configs/
+  core/
+  entities/
+  errors/
+  features/
+  hooks/
+  layouts/
+  pages/
+  registry/
+  schemas/
+  services/
+  shared/
+    utils/
+    ...
+  stores/
+  styles/
+  widgets/
+```
+
+This structure supports modular development, clear separation of concerns, and ease of navigation for contributors.
+
 
 ## Application Startup Flow
 

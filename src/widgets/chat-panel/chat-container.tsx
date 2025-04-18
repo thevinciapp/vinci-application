@@ -1,13 +1,11 @@
-import { cn } from "shared/lib/utils"
-import { useRef } from "react"
-import React from "react"
+import { cn } from "@/shared/utils/cn-utils"
+import React, { useRef } from "react"
 import { useAutoScroll } from "@/hooks/use-auto-scroll";
 
 export type ChatContainerProps = {
   children: React.ReactNode
   className?: string
   autoScroll?: boolean
-  scrollToRef?: React.RefObject<HTMLDivElement | null> 
   ref?: React.RefObject<HTMLDivElement | null>
 } & React.HTMLAttributes<HTMLDivElement>
 
@@ -16,7 +14,6 @@ const ChatContainer = React.forwardRef<HTMLDivElement, ChatContainerProps>(
       className,
       children,
       autoScroll = true,
-      scrollToRef, 
       ...props
     }, ref) => {
         

@@ -1,10 +1,10 @@
-import { ChatContainer } from 'shared/components/chat-container';
 import { useEffect, forwardRef, useRef, memo, useMemo } from 'react';
 import { VinciUIMessage } from '@/entities/message/model/types';
 import { JSONValue } from '@ai-sdk/ui-utils';
 import { MemoizedMessage } from './memoized-message';
 import { PlaceholderMessage } from './placeholder-message';
 import { useAutoScroll } from '@/hooks/use-auto-scroll';
+import { ChatContainer } from '@/widgets/chat-panel/chat-container';
 
 interface ChatMessagesProps {
   messages: VinciUIMessage[];

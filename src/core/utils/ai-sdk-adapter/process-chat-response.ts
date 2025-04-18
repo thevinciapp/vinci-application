@@ -14,7 +14,8 @@ import type {
   ToolInvocationUIPart,
   UIMessage,
   UseChatOptions, // Use local definition
-  LanguageModelV1FinishReason // Use local definition
+  LanguageModelV1FinishReason, // Use local definition
+  ToolCall
 } from './types'; // Use local
 
 export async function processChatResponse({
@@ -280,7 +281,7 @@ export async function processChatResponse({
       execUpdate();
 
       if (onToolCall) {
-        const result = await onToolCall({ toolCall: value as any }); // Cast if ToolCall type mismatch
+        const result = await onToolCall({ toolCall: value as ToolCall<string, unknown> }); // Cast if ToolCall type mismatch
         if (result != null) {
           const resultInvocation = {
             state: 'result',

@@ -1,9 +1,10 @@
 "use client"
 
-import { cn } from "@/shared/lib/utils"
-import React, { useEffect, useState } from "react"
-import { codeToHtml } from "shiki"
+import { cn } from "@/shared/utils/cn-utils";
+import React, { useEffect, useState, useMemo } from "react"
+import { codeToHtml, ShikiTransformerContextSource, ThemedToken } from "shiki"
 import { Copy, CheckIcon } from "lucide-react"
+import { Root, Element } from 'hast';
 
 interface CopyButtonProps {
   code: string
@@ -49,7 +50,7 @@ export type CodeBlockProps = {
 
 function CodeBlock({ children, className, code, language, ...props }: CodeBlockProps) {
   // Generate a unique key based on code content or props if available
-  const uniqueKey = React.useMemo(() => {
+  const uniqueKey = useMemo(() => {
     return code ? `${language}-${code.slice(0, 20)}-${Math.random().toString(36).slice(2, 7)}` : `codeblock-${Math.random().toString(36).slice(2)}`
   }, [code, language])
 
@@ -148,101 +149,47 @@ function CodeBlockCode({
     
     const timer = setTimeout(async () => {
       try {
-        const customTheme = {
-          name: 'glass-dark',
-          type: 'dark',
-          fg: '#EEEEEE',
-          bg: '#00000000',
-          settings: [
-            {
-              settings: {
-                background: '#00000000',
-                foreground: '#EEEEEE',
-                caret: '#FFFFFF',
-                selection: 'rgba(128, 203, 255, 0.2)',
-                selectionBorder: 'rgba(128, 203, 255, 0.4)',
-                lineHighlight: 'rgba(255, 255, 255, 0.05)',
-                gutterForeground: 'rgba(175, 175, 175, 0.5)',
-                gutterBorder: 'rgba(255, 255, 255, 0.05)',
-              }
-            },
-            {
-              scope: ['comment', 'punctuation.definition.comment', 'string.comment'],
-              settings: {
-                foreground: 'rgba(106, 153, 85, 0.9)'
-              }
-            },
-            {
-              scope: ['string', 'constant.other.symbol'],
-              settings: {
-                foreground: 'rgba(206, 145, 120, 0.9)'
-              }
-            },
-            {
-              scope: ['keyword', 'storage.type', 'storage.modifier'],
-              settings: {
-                foreground: 'rgba(86, 156, 214, 0.9)'
-              }
-            },
-            {
-              scope: ['entity.name.function', 'support.function'],
-              settings: {
-                foreground: 'rgba(220, 220, 170, 0.9)'
-              }
-            },
-            {
-              scope: ['variable', 'support.variable'],
-              settings: {
-                foreground: 'rgba(156, 220, 254, 0.9)'
-              }
-            }
-          ]
-        };
-
         const html = await codeToHtml(code, { 
-          lang: language, 
+          lang: language,
           theme: "github-dark",
           transformers: [{
-            root(node) {
-              const nodeAsAny = node as any;
-              if (!nodeAsAny.properties) nodeAsAny.properties = {};
-              const style = nodeAsAny.properties.style || '';
-              nodeAsAny.properties.style = style.replace(/background[^:]*:[^;]*;/g, 'background: transparent !important;');
+            root(this: ShikiTransformerContextSource, node: Root) {
+              // Cast to unknown first, then Element for accessing properties intentionally
+              const nodeAsElement = node as unknown as Element; 
+              if (!nodeAsElement.properties) nodeAsElement.properties = {};
+              const style = (nodeAsElement.properties.style as string) || '';
+              nodeAsElement.properties.style = style.replace(/background[^:]*:[^;]*;/g, 'background: transparent !important;');
               return node;
             },
-            pre(node) {
-              const nodeAsAny = node as any;
-              if (!nodeAsAny.properties) nodeAsAny.properties = {};
-              const style = nodeAsAny.properties.style || '';
-              nodeAsAny.properties.style = style.replace(/background[^:]*:[^;]*;/g, 'background: transparent !important;');
+            pre(this: ShikiTransformerContextSource, node: Element) {
+              if (!node.properties) node.properties = {};
+              const style = (node.properties.style as string) || '';
+              node.properties.style = style.replace(/background[^:]*:[^;]*;/g, 'background: transparent !important;');
               return node;
             },
-            code(node) {
-              const nodeAsAny = node as any;
-              if (!nodeAsAny.properties) nodeAsAny.properties = {};
-              const style = nodeAsAny.properties.style || '';
-              nodeAsAny.properties.style = style.replace(/background[^:]*:[^;]*;/g, 'background: transparent !important;');
+            code(this: ShikiTransformerContextSource, node: Element) {
+              if (!node.properties) node.properties = {};
+              const style = (node.properties.style as string) || '';
+              node.properties.style = style.replace(/background[^:]*:[^;]*;/g, 'background: transparent !important;');
               return node;
             },
-            line(node) {
-              const nodeAsAny = node as any;
-              if (!nodeAsAny.properties) nodeAsAny.properties = {};
-              const style = nodeAsAny.properties.style || '';
+            line(this: ShikiTransformerContextSource, node: Element) {
+              if (!node.properties) node.properties = {};
+              const style = (node.properties.style as string) || '';
               if (style.includes('background')) {
-                nodeAsAny.properties.style = style.replace(/background[^:]*:[^;]*;/g, 'background: transparent !important;');
+                node.properties.style = style.replace(/background[^:]*:[^;]*;/g, 'background: transparent !important;');
               }
               return node;
             },
-            tokens(node) {
-              return node.map((token: any, index: number) => {
-                const tokenAsAny = token as any;
-                if (!tokenAsAny.properties) tokenAsAny.properties = {};
-                const style = tokenAsAny.properties.style || '';
-                if (style.includes('background')) {
-                  tokenAsAny.properties.style = style.replace(/background[^:]*:[^;]*;/g, '');
-                }
-                tokenAsAny.properties.key = `token-${index}`;
-                return token;
+            // Correctly type the lines and return value. Iterate lines then tokens.
+            tokens(this: ShikiTransformerContextSource, lines: ThemedToken[][]): ThemedToken[][] {
+              return lines.map(line => { 
+                // Iterate over tokens in the line. Remove style logic as ThemedToken has no properties.
+                // Remove unused 'index' parameter.
+                return line.map((token: ThemedToken) => {
+                  // Background transparency handled in HAST node transformers (root, pre, code, line)
+                  return token; 
+                });
               });
             }
           }]

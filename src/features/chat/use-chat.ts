@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useToast } from 'shared/hooks/use-toast';
-import { Logger } from 'shared/lib/logger';
+import { useToast } from '@/shared/hooks/use-toast';
+import { Logger } from '@/shared/lib/logger';
 import { ChatEvents } from '@/core/ipc/constants';
 import { generateId as generateIdFunc, getMessageParts } from '@ai-sdk/ui-utils';
 import type { JSONValue, ChatRequestOptions as VercelChatRequestOptions } from '@ai-sdk/ui-utils';
 import type { VinciUIMessage } from '@/entities/message/model/types';
 import type { VinciCreateMessage } from '@/features/message/create/model/types';
 import { IpcResponse } from '@/shared/types/ipc';
+import { FileReference } from '@/shared/types/ui';
 
 const logger = new Logger('useChat');
 
@@ -15,7 +16,7 @@ export interface VinciChatRequestOptions extends Pick<VercelChatRequestOptions, 
   spaceId?: string;
   provider?: string;
   model?: string;
-  files?: any;
+  files?: FileReference[];
   searchMode?: string;
   chatMode?: string;
 }
@@ -140,7 +141,7 @@ export function useChat({
   }, []);
 
   useEffect(() => {
-    const handleChunk = (_event: Electron.IpcRendererEvent, response: IpcResponse<{ chunk: string; messageId?: string; fullMessage?: any; isFirstChunk?: boolean; }>) => {
+    const handleChunk = (_event: Electron.IpcRendererEvent, response: IpcResponse<{ chunk: string; messageId?: string; fullMessage?: VinciUIMessage; isFirstChunk?: boolean; }>) => {
         logger.debug('[IPC Chat] Received CHUNK', response);
         if (!response.success || !response.data?.chunk) {
              logger.warn('[IPC Chat] Received unsuccessful or empty CHUNK event', { response });
@@ -216,7 +217,7 @@ export function useChat({
         }
     };
 
-    const handleFinish = (_event: Electron.IpcRendererEvent, response: IpcResponse<{ finalMessage?: any }>) => {
+    const handleFinish = (_event: Electron.IpcRendererEvent, response: IpcResponse<{ finalMessage?: VinciUIMessage }>) => {
         logger.debug('[IPC Chat] Received FINISH', response);
         const finishedMessageId = currentStreamingMessageIdRef.current;
         
@@ -343,7 +344,7 @@ export function useChat({
     };
     
     // Helper to find the last index of an item in array matching a predicate
-    function findLastIndex(array: any[], predicate: (item: any) => boolean): number {
+    function findLastIndex<T>(array: T[], predicate: (item: T) => boolean): number {
         for (let i = array.length - 1; i >= 0; i--) {
             if (predicate(array[i])) return i;
         }
@@ -515,7 +516,7 @@ export function useChat({
              throw new Error(response.error || 'Failed to initiate chat stream via IPC');
         }
 
-      } catch (err: any) {
+      } catch (err: Error) {
         logger.error('[IPC Chat] Error sending message or initiating stream:', err);
         setError(err);
         setStatus('error');
@@ -535,7 +536,6 @@ export function useChat({
     chatRequestOptions?: VinciChatRequestOptions,
   ) => {
       const currentConvId = chatRequestOptions?.conversationId || conversationIdRef.current;
-      const currentSpaceId = chatRequestOptions?.spaceId || spaceIdRef.current;
 
        if (!currentConvId) {
             logger.error('Cannot append message: Conversation ID is missing.');
@@ -620,7 +620,7 @@ export function useChat({
             variant: 'destructive',
           });
         }
-      } catch (err: any) {
+      } catch (err: Error) {
         logger.error('Error cancelling stream:', err);
         toast({
           title: 'Error',

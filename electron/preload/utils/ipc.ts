@@ -1,8 +1,7 @@
 import { ipcRenderer, IpcRendererEvent } from 'electron';
-import { IpcResponse } from 'shared/types/ipc';
-import { IpcEvent } from '@/core/ipc/constants'; // Import the correct union type
+import { IpcEvent } from '@/core/ipc/constants';
+import { IpcResponse } from '@/src/shared/types/ipc';
 
-// Use the imported IpcEvent type directly
 export type IpcEventType = IpcEvent;
 
 export type EventCallback<T = unknown> = (event: IpcRendererEvent, response: IpcResponse<T>) => void;

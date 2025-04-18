@@ -1,19 +1,19 @@
 import { useState, useMemo } from 'react';
 import { Brain, Check, Clock, Calendar, Info, Search, XCircle, FileText, Code, Globe, MessageSquare, Lightbulb, ShoppingCart } from 'lucide-react';
-import { BaseTab } from 'shared/components/base-tab';
+import { BaseTab } from '@/shared/components/base-tab';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
-} from 'shared/components/dropdown-menu';
-import { Button } from 'shared/components/button';
-import { toast } from 'shared/hooks/use-toast';
-import { DropdownList, DropdownSection, DropdownItem, DropdownFooterAction } from 'shared/components/shared/dropdown-list';
+} from '@/shared/components/dropdown-menu';
+import { Button } from '@/shared/components/button';
+import { toast } from '@/shared/hooks/use-toast';
+import { DropdownList, DropdownSection, DropdownItem, DropdownFooterAction } from '@/shared/components/dropdown-list';
 
 export interface SuggestionsTabProps {
   onClick?: () => void;
 }
 
-type SuggestionType = 
+type SuggestionType =
   | 'calendar'
   | 'research'
   | 'tasks'
@@ -25,22 +25,15 @@ type SuggestionType =
   | 'communication'
   | 'learning';
 
-interface Suggestion {
-  id: string;
-  title: string;
-  description: string;
-  type: SuggestionType;
-  timestamp: string;
-}
 
-export function SuggestionsTab({ onClick }: SuggestionsTabProps) {
+export function SuggestionsTab() {
   const [searchQuery, setSearchQuery] = useState<string>('');
-  
+
   const handleSuggestionAction = async (suggestionId: string, action: 'accept' | 'dismiss') => {
     try {
       const suggestion = suggestions.find(s => s.id === suggestionId);
       if (!suggestion) return;
-      
+
       switch (action) {
         case 'accept':
           toast({
@@ -57,7 +50,7 @@ export function SuggestionsTab({ onClick }: SuggestionsTabProps) {
           });
           break;
       }
-    } catch (error) {
+    } catch {
       toast({
         title: 'Operation Failed',
         description: `Failed to ${action} suggestion. Please try again.`,
@@ -138,35 +131,35 @@ export function SuggestionsTab({ onClick }: SuggestionsTabProps) {
       timestamp: new Date(Date.now() - 3000000).toISOString()
     }
   ];
-  
+
   const filterSuggestions = () => {
     if (!searchQuery.trim()) {
       return [...suggestions];
     }
-    
+
     const query = searchQuery.toLowerCase().trim();
-    return suggestions.filter(suggestion => 
+    return suggestions.filter(suggestion =>
       suggestion.title.toLowerCase().includes(query) ||
       suggestion.description.toLowerCase().includes(query)
     );
   };
-  
+
   const filteredSuggestions = filterSuggestions();
-  
+
   // Group suggestions by type
   const groupedSuggestions = useMemo(() => {
     const groups: Record<string, Suggestion[]> = {};
-    
+
     filteredSuggestions.forEach(suggestion => {
       if (!groups[suggestion.type]) {
         groups[suggestion.type] = [];
       }
       groups[suggestion.type].push(suggestion);
     });
-    
+
     return groups;
   }, [filteredSuggestions]);
-  
+
   // Get appropriate icon for each suggestion type
   const getTypeIcon = (type: SuggestionType) => {
     switch (type) {
@@ -199,13 +192,13 @@ export function SuggestionsTab({ onClick }: SuggestionsTabProps) {
   const getTypeLabel = (type: SuggestionType) => {
     return type.charAt(0).toUpperCase() + type.slice(1);
   };
-  
+
   const getSuggestionSections = (): DropdownSection[] => {
     return Object.entries(groupedSuggestions).map(([type, suggestions]) => ({
       title: `${getTypeLabel(type as SuggestionType)} (${suggestions.length})`,
       items: suggestions.map((suggestion): DropdownItem => ({
         id: suggestion.id,
-        onSelect: () => {}, 
+        onSelect: () => { },
         content: (
           <div className="flex w-full">
             <div className="flex-shrink-0 mr-2.5 mt-0.5">
@@ -219,7 +212,7 @@ export function SuggestionsTab({ onClick }: SuggestionsTabProps) {
               <div className="flex mt-1.5">
                 <span className="text-xs text-white/50">
                   <Clock className="w-3 h-3 inline mr-1 align-text-bottom" />
-                  {new Date(suggestion.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  {new Date(suggestion.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
             </div>
@@ -249,14 +242,14 @@ export function SuggestionsTab({ onClick }: SuggestionsTabProps) {
       }
     ];
   };
-  
+
   const suggestionSections = getSuggestionSections();
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           className="p-0 h-auto hover:bg-white/[0.05] rounded-sm transition-all duration-200 group w-full"
           aria-label="Suggestions menu"
         >
@@ -272,8 +265,8 @@ export function SuggestionsTab({ onClick }: SuggestionsTabProps) {
           />
         </Button>
       </DropdownMenuTrigger>
-      
-      <DropdownList 
+
+      <DropdownList
         headerContent={
           <div className="px-2 pt-1.5 pb-2">
             <div className="relative">
@@ -299,21 +292,21 @@ export function SuggestionsTab({ onClick }: SuggestionsTabProps) {
                 </button>
               )}
             </div>
-            
+
             {searchQuery && (
               <div className="flex justify-between items-center text-xs text-white/50 mt-2 px-1">
                 <div className="flex items-center">
                   <Search className="w-3 h-3 mr-1" />
-                  <span>Searching: "{searchQuery}"</span>
+                  <span>Searching: &quot;{searchQuery}&quot;</span>
                 </div>
                 <span className="ml-auto">
-                  {filteredSuggestions.length === 0 
-                    ? 'No matches' 
+                  {filteredSuggestions.length === 0
+                    ? 'No matches'
                     : `${filteredSuggestions.length} match${filteredSuggestions.length === 1 ? '' : 'es'}`}
                 </span>
               </div>
             )}
-          </div>
+          </div>  
         }
         sections={suggestionSections}
         footerActions={getFooterActions()}
@@ -324,10 +317,10 @@ export function SuggestionsTab({ onClick }: SuggestionsTabProps) {
                 <Search className="w-8 h-8 text-white/20 mb-2" />
                 <p>No suggestions match your search</p>
                 <div className="flex space-x-2 mt-4">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="text-xs" 
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
                     onClick={() => setSearchQuery('')}
                   >
                     Clear search

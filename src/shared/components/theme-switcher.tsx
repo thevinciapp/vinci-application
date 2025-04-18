@@ -1,13 +1,13 @@
 "use client";
 
-import { Button } from "shared/components/button";
+import { Button } from "@/shared/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "shared/components/dropdown-menu";
+} from "@/shared/components/dropdown-menu";
 import { Laptop, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useUser } from '@/features/user/use-user';
-import ChatContentClient from 'shared/components/chat/chat-content-client';
+import ChatContentClient from '@/features/chat/ui/chat-content-client';
 
 export const ProtectedPage: React.FC = () => {
   const { isLoading } = useUser();

@@ -1,19 +1,19 @@
 import { useState } from 'react';
-import { Loader2, CheckCircle, XCircle, FolderOpen, Clock, ArrowRight, Search } from 'lucide-react';
-import { BaseTab } from 'shared/components/base-tab';
+import { Loader2, CheckCircle, XCircle, Clock, ArrowRight, Search } from 'lucide-react';
+import { BaseTab } from '@/shared/components/base-tab';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
-} from 'shared/components/dropdown-menu';
-import { Button } from 'shared/components/button';
-import { toast } from 'shared/hooks/use-toast';
-import { DropdownList, DropdownSection, DropdownItem, DropdownFooterAction } from 'shared/components/shared/dropdown-list';
+} from '@/shared/components/dropdown-menu';
+import { Button } from '@/shared/components/button';
+import { toast } from '@/shared/hooks/use-toast';
+import { DropdownList, DropdownSection, DropdownItem, DropdownFooterAction } from '@/shared/components/dropdown-list';
 
 export interface TasksTabProps {
   onClick?: () => void;
 }
 
-export function TasksTab({ onClick }: TasksTabProps) {
+export function TasksTab() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'running' | 'completed' | 'failed'>('all');
   
@@ -39,7 +39,7 @@ export function TasksTab({ onClick }: TasksTabProps) {
           });
           break;
       }
-    } catch (error) {
+    } catch {
       toast({
         title: 'Operation Failed',
         description: `Failed to ${action} task. Please try again.`,

@@ -16,19 +16,23 @@
     "incremental": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@components/*": ["./src/components/*"], // Consider if this should be removed/updated later if components move to FSD
-      "@services/*": ["./src/services/*"],   // Consider if this should be removed/updated later
-      "@core/*": ["./src/core/*"],         // Consider if this should be removed/updated later
-      // "@types/*": ["./src/types/*"], // Removed
-      // "@utils/*": ["./src/utils/*"], // Removed
-      "@store/*": ["./src/store/*"],         // Consider if this should be removed/updated later
+      "@components/*": ["./src/components/*"],
+      "@services/*": ["./src/services/*"],
+      "@core/*": ["./src/core/*"],
+      "@store/*": ["./src/store/*"],
+      "@stores/*": ["./src/stores/*"],
       "@electron/*": ["./electron/*"],
-      "app/*": ["./src/app/*"],
-      "entities/*": ["./src/entities/*"],
-      "features/*": ["./src/features/*"],
-      "pages/*": ["./src/pages/*"],
-      "shared/*": ["./src/shared/*"],
-      "widgets/*": ["./src/widgets/*"]
+      "@features/*": ["./src/features/*"],
+      "@shared/*": ["./src/shared/*"],
+      "@entities/*": ["./src/entities/*"],
+      "@hooks/*": ["./src/hooks/*"],
+      "@utils/*": ["./src/utils/*"],
+      "@assets/*": ["./src/assets/*"],
+      "@styles/*": ["./src/styles/*"],
+      "@constants/*": ["./src/constants/*"],
+      "@types/*": ["./types/*"],
+      "@pages/*": ["./src/pages/*"],
+      "@layouts/*": ["./src/layouts/*"],
     }
   },
   "include": ["electron/**/*", "types/**/*.d.ts", "**/*.ts", "**/*.tsx", "src/**/*"],

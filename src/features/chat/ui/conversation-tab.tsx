@@ -1,17 +1,17 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { BaseTab } from 'shared/components/base-tab';
+import { useState, useMemo, useCallback } from 'react';
+import { BaseTab } from '@/shared/components/base-tab';
 import { MessageSquare, Edit, Trash, Plus, RefreshCw, Search } from 'lucide-react';
 import { Conversation } from '@/entities/conversation/model/types';
 import { formatDistanceToNow } from 'date-fns';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
-} from 'shared/components/dropdown-menu';
-import { Button } from 'shared/components/button';
+} from '@/shared/components/dropdown-menu';
+import { Button } from '@/shared/components/button';
 import { toast } from 'sonner';
-import { DropdownList, DropdownSection, DropdownItem, DropdownFooterAction } from 'shared/components/dropdown-list';
+import { DropdownList, DropdownSection, DropdownItem, DropdownFooterAction } from '@/shared/components/dropdown-list';
 import { EditConversationDialog } from '@/widgets/dialogs/EditConversationDialog';
-import { DeleteConversationDialog } from '@/widgets/dialogs/DeleteConversationDialog';
+import { DeleteConversationDialog, DeleteConversationDialogData } from '@/widgets/dialogs/DeleteConversationDialog';
 import { useConversations } from '@/features/chat/use-conversations';
 import { useSpaces } from '@/features/spaces/use-spaces';
 
@@ -23,7 +23,7 @@ export function ConversationTab() {
   const { activeSpace } = useSpaces();
 
   const [conversationToEdit, setConversationToEdit] = useState<Conversation | null>(null);
-  const [conversationToDelete, setConversationToDelete] = useState<Conversation | null>(null);
+  const [conversationToDelete, setConversationToDelete] = useState<DeleteConversationDialogData | null>(null); // Use the specific type
 
   const handleCreateNewConversation = async () => {
     if (!activeSpace) {
@@ -71,16 +71,17 @@ export function ConversationTab() {
   const handleDeleteConversation = (conversationId: string) => {
     const conversation = conversations.find(c => c.id === conversationId);
     if (conversation) {
-      setConversationToDelete(conversation);
+      // Pass only the required data for deletion
+      setConversationToDelete({ id: conversation.id, space_id: conversation.space_id });
     }
   };
 
-  const handleConfirmDelete = useCallback(async (conversation: Conversation) => {
-    if (!conversation) return;
+  const handleConfirmDelete = useCallback(async (data: DeleteConversationDialogData | null | undefined) => { // Update signature to include null
+    if (!data?.id) return; // Check for id on the data object
     
     setIsDeleting(true);
     try {
-      const success = await deleteConversation(conversation);
+      const success = await deleteConversation(data.id); // Pass only the id
       if (success) {
         toast.success('Conversation deleted successfully');
       } else {
@@ -103,13 +104,13 @@ export function ConversationTab() {
     setConversationToDelete(null);
   };
 
-  const sortedConversations = [...conversations].sort((a, b) => 
+  const sortedConversations = [...conversations].sort((a, b) =>
     new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
   );
 
   const filteredConversations = searchQuery
     ? sortedConversations.filter(c => {
-        const title = c.title || ''; 
+        const title = c.title || '';
         const lastMessage = c.lastMessage || '';
         return title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                lastMessage.toLowerCase().includes(searchQuery.toLowerCase());
@@ -152,9 +153,9 @@ export function ConversationTab() {
         )
       })),
       actionButton: {
-        icon: isCreating ? 
-          <RefreshCw className="w-3.5 h-3.5 text-white/70 animate-spin" /> : 
-          <Plus className="w-3.5 h-3.5 text-white/70" />,
+        icon: isCreating ?
+        <RefreshCw className="w-3.5 h-3.5 text-white/70 animate-spin" /> :
+        <Plus className="w-3.5 h-3.5 text-white/70" />,
         onClick: handleCreateNewConversation,
         isLoading: isCreating,
         ariaLabel: "Create new conversation"
@@ -182,8 +183,8 @@ export function ConversationTab() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             className="p-0 h-auto hover:bg-white/[0.05] rounded-sm transition-all duration-200 group w-full"
             aria-label={activeConversation ? `Current conversation: ${activeConversation.title}` : "New conversation"}
           >
@@ -196,7 +197,7 @@ export function ConversationTab() {
           </Button>
         </DropdownMenuTrigger>
         
-        <DropdownList 
+        <DropdownList
           headerContent={
             <div className="px-2 pt-1.5 pb-2">
               <div className="relative">
@@ -228,11 +229,11 @@ export function ConversationTab() {
               {searchQuery && (
                 <div className="flex justify-between items-center text-xs text-white/50 mt-1.5 px-1">
                   <span>
-                    {filteredConversations.length === 0 
-                      ? 'No matches found' 
+                    {filteredConversations.length === 0
+                      ? 'No matches found'
                       : `Found ${filteredConversations.length} match${filteredConversations.length === 1 ? '' : 'es'}`}
                   </span>
-                  <button 
+                  <button
                     className="hover:text-white/70 transition-colors text-xs"
                     onClick={() => setSearchQuery('')}
                   >
@@ -250,10 +251,10 @@ export function ConversationTab() {
               {searchQuery ? (
                 <>
                   <p>No conversations match your search</p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="mt-3 text-xs" 
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 text-xs"
                     onClick={() => setSearchQuery('')}
                   >
                     Clear search
@@ -262,10 +263,10 @@ export function ConversationTab() {
               ) : (
                 <>
                   <p>No conversations yet</p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="mt-3 text-xs" 
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 text-xs"
                     onClick={handleCreateNewConversation}
                   >
                     Start a new conversation
@@ -279,7 +280,7 @@ export function ConversationTab() {
 
       <EditConversationDialog
         onClose={handleCloseEditDialog}
-        data={conversationToEdit}
+        data={conversationToEdit as Conversation | undefined}
       />
 
       <DeleteConversationDialog

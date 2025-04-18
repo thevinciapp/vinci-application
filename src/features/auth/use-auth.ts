@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useToast } from 'shared/hooks/use-toast';
+import { useToast } from '@/shared/hooks/use-toast';
 import { AuthEvents, AppStateEvents } from '@/core/ipc/constants';
 
 interface AuthSession {
@@ -25,14 +25,22 @@ export function useAuth() {
     }
     
     // Set up listener for state updates
-    const handleStateUpdate = (event: any, response: any) => {
+    const handleStateUpdate = (
+      _event: Electron.IpcRendererEvent,
+      response: { success: boolean; data?: { session?: AuthSession | null }; error?: string }
+    ) => {
       if (response.success && response.data?.session) {
         setSession(response.data.session);
         if (callback) callback(response.data.session);
       }
     };
     
-    window.electron.on(AppStateEvents.STATE_UPDATED, handleStateUpdate);
+    window.electron.on(AppStateEvents.STATE_UPDATED, (event: unknown, ...args: unknown[]) => {
+  handleStateUpdate(
+    event as Electron.IpcRendererEvent,
+    args[0] as { success: boolean; data?: { session?: AuthSession | null }; error?: string }
+  );
+});
     
     return () => {
       window.electron.off(AppStateEvents.STATE_UPDATED, handleStateUpdate);
@@ -48,10 +56,10 @@ export function useAuth() {
         throw new Error('Electron API not available');
       }
       
-      const verifyResponse = await window.electron.invoke(AuthEvents.VERIFY_TOKEN);
+      const verifyResponse = await window.electron.invoke<{ success: boolean; verification?: { isValid: boolean } }>(AuthEvents.VERIFY_TOKEN);
       
       if (verifyResponse.success && verifyResponse.verification?.isValid) {
-        const tokenResponse = await window.electron.invoke(AuthEvents.GET_AUTH_TOKEN);
+        const tokenResponse = await window.electron.invoke<{ success: boolean; data?: { accessToken: string; refreshToken: string } }>(AuthEvents.GET_AUTH_TOKEN);
         
         if (tokenResponse?.success && tokenResponse.data) {
           const { accessToken, refreshToken } = tokenResponse.data;
@@ -110,7 +118,7 @@ export function useAuth() {
         throw new Error("Electron API not available");
       }
 
-      const response = await window.electron.invoke(AuthEvents.SIGN_IN, email, password);
+      const response = await window.electron.invoke<{ success: boolean; error?: string; session?: AuthSession }>(AuthEvents.SIGN_IN, email, password);
 
       if (!response.success) {
         throw new Error(response.error || 'Authentication failed');
@@ -121,12 +129,12 @@ export function useAuth() {
       }
 
       try {
-        const syncResponse = await window.electron.invoke(AppStateEvents.SYNC_STATE);
+        const syncResponse = await window.electron.invoke<{ success: boolean; error?: string }>(AppStateEvents.SYNC_STATE);
         if (!syncResponse.success) {
           console.warn("State sync was not successful after login:", syncResponse.error);
         }
         
-        const stateResponse = await window.electron.invoke(AppStateEvents.GET_STATE);
+        const stateResponse = await window.electron.invoke<{ success: boolean; error?: string }>(AppStateEvents.GET_STATE);
         if (!stateResponse.success) {
           console.warn("Failed to get app state after login:", stateResponse.error);
         }
@@ -160,7 +168,7 @@ export function useAuth() {
       }
 
       console.log("Sign up request:", { email, password });
-      const response = await window.electron.invoke(AuthEvents.SIGN_UP, { email, password });
+      const response = await window.electron.invoke<{ success: boolean; error?: string }>(AuthEvents.SIGN_UP, { email, password });
       console.log("Sign up response:", response);
 
       if (!response.success) {
@@ -168,12 +176,12 @@ export function useAuth() {
       }
 
       try {
-        const syncResponse = await window.electron.invoke(AppStateEvents.SYNC_STATE);
+        const syncResponse = await window.electron.invoke<{ success: boolean; error?: string }>(AppStateEvents.SYNC_STATE);
         if (!syncResponse.success) {
           console.warn("State sync was not successful after signup:", syncResponse.error);
         }
         
-        const stateResponse = await window.electron.invoke(AppStateEvents.GET_STATE);
+        const stateResponse = await window.electron.invoke<{ success: boolean; error?: string }>(AppStateEvents.GET_STATE);
         if (!stateResponse.success) {
           console.warn("Failed to get app state after signup:", stateResponse.error);
         }
@@ -198,7 +206,7 @@ export function useAuth() {
         throw new Error("Please provide an email address");
       }
 
-      const response = await window.electron.invoke(AuthEvents.RESET_PASSWORD, { email });
+      const response = await window.electron.invoke<{ success: boolean; error?: string }>(AuthEvents.RESET_PASSWORD, { email });
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to reset password');
@@ -223,7 +231,7 @@ export function useAuth() {
         throw new Error("Electron API not available");
       }
       
-      const response = await window.electron.invoke(AppStateEvents.SYNC_STATE);
+      const response = await window.electron.invoke<{ success: boolean; error?: string }>(AppStateEvents.SYNC_STATE);
       return response.success || false;
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to sync app state');
@@ -265,7 +273,7 @@ export function useAuth() {
         }
       }
 
-      const response = await window.electron.invoke(AuthEvents.SIGN_OUT);
+      const response = await window.electron.invoke<{ success: boolean; error?: string }>(AuthEvents.SIGN_OUT);
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to sign out');

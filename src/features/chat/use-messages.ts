@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { MessageEvents } from '@/core/ipc/constants';
-import { useMainState } from '@/context/MainStateContext';
+import { useMainState } from '@/stores/MainStateContext';
 
 export function useMessages() {
   const { state, isLoading: isGlobalLoading, error: globalError } = useMainState();
@@ -74,10 +74,31 @@ export function useMessages() {
     }
   }, []);
   
+  const fetchMessages = useCallback(async (convId: string): Promise<boolean> => {
+    setIsActionLoading(true);
+    setActionError(null);
+    try {
+      const response = await window.electron.invoke(MessageEvents.GET_CONVERSATION_MESSAGES, {
+        conversationId: convId
+      });
+      if (!response.success) {
+        setActionError(response.error || 'Failed to fetch messages');
+      }
+      return response.success;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch messages';
+      setActionError(errorMessage);
+      return false;
+    } finally {
+      setIsActionLoading(false);
+    }
+  }, []);
+
   return {
     messages,
     isLoading: isGlobalLoading || isActionLoading,
     error: actionError || globalError,
+    fetchMessages,
     sendMessage,
     deleteMessage,
     updateMessage

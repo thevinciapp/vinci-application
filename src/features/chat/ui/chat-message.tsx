@@ -1,14 +1,12 @@
-import { User, MessageSquareIcon, Sparkles, FileText, File } from 'lucide-react';
+import { User, MessageSquareIcon, Sparkles, File } from 'lucide-react';
 import { memo, useMemo } from 'react';
-import { ProviderIcon } from './provider-icon';
 import { JSONValue } from 'ai';
-import { Avatar, AvatarFallback, AvatarImage } from 'shared/components/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/avatar';
 import { StreamStatus } from './stream-status';
 import { Markdown } from './markdown';
-import { Message, MessageAnnotation, SimilarMessage, VinciUIMessage } from '@/entities/message/model/types';
-import { Provider } from '@/entities/model/model/types';
+import { MessageAnnotation, SimilarMessage, VinciUIMessage } from '@/entities/message/model/types';
 import DotSphere from '@/entities/space/ui/planet-icon';
-import { ModelDisplay } from 'shared/components/model-display';
+import { ModelDisplay } from '@/shared/components/model-display';
 import { getModelDisplayInfo } from '@/entities/model/lib/utils';
 
 interface ChatMessageProps {
@@ -70,8 +68,7 @@ const AIAvatar = ({ spaceId }: { spaceId?: string }) => (
   </div>
 );
 
-const ModelInfo = ({ provider, modelName, similarMessages, chatMode }: { 
-  provider?: Provider; 
+const ModelInfo = ({ modelName, similarMessages, chatMode }: {
   modelName: string;
   similarMessages?: SimilarMessage[];
   chatMode?: string;
@@ -92,11 +89,10 @@ const ModelInfo = ({ provider, modelName, similarMessages, chatMode }: {
       {similarMessagesCount > 0 && similarMessages && (
         <button 
           onClick={() => {
-            const win = window as any;
-            if (win.openSimilarMessages) {
-              win.openSimilarMessages(similarMessages);
+            if (window.openSimilarMessages) {
+              window.openSimilarMessages(similarMessages);
             }
-          }} 
+          }}
           className="px-2.5 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-white/80 text-[10px] font-medium flex items-center gap-1.5 relative overflow-hidden w-fit before:absolute before:inset-0 before:bg-linear-to-b before:from-white/[0.07] before:to-white/[0.03] before:-z-10 hover:bg-white/[0.07] transition-colors"
         >
           <MessageSquareIcon size={11} className="text-cyan-400/80" />
@@ -112,7 +108,6 @@ export const ChatMessage = memo<ChatMessageProps>(({ message, userAvatarUrl, isL
   const isStreamingAssistant = !isUser && ((isLoading && message.content.length <= 0) || message.id === 'placeholder-assistant');
 
   const modelAnnotation = message.annotations?.[0] as MessageAnnotation | undefined;
-  const provider = modelAnnotation?.provider;
   const modelUsed = modelAnnotation?.model_used;
   const chatMode = modelAnnotation?.chat_mode;
   const similarMessages = modelAnnotation?.similarMessages;
@@ -127,7 +122,6 @@ export const ChatMessage = memo<ChatMessageProps>(({ message, userAvatarUrl, isL
         <div className="prose prose-invert max-w-none w-full">
           {!isUser && message.annotations && message.annotations.length > 0 && (
             <ModelInfo
-              provider={provider}
               modelName={modelName}
               similarMessages={similarMessages}
               chatMode={chatMode}

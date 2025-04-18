@@ -1,29 +1,30 @@
-import { UnifiedInput } from './unified-input';
-import { ActionsTab } from './ui/actions-tab';
-import { MessagesTab } from './ui/messages-tab';
-import { TasksTab } from './ui/tasks-tab';
-import { SuggestionsTab } from './ui/suggestions-tab';
-import { ConversationTab } from './ui/conversation-tab';
-import { ChatSuggestions } from './chat-suggestions';
-import { toast } from 'shared/hooks/use-toast';
-import { useState, useCallback } from 'react';
+import { UnifiedInput } from '@/features/chat/ui/unified-input';
+import { ActionsTab } from '@/features/chat/ui/actions-tab';
+import { MessagesTab } from '@/features/chat/ui/messages-tab';
+import { TasksTab } from '@/features/chat/ui/tasks-tab';
+import { SuggestionsTab } from '@/features/chat/ui/suggestions-tab';
+import { ConversationTab } from '@/features/chat/ui/conversation-tab';
+import { ChatSuggestions } from '@/features/chat/ui/chat-suggestions';
+import { toast } from '@/shared/hooks/use-toast';
+import { useState, useCallback, ChangeEvent } from 'react';
 import { Conversation } from '@/entities/conversation/model/types';
-import { ChangeEvent, FormEvent } from 'react';
+import { FileReference, FileTag } from '@/entities/file/model/types';
+import { VinciUIMessage } from '@/entities/message/model/types';
 
 interface ChatInputAreaProps {
   input: string;
   handleInputChange: (e: ChangeEvent<HTMLTextAreaElement> | ChangeEvent<HTMLInputElement>) => void;
   handleSubmit: () => void;
   disabled: boolean;
-  fileReferences: any[];
-  setFileReferences: (fileRefs: any[]) => void;
-  messages: any[];
+  fileReferences: FileReference[];
+  setFileReferences: (fileRefs: FileReference[]) => void;
+  messages: VinciUIMessage[];
   activeConversation: Conversation | null;
-  activeSpace: any | null;
+  activeSpace: Conversation | null;
   onCreateConversation: (title?: string) => Promise<void>;
   onSelectConversation: (conversation: Conversation) => Promise<void>;
-  onCommandWindowToggle: (mode: any) => void;
-  onSelectFile: (file: any) => Promise<void>;
+  onCommandWindowToggle: (mode: 'command' | 'messageSearch') => void;
+  onSelectFile: (file: FileReference) => Promise<void>;
 }
 
 export function ChatInputArea({
@@ -37,7 +38,6 @@ export function ChatInputArea({
   activeConversation,
   activeSpace,
   onCreateConversation,
-  onSelectConversation,
   onCommandWindowToggle,
   onSelectFile
 }: ChatInputAreaProps) {
@@ -51,13 +51,24 @@ export function ChatInputArea({
     setShowSuggestions(true);
   };
 
-  const handleSelectFile = useCallback(async (file: any) => {
+  const handleSelectFile = useCallback(async (fileTag: FileTag) => {
     try {
-      await onSelectFile(file);
+      // Find the full FileReference using the id from FileTag
+      const fullFileRef = fileReferences.find(ref => ref.id === fileTag.id);
+      if (fullFileRef) {
+        await onSelectFile(fullFileRef);
+      } else {
+        console.error(`Could not find full FileReference for FileTag with id: ${fileTag.id}`);
+        toast({
+          title: "Error",
+          description: `Could not find file details for ${fileTag.name}`,
+          variant: "destructive",
+        });
+      }
     } finally {
       setShowSuggestions(false);
     }
-  }, [onSelectFile]);
+  }, [onSelectFile, fileReferences]);
 
   return (
     <div className="fixed left-1/2 bottom-8 -translate-x-1/2 w-[800px] z-50">
@@ -95,15 +106,14 @@ export function ChatInputArea({
                   content: typeof m.content === 'string' ? m.content : '',
                   role: m.role as 'user' | 'assistant',
                   timestamp: m.createdAt && (typeof m.createdAt === 'string' || m.createdAt instanceof Date) ? 
-                    new Date(m.createdAt) : 
+                    new Date(m.createdAt) :
                     new Date(),
-                  annotations: m.annotations || []
+                  annotations: [] // Pass empty array to satisfy type, actual transformation needed
                 }))}
-                conversationId={activeConversation?.id}
                 conversationName={activeConversation?.title}
                 spaceId={activeSpace?.id}
-                spaceName={activeSpace?.name}
-                onCommandWindowToggle={(mode) => onCommandWindowToggle(mode)}
+                spaceName={activeSpace?.title}
+                onCommandWindowToggle={(mode) => onCommandWindowToggle(mode as 'command' | 'messageSearch')}
                 onMessageSearch={(query, searchScope) => {
                   if (searchScope === 'space') {
                     toast({
@@ -124,11 +134,7 @@ export function ChatInputArea({
               <SuggestionsTab />
             </div>
             <div className="px-1 first:pl-2 last:pr-2 py-1 w-1/5 min-w-0 max-w-1/5 flex-shrink-0">
-              <ConversationTab
-                onCreateConversation={onCreateConversation}
-                onSelectConversation={onSelectConversation}
-                activeConversation={activeConversation}
-              />
+              <ConversationTab />
             </div>
           </div>
         </UnifiedInput>

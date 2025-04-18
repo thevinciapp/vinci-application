@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { FileReference } from '../types/file-reference';
+import { FileReference } from '@/entities/file/model/types';
 
 export function useFileReferences() {
   const [fileReferences, setFileReferences] = useState<FileReference[]>([]);

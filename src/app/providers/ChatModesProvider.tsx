@@ -1,10 +1,10 @@
 import React from 'react';
 import { Settings, PencilLine, Trash, Plus } from 'lucide-react';
 import { Command } from 'cmdk';
-import { Button } from "shared/components/button";
+import { Button } from "@/shared/components/button";
 import { ProviderComponentProps } from '@/entities/model/model/types';
-import { getAllChatModes, ChatModeConfig } from '@/config/chat-modes';
-import { useSpaces } from 'features/spaces/use-spaces';
+import { getAllChatModes, ChatModeConfig } from '@/configs/chat-modes';
+import { useSpaces } from '@/features/spaces/use-spaces';
 
 export function ChatModesProvider({ searchQuery = '', onSelect, onAction }: ProviderComponentProps) {
   const { activeSpace, updateSpace } = useSpaces();
@@ -35,19 +35,19 @@ export function ChatModesProvider({ searchQuery = '', onSelect, onAction }: Prov
     }
   };
 
-  const handleSettings = (e: React.MouseEvent, mode: ChatModeConfig) => {
+  const handleSettings = (e: React.MouseEvent<HTMLButtonElement>, mode: ChatModeConfig) => {
     e.stopPropagation();
     e.preventDefault();
     if (onAction) onAction('settings', mode);
   };
   
-  const handleEdit = (e: React.MouseEvent, mode: ChatModeConfig) => {
+  const handleEdit = (e: React.MouseEvent<HTMLButtonElement>, mode: ChatModeConfig) => {
     e.stopPropagation();
     e.preventDefault();
     if (onAction) onAction('edit', mode);
   };
   
-  const handleDelete = (e: React.MouseEvent, mode: ChatModeConfig) => {
+  const handleDelete = (e: React.MouseEvent<HTMLButtonElement>, mode: ChatModeConfig) => {
     e.stopPropagation();
     e.preventDefault();
     if (onAction) onAction('delete', mode);

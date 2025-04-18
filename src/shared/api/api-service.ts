@@ -1,5 +1,5 @@
 import { API_BASE_URL, refreshTokens, redirectToSignIn } from '@/core/auth/auth-service';
-import { useMainStore } from '@/store/main';
+import { useMainStore } from '@/stores/main';
 import { safeStorage } from 'electron';
 
 export async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {

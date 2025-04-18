@@ -1,5 +1,5 @@
-import { AuthenticationError } from 'shared/lib/errors';
-import { AuthSession } from 'features/auth/model/types';
+import { AuthenticationError } from '@/errors';
+import { AuthSession } from '@/features/auth/model/types';
 
 export function extractAuthToken(request: Request): string {
   const authHeader = request.headers.get('authorization');

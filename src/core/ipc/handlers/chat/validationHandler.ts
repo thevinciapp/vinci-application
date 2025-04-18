@@ -1,8 +1,6 @@
 import { IpcMainInvokeEvent } from 'electron';
 import { Logger } from '@/shared/lib/logger';
-import { IpcResponse } from '@/shared/types/ipc';
-import { ChatPayload, ErrorResponse } from './types';
-import { StreamEventHandlers } from './types';
+import { ChatPayload, ErrorResponse, StreamEventHandlers } from './types';
 
 const logger = new Logger('ChatValidationHandler');
 

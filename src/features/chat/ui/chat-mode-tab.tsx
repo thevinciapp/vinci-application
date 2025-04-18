@@ -2,15 +2,15 @@ import React, { useState } from 'react';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
-} from 'shared/components/dropdown-menu';
-import { Button } from 'shared/components/button';
-import { BaseTab } from 'shared/components/base-tab';
-import { getChatModeConfig, getAllChatModes } from '@/config/chat-modes';
+} from '@/shared/components/dropdown-menu';
+import { Button } from '@/shared/components/button';
+import { BaseTab } from '@/shared/components/base-tab';
+import { getChatModeConfig, getAllChatModes } from '@/configs/chat-modes';
 import { Space } from '@/entities/space/model/types';
 import { useSpaces } from '@/features/spaces/use-spaces';
-import { toast } from 'shared/hooks/use-toast';
-import { Settings, RefreshCw } from 'lucide-react';
-import { DropdownList, DropdownSection, DropdownItem, DropdownFooterAction } from 'shared/components/shared/dropdown-list';
+import { toast } from '@/shared/hooks/use-toast';
+import { Settings } from 'lucide-react';
+import { DropdownFooterAction, DropdownList, DropdownSection, DropdownItem } from '@/shared/components/dropdown-list';
 
 export interface ChatModeTabProps {
   space?: Space | null;

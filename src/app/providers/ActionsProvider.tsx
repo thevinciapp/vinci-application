@@ -1,7 +1,7 @@
 
 
 import React from 'react';
-import { Play, Settings, Command, FileText, FolderOpen } from 'lucide-react';
+import { Settings, Command, FileText, FolderOpen } from 'lucide-react';
 import { Command as Cmdk } from 'cmdk';
 import { ProviderComponentProps } from '@/entities/model/model/types';
 

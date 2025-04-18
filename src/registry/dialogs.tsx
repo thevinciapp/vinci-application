@@ -1,8 +1,8 @@
-import { DeleteSpaceDialog } from "shared/components/dialogs/DeleteSpaceDialog";
-import { EditSpaceDialog } from "shared/components/dialogs/EditSpaceDialog";
-import { CreateSpaceDialog } from "shared/components/dialogs/CreateSpaceDialog";
-import { EditConversationDialog } from "shared/components/dialogs/EditConversationDialog";
-import { DeleteConversationDialog } from "shared/components/dialogs/DeleteConversationDialog";
+import { DeleteSpaceDialog } from "@/widgets/dialogs/DeleteSpaceDialog";
+import { EditSpaceDialog } from "@/widgets/dialogs/EditSpaceDialog";
+import { CreateSpaceDialog } from "@/widgets/dialogs/CreateSpaceDialog";
+import { EditConversationDialog } from "@/widgets/dialogs/EditConversationDialog";
+import { DeleteConversationDialog } from "@/widgets/dialogs/DeleteConversationDialog";
 
 type DialogRegistry = {
   deleteSpace: React.ComponentType<{ onClose: () => void }>;

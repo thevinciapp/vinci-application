@@ -1,21 +1,20 @@
-import { useMainStore } from '@/store/main';
+import { useMainStore } from '@/stores/main';
 import { fetchSpaces, fetchActiveSpace } from '@/services/spaces/space-service';
-import { fetchActiveConversation, fetchConversations } from 'features/chat/conversation-service';
-import { fetchMessages } from 'features/chat/message-service';
+import { fetchActiveConversation, fetchConversations } from '@/features/chat/conversation-service';
+import { fetchMessages } from '@/features/chat/message-service';
 import { fetchUserProfile } from '@/services/user/user-service';
 import { checkServerHealth } from '@/shared/api/api-service';
 import { isTokenExpiringSoon, refreshTokens } from '@/core/auth/auth-service';
 import { safeStorage } from 'electron';
 import { Conversation } from '@/entities/conversation/model/types';
-import { Message } from '@/entities/message/model/types';
+import { Message , VinciUIMessage } from '@/entities/message/model/types';
 import { Space } from '@/entities/space/model/types';
 import { User } from '@supabase/supabase-js';
-import { VinciUIMessage } from '@/entities/message/model/types';
 import { getMessageParts } from '@ai-sdk/ui-utils';
 import { generateId } from '@/core/utils/ai-sdk-adapter/adapter-utils';
 
-interface AppStateResult {
-    spaces?: Space[];
+interface AppStateResult extends Partial<MainProcessState> {
+  spaces?: Space[];
   activeSpace?: Space | null;
   conversations?: Conversation[];
   activeConversation?: Conversation | null;
@@ -27,6 +26,7 @@ interface AppStateResult {
   refreshToken?: string | null;
   tokenExpiryTime?: number | null;
   error?: string;
+  [key: string]: unknown;
 }
 
 function formatMessageForUI(message: Message): VinciUIMessage {

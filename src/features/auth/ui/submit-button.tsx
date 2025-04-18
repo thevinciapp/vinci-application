@@ -2,7 +2,7 @@
 
 import { type ComponentProps } from "react";
 import { useFormStatus } from "react-dom";
-import { Button } from "shared/components/button";
+import { Button } from "@/shared/components/button";
 type Props = ComponentProps<typeof Button> & {
   pendingText?: string;
 };

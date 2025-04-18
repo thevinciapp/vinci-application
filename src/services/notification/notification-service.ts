@@ -54,11 +54,11 @@ export async function fetchNotifications(): Promise<NotificationResponse> {
       success: true,
       data: notifications || []
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[ELECTRON] Error fetching notifications:', error);
     return {
       success: false,
-      error: error.message || 'Failed to fetch notifications'
+      error: error instanceof Error ? error.message : 'Failed to fetch notifications'
     };
   }
 }
@@ -90,11 +90,11 @@ export async function markNotificationAsRead(notificationId: string): Promise<Ma
         updated: true
       }
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[ELECTRON] Error marking notification as read:', error);
     return {
       success: false,
-      error: error.message || 'Failed to mark notification as read'
+      error: error instanceof Error ? error.message : 'Failed to mark notification as read'
     };
   }
 }
@@ -126,11 +126,11 @@ export async function markAllNotificationsAsRead(): Promise<MarkAllNotifications
         updated: true
       }
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[ELECTRON] Error marking all notifications as read:', error);
     return {
       success: false,
-      error: error.message || 'Failed to mark all notifications as read'
+      error: error instanceof Error ? error.message : 'Failed to mark all notifications as read'
     };
   }
 }
@@ -170,11 +170,11 @@ export async function createNotification(options: CreateNotificationOptions): Pr
       success: true,
       data: [notification] // Return as array to match response type
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[ELECTRON] Error creating notification:', error);
     return {
       success: false,
-      error: error.message || 'Failed to create notification'
+      error: error instanceof Error ? error.message : 'Failed to create notification'
     };
   }
 }

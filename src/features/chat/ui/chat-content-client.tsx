@@ -2,19 +2,15 @@ import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useSpaces } from '@/features/spaces/use-spaces';
 import { useConversations } from '@/features/chat/use-conversations';
 import { ChatMessages } from './chat-messages';
-import { useUser } from '@/hooks/use-user';
+import { useUser } from '@/features/user/use-user';
 import { useCommandWindow } from '@/features/command-center/use-command-window';
-import { useToast } from 'shared/hooks/use-toast';
+import { useToast } from '@/shared/hooks/use-toast';
 import { Conversation } from '@/entities/conversation/model/types';
-import { CommandCenterEvents } from '@/core/ipc/constants';
-import { useFileReferences } from '@/features/file/use-file-references';
-import { ChatTopBar } from './ui/chat-top-bar';
-import { ChatInputArea } from './chat-input-area';
+import { ChatTopBar } from '@/features/chat/ui/chat-top-bar';
+import { ChatInputArea } from '@/features/chat/ui/chat-input-area';
 import { VinciUIMessage } from '@/entities/message/model/types';
 import { Logger } from '@/shared/lib/logger';
 import { useChat, VinciChatRequestOptions } from '@/features/chat/use-chat';
-import { useFileSelection } from '@/features/file/use-file-selection';
-import { FileReference } from '@/entities/file/model/types';
 import { useMessages } from '@/features/chat/use-messages';
 import { getMessageParts } from '@ai-sdk/ui-utils';
 import { generateId } from '@/core/utils/ai-sdk-adapter/adapter-utils';
@@ -22,7 +18,7 @@ import { generateId } from '@/core/utils/ai-sdk-adapter/adapter-utils';
 const logger = new Logger('ChatContentClient');
 
 
-function ensureMessageFormat(message: any): VinciUIMessage {
+function ensureMessageFormat(message: VinciUIMessage | Partial<VinciUIMessage>): VinciUIMessage {
   if (!message) {
     return {
       id: generateId(),
@@ -41,9 +37,9 @@ function ensureMessageFormat(message: any): VinciUIMessage {
     id: message.id || generateId(),
     role: message.role || 'user',
     content: message.content || '',
-    createdAt: message.createdAt instanceof Date ? message.createdAt : new Date(message.createdAt || message.created_at || Date.now()),
-    conversation_id: message.conversation_id || message.conversationId || '',
-    space_id: message.space_id || message.spaceId || '',
+    createdAt: message.createdAt instanceof Date ? message.createdAt : new Date(message.createdAt || Date.now()),
+    conversation_id: message.conversation_id || '',
+    space_id: message.space_id || '',
     parts: message.parts || getMessageParts({
       role: message.role || 'user',
       content: message.content || ''
@@ -65,10 +61,8 @@ export default function ChatContent() {
   const { messages: initialMessages } = useMessages();
   
   const { handleCommandWindowToggle } = useCommandWindow();
-  const { fileReferences, setFileReferences, clearFileReferences, fileReferencesMap } = useFileReferences();
   const { toast } = useToast();
 
-  const [searchMode, setSearchMode] = useState<'chat' | 'search' | 'semantic' | 'hybrid'>('chat');
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isStickToBottom, setIsStickToBottom] = useState(true);
 
@@ -80,7 +74,6 @@ export default function ChatContent() {
     handleSubmit: hookHandleSubmit,
     isLoading: chatIsLoading,
     status: chatStatus,
-    error: chatError,
     setMessages,
   } = useChat({
     initialMessages,
@@ -121,34 +114,22 @@ export default function ChatContent() {
     const options: VinciChatRequestOptions = {
        provider: activeSpace.provider,
        model: activeSpace.model,
-       files: fileReferencesMap,
-       searchMode: searchMode,
        chatMode: activeSpace.chat_mode || 'ask',
     };
 
     hookHandleSubmit(event, options);
-    clearFileReferences();
   }, [
-     input, 
-     chatIsLoading, 
-     activeSpace, 
-     activeConversation, 
-     user, 
-     fileReferencesMap, 
-     searchMode, 
-     hookHandleSubmit, 
-     clearFileReferences
+     input,
+     chatIsLoading,
+     activeSpace,
+     activeConversation,
+     user,
+     hookHandleSubmit
   ]);
 
   const handleStickToBottomChange = useCallback((isAtBottom: boolean) => {
     setIsStickToBottom(isAtBottom);
   }, []);
-
-  const { selectFile: selectFileHandler } = useFileSelection({
-    setFileReferences,
-    setInput,
-    currentInput: input
-  });
 
   const scrollToBottom = useCallback(() => {
     if (messagesContainerRef.current) {
@@ -216,15 +197,18 @@ export default function ChatContent() {
           handleInputChange={handleInputChange}
           handleSubmit={handleSubmit}
           disabled={!activeSpace || !activeConversation || chatIsLoading}
-          fileReferences={fileReferences}
-          setFileReferences={setFileReferences}
           messages={formattedMessages}
           activeConversation={activeConversation}
           activeSpace={activeSpace}
           onCreateConversation={handleCreateConversation}
           onSelectConversation={handleSelectConversation}
-          onCommandWindowToggle={handleCommandWindowToggle}
-          onSelectFile={selectFileHandler}
+          onCommandWindowToggle={(mode) => {
+            if (mode === 'messageSearch') {
+              handleCommandWindowToggle('messageSearch');
+            } else if (mode === 'command') {
+              handleCommandWindowToggle('unified');
+            }
+          }}
         />
       </div>
     </div>

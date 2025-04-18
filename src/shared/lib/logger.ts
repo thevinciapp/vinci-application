@@ -1,72 +1,29 @@
-export enum LogLevel {
-  DEBUG = 'debug',
-  INFO = 'info',
-  WARN = 'warn',
-  ERROR = 'error',
-}
-
-export interface LogContext {
-  [key: string]: unknown;
-}
-
 export class Logger {
   private context: string;
-  private minLogLevel: LogLevel;
 
-  constructor(context: string, minLogLevel: LogLevel = LogLevel.INFO) {
+  constructor(context: string) {
     this.context = context;
-    this.minLogLevel = minLogLevel;
   }
 
-  public setMinLogLevel(level: LogLevel): void {
-    this.minLogLevel = level;
+  log(...args: unknown[]) {
+    console.log(`[${this.context}]`, ...args);
   }
 
-  public debug(message: string, context?: LogContext): void {
-    this.log(LogLevel.DEBUG, message, context);
+  info(...args: unknown[]) {
+    console.info(`[${this.context}]`, ...args);
   }
 
-  public info(message: string, context?: LogContext): void {
-    this.log(LogLevel.INFO, message, context);
+  warn(...args: unknown[]) {
+    console.warn(`[${this.context}]`, ...args);
   }
 
-  public warn(message: string, context?: LogContext): void {
-    this.log(LogLevel.WARN, message, context);
+  error(...args: unknown[]) {
+    console.error(`[${this.context}]`, ...args);
   }
 
-  public error(message: string, context?: LogContext): void {
-    this.log(LogLevel.ERROR, message, context);
-  }
-
-  private log(level: LogLevel, message: string, context?: LogContext): void {
-    if (!this.shouldLog(level)) {
-      return;
+  debug(...args: unknown[]) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug(`[${this.context}]`, ...args);
     }
-
-    const timestamp = new Date().toISOString();
-    const formattedMessage = `[${timestamp}] [${level.toUpperCase()}] [${this.context}] ${message}`;
-
-    switch (level) {
-      case LogLevel.DEBUG:
-        console.debug(formattedMessage, context ? context : '');
-        break;
-      case LogLevel.INFO:
-        console.info(formattedMessage, context ? context : '');
-        break;
-      case LogLevel.WARN:
-        console.warn(formattedMessage, context ? context : '');
-        break;
-      case LogLevel.ERROR:
-        console.error(formattedMessage, context ? context : '');
-        break;
-    }
-  }
-
-  private shouldLog(level: LogLevel): boolean {
-    const levels = Object.values(LogLevel);
-    const minLevelIndex = levels.indexOf(this.minLogLevel);
-    const currentLevelIndex = levels.indexOf(level);
-
-    return currentLevelIndex >= minLevelIndex;
   }
 }

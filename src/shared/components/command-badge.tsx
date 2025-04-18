@@ -1,4 +1,4 @@
-import { cn } from '@/shared/lib/utils';
+import { cn } from "@/shared/utils/cn-utils";
 
 /**
  * @deprecated Use the Badge component with variant="active"|"info"|"count" and size="sm" instead.

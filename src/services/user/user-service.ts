@@ -1,6 +1,7 @@
+import { AuthResponse } from '@/features/auth/model/types';
 import { API_BASE_URL } from '@/core/auth/auth-service';
 import { fetchWithAuth } from '@/shared/api/api-service';
-import { useMainStore } from '@/store/main'; 
+import { useMainStore } from '@/stores/main';
 
 export interface UserProfile {
   full_name: string;
@@ -144,7 +145,7 @@ export async function signUp(email: string, password: string): Promise<UserProfi
 /**
  * Reset user password
  */
-export async function resetPassword(email: string): Promise<UserProfile> {
+export async function resetPassword(email: string): Promise<AuthResponse> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
       method: 'POST',
@@ -152,10 +153,16 @@ export async function resetPassword(email: string): Promise<UserProfile> {
       body: JSON.stringify({ email })
     });
     
-    return await response.json();
+    const data = await response.json();
+
+    if (data.status === 'success') {
+      return { success: true, data: data.user, status: data.status };
+    } else {
+      return { success: false, error: data.error || 'Password reset failed', status: data.status };
+    }
   } catch (error) {
     console.error('[ELECTRON] Error resetting password:', error);
-    throw error;
+    return { success: false, error: error instanceof Error ? error.message : 'Password reset failed', status: 'error' };
   }
 }
 

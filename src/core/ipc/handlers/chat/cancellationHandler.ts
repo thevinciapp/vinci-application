@@ -38,8 +38,11 @@ export async function handleCancelStream(
     sendStatusUpdate(event, 'cancelled', conversationId);
     
     return { success: true, data: { status: 'cancelled' } };
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error(`Error cancelling stream for conversation ${conversationId}:`, { error });
-    return { success: false, error: error.message || 'Failed to cancel stream' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to cancel stream'
+    };
   }
 }

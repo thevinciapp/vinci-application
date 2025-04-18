@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useToast } from 'shared/hooks/use-toast';
 import { Message } from '@/entities/message/model/types';
 import { ChatEvents } from '@/core/ipc/constants';
 import { IpcResponse } from '@/shared/types/ipc';
 import { Logger } from '@/shared/lib/logger';
+import { useToast } from '@/shared/hooks/use-toast';
 
 const logger = new Logger('useChatStream');
 

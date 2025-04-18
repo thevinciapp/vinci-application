@@ -9,7 +9,7 @@ import ProtectedLayout from '@/layouts/ProtectedLayout';
 import { Toaster } from '@/shared/components/toaster';
 import SignUp from './pages/SignUp';
 import { ProtectedPage } from '@/pages/Protected';
-import { MainStateProvider } from './context/MainStateContext';
+import { MainStateProvider } from '@/stores/MainStateContext';
 
 function App() {
   return (

@@ -1,9 +1,8 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate , Link } from 'react-router-dom';
 import { useState } from 'react';
-import { SubmitButton } from 'shared/components/auth/submit-button';
+import { SubmitButton } from '@/features/auth/ui/submit-button';
 import { Input } from '@/shared/components/input';
 import { Label } from '@/shared/components/label';
-import { Link } from 'react-router-dom';
 import { useAuth } from '@/features/auth/use-auth';
 
 export default function SignUp() {

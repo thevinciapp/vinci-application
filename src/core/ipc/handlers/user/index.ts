@@ -36,7 +36,7 @@ export function registerUserHandlers() {
     }
   });
 
-  ipcMain.handle(UserEvents.GET_SETTINGS, async (_event: IpcMainInvokeEvent): Promise<IpcResponse<{ settings: any }>> => {
+  ipcMain.handle(UserEvents.GET_SETTINGS, async (): Promise<IpcResponse<{ settings: EmailPreferences }>> => {
     try {
       const settings = await getUserSettings();
       return { 

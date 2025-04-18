@@ -1,5 +1,5 @@
 import { IpcMainInvokeEvent } from 'electron';
-import { Logger } from 'shared/lib/logger';
+import { Logger } from '@/shared/lib/logger';
 import { ChatEvents } from '@/core/ipc/constants';
 import { UIMessage } from '@/core/utils/ai-sdk-adapter/types';
 import { StreamEventHandlers } from './types';
@@ -28,7 +28,7 @@ function sendStreamChunk(
   metadataUpdates: Partial<UIMessage> | undefined,
   isFirstChunk: boolean,
   messageId?: string,
-  fullMessage?: any
+  fullMessage?: UIMessage
 ) {
   try {
     if (isFirstChunk && fullMessage) {
@@ -65,8 +65,8 @@ function sendStreamChunk(
 function sendFinishEvent(
   event: IpcMainInvokeEvent,
   message: UIMessage | undefined,
-  finishReason: any,
-  usage: any
+  finishReason: string,
+  usage: Record<string, unknown>
 ) {
   try {
     logger.debug('Sending finish event', { 
@@ -104,9 +104,9 @@ function sendFinishEvent(
  * Sends an error event to the renderer
  */
 function sendErrorEvent(
-  event: IpcMainInvokeEvent, 
-  errorMessage: string, 
-  details?: any
+  event: IpcMainInvokeEvent,
+  errorMessage: string,
+  details?: Record<string, unknown>
 ) {
   const errorData = {
     success: false,
@@ -130,8 +130,8 @@ function sendErrorEvent(
  * Sends a tool call event to the renderer
  */
 function sendToolCallEvent(
-  event: IpcMainInvokeEvent, 
-  toolCall: any
+  event: IpcMainInvokeEvent,
+  toolCall: Record<string, unknown>
 ) {
   event.sender.send(ChatEvents.CHAT_STREAM_TOOL_CALL, {
     success: true,

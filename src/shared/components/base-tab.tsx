@@ -1,4 +1,3 @@
-import { CommandType } from '@/features/command-palette/model/types'
 import { ReactNode, CSSProperties } from 'react'
 
 interface BaseTabProps {
@@ -12,14 +11,11 @@ interface BaseTabProps {
   style?: CSSProperties
   wrapperStyle?: CSSProperties
   className?: string
-  color?: string
   rightElement?: ReactNode
-  commandType?: CommandType
 }
 
 export function BaseTab({
   icon,
-  color,
   label,
   shortcut,
   onClick,
@@ -28,7 +24,6 @@ export function BaseTab({
   wrapperStyle,
   className = '',
   rightElement,
-  commandType
 }: BaseTabProps) {
   const minWidthClass = {
     space: 'min-w-[100px]',

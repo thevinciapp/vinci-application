@@ -1,8 +1,8 @@
 import { ipcRenderer, IpcRendererEvent } from 'electron';
 import { ConversationEvents } from '@/core/ipc/constants';
-import { Conversation } from 'entities/conversation/model/types';
-import { CreateConversationRequest } from 'features/conversation/create/model/types'; // Assuming CreateConversationRequest moved here
-import { IpcResponse } from 'shared/types/ipc';
+import { Conversation } from '@entities/conversation/model/types';
+import { CreateConversationRequest } from '@features/conversation/create/model/types'; // Assuming CreateConversationRequest moved here
+import { IpcResponse } from '@shared/types/ipc';
 export const conversationApi = {
   getConversations: async () => {
     try {

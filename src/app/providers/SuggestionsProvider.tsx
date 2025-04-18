@@ -1,11 +1,9 @@
-
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Lightbulb, Check, X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Command } from 'cmdk';
-import { Button } from "shared/components/button";
-import { ProviderComponentProps } from "entities/model/model/types";
+import { Button } from "@/shared/components/button";
+import { ProviderComponentProps } from '@/entities/model/model/types';
 
 interface Suggestion {
   id: string;
@@ -33,19 +31,6 @@ export function SuggestionsProvider({ searchQuery = '', onSelect, onAction }: Pr
       createdAt: Date.now() - 7200000,
     }
   ]);
-
-  const addSuggestion = (description: string, source: string, confidence: number = 0.8) => {
-    const newSuggestion: Suggestion = {
-      id: `suggestion-${Date.now()}`,
-      description,
-      source,
-      confidence,
-      createdAt: Date.now(),
-    };
-    
-    setSuggestions(prevSuggestions => [...prevSuggestions, newSuggestion]);
-    return newSuggestion.id;
-  };
 
   const acceptSuggestion = (suggestionId: string) => {
     setSuggestions(prevSuggestions => {
@@ -90,18 +75,6 @@ export function SuggestionsProvider({ searchQuery = '', onSelect, onAction }: Pr
   const handleCreate = () => {
     if (onAction) onAction('create', {});
   };
-
-  useEffect(() => {
-    const api = {
-      addSuggestion,
-      acceptSuggestion,
-      rejectSuggestion
-    };
-    (window as any).suggestions = api;
-    return () => {
-      delete (window as any).suggestions;
-    };
-  }, []);
 
   const filteredSuggestions = suggestions.filter(suggestion => 
     suggestion.description.toLowerCase().includes(searchQuery.toLowerCase()) ||

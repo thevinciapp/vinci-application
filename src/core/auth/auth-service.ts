@@ -1,13 +1,10 @@
 import { app, BrowserWindow } from 'electron';
 import { join } from 'path';
 import { writeFile, readFile, unlink, mkdirSync, existsSync } from 'fs';
-import { API_BASE_URL, APP_BASE_URL } from '@/config/api';
-import { useMainStore } from '@/store/main';
+import { API_BASE_URL, APP_BASE_URL } from '@/configs/api';
+import { useMainStore } from '@/stores/main';
 import { AuthSession } from '@/features/auth/model/types';
 
-interface SignInResponse {
-  session: AuthSession | null;
-}
 
 const STORAGE_DIR = join(app.getPath('userData'), 'secure');
 const STORAGE_ACCESS_TOKEN_PATH = join(STORAGE_DIR, 'access_token.enc');
@@ -331,7 +328,6 @@ export async function clearAuthData(): Promise<boolean> {
     
     const accessTokenExists = existsSync(STORAGE_ACCESS_TOKEN_PATH);
     const refreshTokenExists = existsSync(STORAGE_REFRESH_TOKEN_PATH);
-    const expiryTimeExists = existsSync(STORAGE_TOKEN_EXPIRY_PATH);
     
     if (!accessTokenExists && !refreshTokenExists) {
       console.log('[ELECTRON] No token files found to delete');
@@ -539,7 +535,11 @@ export async function checkServerAvailable(): Promise<boolean> {
   }
 }
 
-export async function signIn(email: string, password: string, safeStorage?: Electron.SafeStorage): Promise<{ success: boolean; error?: string; data?: any }> {
+export async function signIn(
+  email: string,
+  password: string,
+  safeStorage?: Electron.SafeStorage
+): Promise<{ success: boolean; error?: string; data?: { session: AuthSession | null } }> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/auth/sign-in`, {
       method: 'POST',

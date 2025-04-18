@@ -1,4 +1,4 @@
-import { AVAILABLE_MODELS } from "@/entities/model/config/models";
+import { AVAILABLE_MODELS } from "@/entities";
 import { Provider, ModelDisplayInfo } from "@/entities/model/model/types";
 
 export function getModelDisplayInfo(modelId: string): ModelDisplayInfo | null {

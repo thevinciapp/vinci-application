@@ -12,28 +12,25 @@ import {
   SelectValue
 } from "@/shared/components/select";
 import { useToast } from "@/shared/hooks/use-toast";
-import { DialogComponentProps } from "shared/types/ui";
-import { Space } from "entities/space/model/types";
+import { DialogComponentProps } from "@/shared/types/ui";
+import { Space } from "@/entities/space/model/types";
 import { useSpaces } from "@/features/spaces/use-spaces";
 import { useCommandCenter } from "@/features/command-center/use-command-center";
-import { Provider, Model } from "entities/model/model/types";
-import { AVAILABLE_MODELS } from "entities/model/config/models"; 
-import { getAllChatModes, ChatMode } from "@/config/chat-modes"; 
+import { Provider, Model } from "../../entities/model/model/types.ts";
+import { AVAILABLE_MODELS } from "../../entities/model/config/models.ts";
+import { getAllChatModes } from "@/configs/chat-modes"; 
 import { ProviderIcon } from '@lobehub/icons'; 
 
-// Derive providers from AVAILABLE_MODELS keys
 const availableProviders = Object.keys(AVAILABLE_MODELS).map(key => ({
   id: key as Provider,
   name: key.charAt(0).toUpperCase() + key.slice(1) 
 }));
 
-// Get chat modes from config function
 const availableChatModes = getAllChatModes();
 
 export const EditSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose }) => {
   const space = data as Space;
   
-  // Initialize state with space data or defaults
   const [name, setName] = useState(space?.name || "");
   const [description, setDescription] = useState(space?.description || "");
   const [provider, setProvider] = useState<Provider>(space?.provider || availableProviders[0]?.id || 'anthropic');
@@ -46,7 +43,6 @@ export const EditSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose 
   
   const availableModelsForProvider = AVAILABLE_MODELS[provider] || [];
 
-  // Effect to update state when the space data changes (e.g., opening the dialog for a different space)
   useEffect(() => {
     if (space) {
       setName(space.name || "");
@@ -57,18 +53,16 @@ export const EditSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose 
     }
   }, [space]);
 
-  // Effect to handle model selection based on provider, similar to CreateSpaceDialog
   useEffect(() => {
     if (provider && availableModelsForProvider.length > 0) {
       const currentModelAvailable = availableModelsForProvider.some(m => m.id === model);
-      // If the current model isn't available for the selected provider OR if the initial model was empty
       if (!currentModelAvailable || !model) { 
         setModel(availableModelsForProvider[0].id);
       }
     } else {
       setModel('');
     }
-  }, [provider, availableModelsForProvider]); // Removed model dependency
+  }, [provider, availableModelsForProvider]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,7 +70,6 @@ export const EditSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose 
     if (!space || !space.id) return;
     
     try {
-      // Include all editable fields in the update payload
       const success = await updateSpace(space.id, {
         name,
         description,
@@ -112,14 +105,11 @@ export const EditSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose 
     }
   };
 
-  // Don't render if no space data provided initially
-  // The dialog visibility is handled by the 'open' prop managed in the parent component (SpaceTab)
   if (!space || !space.id) {
     return null;
   }
 
   return (
-    // Rely on parent component's state for 'open' prop
     <Dialog open={!!data} onOpenChange={onClose}> 
       <DialogContent className="bg-background/80 backdrop-blur-sm border border-white/10 sm:max-w-[480px]">
         <DialogHeader>
@@ -141,7 +131,6 @@ export const EditSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose 
                 required
               />
             </div>
-            {/* Description Textarea */}
             <div className="grid gap-2">
               <Label htmlFor="description">Description (Optional)</Label>
               <Textarea
@@ -153,7 +142,6 @@ export const EditSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose 
               />
             </div>
              
-            {/* Provider Select */}
             <div className="grid gap-2">
               <Label htmlFor="provider">Provider</Label>
               <Select 
@@ -176,7 +164,6 @@ export const EditSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose 
               </Select>
             </div>
 
-            {/* Model Select */}
             <div className="grid gap-2">
               <Label htmlFor="model">Model</Label>
               <Select 
@@ -201,7 +188,6 @@ export const EditSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose 
               </Select>
             </div>
 
-            {/* Chat Mode Select */}
             <div className="grid gap-2">
               <Label htmlFor="chatMode">Chat Mode</Label>
               <Select 
@@ -238,7 +224,7 @@ export const EditSpaceDialog: React.FC<DialogComponentProps> = ({ data, onClose 
             </Button>
             <Button 
               type="submit"
-              disabled={isLoading || !name || !provider || !model || !chatMode} // Add check for new fields
+              disabled={isLoading || !name || !provider || !model || !chatMode}
             >
               {isLoading ? "Saving..." : "Save Changes"}
             </Button>

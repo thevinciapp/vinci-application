@@ -1,5 +1,5 @@
-import { API_BASE_URL } from '@/config/api';
-import { useMainStore } from '@/store/main';
+import { API_BASE_URL } from '@/configs/api';
+import { useMainStore } from '@/stores/main';
 import { fetchWithAuth } from '@/shared/api/api-service';
 import { Conversation } from '@/entities/conversation/model/types';
 

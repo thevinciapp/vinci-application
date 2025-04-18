@@ -9,7 +9,7 @@ import { NotificationEvents } from '@/core/ipc/constants';
 
 
 export function registerNotificationHandlers() {
-  ipcMain.handle(NotificationEvents.GET_NOTIFICATIONS, async (_event: IpcMainInvokeEvent): Promise<NotificationResponse> => {
+  ipcMain.handle(NotificationEvents.GET_NOTIFICATIONS, async (): Promise<NotificationResponse> => {
     try {
       const notifications = await fetchNotifications();
       return { 
@@ -45,7 +45,7 @@ export function registerNotificationHandlers() {
     }
   });
 
-  ipcMain.handle(NotificationEvents.MARK_ALL_AS_READ, async (_event: IpcMainInvokeEvent): Promise<NotificationResponse> => {
+  ipcMain.handle(NotificationEvents.MARK_ALL_AS_READ, async (): Promise<NotificationResponse> => {
     try {
       const result = await markAllNotificationsAsRead();
       return { 

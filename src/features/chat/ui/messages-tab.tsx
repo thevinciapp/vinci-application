@@ -1,14 +1,15 @@
 import { useState, useMemo } from 'react';
-import { Search, MessageSquare, Code, FileText, SlidersHorizontal, Globe, Sparkles, Filter, XCircle, Copy, ExternalLink, Pencil } from 'lucide-react';
-import { BaseTab } from 'shared/components/base-tab';
+import { Search, MessageSquare, Code, FileText, Globe, Sparkles, Filter, XCircle, Copy } from 'lucide-react';
+import { BaseTab } from '@/shared/components/base-tab';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
-} from 'shared/components/dropdown-menu';
-import { Button } from 'shared/components/button';
-import { toast } from 'shared/hooks/use-toast';
-import { DropdownList, DropdownSection, DropdownItem, DropdownFooterAction } from 'shared/components/shared/dropdown-list';
+} from '@/shared/components/dropdown-menu';
+import { Button } from '@/shared/components/button';
+import { toast } from '@/shared/hooks/use-toast';
+import { DropdownList, DropdownSection, DropdownFooterAction } from '@/shared/components/dropdown-list';
 import { formatDistanceToNow } from 'date-fns';
+import { MessageAnnotation, VinciUIMessage } from '@/entities/message/model/types';
 
 export interface MessagesTabProps {
   messages?: Array<{
@@ -16,26 +17,20 @@ export interface MessagesTabProps {
     content: string;
     role: 'user' | 'assistant';
     timestamp?: Date;
-    annotations?: any[];
+    annotations?: MessageAnnotation[];
   }>;
-  spaceId?: string;
   spaceName?: string;
-  conversationId?: string;
   conversationName?: string;
   onMessageSearch?: (query: string, searchScope: 'conversation' | 'space') => void;
-  onCommandWindowToggle?: (mode: string) => void;
   onClick?: () => void;
 }
 
-export function MessagesTab({ 
-  messages = [], 
-  spaceId,
+export function MessagesTab({
+  messages = [],
   spaceName,
-  conversationId,
   conversationName,
-  onMessageSearch, 
-  onCommandWindowToggle,
-  onClick 
+  onMessageSearch,
+  onClick
 }: MessagesTabProps) {
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -120,19 +115,19 @@ export function MessagesTab({
   };
   
   // Get message icon based on content and role
-  const getMessageIcon = (message: any) => {
+  const getMessageIcon = (message: VinciUIMessage) => {
     if (message.role === 'user') {
       return <MessageSquare className="w-4 h-4 text-blue-400" />;
     }
-    
+
     if (message.content.includes('```')) {
       return <Code className="w-4 h-4 text-green-400" />;
     }
-    
-    if (message.annotations?.some((a: any) => a.type === 'file_reference')) {
-      return <FileText className="w-4 h-4 text-orange-400" />; 
+
+    if (message.annotations?.some((a: MessageAnnotation) => a.type === 'file_reference')) {
+      return <FileText className="w-4 h-4 text-orange-400" />;
     }
-    
+
     return <Sparkles className="w-4 h-4 text-purple-400" />;
   };
   
@@ -270,8 +265,8 @@ export function MessagesTab({
               <button
                 className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs rounded-md transition-all duration-200 ${
                   searchScope === 'conversation' 
-                    ? 'bg-white/10 text-white/90 font-medium shadow-sm' 
-                    : 'text-white/60 hover:text-white/80 hover:bg-white/[0.05]'
+                  ? 'bg-white/10 text-white/90 font-medium shadow-sm' 
+                  : 'text-white/60 hover:text-white/80 hover:bg-white/[0.05]'
                 }`}
                 onClick={() => setSearchScope('conversation')}
                 aria-label={`Search in ${conversationName || 'current conversation'}`}
@@ -282,8 +277,8 @@ export function MessagesTab({
               <button
                 className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs rounded-md transition-all duration-200 ${
                   searchScope === 'space' 
-                    ? 'bg-white/10 text-white/90 font-medium shadow-sm' 
-                    : 'text-white/60 hover:text-white/80 hover:bg-white/[0.05]'
+                  ? 'bg-white/10 text-white/90 font-medium shadow-sm' 
+                  : 'text-white/60 hover:text-white/80 hover:bg-white/[0.05]'
                 }`}
                 onClick={() => setSearchScope('space')}
                 aria-label={`Search in ${spaceName || 'entire space'}`}
@@ -334,8 +329,8 @@ export function MessagesTab({
                   onClick={() => setFilterType('all')}
                   className={`px-2 py-1 text-xs rounded-md flex items-center gap-1 flex-1 justify-center transition-all ${
                     filterType === 'all' 
-                      ? 'bg-white/10 text-white/90' 
-                      : 'bg-white/[0.03] hover:bg-white/[0.05] text-white/60'
+                    ? 'bg-white/10 text-white/90' 
+                    : 'bg-white/[0.03] hover:bg-white/[0.05] text-white/60'
                   }`}
                 >
                   <MessageSquare className="w-2.5 h-2.5" />
@@ -345,8 +340,8 @@ export function MessagesTab({
                   onClick={() => setFilterType('code')}
                   className={`px-2 py-1 text-xs rounded-md flex items-center gap-1 flex-1 justify-center transition-all ${
                     filterType === 'code' 
-                      ? 'bg-white/10 text-white/90' 
-                      : 'bg-white/[0.03] hover:bg-white/[0.05] text-white/60'
+                    ? 'bg-white/10 text-white/90' 
+                    : 'bg-white/[0.03] hover:bg-white/[0.05] text-white/60'
                   }`}
                 >
                   <Code className="w-2.5 h-2.5" />
@@ -356,8 +351,8 @@ export function MessagesTab({
                   onClick={() => setFilterType('user')}
                   className={`px-2 py-1 text-xs rounded-md flex items-center gap-1 flex-1 justify-center transition-all ${
                     filterType === 'user' 
-                      ? 'bg-white/10 text-white/90' 
-                      : 'bg-white/[0.03] hover:bg-white/[0.05] text-white/60'
+                    ? 'bg-white/10 text-white/90' 
+                    : 'bg-white/[0.03] hover:bg-white/[0.05] text-white/60'
                   }`}
                 >
                   <MessageSquare className="w-2.5 h-2.5" />
@@ -367,8 +362,8 @@ export function MessagesTab({
                   onClick={() => setFilterType('ai')}
                   className={`px-2 py-1 text-xs rounded-md flex items-center gap-1 flex-1 justify-center transition-all ${
                     filterType === 'ai' 
-                      ? 'bg-white/10 text-white/90' 
-                      : 'bg-white/[0.03] hover:bg-white/[0.05] text-white/60'
+                    ? 'bg-white/10 text-white/90' 
+                    : 'bg-white/[0.03] hover:bg-white/[0.05] text-white/60'
                   }`}
                 >
                   <Sparkles className="w-2.5 h-2.5" />
@@ -388,8 +383,8 @@ export function MessagesTab({
                 )}
                 <span className="ml-auto">
                   {filteredMessages.length === 0 
-                    ? 'No matches' 
-                    : `${filteredMessages.length} match${filteredMessages.length === 1 ? '' : 'es'}`}
+                  ? 'No matches' 
+                  : `${filteredMessages.length} match${filteredMessages.length === 1 ? '' : 'es'}`}
                 </span>
               </div>
             )}
@@ -422,7 +417,7 @@ export function MessagesTab({
                     onClick={() => handleSearch()}
                   >
                     <Search className="w-3 h-3 mr-1.5" />
-                    Search "{searchQuery}"
+                    Search &quot;{searchQuery}&quot;
                   </Button>
                 )}
               </>
@@ -472,4 +467,4 @@ export function MessagesTab({
       />
     </DropdownMenu>
   );
-} 
+}

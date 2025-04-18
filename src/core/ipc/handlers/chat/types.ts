@@ -1,6 +1,7 @@
 import { IpcResponse } from '@/shared/types/ipc';
 import { Message, UIMessage } from '@/core/utils/ai-sdk-adapter/types';
 import { IpcMainInvokeEvent } from 'electron';
+import type { ToolCall } from '../../../utils/ai-sdk-adapter/types';
 
 export interface ChatPayload {
   messages: Message[];
@@ -8,7 +9,7 @@ export interface ChatPayload {
   conversationId?: string;
   provider?: string;
   model?: string;
-  files?: any;
+  files?: File[] | undefined;
   searchMode?: string;
   chatMode?: string;
 }
@@ -20,25 +21,25 @@ export interface StreamEventHandlers {
     metadataUpdates: Partial<UIMessage> | undefined,
     isFirstChunk: boolean,
     messageId?: string,
-    fullMessage?: any
+    fullMessage?: UIMessage
   ) => void;
   
   sendFinishEvent: (
     event: IpcMainInvokeEvent,
     message: UIMessage | undefined,
-    finishReason: any,
-    usage: any
+    finishReason: string,
+    usage: Record<string, unknown>
   ) => void;
   
   sendErrorEvent: (
     event: IpcMainInvokeEvent,
     errorMessage: string,
-    details?: any
+    details?: Record<string, unknown>
   ) => void;
   
   sendToolCallEvent: (
     event: IpcMainInvokeEvent,
-    toolCall: any
+    toolCall: ToolCall<string, unknown>
   ) => void;
   
   sendStatusUpdate: (

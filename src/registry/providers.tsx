@@ -1,16 +1,14 @@
-import { SpacesProvider } from "shared/components/providers/SpacesProvider";
-import { ConversationsProvider } from "shared/components/providers/ConversationsProvider";
-import { ModelsProvider } from "shared/components/providers/ModelsProvider";
-import { BackgroundTasksProvider } from "shared/components/providers/BackgroundTasksProvider";
-import { SuggestionsProvider } from "shared/components/providers/SuggestionsProvider";
-import { ChatModesProvider } from "shared/components/providers/ChatModesProvider";
-import { MessageSearchProvider } from "shared/components/providers/MessageSearchProvider";
-import { SimilarMessagesProvider } from "shared/components/providers/SimilarMessagesProvider";
-import { ActionsProvider } from "shared/components/providers/ActionsProvider";
+import { SpacesProvider } from "@/app/providers/SpacesProvider";
+import { ModelsProvider } from "@/app/providers/ModelsProvider";
+import { BackgroundTasksProvider } from "@/app/providers/BackgroundTasksProvider";
+import { SuggestionsProvider } from "@/app/providers/SuggestionsProvider";
+import { ChatModesProvider } from "@/app/providers/ChatModesProvider";
+import { MessageSearchProvider } from "@/app/providers/MessageSearchProvider";
+import { SimilarMessagesProvider } from "@/app/providers/SimilarMessagesProvider";
+import { ActionsProvider } from "@/app/providers/ActionsProvider";
 
 type ProviderRegistry = {
   spaces: typeof SpacesProvider;
-  conversations: typeof ConversationsProvider;
   models: typeof ModelsProvider;
   actions: typeof ActionsProvider;
   chatModes: typeof ChatModesProvider;
@@ -22,7 +20,6 @@ type ProviderRegistry = {
 
 export const providers: ProviderRegistry = {
   spaces: SpacesProvider,
-  conversations: ConversationsProvider,
   models: ModelsProvider,
   actions: ActionsProvider,
   chatModes: ChatModesProvider,

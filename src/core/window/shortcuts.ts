@@ -39,7 +39,7 @@ function hideAllWindowsExcept(commandType: CommandType) {
   });
 }
 
-function focusWindowWithDelay(window: BrowserWindow, commandType: CommandType) {
+function focusWindowWithDelay(window: BrowserWindow) {
   window.focus();
   window.showInactive();
   
@@ -52,14 +52,14 @@ function focusWindowWithDelay(window: BrowserWindow, commandType: CommandType) {
 
 async function showExistingWindow(window: BrowserWindow, commandType: CommandType) {
   hideAllWindowsExcept(commandType);
-  focusWindowWithDelay(window, commandType);
+  focusWindowWithDelay(window);
 }
 
 async function createAndShowNewWindow(commandType: CommandType) {
   const newWindow = await createCommandCenterWindow(commandType);
   if (newWindow) {
     hideAllWindowsExcept(commandType);
-    focusWindowWithDelay(newWindow, commandType);
+    focusWindowWithDelay(newWindow);
   }
   return newWindow;
 }

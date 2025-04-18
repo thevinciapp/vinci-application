@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
-import { useToast } from 'shared/hooks/use-toast';
-import { Logger } from 'shared/lib/logger';
+import { useToast } from '@/shared/hooks/use-toast';
+import { Logger } from '@/shared/lib/logger';
 import { CommandCenterEvents } from '@/core/ipc/constants';
-import { FileReference } from '../types/file-reference';
+import { FileReference } from '@/entities/file/model/types';
 
 const logger = new Logger('useFileSelection');
 

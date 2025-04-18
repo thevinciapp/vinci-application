@@ -1,12 +1,12 @@
 import { app, safeStorage, BrowserWindow } from 'electron';
 import { join } from 'path';
-import { isMac } from '@/lib/utils/env-utils';
+import { isMac } from '../src/shared/utils/env-utils';
 import { registerIpcHandlers } from '@/core/ipc/ipc-handlers';
 import { registerGlobalShortcuts } from '@/core/window/shortcuts';
 import { loadAuthData, refreshTokens } from '@/core/auth/auth-service';
 import { createMainWindow, preloadCommandWindows } from '@/core/window/window-service';
 import { fetchInitialAppData } from '@/services/app-data/app-data-service';
-import { useMainStore } from '@/store/main';
+import { useMainStore } from '@/stores/main';
 
 const ROUTES = {
   SIGN_IN: '/sign-in',

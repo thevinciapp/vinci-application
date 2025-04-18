@@ -1,6 +1,6 @@
 import { ipcRenderer } from 'electron';
 import { AppStateEvents } from '@/core/ipc/constants';
-import { MainProcessState } from '@/store/main';
+import { MainProcessState } from '@/stores/main';
 export const appStateApi = {
   getAppState: async () => {
     try {

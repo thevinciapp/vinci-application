@@ -3,8 +3,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from 'shared/components/dropdown-menu';
-import { Button } from 'shared/components/button';
+} from '@/shared/components/dropdown-menu';
+import { Button } from '@/shared/components/button';
 
 export interface DropdownItem {
   id: string;

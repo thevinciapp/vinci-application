@@ -1,10 +1,10 @@
 import React from "react";
 import { Command } from 'cmdk';
 import { ProviderIcon } from "@lobehub/icons";
-import { useSpaces } from "features/spaces/use-spaces";
-import { toast } from "shared/hooks/use-toast";
-import { ProviderComponentProps, Model, Provider, AvailableModel } from "entities/model/model/types";
-import { AVAILABLE_MODELS } from "entities/model/config/models";
+import { useSpaces } from "@/features/spaces/use-spaces";
+import { toast } from "@/shared/hooks/use-toast";
+import { ProviderComponentProps, Model, Provider, AvailableModel } from "@/entities/model/model/types";
+import { AVAILABLE_MODELS } from "@/entities/model/config/models";
 
 export const ModelsProvider: React.FC<ProviderComponentProps> = ({ searchQuery = '', onSelect }) => {
   const { activeSpace, updateSpaceModel } = useSpaces();

@@ -1,9 +1,9 @@
-import { BrowserWindow, screen, app } from 'electron';
+import { BrowserWindow, app } from 'electron';
 import { join } from 'path';
 import { CommandType } from '@/features/command-palette/model/types';
 import { APP_BASE_URL } from '../auth/auth-service';
 import { CommandCenterEvents, AppStateEvents } from '../ipc/constants';
-import { useMainStore } from '@/store/main';
+import { useMainStore } from '@/stores/main';
 import { sanitizeStateForIPC } from '../utils/state-utils';
 import { fetchInitialAppData } from '../../services/app-data/app-data-service';
 import debounce from 'lodash/debounce';
@@ -11,16 +11,22 @@ import debounce from 'lodash/debounce';
 type CommandGroup = {
   type: CommandType;
   title: string;
-  items: any[];
+  items: unknown[];
   icon: string;
   description: string;
 };
+
+interface WindowState {
+  spaces?: unknown[];
+  conversations?: unknown[];
+  models?: unknown[];
+}
 
 const WINDOW_STATE = {
   main: null as BrowserWindow | null,
   commandWindows: new Map<CommandType, BrowserWindow>(),
   isDialogOpen: false,
-  cachedState: null as any,
+  cachedState: null as WindowState | null,
   lastStateUpdate: 0
 };
 
@@ -62,7 +68,7 @@ const MAIN_WINDOW_CONFIG = {
   }
 } as const;
 
-function getCommandGroups(state: any): CommandGroup[] {
+function getCommandGroups(state: WindowState): CommandGroup[] {
   return [
     {
       type: 'spaces',
@@ -117,22 +123,11 @@ function syncStateToWindow(window: BrowserWindow, commandType?: CommandType) {
   debouncedStateSync(window, commandType);
 }
 
-function centerWindowOnScreen(window: BrowserWindow) {
-  const { x, y, width } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
-  const bounds = window.getBounds();
-  window.setPosition(
-    Math.floor(x + (width - bounds.width) / 2),
-    Math.floor(y + 100)
-  );
-}
 
-function configureWindowBehavior(window: BrowserWindow, commandType: CommandType) {
-  window.setAlwaysOnTop(true, 'screen-saver');
-  window.setVisibleOnAllWorkspaces(true);
-  centerWindowOnScreen(window);
-}
 
-function setupBlurProtection(window: BrowserWindow, commandType: CommandType) {
+
+
+function setupBlurProtection(window: BrowserWindow) {
   let lastShownTime = 0;
   let blurProtectionActive = false;
 
@@ -232,7 +227,7 @@ export function getContextCommandWindow(commandType: CommandType): BrowserWindow
 
 export function getAllVisibleCommandWindows(): [CommandType, BrowserWindow][] {
   return Array.from(WINDOW_STATE.commandWindows.entries())
-    .filter(([_, win]) => win && !win.isDestroyed() && win.isVisible());
+    .filter(([, win]) => win && !win.isDestroyed() && win.isVisible());
 }
 
 export function getWindowState() {
@@ -321,7 +316,7 @@ export async function createMainWindow(): Promise<BrowserWindow | null> {
     });
 
     window.on('enter-full-screen', () => {
-      getAllVisibleCommandWindows().forEach(([_, win]) => {
+      getAllVisibleCommandWindows().forEach(([, win]) => {
         if (!win.isDestroyed()) {
           win.hide();
         }

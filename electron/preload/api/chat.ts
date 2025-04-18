@@ -2,7 +2,7 @@ import { IpcRendererEvent } from 'electron';
 import { ChatEvents } from '@/core/ipc/constants';
 import { ipcUtils } from '../utils/ipc';
 import { ChatPayload } from '@/core/ipc/handlers/chat/types';
-import { IpcResponse } from 'shared/types/ipc';
+import { IpcResponse } from '@shared/types/ipc';
 
 type StreamChunkData = string | object;
 type ChatStreamChunkCallback = (chunk: StreamChunkData) => void;

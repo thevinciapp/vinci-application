@@ -1,15 +1,16 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
 import { UserResponse } from '@/shared/types/ipc';
 import { UserEvents } from '@/core/ipc/constants';
-import { 
-  fetchUserProfile, 
+import {
+  fetchUserProfile,
   updateUserProfile,
   updateUserSettings,
-  UserUpdateData
+  UserUpdateData,
+  EmailPreferences
 } from '@/services/user/user-service';
 
 export function registerProfileHandlers() {
-  ipcMain.handle(UserEvents.GET_PROFILE, async (_event: IpcMainInvokeEvent): Promise<UserResponse> => {
+  ipcMain.handle(UserEvents.GET_PROFILE, async (): Promise<UserResponse> => {
     try {
       const profile = await fetchUserProfile();
       return { 
@@ -45,7 +46,7 @@ export function registerProfileHandlers() {
     }
   });
 
-  ipcMain.handle(UserEvents.UPDATE_SETTINGS, async (_event: IpcMainInvokeEvent, settings: any): Promise<UserResponse> => {
+  ipcMain.handle(UserEvents.UPDATE_SETTINGS, async (_event: IpcMainInvokeEvent, settings: EmailPreferences): Promise<UserResponse> => {
     try {
       const updatedSettings = await updateUserSettings(settings);
       return { 

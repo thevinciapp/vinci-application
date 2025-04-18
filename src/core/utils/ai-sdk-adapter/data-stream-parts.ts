@@ -1,12 +1,11 @@
 // Copied and adapted from ai/packages/ui-utils/src/data-stream-parts.ts
 
 // Use locally defined types instead of importing from @ai-sdk/provider*
-import { JSONValue, ToolInvocation } from './types'; // Assuming ToolCall/ToolResult are in local types.ts
+import { JSONValue, ToolInvocation, ToolResult } from './types'; // Assuming ToolCall/ToolResult are in local types.ts
 
 type LanguageModelV1FinishReason = string; // Define simply for adapter
-type LanguageModelV1Source = any; // Define simply for adapter
+type LanguageModelV1Source = unknown; // Define simply for adapter
 type ToolCall = ToolInvocation; // Alias for clarity within this file
-type ToolResult = ToolInvocation; // Alias for clarity
 
 // --- Original Data Stream Parts Logic --- 
 
@@ -100,7 +99,7 @@ const messageAnnotationsStreamPart: DataStreamPart<
 const toolCallStreamPart: DataStreamPart<
   '9',
   'tool_call',
-  ToolCall<string, any>
+  ToolCall
 > = {
   code: DataStreamStringPrefixes.tool_call,
   name: 'tool_call',
@@ -122,7 +121,7 @@ const toolCallStreamPart: DataStreamPart<
 
     return {
       type: 'tool_call',
-      value: value as unknown as ToolCall<string, any>,
+      value: value as unknown as ToolCall,
     };
   },
 };
@@ -130,7 +129,7 @@ const toolCallStreamPart: DataStreamPart<
 const toolResultStreamPart: DataStreamPart<
   'a',
   'tool_result',
-  Omit<ToolResult<string, any, any>, 'args' | 'toolName'>
+  Omit<ToolResult<string, unknown, unknown>, 'args' | 'toolName'>
 > = {
   code: DataStreamStringPrefixes.tool_result,
   name: 'tool_result',
@@ -150,7 +149,7 @@ const toolResultStreamPart: DataStreamPart<
     return {
       type: 'tool_result',
       value: value as unknown as Omit<
-        ToolResult<string, any, any>,
+        ToolResult<string, unknown, unknown>,
         'args' | 'toolName'
       >,
     };

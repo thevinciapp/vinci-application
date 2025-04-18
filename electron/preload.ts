@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge } from "electron";
 import { authApi } from './preload/api/auth';
 import { commandCenterApi } from './preload/api/command-center';
 import { appStateApi } from './preload/api/app-state';

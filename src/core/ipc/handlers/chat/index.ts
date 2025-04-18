@@ -1,6 +1,5 @@
 import { IpcMainInvokeEvent, ipcMain } from 'electron';
-import { Logger } from 'shared/lib/logger';
-import { ChatEvents } from '@/core/ipc/constants';
+import { Logger } from '@/shared/lib/logger';
 import { ChatPayload, IpcResponse } from './types';
 import { createStreamEventHandlers } from './eventHandlers';
 import { createStreamControllerManager } from './streamControllers';
@@ -13,6 +12,8 @@ import {
   createAbortableStream, 
   handleStreamError 
 } from './apiHandlers';
+
+import { ChatEvents } from '@/core/ipc/constants';
 
 const logger = new Logger('ChatHandler');
 const streamControllerManager = createStreamControllerManager();
@@ -85,7 +86,7 @@ async function handleChatStreamRequest(
     streamControllerManager.cleanup(conversationId);
     
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Step 11: Handle errors
     return handleStreamError(
       event,

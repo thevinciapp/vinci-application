@@ -34,7 +34,7 @@ export function useNotifications() {
         ).length
       );
     } catch (err: unknown) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Failed to load notifications');
       console.error('Error fetching notifications:', err);
     } finally {
       setIsLoading(false);
@@ -59,7 +59,7 @@ export function useNotifications() {
       
       return response.data;
     } catch (err: unknown) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Failed to mark notification as read');
       console.error('Error marking notification as read:', err);
       throw err;
     }
@@ -84,17 +84,17 @@ export function useNotifications() {
       toast.success('All notifications marked as read');
       
       return response.data;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to mark all notifications as read');
       console.error('Error marking all notifications as read:', err);
-      toast.error(err.message);
+      toast.error(err instanceof Error ? err.message : 'Failed to mark all notifications as read');
       throw err;
     }
   }, [fetchNotifications]);
 
   const setupNotificationListener = useCallback(() => {
-    const handleNotificationReceived = (event: any, response: any) => {
-      if (response.success && response.data) {
+    const handleNotificationReceived = (event: unknown, response: unknown) => {
+      if (response instanceof Object && 'success' in response && 'data' in response && response.success && response.data) {
         fetchNotifications();
           
         const newNotification = response.data;

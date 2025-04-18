@@ -1,6 +1,6 @@
 import { ipcRenderer } from 'electron';
 import { AuthEvents } from '@/core/ipc/constants';
-import { IpcResponse } from 'shared/types/ipc';
+import { IpcResponse } from '@shared/types/ipc';
 
 export const authApi = {
   setAuthTokens: (accessToken: string, refreshToken: string) => 

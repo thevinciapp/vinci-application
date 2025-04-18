@@ -1,7 +1,7 @@
 import { API_BASE_URL } from '@/core/auth/auth-service';
-import { useMainStore } from '@/store/main';
+import { useMainStore } from '@/stores/main';
 import { fetchWithAuth } from '@/shared/api/api-service';
-import { Message } from '@/entities/message/model/types';
+import { Message, VinciUIMessage } from '@/entities/message/model/types';
 
 export async function fetchMessages(conversationId: string): Promise<Message[]> {
   try {
@@ -19,12 +19,27 @@ export async function fetchMessages(conversationId: string): Promise<Message[]> 
       throw new Error(error || 'Failed to fetch messages');
     }
 
-    const messageItems = messagesData?.items || [];
+    const messageItems: Message[] = messagesData?.items || [];
     
     console.log(`[ELECTRON] Fetched ${messageItems.length} messages for conversation ${conversationId}`);
     
-    useMainStore.getState().updateMessages(messageItems);
+    // Map Message[] to VinciUIMessage[] for the store update
+    const storeMessages: VinciUIMessage[] = messageItems.map((msg: Message): VinciUIMessage => ({
+      id: msg.id,
+      role: msg.role ?? 'user', // Default role if missing
+      content: msg.content ?? '',
+      conversation_id: msg.conversation_id,
+      createdAt: new Date(msg.created_at ?? Date.now()), // Convert string to Date
+      updated_at: msg.updated_at,
+      annotations: msg.annotations ?? [],
+      parts: msg.content ? [{ type: 'text', text: msg.content }] : [], // Create basic parts
+      // space_id: spaceId, // Can add spaceId if VinciUIMessage requires it
+    }));
+
+    // Update the store with the correctly typed VinciUIMessage array
+    useMainStore.getState().updateMessages(storeMessages);
     
+    // Still return the original Message[] as per function signature
     return messageItems;
   } catch (error) {
     console.error(`[ELECTRON] Error fetching messages for conversation ${conversationId}:`, error);

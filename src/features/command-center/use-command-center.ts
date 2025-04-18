@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { CommandType } from '@/features/command-palette/model/types';
 import { IpcResponse } from '@/shared/types/ipc';
 import { CommandCenterEvents } from '@/core/ipc/constants';
-import { useMainState } from '@/context/MainStateContext';
+import { useMainState } from '@/stores/MainStateContext';
 
 interface CommandCenterDialog {
   type: string;

@@ -21,7 +21,6 @@ export default defineConfig({
           find: '@',
           replacement: path.resolve(__dirname, 'src')
         },
-        // Add a specific alias for store to make it work in the Electron main process
         {
           find: /^@\/store(\/.*)?$/,
           replacement: path.resolve(__dirname, 'src/store$1')
@@ -37,6 +36,10 @@ export default defineConfig({
         {
           find: /^@\/services(\/.*)?$/,
           replacement: path.resolve(__dirname, 'src/services$1')
+        },
+        {
+          find: /^@\/entities(\/.*)?$/,
+          replacement: path.resolve(__dirname, 'src/entities$1')
         }
       ]
     },
@@ -75,6 +78,10 @@ export default defineConfig({
         {
           find: /^@\/services(\/.*)?$/,
           replacement: path.resolve(__dirname, 'src/services$1')
+        },
+        {
+          find: /^@\/entities(\/.*)?$/,
+          replacement: path.resolve(__dirname, 'src/entities$1')
         }
       ]
     },
@@ -94,7 +101,8 @@ export default defineConfig({
     plugins: [react()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, './src')
+        '@': path.resolve(__dirname, './src'),
+        '^@\/entities(\/.*)?$': path.resolve(__dirname, 'src/entities$1')
       },
     },
     server: {

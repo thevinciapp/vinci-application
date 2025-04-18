@@ -1,9 +1,9 @@
 import { API_BASE_URL } from '@/core/auth/auth-service';
 import { Space } from '@/entities/space/model/types';
-import { useMainStore } from '@/store/main';
+import { useMainStore } from '@/stores/main';
 import { fetchWithAuth } from '@/shared/api/api-service';
-import { fetchActiveConversation, fetchConversations } from 'features/chat/conversation-service';
-import { fetchMessages } from 'features/chat/message-service';
+import { fetchActiveConversation, fetchConversations } from '@/features/chat/conversation-service';
+import { fetchMessages } from '@/features/chat/message-service';
 import { Provider } from '@/entities/model/model/types';
 import { Conversation } from '@/entities/conversation/model/types';
 import { Message } from '@/entities/message/model/types';  

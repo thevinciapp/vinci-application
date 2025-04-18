@@ -1,4 +1,5 @@
-import { Provider, AvailableModel } from '@/entities/model/model/types';
+import { Provider } from "@/entities";
+import { AvailableModel } from "../model/types";
 
 export const PROVIDER_NAMES: Record<Provider, string> = {
   groq: 'Groq',
